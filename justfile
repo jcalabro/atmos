@@ -30,8 +30,8 @@ bench *ARGS="":
 
 # Builds the WASM binary and copies wasm_exec.js
 wasm:
-    GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o cmd/wasm/atproto.wasm ./cmd/wasm/
-    cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" cmd/wasm/
+    GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o wasm/atproto.wasm ./wasm/
+    cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" wasm/
 
 # Runs tests under GOOS=js/wasm via Node (closest to in-browser WASM)
 test-wasm:
