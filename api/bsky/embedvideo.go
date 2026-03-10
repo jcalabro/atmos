@@ -3,9 +3,9 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // EmbedVideo_Caption is a "caption" in the app.bsky.embed.video schema.

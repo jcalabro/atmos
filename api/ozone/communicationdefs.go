@@ -3,8 +3,8 @@
 package ozone
 
 import (
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // CommunicationDefs_TemplateView is a "templateView" in the tools.ozone.communication.defs schema.

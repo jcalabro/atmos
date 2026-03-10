@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // DraftDefs_Draft is a "draft" in the app.bsky.draft.defs schema.
@@ -36,7 +36,7 @@ func (u DraftDefs_Draft_PostgateEmbeddingRules) MarshalJSON() ([]byte, error) {
 
 func (u DraftDefs_Draft_PostgateEmbeddingRules) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedPostgate_DisableRule.HasVal() {
-		v := u.FeedPostgate_DisableRule.Val()
+		v := *u.FeedPostgate_DisableRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
 		return v.AppendJSON(buf)
 	}
@@ -81,7 +81,7 @@ func (u DraftDefs_Draft_PostgateEmbeddingRules) MarshalCBOR() ([]byte, error) {
 
 func (u DraftDefs_Draft_PostgateEmbeddingRules) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedPostgate_DisableRule.HasVal() {
-		v := u.FeedPostgate_DisableRule.Val()
+		v := *u.FeedPostgate_DisableRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
 		return v.AppendCBOR(buf)
 	}
@@ -138,22 +138,22 @@ func (u DraftDefs_Draft_ThreadgateAllow) MarshalJSON() ([]byte, error) {
 
 func (u DraftDefs_Draft_ThreadgateAllow) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedThreadgate_MentionRule.HasVal() {
-		v := u.FeedThreadgate_MentionRule.Val()
+		v := *u.FeedThreadgate_MentionRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_FollowerRule.HasVal() {
-		v := u.FeedThreadgate_FollowerRule.Val()
+		v := *u.FeedThreadgate_FollowerRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_FollowingRule.HasVal() {
-		v := u.FeedThreadgate_FollowingRule.Val()
+		v := *u.FeedThreadgate_FollowingRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_ListRule.HasVal() {
-		v := u.FeedThreadgate_ListRule.Val()
+		v := *u.FeedThreadgate_ListRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
 		return v.AppendJSON(buf)
 	}
@@ -222,22 +222,22 @@ func (u DraftDefs_Draft_ThreadgateAllow) MarshalCBOR() ([]byte, error) {
 
 func (u DraftDefs_Draft_ThreadgateAllow) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedThreadgate_MentionRule.HasVal() {
-		v := u.FeedThreadgate_MentionRule.Val()
+		v := *u.FeedThreadgate_MentionRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_FollowerRule.HasVal() {
-		v := u.FeedThreadgate_FollowerRule.Val()
+		v := *u.FeedThreadgate_FollowerRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_FollowingRule.HasVal() {
-		v := u.FeedThreadgate_FollowingRule.Val()
+		v := *u.FeedThreadgate_FollowingRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_ListRule.HasVal() {
-		v := u.FeedThreadgate_ListRule.Val()
+		v := *u.FeedThreadgate_ListRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
 		return v.AppendCBOR(buf)
 	}
@@ -1894,7 +1894,7 @@ func (u DraftDefs_DraftPost_Labels) MarshalJSON() ([]byte, error) {
 
 func (u DraftDefs_DraftPost_Labels) AppendJSON(buf []byte) ([]byte, error) {
 	if u.LabelDefs_SelfLabels.HasVal() {
-		v := u.LabelDefs_SelfLabels.Val()
+		v := *u.LabelDefs_SelfLabels.Val()
 		v.LexiconTypeID = "com.atproto.label.defs#selfLabels"
 		return v.AppendJSON(buf)
 	}
@@ -1939,7 +1939,7 @@ func (u DraftDefs_DraftPost_Labels) MarshalCBOR() ([]byte, error) {
 
 func (u DraftDefs_DraftPost_Labels) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.LabelDefs_SelfLabels.HasVal() {
-		v := u.LabelDefs_SelfLabels.Val()
+		v := *u.LabelDefs_SelfLabels.Val()
 		v.LexiconTypeID = "com.atproto.label.defs#selfLabels"
 		return v.AppendCBOR(buf)
 	}

@@ -5,9 +5,9 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -161,7 +161,7 @@ func (u FeedPostgate_EmbeddingRules) MarshalJSON() ([]byte, error) {
 
 func (u FeedPostgate_EmbeddingRules) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedPostgate_DisableRule.HasVal() {
-		v := u.FeedPostgate_DisableRule.Val()
+		v := *u.FeedPostgate_DisableRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
 		return v.AppendJSON(buf)
 	}
@@ -206,7 +206,7 @@ func (u FeedPostgate_EmbeddingRules) MarshalCBOR() ([]byte, error) {
 
 func (u FeedPostgate_EmbeddingRules) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedPostgate_DisableRule.HasVal() {
-		v := u.FeedPostgate_DisableRule.Val()
+		v := *u.FeedPostgate_DisableRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
 		return v.AppendCBOR(buf)
 	}

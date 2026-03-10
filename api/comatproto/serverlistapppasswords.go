@@ -4,9 +4,9 @@ package comatproto
 
 import (
 	"context"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.

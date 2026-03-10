@@ -4,9 +4,9 @@ package comatproto
 
 import (
 	"context"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // SyncListHosts_Host is a "host" in the com.atproto.sync.listHosts schema.

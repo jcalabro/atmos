@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Error name constants for FeedGetPostThread.
@@ -239,17 +239,17 @@ func (u FeedGetPostThread_Output_Thread) MarshalJSON() ([]byte, error) {
 
 func (u FeedGetPostThread_Output_Thread) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ThreadViewPost.HasVal() {
-		v := u.FeedDefs_ThreadViewPost.Val()
+		v := *u.FeedDefs_ThreadViewPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendJSON(buf)
 	}
@@ -310,17 +310,17 @@ func (u FeedGetPostThread_Output_Thread) MarshalCBOR() ([]byte, error) {
 
 func (u FeedGetPostThread_Output_Thread) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ThreadViewPost.HasVal() {
-		v := u.FeedDefs_ThreadViewPost.Val()
+		v := *u.FeedDefs_ThreadViewPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendCBOR(buf)
 	}

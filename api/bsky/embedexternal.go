@@ -3,9 +3,9 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.

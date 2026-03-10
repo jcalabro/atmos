@@ -4,8 +4,8 @@ package comatproto
 
 import (
 	"encoding/base64"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // LabelDefs_Label is a "label" in the com.atproto.label.defs schema.

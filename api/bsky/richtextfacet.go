@@ -5,9 +5,9 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // RichtextFacet_ByteSlice is a "byteSlice" in the app.bsky.richtext.facet schema.
@@ -342,17 +342,17 @@ func (u RichtextFacet_Features) MarshalJSON() ([]byte, error) {
 
 func (u RichtextFacet_Features) AppendJSON(buf []byte) ([]byte, error) {
 	if u.RichtextFacet_Mention.HasVal() {
-		v := u.RichtextFacet_Mention.Val()
+		v := *u.RichtextFacet_Mention.Val()
 		v.LexiconTypeID = "app.bsky.richtext.facet#mention"
 		return v.AppendJSON(buf)
 	}
 	if u.RichtextFacet_Link.HasVal() {
-		v := u.RichtextFacet_Link.Val()
+		v := *u.RichtextFacet_Link.Val()
 		v.LexiconTypeID = "app.bsky.richtext.facet#link"
 		return v.AppendJSON(buf)
 	}
 	if u.RichtextFacet_Tag.HasVal() {
-		v := u.RichtextFacet_Tag.Val()
+		v := *u.RichtextFacet_Tag.Val()
 		v.LexiconTypeID = "app.bsky.richtext.facet#tag"
 		return v.AppendJSON(buf)
 	}
@@ -413,17 +413,17 @@ func (u RichtextFacet_Features) MarshalCBOR() ([]byte, error) {
 
 func (u RichtextFacet_Features) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.RichtextFacet_Mention.HasVal() {
-		v := u.RichtextFacet_Mention.Val()
+		v := *u.RichtextFacet_Mention.Val()
 		v.LexiconTypeID = "app.bsky.richtext.facet#mention"
 		return v.AppendCBOR(buf)
 	}
 	if u.RichtextFacet_Link.HasVal() {
-		v := u.RichtextFacet_Link.Val()
+		v := *u.RichtextFacet_Link.Val()
 		v.LexiconTypeID = "app.bsky.richtext.facet#link"
 		return v.AppendCBOR(buf)
 	}
 	if u.RichtextFacet_Tag.HasVal() {
-		v := u.RichtextFacet_Tag.Val()
+		v := *u.RichtextFacet_Tag.Val()
 		v.LexiconTypeID = "app.bsky.richtext.facet#tag"
 		return v.AppendCBOR(buf)
 	}

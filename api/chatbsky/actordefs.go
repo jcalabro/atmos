@@ -3,10 +3,10 @@
 package chatbsky
 
 import (
-	"github.com/jcalabro/gt"
 	bsky "github.com/jcalabro/atmos/api/bsky"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.

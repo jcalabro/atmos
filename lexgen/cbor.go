@@ -513,7 +513,7 @@ func (g *fileGen) genCBORUnion(typeName string, resolved []unionRefInfo, closed 
 	fmt.Fprintf(&buf, "func (u %s) AppendCBOR(buf []byte) ([]byte, error) {\n", typeName)
 	for _, r := range resolved {
 		fmt.Fprintf(&buf, "\tif u.%s.HasVal() {\n", r.fieldName)
-		fmt.Fprintf(&buf, "\t\tv := u.%s.Val()\n", r.fieldName)
+		fmt.Fprintf(&buf, "\t\tv := *u.%s.Val()\n", r.fieldName)
 		fmt.Fprintf(&buf, "\t\tv.LexiconTypeID = %q\n", r.typeID)
 		buf.WriteString("\t\treturn v.AppendCBOR(buf)\n")
 		buf.WriteString("\t}\n")

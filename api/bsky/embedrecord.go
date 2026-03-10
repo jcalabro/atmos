@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // EmbedRecord is a "main" in the app.bsky.embed.record schema.
@@ -190,42 +190,42 @@ func (u EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 
 func (u EmbedRecord_View_Record) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedRecord_ViewRecord.HasVal() {
-		v := u.EmbedRecord_ViewRecord.Val()
+		v := *u.EmbedRecord_ViewRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewRecord"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecord_ViewNotFound.HasVal() {
-		v := u.EmbedRecord_ViewNotFound.Val()
+		v := *u.EmbedRecord_ViewNotFound.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecord_ViewBlocked.HasVal() {
-		v := u.EmbedRecord_ViewBlocked.Val()
+		v := *u.EmbedRecord_ViewBlocked.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecord_ViewDetached.HasVal() {
-		v := u.EmbedRecord_ViewDetached.Val()
+		v := *u.EmbedRecord_ViewDetached.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewDetached"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_GeneratorView.HasVal() {
-		v := u.FeedDefs_GeneratorView.Val()
+		v := *u.FeedDefs_GeneratorView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#generatorView"
 		return v.AppendJSON(buf)
 	}
 	if u.GraphDefs_ListView.HasVal() {
-		v := u.GraphDefs_ListView.Val()
+		v := *u.GraphDefs_ListView.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#listView"
 		return v.AppendJSON(buf)
 	}
 	if u.LabelerDefs_LabelerView.HasVal() {
-		v := u.LabelerDefs_LabelerView.Val()
+		v := *u.LabelerDefs_LabelerView.Val()
 		v.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
 		return v.AppendJSON(buf)
 	}
 	if u.GraphDefs_StarterPackViewBasic.HasVal() {
-		v := u.GraphDefs_StarterPackViewBasic.Val()
+		v := *u.GraphDefs_StarterPackViewBasic.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
 		return v.AppendJSON(buf)
 	}
@@ -326,42 +326,42 @@ func (u EmbedRecord_View_Record) MarshalCBOR() ([]byte, error) {
 
 func (u EmbedRecord_View_Record) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedRecord_ViewRecord.HasVal() {
-		v := u.EmbedRecord_ViewRecord.Val()
+		v := *u.EmbedRecord_ViewRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewRecord"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecord_ViewNotFound.HasVal() {
-		v := u.EmbedRecord_ViewNotFound.Val()
+		v := *u.EmbedRecord_ViewNotFound.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecord_ViewBlocked.HasVal() {
-		v := u.EmbedRecord_ViewBlocked.Val()
+		v := *u.EmbedRecord_ViewBlocked.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecord_ViewDetached.HasVal() {
-		v := u.EmbedRecord_ViewDetached.Val()
+		v := *u.EmbedRecord_ViewDetached.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#viewDetached"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_GeneratorView.HasVal() {
-		v := u.FeedDefs_GeneratorView.Val()
+		v := *u.FeedDefs_GeneratorView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#generatorView"
 		return v.AppendCBOR(buf)
 	}
 	if u.GraphDefs_ListView.HasVal() {
-		v := u.GraphDefs_ListView.Val()
+		v := *u.GraphDefs_ListView.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#listView"
 		return v.AppendCBOR(buf)
 	}
 	if u.LabelerDefs_LabelerView.HasVal() {
-		v := u.LabelerDefs_LabelerView.Val()
+		v := *u.LabelerDefs_LabelerView.Val()
 		v.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
 		return v.AppendCBOR(buf)
 	}
 	if u.GraphDefs_StarterPackViewBasic.HasVal() {
-		v := u.GraphDefs_StarterPackViewBasic.Val()
+		v := *u.GraphDefs_StarterPackViewBasic.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
 		return v.AppendCBOR(buf)
 	}
@@ -1161,27 +1161,27 @@ func (u EmbedRecord_ViewRecord_Embeds) MarshalJSON() ([]byte, error) {
 
 func (u EmbedRecord_ViewRecord_Embeds) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedImages_View.HasVal() {
-		v := u.EmbedImages_View.Val()
+		v := *u.EmbedImages_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.images#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedVideo_View.HasVal() {
-		v := u.EmbedVideo_View.Val()
+		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecord_View.HasVal() {
-		v := u.EmbedRecord_View.Val()
+		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecordWithMedia_View.HasVal() {
-		v := u.EmbedRecordWithMedia_View.Val()
+		v := *u.EmbedRecordWithMedia_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
 		return v.AppendJSON(buf)
 	}
@@ -1258,27 +1258,27 @@ func (u EmbedRecord_ViewRecord_Embeds) MarshalCBOR() ([]byte, error) {
 
 func (u EmbedRecord_ViewRecord_Embeds) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedImages_View.HasVal() {
-		v := u.EmbedImages_View.Val()
+		v := *u.EmbedImages_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.images#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedVideo_View.HasVal() {
-		v := u.EmbedVideo_View.Val()
+		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecord_View.HasVal() {
-		v := u.EmbedRecord_View.Val()
+		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecordWithMedia_View.HasVal() {
-		v := u.EmbedRecordWithMedia_View.Val()
+		v := *u.EmbedRecordWithMedia_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
 		return v.AppendCBOR(buf)
 	}

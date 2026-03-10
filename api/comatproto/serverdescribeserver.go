@@ -4,9 +4,9 @@ package comatproto
 
 import (
 	"context"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // ServerDescribeServer_Contact is a "contact" in the com.atproto.server.describeServer schema.

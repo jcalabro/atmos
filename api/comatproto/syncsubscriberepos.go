@@ -6,9 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // SyncSubscribeRepos_Account is a "account" in the com.atproto.sync.subscribeRepos schema.
@@ -1246,27 +1246,27 @@ func (u SyncSubscribeRepos_Message) MarshalJSON() ([]byte, error) {
 
 func (u SyncSubscribeRepos_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.SyncSubscribeRepos_Commit.HasVal() {
-		v := u.SyncSubscribeRepos_Commit.Val()
+		v := *u.SyncSubscribeRepos_Commit.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#commit"
 		return v.AppendJSON(buf)
 	}
 	if u.SyncSubscribeRepos_Sync.HasVal() {
-		v := u.SyncSubscribeRepos_Sync.Val()
+		v := *u.SyncSubscribeRepos_Sync.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#sync"
 		return v.AppendJSON(buf)
 	}
 	if u.SyncSubscribeRepos_Identity.HasVal() {
-		v := u.SyncSubscribeRepos_Identity.Val()
+		v := *u.SyncSubscribeRepos_Identity.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#identity"
 		return v.AppendJSON(buf)
 	}
 	if u.SyncSubscribeRepos_Account.HasVal() {
-		v := u.SyncSubscribeRepos_Account.Val()
+		v := *u.SyncSubscribeRepos_Account.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#account"
 		return v.AppendJSON(buf)
 	}
 	if u.SyncSubscribeRepos_Info.HasVal() {
-		v := u.SyncSubscribeRepos_Info.Val()
+		v := *u.SyncSubscribeRepos_Info.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#info"
 		return v.AppendJSON(buf)
 	}
@@ -1343,27 +1343,27 @@ func (u SyncSubscribeRepos_Message) MarshalCBOR() ([]byte, error) {
 
 func (u SyncSubscribeRepos_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.SyncSubscribeRepos_Commit.HasVal() {
-		v := u.SyncSubscribeRepos_Commit.Val()
+		v := *u.SyncSubscribeRepos_Commit.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#commit"
 		return v.AppendCBOR(buf)
 	}
 	if u.SyncSubscribeRepos_Sync.HasVal() {
-		v := u.SyncSubscribeRepos_Sync.Val()
+		v := *u.SyncSubscribeRepos_Sync.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#sync"
 		return v.AppendCBOR(buf)
 	}
 	if u.SyncSubscribeRepos_Identity.HasVal() {
-		v := u.SyncSubscribeRepos_Identity.Val()
+		v := *u.SyncSubscribeRepos_Identity.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#identity"
 		return v.AppendCBOR(buf)
 	}
 	if u.SyncSubscribeRepos_Account.HasVal() {
-		v := u.SyncSubscribeRepos_Account.Val()
+		v := *u.SyncSubscribeRepos_Account.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#account"
 		return v.AppendCBOR(buf)
 	}
 	if u.SyncSubscribeRepos_Info.HasVal() {
-		v := u.SyncSubscribeRepos_Info.Val()
+		v := *u.SyncSubscribeRepos_Info.Val()
 		v.LexiconTypeID = "com.atproto.sync.subscribeRepos#info"
 		return v.AppendCBOR(buf)
 	}

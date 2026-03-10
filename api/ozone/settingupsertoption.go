@@ -5,9 +5,9 @@ package ozone
 import (
 	"context"
 	"encoding/json"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for SettingUpsertOption_Output.

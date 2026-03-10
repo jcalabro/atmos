@@ -3,8 +3,8 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (

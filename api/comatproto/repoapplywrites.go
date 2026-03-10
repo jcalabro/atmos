@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
@@ -986,17 +986,17 @@ func (u RepoApplyWrites_Output_Results) MarshalJSON() ([]byte, error) {
 
 func (u RepoApplyWrites_Output_Results) AppendJSON(buf []byte) ([]byte, error) {
 	if u.RepoApplyWrites_CreateResult.HasVal() {
-		v := u.RepoApplyWrites_CreateResult.Val()
+		v := *u.RepoApplyWrites_CreateResult.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#createResult"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoApplyWrites_UpdateResult.HasVal() {
-		v := u.RepoApplyWrites_UpdateResult.Val()
+		v := *u.RepoApplyWrites_UpdateResult.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#updateResult"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoApplyWrites_DeleteResult.HasVal() {
-		v := u.RepoApplyWrites_DeleteResult.Val()
+		v := *u.RepoApplyWrites_DeleteResult.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#deleteResult"
 		return v.AppendJSON(buf)
 	}
@@ -1053,17 +1053,17 @@ func (u RepoApplyWrites_Output_Results) MarshalCBOR() ([]byte, error) {
 
 func (u RepoApplyWrites_Output_Results) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.RepoApplyWrites_CreateResult.HasVal() {
-		v := u.RepoApplyWrites_CreateResult.Val()
+		v := *u.RepoApplyWrites_CreateResult.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#createResult"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoApplyWrites_UpdateResult.HasVal() {
-		v := u.RepoApplyWrites_UpdateResult.Val()
+		v := *u.RepoApplyWrites_UpdateResult.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#updateResult"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoApplyWrites_DeleteResult.HasVal() {
-		v := u.RepoApplyWrites_DeleteResult.Val()
+		v := *u.RepoApplyWrites_DeleteResult.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#deleteResult"
 		return v.AppendCBOR(buf)
 	}
@@ -1419,17 +1419,17 @@ func (u RepoApplyWrites_Input_Writes) MarshalJSON() ([]byte, error) {
 
 func (u RepoApplyWrites_Input_Writes) AppendJSON(buf []byte) ([]byte, error) {
 	if u.RepoApplyWrites_Create.HasVal() {
-		v := u.RepoApplyWrites_Create.Val()
+		v := *u.RepoApplyWrites_Create.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#create"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoApplyWrites_Update.HasVal() {
-		v := u.RepoApplyWrites_Update.Val()
+		v := *u.RepoApplyWrites_Update.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#update"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoApplyWrites_Delete.HasVal() {
-		v := u.RepoApplyWrites_Delete.Val()
+		v := *u.RepoApplyWrites_Delete.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#delete"
 		return v.AppendJSON(buf)
 	}
@@ -1486,17 +1486,17 @@ func (u RepoApplyWrites_Input_Writes) MarshalCBOR() ([]byte, error) {
 
 func (u RepoApplyWrites_Input_Writes) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.RepoApplyWrites_Create.HasVal() {
-		v := u.RepoApplyWrites_Create.Val()
+		v := *u.RepoApplyWrites_Create.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#create"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoApplyWrites_Update.HasVal() {
-		v := u.RepoApplyWrites_Update.Val()
+		v := *u.RepoApplyWrites_Update.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#update"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoApplyWrites_Delete.HasVal() {
-		v := u.RepoApplyWrites_Delete.Val()
+		v := *u.RepoApplyWrites_Delete.Val()
 		v.LexiconTypeID = "com.atproto.repo.applyWrites#delete"
 		return v.AppendCBOR(buf)
 	}

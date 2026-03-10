@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for ModerationCreateReport_Output.
@@ -295,12 +295,12 @@ func (u ModerationCreateReport_Output_Subject) MarshalJSON() ([]byte, error) {
 
 func (u ModerationCreateReport_Output_Subject) AppendJSON(buf []byte) ([]byte, error) {
 	if u.AdminDefs_RepoRef.HasVal() {
-		v := u.AdminDefs_RepoRef.Val()
+		v := *u.AdminDefs_RepoRef.Val()
 		v.LexiconTypeID = "com.atproto.admin.defs#repoRef"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoStrongRef.HasVal() {
-		v := u.RepoStrongRef.Val()
+		v := *u.RepoStrongRef.Val()
 		v.LexiconTypeID = "com.atproto.repo.strongRef"
 		return v.AppendJSON(buf)
 	}
@@ -353,12 +353,12 @@ func (u ModerationCreateReport_Output_Subject) MarshalCBOR() ([]byte, error) {
 
 func (u ModerationCreateReport_Output_Subject) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.AdminDefs_RepoRef.HasVal() {
-		v := u.AdminDefs_RepoRef.Val()
+		v := *u.AdminDefs_RepoRef.Val()
 		v.LexiconTypeID = "com.atproto.admin.defs#repoRef"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoStrongRef.HasVal() {
-		v := u.RepoStrongRef.Val()
+		v := *u.RepoStrongRef.Val()
 		v.LexiconTypeID = "com.atproto.repo.strongRef"
 		return v.AppendCBOR(buf)
 	}
@@ -701,12 +701,12 @@ func (u ModerationCreateReport_Input_Subject) MarshalJSON() ([]byte, error) {
 
 func (u ModerationCreateReport_Input_Subject) AppendJSON(buf []byte) ([]byte, error) {
 	if u.AdminDefs_RepoRef.HasVal() {
-		v := u.AdminDefs_RepoRef.Val()
+		v := *u.AdminDefs_RepoRef.Val()
 		v.LexiconTypeID = "com.atproto.admin.defs#repoRef"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoStrongRef.HasVal() {
-		v := u.RepoStrongRef.Val()
+		v := *u.RepoStrongRef.Val()
 		v.LexiconTypeID = "com.atproto.repo.strongRef"
 		return v.AppendJSON(buf)
 	}
@@ -759,12 +759,12 @@ func (u ModerationCreateReport_Input_Subject) MarshalCBOR() ([]byte, error) {
 
 func (u ModerationCreateReport_Input_Subject) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.AdminDefs_RepoRef.HasVal() {
-		v := u.AdminDefs_RepoRef.Val()
+		v := *u.AdminDefs_RepoRef.Val()
 		v.LexiconTypeID = "com.atproto.admin.defs#repoRef"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoStrongRef.HasVal() {
-		v := u.RepoStrongRef.Val()
+		v := *u.RepoStrongRef.Val()
 		v.LexiconTypeID = "com.atproto.repo.strongRef"
 		return v.AppendCBOR(buf)
 	}

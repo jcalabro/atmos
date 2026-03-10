@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for LabelerGetServices_Output.
@@ -211,12 +211,12 @@ func (u LabelerGetServices_Output_Views) MarshalJSON() ([]byte, error) {
 
 func (u LabelerGetServices_Output_Views) AppendJSON(buf []byte) ([]byte, error) {
 	if u.LabelerDefs_LabelerView.HasVal() {
-		v := u.LabelerDefs_LabelerView.Val()
+		v := *u.LabelerDefs_LabelerView.Val()
 		v.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
 		return v.AppendJSON(buf)
 	}
 	if u.LabelerDefs_LabelerViewDetailed.HasVal() {
-		v := u.LabelerDefs_LabelerViewDetailed.Val()
+		v := *u.LabelerDefs_LabelerViewDetailed.Val()
 		v.LexiconTypeID = "app.bsky.labeler.defs#labelerViewDetailed"
 		return v.AppendJSON(buf)
 	}
@@ -269,12 +269,12 @@ func (u LabelerGetServices_Output_Views) MarshalCBOR() ([]byte, error) {
 
 func (u LabelerGetServices_Output_Views) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.LabelerDefs_LabelerView.HasVal() {
-		v := u.LabelerDefs_LabelerView.Val()
+		v := *u.LabelerDefs_LabelerView.Val()
 		v.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
 		return v.AppendCBOR(buf)
 	}
 	if u.LabelerDefs_LabelerViewDetailed.HasVal() {
-		v := u.LabelerDefs_LabelerViewDetailed.Val()
+		v := *u.LabelerDefs_LabelerViewDetailed.Val()
 		v.LexiconTypeID = "app.bsky.labeler.defs#labelerViewDetailed"
 		return v.AppendCBOR(buf)
 	}

@@ -3,9 +3,9 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.

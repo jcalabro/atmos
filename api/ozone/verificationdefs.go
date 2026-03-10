@@ -5,9 +5,9 @@ package ozone
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // VerificationDefs_VerificationView is a "verificationView" in the tools.ozone.verification.defs schema.
@@ -115,12 +115,12 @@ func (u VerificationDefs_VerificationView_IssuerRepo) MarshalJSON() ([]byte, err
 
 func (u VerificationDefs_VerificationView_IssuerRepo) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_RepoViewDetail.HasVal() {
-		v := u.ModerationDefs_RepoViewDetail.Val()
+		v := *u.ModerationDefs_RepoViewDetail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewDetail"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RepoViewNotFound.HasVal() {
-		v := u.ModerationDefs_RepoViewNotFound.Val()
+		v := *u.ModerationDefs_RepoViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewNotFound"
 		return v.AppendJSON(buf)
 	}
@@ -173,12 +173,12 @@ func (u VerificationDefs_VerificationView_IssuerRepo) MarshalCBOR() ([]byte, err
 
 func (u VerificationDefs_VerificationView_IssuerRepo) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_RepoViewDetail.HasVal() {
-		v := u.ModerationDefs_RepoViewDetail.Val()
+		v := *u.ModerationDefs_RepoViewDetail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewDetail"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RepoViewNotFound.HasVal() {
-		v := u.ModerationDefs_RepoViewNotFound.Val()
+		v := *u.ModerationDefs_RepoViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewNotFound"
 		return v.AppendCBOR(buf)
 	}
@@ -313,12 +313,12 @@ func (u VerificationDefs_VerificationView_SubjectRepo) MarshalJSON() ([]byte, er
 
 func (u VerificationDefs_VerificationView_SubjectRepo) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_RepoViewDetail.HasVal() {
-		v := u.ModerationDefs_RepoViewDetail.Val()
+		v := *u.ModerationDefs_RepoViewDetail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewDetail"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RepoViewNotFound.HasVal() {
-		v := u.ModerationDefs_RepoViewNotFound.Val()
+		v := *u.ModerationDefs_RepoViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewNotFound"
 		return v.AppendJSON(buf)
 	}
@@ -371,12 +371,12 @@ func (u VerificationDefs_VerificationView_SubjectRepo) MarshalCBOR() ([]byte, er
 
 func (u VerificationDefs_VerificationView_SubjectRepo) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_RepoViewDetail.HasVal() {
-		v := u.ModerationDefs_RepoViewDetail.Val()
+		v := *u.ModerationDefs_RepoViewDetail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewDetail"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RepoViewNotFound.HasVal() {
-		v := u.ModerationDefs_RepoViewNotFound.Val()
+		v := *u.ModerationDefs_RepoViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#repoViewNotFound"
 		return v.AppendCBOR(buf)
 	}

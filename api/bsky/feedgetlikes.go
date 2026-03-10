@@ -4,9 +4,9 @@ package bsky
 
 import (
 	"context"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // FeedGetLikes_Like is a "like" in the app.bsky.feed.getLikes schema.

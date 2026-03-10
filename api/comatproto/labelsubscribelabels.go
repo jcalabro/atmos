@@ -5,9 +5,9 @@ package comatproto
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // LabelSubscribeLabels_Info is a "info" in the com.atproto.label.subscribeLabels schema.
@@ -421,12 +421,12 @@ func (u LabelSubscribeLabels_Message) MarshalJSON() ([]byte, error) {
 
 func (u LabelSubscribeLabels_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.LabelSubscribeLabels_Labels.HasVal() {
-		v := u.LabelSubscribeLabels_Labels.Val()
+		v := *u.LabelSubscribeLabels_Labels.Val()
 		v.LexiconTypeID = "com.atproto.label.subscribeLabels#labels"
 		return v.AppendJSON(buf)
 	}
 	if u.LabelSubscribeLabels_Info.HasVal() {
-		v := u.LabelSubscribeLabels_Info.Val()
+		v := *u.LabelSubscribeLabels_Info.Val()
 		v.LexiconTypeID = "com.atproto.label.subscribeLabels#info"
 		return v.AppendJSON(buf)
 	}
@@ -479,12 +479,12 @@ func (u LabelSubscribeLabels_Message) MarshalCBOR() ([]byte, error) {
 
 func (u LabelSubscribeLabels_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.LabelSubscribeLabels_Labels.HasVal() {
-		v := u.LabelSubscribeLabels_Labels.Val()
+		v := *u.LabelSubscribeLabels_Labels.Val()
 		v.LexiconTypeID = "com.atproto.label.subscribeLabels#labels"
 		return v.AppendCBOR(buf)
 	}
 	if u.LabelSubscribeLabels_Info.HasVal() {
-		v := u.LabelSubscribeLabels_Info.Val()
+		v := *u.LabelSubscribeLabels_Info.Val()
 		v.LexiconTypeID = "com.atproto.label.subscribeLabels#info"
 		return v.AppendCBOR(buf)
 	}

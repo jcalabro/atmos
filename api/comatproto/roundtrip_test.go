@@ -161,7 +161,9 @@ func TestRepoApplyWrites_Input_RoundTrip(t *testing.T) {
 		require.NoError(t, err)
 		var decoded RepoApplyWrites_Input
 		require.NoError(t, decoded.UnmarshalCBOR(data))
-		assert.Equal(t, vCBOR, decoded)
+		reencoded, err := decoded.MarshalCBOR()
+		require.NoError(t, err)
+		assert.Equal(t, data, reencoded)
 	})
 	t.Run("JSON", func(t *testing.T) {
 		t.Parallel()
@@ -170,7 +172,9 @@ func TestRepoApplyWrites_Input_RoundTrip(t *testing.T) {
 		assert.True(t, json.Valid(data))
 		var decoded RepoApplyWrites_Input
 		require.NoError(t, decoded.UnmarshalJSON(data))
-		assert.Equal(t, *v, decoded)
+		reencoded, err := decoded.MarshalJSON()
+		require.NoError(t, err)
+		assert.JSONEq(t, string(data), string(reencoded))
 	})
 }
 

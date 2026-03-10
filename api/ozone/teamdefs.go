@@ -3,9 +3,9 @@
 package ozone
 
 import (
-	"github.com/jcalabro/gt"
 	bsky "github.com/jcalabro/atmos/api/bsky"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (

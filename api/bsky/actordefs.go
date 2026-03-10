@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // ActorDefs_AdultContentPref is a "adultContentPref" in the app.bsky.actor.defs schema.
@@ -3570,7 +3570,7 @@ func (u ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules) MarshalJSO
 
 func (u ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedPostgate_DisableRule.HasVal() {
-		v := u.FeedPostgate_DisableRule.Val()
+		v := *u.FeedPostgate_DisableRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
 		return v.AppendJSON(buf)
 	}
@@ -3615,7 +3615,7 @@ func (u ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules) MarshalCBO
 
 func (u ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedPostgate_DisableRule.HasVal() {
-		v := u.FeedPostgate_DisableRule.Val()
+		v := *u.FeedPostgate_DisableRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
 		return v.AppendCBOR(buf)
 	}
@@ -3672,22 +3672,22 @@ func (u ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules) MarshalJSON(
 
 func (u ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedThreadgate_MentionRule.HasVal() {
-		v := u.FeedThreadgate_MentionRule.Val()
+		v := *u.FeedThreadgate_MentionRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_FollowerRule.HasVal() {
-		v := u.FeedThreadgate_FollowerRule.Val()
+		v := *u.FeedThreadgate_FollowerRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_FollowingRule.HasVal() {
-		v := u.FeedThreadgate_FollowingRule.Val()
+		v := *u.FeedThreadgate_FollowingRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_ListRule.HasVal() {
-		v := u.FeedThreadgate_ListRule.Val()
+		v := *u.FeedThreadgate_ListRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
 		return v.AppendJSON(buf)
 	}
@@ -3756,22 +3756,22 @@ func (u ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules) MarshalCBOR(
 
 func (u ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedThreadgate_MentionRule.HasVal() {
-		v := u.FeedThreadgate_MentionRule.Val()
+		v := *u.FeedThreadgate_MentionRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_FollowerRule.HasVal() {
-		v := u.FeedThreadgate_FollowerRule.Val()
+		v := *u.FeedThreadgate_FollowerRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_FollowingRule.HasVal() {
-		v := u.FeedThreadgate_FollowingRule.Val()
+		v := *u.FeedThreadgate_FollowingRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_ListRule.HasVal() {
-		v := u.FeedThreadgate_ListRule.Val()
+		v := *u.FeedThreadgate_ListRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
 		return v.AppendCBOR(buf)
 	}
@@ -4134,82 +4134,82 @@ func (u ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 
 func (u ActorDefs_Preferences_Elem) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ActorDefs_AdultContentPref.HasVal() {
-		v := u.ActorDefs_AdultContentPref.Val()
+		v := *u.ActorDefs_AdultContentPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_ContentLabelPref.HasVal() {
-		v := u.ActorDefs_ContentLabelPref.Val()
+		v := *u.ActorDefs_ContentLabelPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_SavedFeedsPref.HasVal() {
-		v := u.ActorDefs_SavedFeedsPref.Val()
+		v := *u.ActorDefs_SavedFeedsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_SavedFeedsPrefV2.HasVal() {
-		v := u.ActorDefs_SavedFeedsPrefV2.Val()
+		v := *u.ActorDefs_SavedFeedsPrefV2.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_PersonalDetailsPref.HasVal() {
-		v := u.ActorDefs_PersonalDetailsPref.Val()
+		v := *u.ActorDefs_PersonalDetailsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_DeclaredAgePref.HasVal() {
-		v := u.ActorDefs_DeclaredAgePref.Val()
+		v := *u.ActorDefs_DeclaredAgePref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_FeedViewPref.HasVal() {
-		v := u.ActorDefs_FeedViewPref.Val()
+		v := *u.ActorDefs_FeedViewPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_ThreadViewPref.HasVal() {
-		v := u.ActorDefs_ThreadViewPref.Val()
+		v := *u.ActorDefs_ThreadViewPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_InterestsPref.HasVal() {
-		v := u.ActorDefs_InterestsPref.Val()
+		v := *u.ActorDefs_InterestsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_MutedWordsPref.HasVal() {
-		v := u.ActorDefs_MutedWordsPref.Val()
+		v := *u.ActorDefs_MutedWordsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_HiddenPostsPref.HasVal() {
-		v := u.ActorDefs_HiddenPostsPref.Val()
+		v := *u.ActorDefs_HiddenPostsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_BskyAppStatePref.HasVal() {
-		v := u.ActorDefs_BskyAppStatePref.Val()
+		v := *u.ActorDefs_BskyAppStatePref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_LabelersPref.HasVal() {
-		v := u.ActorDefs_LabelersPref.Val()
+		v := *u.ActorDefs_LabelersPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_PostInteractionSettingsPref.HasVal() {
-		v := u.ActorDefs_PostInteractionSettingsPref.Val()
+		v := *u.ActorDefs_PostInteractionSettingsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_VerificationPrefs.HasVal() {
-		v := u.ActorDefs_VerificationPrefs.Val()
+		v := *u.ActorDefs_VerificationPrefs.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
 		return v.AppendJSON(buf)
 	}
 	if u.ActorDefs_LiveEventPreferences.HasVal() {
-		v := u.ActorDefs_LiveEventPreferences.Val()
+		v := *u.ActorDefs_LiveEventPreferences.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
 		return v.AppendJSON(buf)
 	}
@@ -4374,82 +4374,82 @@ func (u ActorDefs_Preferences_Elem) MarshalCBOR() ([]byte, error) {
 
 func (u ActorDefs_Preferences_Elem) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ActorDefs_AdultContentPref.HasVal() {
-		v := u.ActorDefs_AdultContentPref.Val()
+		v := *u.ActorDefs_AdultContentPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_ContentLabelPref.HasVal() {
-		v := u.ActorDefs_ContentLabelPref.Val()
+		v := *u.ActorDefs_ContentLabelPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_SavedFeedsPref.HasVal() {
-		v := u.ActorDefs_SavedFeedsPref.Val()
+		v := *u.ActorDefs_SavedFeedsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_SavedFeedsPrefV2.HasVal() {
-		v := u.ActorDefs_SavedFeedsPrefV2.Val()
+		v := *u.ActorDefs_SavedFeedsPrefV2.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_PersonalDetailsPref.HasVal() {
-		v := u.ActorDefs_PersonalDetailsPref.Val()
+		v := *u.ActorDefs_PersonalDetailsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_DeclaredAgePref.HasVal() {
-		v := u.ActorDefs_DeclaredAgePref.Val()
+		v := *u.ActorDefs_DeclaredAgePref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_FeedViewPref.HasVal() {
-		v := u.ActorDefs_FeedViewPref.Val()
+		v := *u.ActorDefs_FeedViewPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_ThreadViewPref.HasVal() {
-		v := u.ActorDefs_ThreadViewPref.Val()
+		v := *u.ActorDefs_ThreadViewPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_InterestsPref.HasVal() {
-		v := u.ActorDefs_InterestsPref.Val()
+		v := *u.ActorDefs_InterestsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_MutedWordsPref.HasVal() {
-		v := u.ActorDefs_MutedWordsPref.Val()
+		v := *u.ActorDefs_MutedWordsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_HiddenPostsPref.HasVal() {
-		v := u.ActorDefs_HiddenPostsPref.Val()
+		v := *u.ActorDefs_HiddenPostsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_BskyAppStatePref.HasVal() {
-		v := u.ActorDefs_BskyAppStatePref.Val()
+		v := *u.ActorDefs_BskyAppStatePref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_LabelersPref.HasVal() {
-		v := u.ActorDefs_LabelersPref.Val()
+		v := *u.ActorDefs_LabelersPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_PostInteractionSettingsPref.HasVal() {
-		v := u.ActorDefs_PostInteractionSettingsPref.Val()
+		v := *u.ActorDefs_PostInteractionSettingsPref.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_VerificationPrefs.HasVal() {
-		v := u.ActorDefs_VerificationPrefs.Val()
+		v := *u.ActorDefs_VerificationPrefs.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
 		return v.AppendCBOR(buf)
 	}
 	if u.ActorDefs_LiveEventPreferences.HasVal() {
-		v := u.ActorDefs_LiveEventPreferences.Val()
+		v := *u.ActorDefs_LiveEventPreferences.Val()
 		v.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
 		return v.AppendCBOR(buf)
 	}
@@ -8825,7 +8825,7 @@ func (u ActorDefs_StatusView_Embed) MarshalJSON() ([]byte, error) {
 
 func (u ActorDefs_StatusView_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendJSON(buf)
 	}
@@ -8870,7 +8870,7 @@ func (u ActorDefs_StatusView_Embed) MarshalCBOR() ([]byte, error) {
 
 func (u ActorDefs_StatusView_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendCBOR(buf)
 	}

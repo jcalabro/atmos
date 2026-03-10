@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -451,12 +451,12 @@ func (u FeedDefs_FeedViewPost_Reason) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_FeedViewPost_Reason) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ReasonRepost.HasVal() {
-		v := u.FeedDefs_ReasonRepost.Val()
+		v := *u.FeedDefs_ReasonRepost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_ReasonPin.HasVal() {
-		v := u.FeedDefs_ReasonPin.Val()
+		v := *u.FeedDefs_ReasonPin.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
 		return v.AppendJSON(buf)
 	}
@@ -509,12 +509,12 @@ func (u FeedDefs_FeedViewPost_Reason) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_FeedViewPost_Reason) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ReasonRepost.HasVal() {
-		v := u.FeedDefs_ReasonRepost.Val()
+		v := *u.FeedDefs_ReasonRepost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_ReasonPin.HasVal() {
-		v := u.FeedDefs_ReasonPin.Val()
+		v := *u.FeedDefs_ReasonPin.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
 		return v.AppendCBOR(buf)
 	}
@@ -2263,27 +2263,27 @@ func (u FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_PostView_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedImages_View.HasVal() {
-		v := u.EmbedImages_View.Val()
+		v := *u.EmbedImages_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.images#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedVideo_View.HasVal() {
-		v := u.EmbedVideo_View.Val()
+		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecord_View.HasVal() {
-		v := u.EmbedRecord_View.Val()
+		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecordWithMedia_View.HasVal() {
-		v := u.EmbedRecordWithMedia_View.Val()
+		v := *u.EmbedRecordWithMedia_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
 		return v.AppendJSON(buf)
 	}
@@ -2360,27 +2360,27 @@ func (u FeedDefs_PostView_Embed) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_PostView_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedImages_View.HasVal() {
-		v := u.EmbedImages_View.Val()
+		v := *u.EmbedImages_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.images#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedVideo_View.HasVal() {
-		v := u.EmbedVideo_View.Val()
+		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecord_View.HasVal() {
-		v := u.EmbedRecord_View.Val()
+		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecordWithMedia_View.HasVal() {
-		v := u.EmbedRecordWithMedia_View.Val()
+		v := *u.EmbedRecordWithMedia_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
 		return v.AppendCBOR(buf)
 	}
@@ -3588,17 +3588,17 @@ func (u FeedDefs_ReplyRef_Parent) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_ReplyRef_Parent) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_PostView.HasVal() {
-		v := u.FeedDefs_PostView.Val()
+		v := *u.FeedDefs_PostView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#postView"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendJSON(buf)
 	}
@@ -3659,17 +3659,17 @@ func (u FeedDefs_ReplyRef_Parent) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_ReplyRef_Parent) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_PostView.HasVal() {
-		v := u.FeedDefs_PostView.Val()
+		v := *u.FeedDefs_PostView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#postView"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendCBOR(buf)
 	}
@@ -3741,17 +3741,17 @@ func (u FeedDefs_ReplyRef_Root) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_ReplyRef_Root) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_PostView.HasVal() {
-		v := u.FeedDefs_PostView.Val()
+		v := *u.FeedDefs_PostView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#postView"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendJSON(buf)
 	}
@@ -3812,17 +3812,17 @@ func (u FeedDefs_ReplyRef_Root) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_ReplyRef_Root) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_PostView.HasVal() {
-		v := u.FeedDefs_PostView.Val()
+		v := *u.FeedDefs_PostView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#postView"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendCBOR(buf)
 	}
@@ -4141,12 +4141,12 @@ func (u FeedDefs_SkeletonFeedPost_Reason) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_SkeletonFeedPost_Reason) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_SkeletonReasonRepost.HasVal() {
-		v := u.FeedDefs_SkeletonReasonRepost.Val()
+		v := *u.FeedDefs_SkeletonReasonRepost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_SkeletonReasonPin.HasVal() {
-		v := u.FeedDefs_SkeletonReasonPin.Val()
+		v := *u.FeedDefs_SkeletonReasonPin.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
 		return v.AppendJSON(buf)
 	}
@@ -4199,12 +4199,12 @@ func (u FeedDefs_SkeletonFeedPost_Reason) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_SkeletonFeedPost_Reason) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_SkeletonReasonRepost.HasVal() {
-		v := u.FeedDefs_SkeletonReasonRepost.Val()
+		v := *u.FeedDefs_SkeletonReasonRepost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_SkeletonReasonPin.HasVal() {
-		v := u.FeedDefs_SkeletonReasonPin.Val()
+		v := *u.FeedDefs_SkeletonReasonPin.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
 		return v.AppendCBOR(buf)
 	}
@@ -4944,17 +4944,17 @@ func (u FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_ThreadViewPost_Parent) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ThreadViewPost.HasVal() {
-		v := u.FeedDefs_ThreadViewPost.Val()
+		v := *u.FeedDefs_ThreadViewPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendJSON(buf)
 	}
@@ -5015,17 +5015,17 @@ func (u FeedDefs_ThreadViewPost_Parent) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_ThreadViewPost_Parent) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ThreadViewPost.HasVal() {
-		v := u.FeedDefs_ThreadViewPost.Val()
+		v := *u.FeedDefs_ThreadViewPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendCBOR(buf)
 	}
@@ -5097,17 +5097,17 @@ func (u FeedDefs_ThreadViewPost_Replies) MarshalJSON() ([]byte, error) {
 
 func (u FeedDefs_ThreadViewPost_Replies) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ThreadViewPost.HasVal() {
-		v := u.FeedDefs_ThreadViewPost.Val()
+		v := *u.FeedDefs_ThreadViewPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendJSON(buf)
 	}
@@ -5168,17 +5168,17 @@ func (u FeedDefs_ThreadViewPost_Replies) MarshalCBOR() ([]byte, error) {
 
 func (u FeedDefs_ThreadViewPost_Replies) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_ThreadViewPost.HasVal() {
-		v := u.FeedDefs_ThreadViewPost.Val()
+		v := *u.FeedDefs_ThreadViewPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendCBOR(buf)
 	}

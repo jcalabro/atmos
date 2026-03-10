@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Error name constants for GraphGetRelationships.
@@ -258,12 +258,12 @@ func (u GraphGetRelationships_Output_Relationships) MarshalJSON() ([]byte, error
 
 func (u GraphGetRelationships_Output_Relationships) AppendJSON(buf []byte) ([]byte, error) {
 	if u.GraphDefs_Relationship.HasVal() {
-		v := u.GraphDefs_Relationship.Val()
+		v := *u.GraphDefs_Relationship.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#relationship"
 		return v.AppendJSON(buf)
 	}
 	if u.GraphDefs_NotFoundActor.HasVal() {
-		v := u.GraphDefs_NotFoundActor.Val()
+		v := *u.GraphDefs_NotFoundActor.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#notFoundActor"
 		return v.AppendJSON(buf)
 	}
@@ -316,12 +316,12 @@ func (u GraphGetRelationships_Output_Relationships) MarshalCBOR() ([]byte, error
 
 func (u GraphGetRelationships_Output_Relationships) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.GraphDefs_Relationship.HasVal() {
-		v := u.GraphDefs_Relationship.Val()
+		v := *u.GraphDefs_Relationship.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#relationship"
 		return v.AppendCBOR(buf)
 	}
 	if u.GraphDefs_NotFoundActor.HasVal() {
-		v := u.GraphDefs_NotFoundActor.Val()
+		v := *u.GraphDefs_NotFoundActor.Val()
 		v.LexiconTypeID = "app.bsky.graph.defs#notFoundActor"
 		return v.AppendCBOR(buf)
 	}

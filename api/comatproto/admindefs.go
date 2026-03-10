@@ -4,8 +4,8 @@ package comatproto
 
 import (
 	"encoding/json"
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // AdminDefs_AccountView is a "accountView" in the com.atproto.admin.defs schema.

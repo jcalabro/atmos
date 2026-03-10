@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for ModerationGetRecords_Output.
@@ -211,12 +211,12 @@ func (u ModerationGetRecords_Output_Records) MarshalJSON() ([]byte, error) {
 
 func (u ModerationGetRecords_Output_Records) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_RecordViewDetail.HasVal() {
-		v := u.ModerationDefs_RecordViewDetail.Val()
+		v := *u.ModerationDefs_RecordViewDetail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordViewDetail"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RecordViewNotFound.HasVal() {
-		v := u.ModerationDefs_RecordViewNotFound.Val()
+		v := *u.ModerationDefs_RecordViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordViewNotFound"
 		return v.AppendJSON(buf)
 	}
@@ -269,12 +269,12 @@ func (u ModerationGetRecords_Output_Records) MarshalCBOR() ([]byte, error) {
 
 func (u ModerationGetRecords_Output_Records) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_RecordViewDetail.HasVal() {
-		v := u.ModerationDefs_RecordViewDetail.Val()
+		v := *u.ModerationDefs_RecordViewDetail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordViewDetail"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RecordViewNotFound.HasVal() {
-		v := u.ModerationDefs_RecordViewNotFound.Val()
+		v := *u.ModerationDefs_RecordViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordViewNotFound"
 		return v.AppendCBOR(buf)
 	}

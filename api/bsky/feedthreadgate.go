@@ -5,9 +5,9 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -431,22 +431,22 @@ func (u FeedThreadgate_Allow) MarshalJSON() ([]byte, error) {
 
 func (u FeedThreadgate_Allow) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedThreadgate_MentionRule.HasVal() {
-		v := u.FeedThreadgate_MentionRule.Val()
+		v := *u.FeedThreadgate_MentionRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_FollowerRule.HasVal() {
-		v := u.FeedThreadgate_FollowerRule.Val()
+		v := *u.FeedThreadgate_FollowerRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_FollowingRule.HasVal() {
-		v := u.FeedThreadgate_FollowingRule.Val()
+		v := *u.FeedThreadgate_FollowingRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedThreadgate_ListRule.HasVal() {
-		v := u.FeedThreadgate_ListRule.Val()
+		v := *u.FeedThreadgate_ListRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
 		return v.AppendJSON(buf)
 	}
@@ -515,22 +515,22 @@ func (u FeedThreadgate_Allow) MarshalCBOR() ([]byte, error) {
 
 func (u FeedThreadgate_Allow) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedThreadgate_MentionRule.HasVal() {
-		v := u.FeedThreadgate_MentionRule.Val()
+		v := *u.FeedThreadgate_MentionRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_FollowerRule.HasVal() {
-		v := u.FeedThreadgate_FollowerRule.Val()
+		v := *u.FeedThreadgate_FollowerRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_FollowingRule.HasVal() {
-		v := u.FeedThreadgate_FollowingRule.Val()
+		v := *u.FeedThreadgate_FollowingRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedThreadgate_ListRule.HasVal() {
-		v := u.FeedThreadgate_ListRule.Val()
+		v := *u.FeedThreadgate_ListRule.Val()
 		v.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
 		return v.AppendCBOR(buf)
 	}

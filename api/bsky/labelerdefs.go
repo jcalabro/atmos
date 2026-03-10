@@ -3,9 +3,9 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // LabelerDefs_LabelerPolicies is a "labelerPolicies" in the app.bsky.labeler.defs schema.

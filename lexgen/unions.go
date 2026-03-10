@@ -74,7 +74,7 @@ func (g *fileGen) genUnionType(typeName string, refs []string, closed bool) (str
 	fmt.Fprintf(&buf, "func (u %s) AppendJSON(buf []byte) ([]byte, error) {\n", typeName)
 	for _, r := range resolved {
 		fmt.Fprintf(&buf, "\tif u.%s.HasVal() {\n", r.fieldName)
-		fmt.Fprintf(&buf, "\t\tv := u.%s.Val()\n", r.fieldName)
+		fmt.Fprintf(&buf, "\t\tv := *u.%s.Val()\n", r.fieldName)
 		fmt.Fprintf(&buf, "\t\tv.LexiconTypeID = %q\n", r.typeID)
 		buf.WriteString("\t\treturn v.AppendJSON(buf)\n")
 		buf.WriteString("\t}\n")

@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -246,27 +246,27 @@ func (u FeedPost_Embed) MarshalJSON() ([]byte, error) {
 
 func (u FeedPost_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedImages.HasVal() {
-		v := u.EmbedImages.Val()
+		v := *u.EmbedImages.Val()
 		v.LexiconTypeID = "app.bsky.embed.images"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedVideo.HasVal() {
-		v := u.EmbedVideo.Val()
+		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal.HasVal() {
-		v := u.EmbedExternal.Val()
+		v := *u.EmbedExternal.Val()
 		v.LexiconTypeID = "app.bsky.embed.external"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecord.HasVal() {
-		v := u.EmbedRecord.Val()
+		v := *u.EmbedRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedRecordWithMedia.HasVal() {
-		v := u.EmbedRecordWithMedia.Val()
+		v := *u.EmbedRecordWithMedia.Val()
 		v.LexiconTypeID = "app.bsky.embed.recordWithMedia"
 		return v.AppendJSON(buf)
 	}
@@ -343,27 +343,27 @@ func (u FeedPost_Embed) MarshalCBOR() ([]byte, error) {
 
 func (u FeedPost_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedImages.HasVal() {
-		v := u.EmbedImages.Val()
+		v := *u.EmbedImages.Val()
 		v.LexiconTypeID = "app.bsky.embed.images"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedVideo.HasVal() {
-		v := u.EmbedVideo.Val()
+		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal.HasVal() {
-		v := u.EmbedExternal.Val()
+		v := *u.EmbedExternal.Val()
 		v.LexiconTypeID = "app.bsky.embed.external"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecord.HasVal() {
-		v := u.EmbedRecord.Val()
+		v := *u.EmbedRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedRecordWithMedia.HasVal() {
-		v := u.EmbedRecordWithMedia.Val()
+		v := *u.EmbedRecordWithMedia.Val()
 		v.LexiconTypeID = "app.bsky.embed.recordWithMedia"
 		return v.AppendCBOR(buf)
 	}
@@ -449,7 +449,7 @@ func (u FeedPost_Labels) MarshalJSON() ([]byte, error) {
 
 func (u FeedPost_Labels) AppendJSON(buf []byte) ([]byte, error) {
 	if u.LabelDefs_SelfLabels.HasVal() {
-		v := u.LabelDefs_SelfLabels.Val()
+		v := *u.LabelDefs_SelfLabels.Val()
 		v.LexiconTypeID = "com.atproto.label.defs#selfLabels"
 		return v.AppendJSON(buf)
 	}
@@ -494,7 +494,7 @@ func (u FeedPost_Labels) MarshalCBOR() ([]byte, error) {
 
 func (u FeedPost_Labels) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.LabelDefs_SelfLabels.HasVal() {
-		v := u.LabelDefs_SelfLabels.Val()
+		v := *u.LabelDefs_SelfLabels.Val()
 		v.LexiconTypeID = "com.atproto.label.defs#selfLabels"
 		return v.AppendCBOR(buf)
 	}

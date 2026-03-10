@@ -6,11 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Error name constants for ModerationEmitEvent.
@@ -406,12 +406,12 @@ func (u ModerationEmitEvent_Input_Subject) MarshalJSON() ([]byte, error) {
 
 func (u ModerationEmitEvent_Input_Subject) AppendJSON(buf []byte) ([]byte, error) {
 	if u.AdminDefs_RepoRef.HasVal() {
-		v := u.AdminDefs_RepoRef.Val()
+		v := *u.AdminDefs_RepoRef.Val()
 		v.LexiconTypeID = "com.atproto.admin.defs#repoRef"
 		return v.AppendJSON(buf)
 	}
 	if u.RepoStrongRef.HasVal() {
-		v := u.RepoStrongRef.Val()
+		v := *u.RepoStrongRef.Val()
 		v.LexiconTypeID = "com.atproto.repo.strongRef"
 		return v.AppendJSON(buf)
 	}
@@ -464,12 +464,12 @@ func (u ModerationEmitEvent_Input_Subject) MarshalCBOR() ([]byte, error) {
 
 func (u ModerationEmitEvent_Input_Subject) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.AdminDefs_RepoRef.HasVal() {
-		v := u.AdminDefs_RepoRef.Val()
+		v := *u.AdminDefs_RepoRef.Val()
 		v.LexiconTypeID = "com.atproto.admin.defs#repoRef"
 		return v.AppendCBOR(buf)
 	}
 	if u.RepoStrongRef.HasVal() {
-		v := u.RepoStrongRef.Val()
+		v := *u.RepoStrongRef.Val()
 		v.LexiconTypeID = "com.atproto.repo.strongRef"
 		return v.AppendCBOR(buf)
 	}
@@ -554,122 +554,122 @@ func (u ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 
 func (u ModerationEmitEvent_Input_Event) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_ModEventTakedown.HasVal() {
-		v := u.ModerationDefs_ModEventTakedown.Val()
+		v := *u.ModerationDefs_ModEventTakedown.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventTakedown"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventAcknowledge.HasVal() {
-		v := u.ModerationDefs_ModEventAcknowledge.Val()
+		v := *u.ModerationDefs_ModEventAcknowledge.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventAcknowledge"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventEscalate.HasVal() {
-		v := u.ModerationDefs_ModEventEscalate.Val()
+		v := *u.ModerationDefs_ModEventEscalate.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventEscalate"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventComment.HasVal() {
-		v := u.ModerationDefs_ModEventComment.Val()
+		v := *u.ModerationDefs_ModEventComment.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventComment"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventLabel.HasVal() {
-		v := u.ModerationDefs_ModEventLabel.Val()
+		v := *u.ModerationDefs_ModEventLabel.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventLabel"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventReport.HasVal() {
-		v := u.ModerationDefs_ModEventReport.Val()
+		v := *u.ModerationDefs_ModEventReport.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventReport"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventMute.HasVal() {
-		v := u.ModerationDefs_ModEventMute.Val()
+		v := *u.ModerationDefs_ModEventMute.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventUnmute.HasVal() {
-		v := u.ModerationDefs_ModEventUnmute.Val()
+		v := *u.ModerationDefs_ModEventUnmute.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventMuteReporter.HasVal() {
-		v := u.ModerationDefs_ModEventMuteReporter.Val()
+		v := *u.ModerationDefs_ModEventMuteReporter.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventUnmuteReporter.HasVal() {
-		v := u.ModerationDefs_ModEventUnmuteReporter.Val()
+		v := *u.ModerationDefs_ModEventUnmuteReporter.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventReverseTakedown.HasVal() {
-		v := u.ModerationDefs_ModEventReverseTakedown.Val()
+		v := *u.ModerationDefs_ModEventReverseTakedown.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventResolveAppeal.HasVal() {
-		v := u.ModerationDefs_ModEventResolveAppeal.Val()
+		v := *u.ModerationDefs_ModEventResolveAppeal.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventEmail.HasVal() {
-		v := u.ModerationDefs_ModEventEmail.Val()
+		v := *u.ModerationDefs_ModEventEmail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventDivert.HasVal() {
-		v := u.ModerationDefs_ModEventDivert.Val()
+		v := *u.ModerationDefs_ModEventDivert.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventTag.HasVal() {
-		v := u.ModerationDefs_ModEventTag.Val()
+		v := *u.ModerationDefs_ModEventTag.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_AccountEvent.HasVal() {
-		v := u.ModerationDefs_AccountEvent.Val()
+		v := *u.ModerationDefs_AccountEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_IdentityEvent.HasVal() {
-		v := u.ModerationDefs_IdentityEvent.Val()
+		v := *u.ModerationDefs_IdentityEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RecordEvent.HasVal() {
-		v := u.ModerationDefs_RecordEvent.Val()
+		v := *u.ModerationDefs_RecordEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ModEventPriorityScore.HasVal() {
-		v := u.ModerationDefs_ModEventPriorityScore.Val()
+		v := *u.ModerationDefs_ModEventPriorityScore.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_AgeAssuranceEvent.HasVal() {
-		v := u.ModerationDefs_AgeAssuranceEvent.Val()
+		v := *u.ModerationDefs_AgeAssuranceEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_AgeAssuranceOverrideEvent.HasVal() {
-		v := u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
+		v := *u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RevokeAccountCredentialsEvent.HasVal() {
-		v := u.ModerationDefs_RevokeAccountCredentialsEvent.Val()
+		v := *u.ModerationDefs_RevokeAccountCredentialsEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_ScheduleTakedownEvent.HasVal() {
-		v := u.ModerationDefs_ScheduleTakedownEvent.Val()
+		v := *u.ModerationDefs_ScheduleTakedownEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_CancelScheduledTakedownEvent.HasVal() {
-		v := u.ModerationDefs_CancelScheduledTakedownEvent.Val()
+		v := *u.ModerationDefs_CancelScheduledTakedownEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
 		return v.AppendJSON(buf)
 	}
@@ -898,122 +898,122 @@ func (u ModerationEmitEvent_Input_Event) MarshalCBOR() ([]byte, error) {
 
 func (u ModerationEmitEvent_Input_Event) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ModerationDefs_ModEventTakedown.HasVal() {
-		v := u.ModerationDefs_ModEventTakedown.Val()
+		v := *u.ModerationDefs_ModEventTakedown.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventTakedown"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventAcknowledge.HasVal() {
-		v := u.ModerationDefs_ModEventAcknowledge.Val()
+		v := *u.ModerationDefs_ModEventAcknowledge.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventAcknowledge"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventEscalate.HasVal() {
-		v := u.ModerationDefs_ModEventEscalate.Val()
+		v := *u.ModerationDefs_ModEventEscalate.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventEscalate"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventComment.HasVal() {
-		v := u.ModerationDefs_ModEventComment.Val()
+		v := *u.ModerationDefs_ModEventComment.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventComment"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventLabel.HasVal() {
-		v := u.ModerationDefs_ModEventLabel.Val()
+		v := *u.ModerationDefs_ModEventLabel.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventLabel"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventReport.HasVal() {
-		v := u.ModerationDefs_ModEventReport.Val()
+		v := *u.ModerationDefs_ModEventReport.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventReport"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventMute.HasVal() {
-		v := u.ModerationDefs_ModEventMute.Val()
+		v := *u.ModerationDefs_ModEventMute.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventUnmute.HasVal() {
-		v := u.ModerationDefs_ModEventUnmute.Val()
+		v := *u.ModerationDefs_ModEventUnmute.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventMuteReporter.HasVal() {
-		v := u.ModerationDefs_ModEventMuteReporter.Val()
+		v := *u.ModerationDefs_ModEventMuteReporter.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventUnmuteReporter.HasVal() {
-		v := u.ModerationDefs_ModEventUnmuteReporter.Val()
+		v := *u.ModerationDefs_ModEventUnmuteReporter.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventReverseTakedown.HasVal() {
-		v := u.ModerationDefs_ModEventReverseTakedown.Val()
+		v := *u.ModerationDefs_ModEventReverseTakedown.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventResolveAppeal.HasVal() {
-		v := u.ModerationDefs_ModEventResolveAppeal.Val()
+		v := *u.ModerationDefs_ModEventResolveAppeal.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventEmail.HasVal() {
-		v := u.ModerationDefs_ModEventEmail.Val()
+		v := *u.ModerationDefs_ModEventEmail.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventDivert.HasVal() {
-		v := u.ModerationDefs_ModEventDivert.Val()
+		v := *u.ModerationDefs_ModEventDivert.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventTag.HasVal() {
-		v := u.ModerationDefs_ModEventTag.Val()
+		v := *u.ModerationDefs_ModEventTag.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_AccountEvent.HasVal() {
-		v := u.ModerationDefs_AccountEvent.Val()
+		v := *u.ModerationDefs_AccountEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_IdentityEvent.HasVal() {
-		v := u.ModerationDefs_IdentityEvent.Val()
+		v := *u.ModerationDefs_IdentityEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RecordEvent.HasVal() {
-		v := u.ModerationDefs_RecordEvent.Val()
+		v := *u.ModerationDefs_RecordEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ModEventPriorityScore.HasVal() {
-		v := u.ModerationDefs_ModEventPriorityScore.Val()
+		v := *u.ModerationDefs_ModEventPriorityScore.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_AgeAssuranceEvent.HasVal() {
-		v := u.ModerationDefs_AgeAssuranceEvent.Val()
+		v := *u.ModerationDefs_AgeAssuranceEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_AgeAssuranceOverrideEvent.HasVal() {
-		v := u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
+		v := *u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RevokeAccountCredentialsEvent.HasVal() {
-		v := u.ModerationDefs_RevokeAccountCredentialsEvent.Val()
+		v := *u.ModerationDefs_RevokeAccountCredentialsEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_ScheduleTakedownEvent.HasVal() {
-		v := u.ModerationDefs_ScheduleTakedownEvent.Val()
+		v := *u.ModerationDefs_ScheduleTakedownEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_CancelScheduledTakedownEvent.HasVal() {
-		v := u.ModerationDefs_CancelScheduledTakedownEvent.Val()
+		v := *u.ModerationDefs_CancelScheduledTakedownEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
 		return v.AppendCBOR(buf)
 	}

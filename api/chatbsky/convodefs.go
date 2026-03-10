@@ -5,10 +5,10 @@ package chatbsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	bsky "github.com/jcalabro/atmos/api/bsky"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
@@ -37,12 +37,12 @@ func (u ConvoDefs_ConvoView_LastMessage) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_ConvoView_LastMessage) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -95,12 +95,12 @@ func (u ConvoDefs_ConvoView_LastMessage) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_ConvoView_LastMessage) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}
@@ -162,7 +162,7 @@ func (u ConvoDefs_ConvoView_LastReaction) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_ConvoView_LastReaction) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageAndReactionView.HasVal() {
-		v := u.ConvoDefs_MessageAndReactionView.Val()
+		v := *u.ConvoDefs_MessageAndReactionView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageAndReactionView"
 		return v.AppendJSON(buf)
 	}
@@ -207,7 +207,7 @@ func (u ConvoDefs_ConvoView_LastReaction) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_ConvoView_LastReaction) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageAndReactionView.HasVal() {
-		v := u.ConvoDefs_MessageAndReactionView.Val()
+		v := *u.ConvoDefs_MessageAndReactionView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageAndReactionView"
 		return v.AppendCBOR(buf)
 	}
@@ -1079,12 +1079,12 @@ func (u ConvoDefs_LogAddReaction_Message) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_LogAddReaction_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -1137,12 +1137,12 @@ func (u ConvoDefs_LogAddReaction_Message) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_LogAddReaction_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}
@@ -1596,12 +1596,12 @@ func (u ConvoDefs_LogCreateMessage_Message) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_LogCreateMessage_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -1654,12 +1654,12 @@ func (u ConvoDefs_LogCreateMessage_Message) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_LogCreateMessage_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}
@@ -1918,12 +1918,12 @@ func (u ConvoDefs_LogDeleteMessage_Message) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_LogDeleteMessage_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -1976,12 +1976,12 @@ func (u ConvoDefs_LogDeleteMessage_Message) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_LogDeleteMessage_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}
@@ -2566,12 +2566,12 @@ func (u ConvoDefs_LogReadMessage_Message) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_LogReadMessage_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -2624,12 +2624,12 @@ func (u ConvoDefs_LogReadMessage_Message) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_LogReadMessage_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}
@@ -2889,12 +2889,12 @@ func (u ConvoDefs_LogRemoveReaction_Message) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_LogRemoveReaction_Message) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -2947,12 +2947,12 @@ func (u ConvoDefs_LogRemoveReaction_Message) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_LogRemoveReaction_Message) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}
@@ -3592,7 +3592,7 @@ func (u ConvoDefs_MessageInput_Embed) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_MessageInput_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedRecord.HasVal() {
-		v := u.EmbedRecord.Val()
+		v := *u.EmbedRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record"
 		return v.AppendJSON(buf)
 	}
@@ -3637,7 +3637,7 @@ func (u ConvoDefs_MessageInput_Embed) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_MessageInput_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedRecord.HasVal() {
-		v := u.EmbedRecord.Val()
+		v := *u.EmbedRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record"
 		return v.AppendCBOR(buf)
 	}
@@ -4161,7 +4161,7 @@ func (u ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
 
 func (u ConvoDefs_MessageView_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedRecord_View.HasVal() {
-		v := u.EmbedRecord_View.Val()
+		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
 		return v.AppendJSON(buf)
 	}
@@ -4206,7 +4206,7 @@ func (u ConvoDefs_MessageView_Embed) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoDefs_MessageView_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedRecord_View.HasVal() {
-		v := u.EmbedRecord_View.Val()
+		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
 		return v.AppendCBOR(buf)
 	}

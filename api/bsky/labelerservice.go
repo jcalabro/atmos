@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -41,7 +41,7 @@ func (u LabelerService_Labels) MarshalJSON() ([]byte, error) {
 
 func (u LabelerService_Labels) AppendJSON(buf []byte) ([]byte, error) {
 	if u.LabelDefs_SelfLabels.HasVal() {
-		v := u.LabelDefs_SelfLabels.Val()
+		v := *u.LabelDefs_SelfLabels.Val()
 		v.LexiconTypeID = "com.atproto.label.defs#selfLabels"
 		return v.AppendJSON(buf)
 	}
@@ -86,7 +86,7 @@ func (u LabelerService_Labels) MarshalCBOR() ([]byte, error) {
 
 func (u LabelerService_Labels) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.LabelDefs_SelfLabels.HasVal() {
-		v := u.LabelDefs_SelfLabels.Val()
+		v := *u.LabelDefs_SelfLabels.Val()
 		v.LexiconTypeID = "com.atproto.label.defs#selfLabels"
 		return v.AppendCBOR(buf)
 	}

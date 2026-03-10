@@ -5,9 +5,9 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // AgeassuranceDefs_Access is a string type.
@@ -242,37 +242,37 @@ func (u AgeassuranceDefs_ConfigRegion_Rules) MarshalJSON() ([]byte, error) {
 
 func (u AgeassuranceDefs_ConfigRegion_Rules) AppendJSON(buf []byte) ([]byte, error) {
 	if u.AgeassuranceDefs_ConfigRegionRuleDefault.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleDefault.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleDefault.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleDefault"
 		return v.AppendJSON(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfDeclaredOverAge"
 		return v.AppendJSON(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfDeclaredUnderAge"
 		return v.AppendJSON(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAssuredOverAge"
 		return v.AppendJSON(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAssuredUnderAge"
 		return v.AppendJSON(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAccountNewerThan"
 		return v.AppendJSON(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAccountOlderThan"
 		return v.AppendJSON(buf)
 	}
@@ -365,37 +365,37 @@ func (u AgeassuranceDefs_ConfigRegion_Rules) MarshalCBOR() ([]byte, error) {
 
 func (u AgeassuranceDefs_ConfigRegion_Rules) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.AgeassuranceDefs_ConfigRegionRuleDefault.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleDefault.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleDefault.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleDefault"
 		return v.AppendCBOR(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfDeclaredOverAge"
 		return v.AppendCBOR(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfDeclaredUnderAge"
 		return v.AppendCBOR(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAssuredOverAge"
 		return v.AppendCBOR(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAssuredUnderAge"
 		return v.AppendCBOR(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAccountNewerThan"
 		return v.AppendCBOR(buf)
 	}
 	if u.AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.HasVal() {
-		v := u.AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.Val()
+		v := *u.AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.Val()
 		v.LexiconTypeID = "app.bsky.ageassurance.defs#configRegionRuleIfAccountOlderThan"
 		return v.AppendCBOR(buf)
 	}

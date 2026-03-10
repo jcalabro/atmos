@@ -3,8 +3,8 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // UnspeccedDefs_AgeAssuranceEvent is a "ageAssuranceEvent" in the app.bsky.unspecced.defs schema.

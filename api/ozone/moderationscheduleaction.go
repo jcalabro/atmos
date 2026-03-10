@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // ModerationScheduleAction_FailedScheduling is a "failedScheduling" in the tools.ozone.moderation.scheduleAction schema.
@@ -555,7 +555,7 @@ func (u ModerationScheduleAction_Input_Action) MarshalJSON() ([]byte, error) {
 
 func (u ModerationScheduleAction_Input_Action) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ModerationScheduleAction_Takedown.HasVal() {
-		v := u.ModerationScheduleAction_Takedown.Val()
+		v := *u.ModerationScheduleAction_Takedown.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.scheduleAction#takedown"
 		return v.AppendJSON(buf)
 	}
@@ -600,7 +600,7 @@ func (u ModerationScheduleAction_Input_Action) MarshalCBOR() ([]byte, error) {
 
 func (u ModerationScheduleAction_Input_Action) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ModerationScheduleAction_Takedown.HasVal() {
-		v := u.ModerationScheduleAction_Takedown.Val()
+		v := *u.ModerationScheduleAction_Takedown.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.scheduleAction#takedown"
 		return v.AppendCBOR(buf)
 	}

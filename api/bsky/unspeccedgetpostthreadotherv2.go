@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for UnspeccedGetPostThreadOtherV2_Output.
@@ -233,7 +233,7 @@ func (u UnspeccedGetPostThreadOtherV2_ThreadItem_Value) MarshalJSON() ([]byte, e
 
 func (u UnspeccedGetPostThreadOtherV2_ThreadItem_Value) AppendJSON(buf []byte) ([]byte, error) {
 	if u.UnspeccedDefs_ThreadItemPost.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemPost.Val()
+		v := *u.UnspeccedDefs_ThreadItemPost.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemPost"
 		return v.AppendJSON(buf)
 	}
@@ -278,7 +278,7 @@ func (u UnspeccedGetPostThreadOtherV2_ThreadItem_Value) MarshalCBOR() ([]byte, e
 
 func (u UnspeccedGetPostThreadOtherV2_ThreadItem_Value) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.UnspeccedDefs_ThreadItemPost.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemPost.Val()
+		v := *u.UnspeccedDefs_ThreadItemPost.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemPost"
 		return v.AppendCBOR(buf)
 	}

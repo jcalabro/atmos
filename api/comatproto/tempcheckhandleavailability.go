@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Error name constants for TempCheckHandleAvailability.
@@ -198,12 +198,12 @@ func (u TempCheckHandleAvailability_Output_Result) MarshalJSON() ([]byte, error)
 
 func (u TempCheckHandleAvailability_Output_Result) AppendJSON(buf []byte) ([]byte, error) {
 	if u.TempCheckHandleAvailability_ResultAvailable.HasVal() {
-		v := u.TempCheckHandleAvailability_ResultAvailable.Val()
+		v := *u.TempCheckHandleAvailability_ResultAvailable.Val()
 		v.LexiconTypeID = "com.atproto.temp.checkHandleAvailability#resultAvailable"
 		return v.AppendJSON(buf)
 	}
 	if u.TempCheckHandleAvailability_ResultUnavailable.HasVal() {
-		v := u.TempCheckHandleAvailability_ResultUnavailable.Val()
+		v := *u.TempCheckHandleAvailability_ResultUnavailable.Val()
 		v.LexiconTypeID = "com.atproto.temp.checkHandleAvailability#resultUnavailable"
 		return v.AppendJSON(buf)
 	}
@@ -256,12 +256,12 @@ func (u TempCheckHandleAvailability_Output_Result) MarshalCBOR() ([]byte, error)
 
 func (u TempCheckHandleAvailability_Output_Result) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.TempCheckHandleAvailability_ResultAvailable.HasVal() {
-		v := u.TempCheckHandleAvailability_ResultAvailable.Val()
+		v := *u.TempCheckHandleAvailability_ResultAvailable.Val()
 		v.LexiconTypeID = "com.atproto.temp.checkHandleAvailability#resultAvailable"
 		return v.AppendCBOR(buf)
 	}
 	if u.TempCheckHandleAvailability_ResultUnavailable.HasVal() {
-		v := u.TempCheckHandleAvailability_ResultUnavailable.Val()
+		v := *u.TempCheckHandleAvailability_ResultUnavailable.Val()
 		v.LexiconTypeID = "com.atproto.temp.checkHandleAvailability#resultUnavailable"
 		return v.AppendCBOR(buf)
 	}

@@ -3,9 +3,9 @@
 package bsky
 
 import (
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // VideoDefs_JobStatus is a "jobStatus" in the app.bsky.video.defs schema.

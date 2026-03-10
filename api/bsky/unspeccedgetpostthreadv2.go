@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for UnspeccedGetPostThreadV2_Output.
@@ -330,22 +330,22 @@ func (u UnspeccedGetPostThreadV2_ThreadItem_Value) MarshalJSON() ([]byte, error)
 
 func (u UnspeccedGetPostThreadV2_ThreadItem_Value) AppendJSON(buf []byte) ([]byte, error) {
 	if u.UnspeccedDefs_ThreadItemPost.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemPost.Val()
+		v := *u.UnspeccedDefs_ThreadItemPost.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemPost"
 		return v.AppendJSON(buf)
 	}
 	if u.UnspeccedDefs_ThreadItemNoUnauthenticated.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemNoUnauthenticated.Val()
+		v := *u.UnspeccedDefs_ThreadItemNoUnauthenticated.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemNoUnauthenticated"
 		return v.AppendJSON(buf)
 	}
 	if u.UnspeccedDefs_ThreadItemNotFound.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemNotFound.Val()
+		v := *u.UnspeccedDefs_ThreadItemNotFound.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemNotFound"
 		return v.AppendJSON(buf)
 	}
 	if u.UnspeccedDefs_ThreadItemBlocked.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemBlocked.Val()
+		v := *u.UnspeccedDefs_ThreadItemBlocked.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemBlocked"
 		return v.AppendJSON(buf)
 	}
@@ -414,22 +414,22 @@ func (u UnspeccedGetPostThreadV2_ThreadItem_Value) MarshalCBOR() ([]byte, error)
 
 func (u UnspeccedGetPostThreadV2_ThreadItem_Value) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.UnspeccedDefs_ThreadItemPost.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemPost.Val()
+		v := *u.UnspeccedDefs_ThreadItemPost.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.UnspeccedDefs_ThreadItemNoUnauthenticated.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemNoUnauthenticated.Val()
+		v := *u.UnspeccedDefs_ThreadItemNoUnauthenticated.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemNoUnauthenticated"
 		return v.AppendCBOR(buf)
 	}
 	if u.UnspeccedDefs_ThreadItemNotFound.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemNotFound.Val()
+		v := *u.UnspeccedDefs_ThreadItemNotFound.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemNotFound"
 		return v.AppendCBOR(buf)
 	}
 	if u.UnspeccedDefs_ThreadItemBlocked.HasVal() {
-		v := u.UnspeccedDefs_ThreadItemBlocked.Val()
+		v := *u.UnspeccedDefs_ThreadItemBlocked.Val()
 		v.LexiconTypeID = "app.bsky.unspecced.defs#threadItemBlocked"
 		return v.AppendCBOR(buf)
 	}

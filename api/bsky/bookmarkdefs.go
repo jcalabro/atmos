@@ -5,10 +5,10 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // BookmarkDefs_Bookmark is a "bookmark" in the app.bsky.bookmark.defs schema.
@@ -189,17 +189,17 @@ func (u BookmarkDefs_BookmarkView_Item) MarshalJSON() ([]byte, error) {
 
 func (u BookmarkDefs_BookmarkView_Item) AppendJSON(buf []byte) ([]byte, error) {
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendJSON(buf)
 	}
 	if u.FeedDefs_PostView.HasVal() {
-		v := u.FeedDefs_PostView.Val()
+		v := *u.FeedDefs_PostView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#postView"
 		return v.AppendJSON(buf)
 	}
@@ -260,17 +260,17 @@ func (u BookmarkDefs_BookmarkView_Item) MarshalCBOR() ([]byte, error) {
 
 func (u BookmarkDefs_BookmarkView_Item) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.FeedDefs_BlockedPost.HasVal() {
-		v := u.FeedDefs_BlockedPost.Val()
+		v := *u.FeedDefs_BlockedPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_NotFoundPost.HasVal() {
-		v := u.FeedDefs_NotFoundPost.Val()
+		v := *u.FeedDefs_NotFoundPost.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return v.AppendCBOR(buf)
 	}
 	if u.FeedDefs_PostView.HasVal() {
-		v := u.FeedDefs_PostView.Val()
+		v := *u.FeedDefs_PostView.Val()
 		v.LexiconTypeID = "app.bsky.feed.defs#postView"
 		return v.AppendCBOR(buf)
 	}

@@ -5,9 +5,9 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -39,7 +39,7 @@ func (u ActorStatus_Embed) MarshalJSON() ([]byte, error) {
 
 func (u ActorStatus_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedExternal.HasVal() {
-		v := u.EmbedExternal.Val()
+		v := *u.EmbedExternal.Val()
 		v.LexiconTypeID = "app.bsky.embed.external"
 		return v.AppendJSON(buf)
 	}
@@ -84,7 +84,7 @@ func (u ActorStatus_Embed) MarshalCBOR() ([]byte, error) {
 
 func (u ActorStatus_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedExternal.HasVal() {
-		v := u.EmbedExternal.Val()
+		v := *u.EmbedExternal.Val()
 		v.LexiconTypeID = "app.bsky.embed.external"
 		return v.AppendCBOR(buf)
 	}

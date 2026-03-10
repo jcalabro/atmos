@@ -5,9 +5,9 @@ package bsky
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // EmbedRecordWithMedia is a "main" in the app.bsky.embed.recordWithMedia schema.
@@ -31,17 +31,17 @@ func (u EmbedRecordWithMedia_Media) MarshalJSON() ([]byte, error) {
 
 func (u EmbedRecordWithMedia_Media) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedImages.HasVal() {
-		v := u.EmbedImages.Val()
+		v := *u.EmbedImages.Val()
 		v.LexiconTypeID = "app.bsky.embed.images"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedVideo.HasVal() {
-		v := u.EmbedVideo.Val()
+		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal.HasVal() {
-		v := u.EmbedExternal.Val()
+		v := *u.EmbedExternal.Val()
 		v.LexiconTypeID = "app.bsky.embed.external"
 		return v.AppendJSON(buf)
 	}
@@ -102,17 +102,17 @@ func (u EmbedRecordWithMedia_Media) MarshalCBOR() ([]byte, error) {
 
 func (u EmbedRecordWithMedia_Media) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedImages.HasVal() {
-		v := u.EmbedImages.Val()
+		v := *u.EmbedImages.Val()
 		v.LexiconTypeID = "app.bsky.embed.images"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedVideo.HasVal() {
-		v := u.EmbedVideo.Val()
+		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal.HasVal() {
-		v := u.EmbedExternal.Val()
+		v := *u.EmbedExternal.Val()
 		v.LexiconTypeID = "app.bsky.embed.external"
 		return v.AppendCBOR(buf)
 	}
@@ -371,17 +371,17 @@ func (u EmbedRecordWithMedia_View_Media) MarshalJSON() ([]byte, error) {
 
 func (u EmbedRecordWithMedia_View_Media) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedImages_View.HasVal() {
-		v := u.EmbedImages_View.Val()
+		v := *u.EmbedImages_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.images#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedVideo_View.HasVal() {
-		v := u.EmbedVideo_View.Val()
+		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendJSON(buf)
 	}
@@ -442,17 +442,17 @@ func (u EmbedRecordWithMedia_View_Media) MarshalCBOR() ([]byte, error) {
 
 func (u EmbedRecordWithMedia_View_Media) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedImages_View.HasVal() {
-		v := u.EmbedImages_View.Val()
+		v := *u.EmbedImages_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.images#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedVideo_View.HasVal() {
-		v := u.EmbedVideo_View.Val()
+		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
-		v := u.EmbedExternal_View.Val()
+		v := *u.EmbedExternal_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.external#view"
 		return v.AppendCBOR(buf)
 	}

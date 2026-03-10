@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for ConvoGetLog_Output.
@@ -261,52 +261,52 @@ func (u ConvoGetLog_Output_Logs) MarshalJSON() ([]byte, error) {
 
 func (u ConvoGetLog_Output_Logs) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_LogBeginConvo.HasVal() {
-		v := u.ConvoDefs_LogBeginConvo.Val()
+		v := *u.ConvoDefs_LogBeginConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logBeginConvo"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogAcceptConvo.HasVal() {
-		v := u.ConvoDefs_LogAcceptConvo.Val()
+		v := *u.ConvoDefs_LogAcceptConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logAcceptConvo"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogLeaveConvo.HasVal() {
-		v := u.ConvoDefs_LogLeaveConvo.Val()
+		v := *u.ConvoDefs_LogLeaveConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logLeaveConvo"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogMuteConvo.HasVal() {
-		v := u.ConvoDefs_LogMuteConvo.Val()
+		v := *u.ConvoDefs_LogMuteConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logMuteConvo"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogUnmuteConvo.HasVal() {
-		v := u.ConvoDefs_LogUnmuteConvo.Val()
+		v := *u.ConvoDefs_LogUnmuteConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logUnmuteConvo"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogCreateMessage.HasVal() {
-		v := u.ConvoDefs_LogCreateMessage.Val()
+		v := *u.ConvoDefs_LogCreateMessage.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logCreateMessage"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogDeleteMessage.HasVal() {
-		v := u.ConvoDefs_LogDeleteMessage.Val()
+		v := *u.ConvoDefs_LogDeleteMessage.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logDeleteMessage"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogReadMessage.HasVal() {
-		v := u.ConvoDefs_LogReadMessage.Val()
+		v := *u.ConvoDefs_LogReadMessage.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logReadMessage"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogAddReaction.HasVal() {
-		v := u.ConvoDefs_LogAddReaction.Val()
+		v := *u.ConvoDefs_LogAddReaction.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logAddReaction"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_LogRemoveReaction.HasVal() {
-		v := u.ConvoDefs_LogRemoveReaction.Val()
+		v := *u.ConvoDefs_LogRemoveReaction.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
 		return v.AppendJSON(buf)
 	}
@@ -423,52 +423,52 @@ func (u ConvoGetLog_Output_Logs) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoGetLog_Output_Logs) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_LogBeginConvo.HasVal() {
-		v := u.ConvoDefs_LogBeginConvo.Val()
+		v := *u.ConvoDefs_LogBeginConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logBeginConvo"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogAcceptConvo.HasVal() {
-		v := u.ConvoDefs_LogAcceptConvo.Val()
+		v := *u.ConvoDefs_LogAcceptConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logAcceptConvo"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogLeaveConvo.HasVal() {
-		v := u.ConvoDefs_LogLeaveConvo.Val()
+		v := *u.ConvoDefs_LogLeaveConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logLeaveConvo"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogMuteConvo.HasVal() {
-		v := u.ConvoDefs_LogMuteConvo.Val()
+		v := *u.ConvoDefs_LogMuteConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logMuteConvo"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogUnmuteConvo.HasVal() {
-		v := u.ConvoDefs_LogUnmuteConvo.Val()
+		v := *u.ConvoDefs_LogUnmuteConvo.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logUnmuteConvo"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogCreateMessage.HasVal() {
-		v := u.ConvoDefs_LogCreateMessage.Val()
+		v := *u.ConvoDefs_LogCreateMessage.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logCreateMessage"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogDeleteMessage.HasVal() {
-		v := u.ConvoDefs_LogDeleteMessage.Val()
+		v := *u.ConvoDefs_LogDeleteMessage.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logDeleteMessage"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogReadMessage.HasVal() {
-		v := u.ConvoDefs_LogReadMessage.Val()
+		v := *u.ConvoDefs_LogReadMessage.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logReadMessage"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogAddReaction.HasVal() {
-		v := u.ConvoDefs_LogAddReaction.Val()
+		v := *u.ConvoDefs_LogAddReaction.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logAddReaction"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_LogRemoveReaction.HasVal() {
-		v := u.ConvoDefs_LogRemoveReaction.Val()
+		v := *u.ConvoDefs_LogRemoveReaction.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
 		return v.AppendCBOR(buf)
 	}

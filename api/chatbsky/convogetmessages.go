@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for ConvoGetMessages_Output.
@@ -253,12 +253,12 @@ func (u ConvoGetMessages_Output_Messages) MarshalJSON() ([]byte, error) {
 
 func (u ConvoGetMessages_Output_Messages) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendJSON(buf)
 	}
@@ -311,12 +311,12 @@ func (u ConvoGetMessages_Output_Messages) MarshalCBOR() ([]byte, error) {
 
 func (u ConvoGetMessages_Output_Messages) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_MessageView.HasVal() {
-		v := u.ConvoDefs_MessageView.Val()
+		v := *u.ConvoDefs_MessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := u.ConvoDefs_DeletedMessageView.Val()
+		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return v.AppendCBOR(buf)
 	}

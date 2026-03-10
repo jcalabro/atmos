@@ -25,7 +25,13 @@ func roundTripCBOR[T any](t *testing.T,
 	require.NoError(t, err)
 	var decoded T
 	require.NoError(t, unmarshal(&decoded, data))
-	assert.Equal(t, *original, decoded)
+	// Re-marshal the decoded value and compare bytes to verify round-trip
+	// stability. We avoid direct struct comparison because marshal may set
+	// LexiconTypeID on union variants (an encoding detail) that the
+	// original struct may not have populated.
+	reencoded, err := marshal(&decoded)
+	require.NoError(t, err)
+	assert.Equal(t, data, reencoded)
 }
 
 func roundTripJSON[T any](t *testing.T,
@@ -39,7 +45,9 @@ func roundTripJSON[T any](t *testing.T,
 	assert.True(t, json.Valid(data), "invalid JSON: %s", data)
 	var decoded T
 	require.NoError(t, unmarshal(&decoded, data))
-	assert.Equal(t, *original, decoded)
+	reencoded, err := marshal(&decoded)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(data), string(reencoded))
 }
 
 // --- FeedPost (record with unions, nested objects, arrays, optionals) ---
@@ -146,7 +154,7 @@ func TestFeedPost_TextSlice_RoundTrip(t *testing.T) {
 func TestEmbedImages_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	v := EmbedImages{
+	orig := EmbedImages{
 		LexiconTypeID: "app.bsky.embed.images",
 		Images: []EmbedImages_Image{
 			{
@@ -173,14 +181,14 @@ func TestEmbedImages_RoundTrip(t *testing.T) {
 
 	t.Run("CBOR", func(t *testing.T) {
 		t.Parallel()
-		roundTripCBOR(t, &v,
+		roundTripCBOR(t, &orig,
 			func(v *EmbedImages) ([]byte, error) { return v.MarshalCBOR() },
 			func(v *EmbedImages, b []byte) error { return v.UnmarshalCBOR(b) },
 		)
 	})
 	t.Run("JSON", func(t *testing.T) {
 		t.Parallel()
-		roundTripJSON(t, &v,
+		roundTripJSON(t, &orig,
 			func(v *EmbedImages) ([]byte, error) { return v.MarshalJSON() },
 			func(v *EmbedImages, b []byte) error { return v.UnmarshalJSON(b) },
 		)
@@ -192,7 +200,7 @@ func TestEmbedImages_RoundTrip(t *testing.T) {
 func TestRichtextFacet_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	v := RichtextFacet{
+	orig := RichtextFacet{
 		Index: RichtextFacet_ByteSlice{ByteStart: 0, ByteEnd: 5},
 		Features: []RichtextFacet_Features{
 			{RichtextFacet_Tag: gt.SomeRef(RichtextFacet_Tag{Tag: "golang"})},
@@ -201,14 +209,14 @@ func TestRichtextFacet_RoundTrip(t *testing.T) {
 
 	t.Run("CBOR", func(t *testing.T) {
 		t.Parallel()
-		roundTripCBOR(t, &v,
+		roundTripCBOR(t, &orig,
 			func(v *RichtextFacet) ([]byte, error) { return v.MarshalCBOR() },
 			func(v *RichtextFacet, b []byte) error { return v.UnmarshalCBOR(b) },
 		)
 	})
 	t.Run("JSON", func(t *testing.T) {
 		t.Parallel()
-		roundTripJSON(t, &v,
+		roundTripJSON(t, &orig,
 			func(v *RichtextFacet) ([]byte, error) { return v.MarshalJSON() },
 			func(v *RichtextFacet, b []byte) error { return v.UnmarshalJSON(b) },
 		)
@@ -220,7 +228,7 @@ func TestRichtextFacet_RoundTrip(t *testing.T) {
 func TestLexBlob_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	v := lextypes.LexBlob{
+	orig := lextypes.LexBlob{
 		Type:     "blob",
 		Ref:      lextypes.LexCIDLink{Link: testCID},
 		MimeType: "application/octet-stream",
@@ -229,14 +237,14 @@ func TestLexBlob_RoundTrip(t *testing.T) {
 
 	t.Run("CBOR", func(t *testing.T) {
 		t.Parallel()
-		roundTripCBOR(t, &v,
+		roundTripCBOR(t, &orig,
 			func(v *lextypes.LexBlob) ([]byte, error) { return v.MarshalCBOR() },
 			func(v *lextypes.LexBlob, b []byte) error { return v.UnmarshalCBOR(b) },
 		)
 	})
 	t.Run("JSON", func(t *testing.T) {
 		t.Parallel()
-		roundTripJSON(t, &v,
+		roundTripJSON(t, &orig,
 			func(v *lextypes.LexBlob) ([]byte, error) { return v.MarshalJSON() },
 			func(v *lextypes.LexBlob, b []byte) error { return v.UnmarshalJSON(b) },
 		)
@@ -248,7 +256,7 @@ func TestLexBlob_RoundTrip(t *testing.T) {
 func TestActorGetPreferences_Output_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	v := ActorGetPreferences_Output{
+	orig := ActorGetPreferences_Output{
 		Preferences: ActorDefs_Preferences{
 			{ActorDefs_AdultContentPref: gt.SomeRef(ActorDefs_AdultContentPref{
 				Enabled: true,
@@ -258,14 +266,14 @@ func TestActorGetPreferences_Output_RoundTrip(t *testing.T) {
 
 	t.Run("CBOR", func(t *testing.T) {
 		t.Parallel()
-		roundTripCBOR(t, &v,
+		roundTripCBOR(t, &orig,
 			func(v *ActorGetPreferences_Output) ([]byte, error) { return v.MarshalCBOR() },
 			func(v *ActorGetPreferences_Output, b []byte) error { return v.UnmarshalCBOR(b) },
 		)
 	})
 	t.Run("JSON", func(t *testing.T) {
 		t.Parallel()
-		roundTripJSON(t, &v,
+		roundTripJSON(t, &orig,
 			func(v *ActorGetPreferences_Output) ([]byte, error) { return v.MarshalJSON() },
 			func(v *ActorGetPreferences_Output, b []byte) error { return v.UnmarshalJSON(b) },
 		)

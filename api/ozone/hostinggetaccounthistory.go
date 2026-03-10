@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jcalabro/gt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // HostingGetAccountHistory_AccountCreated is a "accountCreated" in the tools.ozone.hosting.getAccountHistory schema.
@@ -527,27 +527,27 @@ func (u HostingGetAccountHistory_Event_Details) MarshalJSON() ([]byte, error) {
 
 func (u HostingGetAccountHistory_Event_Details) AppendJSON(buf []byte) ([]byte, error) {
 	if u.HostingGetAccountHistory_AccountCreated.HasVal() {
-		v := u.HostingGetAccountHistory_AccountCreated.Val()
+		v := *u.HostingGetAccountHistory_AccountCreated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#accountCreated"
 		return v.AppendJSON(buf)
 	}
 	if u.HostingGetAccountHistory_EmailUpdated.HasVal() {
-		v := u.HostingGetAccountHistory_EmailUpdated.Val()
+		v := *u.HostingGetAccountHistory_EmailUpdated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#emailUpdated"
 		return v.AppendJSON(buf)
 	}
 	if u.HostingGetAccountHistory_EmailConfirmed.HasVal() {
-		v := u.HostingGetAccountHistory_EmailConfirmed.Val()
+		v := *u.HostingGetAccountHistory_EmailConfirmed.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#emailConfirmed"
 		return v.AppendJSON(buf)
 	}
 	if u.HostingGetAccountHistory_PasswordUpdated.HasVal() {
-		v := u.HostingGetAccountHistory_PasswordUpdated.Val()
+		v := *u.HostingGetAccountHistory_PasswordUpdated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#passwordUpdated"
 		return v.AppendJSON(buf)
 	}
 	if u.HostingGetAccountHistory_HandleUpdated.HasVal() {
-		v := u.HostingGetAccountHistory_HandleUpdated.Val()
+		v := *u.HostingGetAccountHistory_HandleUpdated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#handleUpdated"
 		return v.AppendJSON(buf)
 	}
@@ -624,27 +624,27 @@ func (u HostingGetAccountHistory_Event_Details) MarshalCBOR() ([]byte, error) {
 
 func (u HostingGetAccountHistory_Event_Details) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.HostingGetAccountHistory_AccountCreated.HasVal() {
-		v := u.HostingGetAccountHistory_AccountCreated.Val()
+		v := *u.HostingGetAccountHistory_AccountCreated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#accountCreated"
 		return v.AppendCBOR(buf)
 	}
 	if u.HostingGetAccountHistory_EmailUpdated.HasVal() {
-		v := u.HostingGetAccountHistory_EmailUpdated.Val()
+		v := *u.HostingGetAccountHistory_EmailUpdated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#emailUpdated"
 		return v.AppendCBOR(buf)
 	}
 	if u.HostingGetAccountHistory_EmailConfirmed.HasVal() {
-		v := u.HostingGetAccountHistory_EmailConfirmed.Val()
+		v := *u.HostingGetAccountHistory_EmailConfirmed.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#emailConfirmed"
 		return v.AppendCBOR(buf)
 	}
 	if u.HostingGetAccountHistory_PasswordUpdated.HasVal() {
-		v := u.HostingGetAccountHistory_PasswordUpdated.Val()
+		v := *u.HostingGetAccountHistory_PasswordUpdated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#passwordUpdated"
 		return v.AppendCBOR(buf)
 	}
 	if u.HostingGetAccountHistory_HandleUpdated.HasVal() {
-		v := u.HostingGetAccountHistory_HandleUpdated.Val()
+		v := *u.HostingGetAccountHistory_HandleUpdated.Val()
 		v.LexiconTypeID = "tools.ozone.hosting.getAccountHistory#handleUpdated"
 		return v.AppendCBOR(buf)
 	}
