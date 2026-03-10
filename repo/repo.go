@@ -21,10 +21,24 @@ type Repo struct {
 	Tree  *mst.Tree
 }
 
+// validateRecordPath validates the collection/rkey pair and returns the MST key.
+func validateRecordPath(collection, rkey string) (string, error) {
+	if _, err := atmos.ParseNSID(collection); err != nil {
+		return "", fmt.Errorf("repo: invalid record path: %w", err)
+	}
+	if _, err := atmos.ParseRecordKey(rkey); err != nil {
+		return "", fmt.Errorf("repo: invalid record path: %w", err)
+	}
+	return collection + "/" + rkey, nil
+}
+
 // Get retrieves a record by collection and rkey.
 // Returns the record CID, raw CBOR bytes, and any error.
 func (r *Repo) Get(collection, rkey string) (cbor.CID, []byte, error) {
-	key := collection + "/" + rkey
+	key, err := validateRecordPath(collection, rkey)
+	if err != nil {
+		return cbor.CID{}, nil, err
+	}
 	cid, err := r.Tree.Get(key)
 	if err != nil {
 		return cbor.CID{}, nil, fmt.Errorf("repo: getting record: %w", err)
@@ -41,6 +55,10 @@ func (r *Repo) Get(collection, rkey string) (cbor.CID, []byte, error) {
 
 // Create creates a new record.
 func (r *Repo) Create(collection, rkey string, record any) error {
+	key, err := validateRecordPath(collection, rkey)
+	if err != nil {
+		return err
+	}
 	data, err := cbor.Marshal(record)
 	if err != nil {
 		return fmt.Errorf("repo: encoding record: %w", err)
@@ -49,7 +67,6 @@ func (r *Repo) Create(collection, rkey string, record any) error {
 	if err := r.Store.PutBlock(cid, data); err != nil {
 		return fmt.Errorf("repo: storing record block: %w", err)
 	}
-	key := collection + "/" + rkey
 	return r.Tree.Insert(key, cid)
 }
 
@@ -60,7 +77,10 @@ func (r *Repo) Update(collection, rkey string, record any) error {
 
 // Delete deletes a record.
 func (r *Repo) Delete(collection, rkey string) error {
-	key := collection + "/" + rkey
+	key, err := validateRecordPath(collection, rkey)
+	if err != nil {
+		return err
+	}
 	return r.Tree.Remove(key)
 }
 

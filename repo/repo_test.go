@@ -529,3 +529,234 @@ func TestExportReload_ManyRecords(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 50, count)
 }
+
+// -------------------------------------------------------------------
+// Record path validation
+// -------------------------------------------------------------------
+
+func TestRecordPathValidation_Create(t *testing.T) {
+	t.Parallel()
+	store := mst.NewMemBlockStore()
+	r := &Repo{
+		DID:   "did:plc:testuser1234567890abcde",
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+	record := map[string]any{"text": "test"}
+
+	tests := []struct {
+		name       string
+		collection string
+		rkey       string
+	}{
+		{"empty collection", "", "abc"},
+		{"empty rkey", "app.bsky.feed.post", ""},
+		{"dot rkey", "app.bsky.feed.post", "."},
+		{"dotdot rkey", "app.bsky.feed.post", ".."},
+		{"no slash (both empty-ish)", "noslash", ""},
+		{"rkey with slash", "app.bsky.feed.post", "a/b"},
+		{"collection with space", "app bsky.feed.post", "abc"},
+		{"rkey with space", "app.bsky.feed.post", "a b"},
+		{"rkey with hash", "app.bsky.feed.post", "a#b"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := r.Create(tc.collection, tc.rkey, record)
+			require.Error(t, err, "Create(%q, %q) should fail", tc.collection, tc.rkey)
+			require.Contains(t, err.Error(), "invalid record path")
+		})
+	}
+}
+
+func TestRecordPathValidation_Get(t *testing.T) {
+	t.Parallel()
+	store := mst.NewMemBlockStore()
+	r := &Repo{
+		DID:   "did:plc:testuser1234567890abcde",
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+
+	_, _, err := r.Get("", "abc")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid record path")
+
+	_, _, err = r.Get("app.bsky.feed.post", "a/b")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid record path")
+}
+
+func TestRecordPathValidation_Delete(t *testing.T) {
+	t.Parallel()
+	store := mst.NewMemBlockStore()
+	r := &Repo{
+		DID:   "did:plc:testuser1234567890abcde",
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+
+	err := r.Delete("", "abc")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid record path")
+}
+
+// -------------------------------------------------------------------
+// Commit decode validation
+// -------------------------------------------------------------------
+
+func TestDecodeCommit_AcceptVersion2(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	c := &Commit{
+		DID:     "did:plc:testuser1234567890abcde",
+		Version: 2,
+		Data:    cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")),
+		Rev:     "3jqfcqzm3fo2j",
+	}
+	require.NoError(t, c.Sign(key))
+
+	data, err := encodeCommit(c)
+	require.NoError(t, err)
+
+	decoded, err := decodeCommit(data)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), decoded.Version)
+}
+
+func TestDecodeCommit_RejectVersion1(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	c := &Commit{
+		DID:     "did:plc:testuser1234567890abcde",
+		Version: 1,
+		Data:    cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")),
+		Rev:     "3jqfcqzm3fo2j",
+	}
+	require.NoError(t, c.Sign(key))
+
+	data, err := encodeCommit(c)
+	require.NoError(t, err)
+
+	_, err = decodeCommit(data)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported commit version")
+}
+
+func TestDecodeCommit_RejectVersion999(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	c := &Commit{
+		DID:     "did:plc:testuser1234567890abcde",
+		Version: 999,
+		Data:    cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")),
+		Rev:     "3jqfcqzm3fo2j",
+	}
+	require.NoError(t, c.Sign(key))
+
+	data, err := encodeCommit(c)
+	require.NoError(t, err)
+
+	_, err = decodeCommit(data)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported commit version")
+}
+
+func TestDecodeCommit_RejectV3MissingRev(t *testing.T) {
+	t.Parallel()
+	// Build a v3 commit CBOR manually without the "rev" field.
+	buf := make([]byte, 0, 128)
+	buf = cbor.AppendMapHeader(buf, 4) // only 4 fields: did, sig, data, version (no rev)
+
+	buf = cbor.AppendText(buf, "did")
+	buf = cbor.AppendText(buf, "did:plc:testuser1234567890abcde")
+
+	buf = cbor.AppendText(buf, "sig")
+	buf = cbor.AppendBytes(buf, make([]byte, 64))
+
+	dataCID := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root"))
+	buf = cbor.AppendText(buf, "data")
+	buf = cbor.AppendCIDLink(buf, &dataCID)
+
+	buf = cbor.AppendText(buf, "version")
+	buf = cbor.AppendUint(buf, 3)
+
+	_, err := decodeCommit(buf)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing required 'rev'")
+}
+
+func TestDecodeCommit_RejectV3MissingSig(t *testing.T) {
+	t.Parallel()
+	// Build a v3 commit CBOR manually without the "sig" field.
+	buf := make([]byte, 0, 128)
+	buf = cbor.AppendMapHeader(buf, 4) // only 4 fields: did, rev, data, version (no sig)
+
+	buf = cbor.AppendText(buf, "did")
+	buf = cbor.AppendText(buf, "did:plc:testuser1234567890abcde")
+
+	buf = cbor.AppendText(buf, "rev")
+	buf = cbor.AppendText(buf, "3jqfcqzm3fo2j")
+
+	dataCID := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root"))
+	buf = cbor.AppendText(buf, "data")
+	buf = cbor.AppendCIDLink(buf, &dataCID)
+
+	buf = cbor.AppendText(buf, "version")
+	buf = cbor.AppendUint(buf, 3)
+
+	_, err := decodeCommit(buf)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing required 'sig'")
+}
+
+func TestDecodeCommit_V2AllowsOptionalRevAndSig(t *testing.T) {
+	t.Parallel()
+	// Build a v2 commit CBOR without rev and sig — should be accepted.
+	buf := make([]byte, 0, 128)
+	buf = cbor.AppendMapHeader(buf, 3) // only 3 fields: did, data, version
+
+	buf = cbor.AppendText(buf, "did")
+	buf = cbor.AppendText(buf, "did:plc:testuser1234567890abcde")
+
+	dataCID := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root"))
+	buf = cbor.AppendText(buf, "data")
+	buf = cbor.AppendCIDLink(buf, &dataCID)
+
+	buf = cbor.AppendText(buf, "version")
+	buf = cbor.AppendUint(buf, 2)
+
+	decoded, err := decodeCommit(buf)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), decoded.Version)
+	require.Empty(t, decoded.Rev)
+	require.Nil(t, decoded.Sig)
+}
+
+func TestRecordPathValidation_ValidPathsAccepted(t *testing.T) {
+	t.Parallel()
+	store := mst.NewMemBlockStore()
+	r := &Repo{
+		DID:   "did:plc:testuser1234567890abcde",
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+	record := map[string]any{"text": "test"}
+
+	// These should all succeed.
+	require.NoError(t, r.Create("app.bsky.feed.post", "3jqfcqzm3fo2j", record))
+	require.NoError(t, r.Create("com.example.record", "self", record))
+	require.NoError(t, r.Create("app.bsky.feed.like", "abc~def", record))
+	require.NoError(t, r.Create("app.bsky.graph.follow", "key-with-dashes", record))
+	require.NoError(t, r.Create("app.bsky.actor.profile", "key_with_underscores", record))
+}

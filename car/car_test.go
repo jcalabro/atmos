@@ -397,7 +397,7 @@ func TestCARFixture_Write(t *testing.T) {
 // CID mismatch detection (from TS car.test.ts "verifies CIDs")
 // -------------------------------------------------------------------
 
-func TestBlockCIDMismatch(t *testing.T) {
+func TestBlockCIDMismatch_Rejected(t *testing.T) {
 	t.Parallel()
 	// Write a CAR with a block whose data doesn't match its CID.
 	goodData := []byte("correct data")
@@ -411,13 +411,65 @@ func TestBlockCIDMismatch(t *testing.T) {
 	// Write block with mismatched CID and data.
 	require.NoError(t, w.WriteBlock(goodCID, badData))
 
-	// Read it back — the CID won't match the data.
+	// Read it back — the CID verification should reject the block.
 	cr, err := NewReader(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
-	b, err := cr.Next()
+	_, err = cr.Next()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CID mismatch")
+}
+
+func TestBlockCIDMismatch_SingleBitFlip(t *testing.T) {
+	t.Parallel()
+	// Write a valid CAR, then flip a single bit in the block data.
+	data := []byte("this is valid block content for testing")
+	cid := cbor.ComputeCID(cbor.CodecRaw, data)
+
+	var buf bytes.Buffer
+	w, err := NewWriter(&buf, []cbor.CID{cid})
+	require.NoError(t, err)
+	require.NoError(t, w.WriteBlock(cid, data))
+
+	// Flip a bit in the block data region of the CAR bytes.
+	carBytes := buf.Bytes()
+	// The block data starts after the header + block varint + CID bytes.
+	// Flip the last byte's lowest bit.
+	carBytes[len(carBytes)-1] ^= 0x01
+
+	cr, err := NewReader(bytes.NewReader(carBytes))
+	require.NoError(t, err)
+	_, err = cr.Next()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CID mismatch")
+}
+
+func TestBlockCIDMismatch_ValidBlocksPass(t *testing.T) {
+	t.Parallel()
+	// Verify that legitimate blocks still pass verification.
+	data1 := []byte("block one")
+	data2 := []byte("block two")
+	cid1 := cbor.ComputeCID(cbor.CodecRaw, data1)
+	cid2 := cbor.ComputeCID(cbor.CodecRaw, data2)
+
+	var buf bytes.Buffer
+	w, err := NewWriter(&buf, []cbor.CID{cid1})
+	require.NoError(t, err)
+	require.NoError(t, w.WriteBlock(cid1, data1))
+	require.NoError(t, w.WriteBlock(cid2, data2))
+
+	cr, err := NewReader(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
 
-	// Verify CID mismatch.
-	computed := cbor.ComputeCID(b.CID.Codec(), b.Data)
-	require.False(t, b.CID.Equal(computed), "CID should not match tampered data")
+	b1, err := cr.Next()
+	require.NoError(t, err)
+	require.True(t, b1.CID.Equal(cid1))
+	require.Equal(t, data1, b1.Data)
+
+	b2, err := cr.Next()
+	require.NoError(t, err)
+	require.True(t, b2.CID.Equal(cid2))
+	require.Equal(t, data2, b2.Data)
+
+	_, err = cr.Next()
+	require.ErrorIs(t, err, io.EOF)
 }

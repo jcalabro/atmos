@@ -10,7 +10,11 @@ import (
 )
 
 // identityCopy returns a shallow copy of id so callers cannot mutate cached entries.
+// Returns nil if id is nil.
 func identityCopy(id *Identity) *Identity {
+	if id == nil {
+		return nil
+	}
 	cp := *id
 	cp.Keys = make(map[string]Key, len(id.Keys))
 	maps.Copy(cp.Keys, id.Keys)
@@ -161,7 +165,7 @@ func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Co
 		}
 		select {
 		case <-f.done:
-			return f.id, f.err
+			return identityCopy(f.id), f.err
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -177,7 +181,7 @@ func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Co
 		}
 		select {
 		case <-f.done:
-			return f.id, f.err
+			return identityCopy(f.id), f.err
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}

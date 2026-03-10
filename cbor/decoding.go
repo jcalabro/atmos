@@ -235,6 +235,9 @@ func (d *Decoder) readMap(count uint64) (map[string]any, error) {
 		if err != nil {
 			return nil, err
 		}
+		if !utf8.Valid(keyBytes) {
+			return nil, errors.New("cbor: map key contains invalid UTF-8")
+		}
 		key := string(keyBytes)
 
 		if i > 0 {

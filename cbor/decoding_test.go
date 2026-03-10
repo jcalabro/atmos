@@ -263,3 +263,69 @@ func TestDecode_RejectUint64OverMaxInt64(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsigned integer exceeds int64 range")
 }
+
+func TestDecode_RejectInvalidUTF8MapKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{
+			name: "0xFF byte in map key",
+			data: []byte{
+				0xa1,             // map of 1
+				0x63, 0x61, 0xFF, 0x62, // text(3) "a\xffb" — invalid UTF-8
+				0x01, // value: 1
+			},
+		},
+		{
+			name: "truncated multi-byte sequence in map key",
+			data: []byte{
+				0xa1,       // map of 1
+				0x62, 0xC0, 0x41, // text(2) "\xc0A" — overlong encoding
+				0x01,
+			},
+		},
+		{
+			name: "lone continuation byte in map key",
+			data: []byte{
+				0xa1,       // map of 1
+				0x62, 0x80, 0x41, // text(2) "\x80A" — starts with continuation byte
+				0x01,
+			},
+		},
+		{
+			name: "surrogate half in map key",
+			data: []byte{
+				0xa1,                         // map of 1
+				0x63, 0xED, 0xA0, 0x80,       // text(3) U+D800 — surrogate
+				0x01,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Unmarshal(tc.data)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "invalid UTF-8")
+		})
+	}
+}
+
+func TestDecode_ValidUTF8MapKeyAccepted(t *testing.T) {
+	t.Parallel()
+	// Map with valid UTF-8 key containing multi-byte characters.
+	// Key: "café" = 63 61 66 c3 a9 (5 bytes, valid UTF-8)
+	data := []byte{
+		0xa1,                               // map of 1
+		0x65, 0x63, 0x61, 0x66, 0xc3, 0xa9, // text(5) "café"
+		0x01, // value: 1
+	}
+	v, err := Unmarshal(data)
+	require.NoError(t, err)
+	m, ok := v.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, int64(1), m["café"])
+}

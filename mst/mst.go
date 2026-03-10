@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // BlockStore is a content-addressed block storage interface.
@@ -20,6 +20,9 @@ type BlockStore interface {
 // MemBlockStore is a simple in-memory BlockStore implementation.
 // Uses CID structs directly as map keys (comparable value type) to avoid
 // allocating byte slices for key encoding.
+//
+// MemBlockStore is NOT internally safe for concurrent use. Callers must provide
+// their own synchronization if the store will be accessed from multiple goroutines.
 type MemBlockStore struct {
 	blocks map[cbor.CID][]byte
 }
@@ -61,6 +64,9 @@ type node struct {
 }
 
 // Tree is an in-memory Merkle Search Tree.
+//
+// Tree is NOT internally safe for concurrent use. All operations (including reads like
+// Get and Walk) may mutate internal state via lazy loading.
 type Tree struct {
 	root  *node
 	store BlockStore
@@ -474,12 +480,14 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 			if err != nil {
 				return nil, err
 			}
-			if idx == 0 {
-				n.left = newChild
-			} else {
-				n.entries[idx-1].right = newChild
+			if newChild != child {
+				if idx == 0 {
+					n.left = newChild
+				} else {
+					n.entries[idx-1].right = newChild
+				}
+				n.dirty = true
 			}
-			n.dirty = true
 			return n, nil
 		}
 	}
@@ -487,19 +495,25 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 	// Key > all entries (or no entries), descend into rightmost child.
 	if len(n.entries) > 0 {
 		last := len(n.entries) - 1
-		newChild, err := t.removeNode(n.entries[last].right, key)
+		child := n.entries[last].right
+		newChild, err := t.removeNode(child, key)
 		if err != nil {
 			return nil, err
 		}
-		n.entries[last].right = newChild
-		n.dirty = true
+		if newChild != child {
+			n.entries[last].right = newChild
+			n.dirty = true
+		}
 	} else if n.left != nil {
-		newChild, err := t.removeNode(n.left, key)
+		child := n.left
+		newChild, err := t.removeNode(child, key)
 		if err != nil {
 			return nil, err
 		}
-		n.left = newChild
-		n.dirty = true
+		if newChild != child {
+			n.left = newChild
+			n.dirty = true
+		}
 	}
 	return n, nil
 }

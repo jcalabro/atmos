@@ -147,6 +147,9 @@ func decodeCommit(data []byte) (*Commit, error) {
 	if !ok {
 		return nil, errors.New("repo: commit 'version' is not an integer")
 	}
+	if ver != 2 && ver != 3 {
+		return nil, fmt.Errorf("repo: unsupported commit version %d, expected 2 or 3", ver)
+	}
 	c.Version = ver
 
 	didVal, ok := m["did"]
@@ -183,6 +186,8 @@ func decodeCommit(data []byte) (*Commit, error) {
 			return nil, errors.New("repo: commit 'rev' is not a string")
 		}
 		c.Rev = rev
+	} else if ver == 3 {
+		return nil, errors.New("repo: v3 commit missing required 'rev'")
 	}
 
 	if sigVal, ok := m["sig"]; ok {
@@ -191,6 +196,8 @@ func decodeCommit(data []byte) (*Commit, error) {
 			return nil, errors.New("repo: commit 'sig' is not bytes")
 		}
 		c.Sig = sig
+	} else if ver == 3 {
+		return nil, errors.New("repo: v3 commit missing required 'sig'")
 	}
 
 	return c, nil

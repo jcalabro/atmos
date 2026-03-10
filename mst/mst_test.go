@@ -101,6 +101,87 @@ func TestHeightForKey_CommitProofFixtureKeys(t *testing.T) {
 	}
 }
 
+// TestHeightFromHash_MultiWordZeros verifies the height formula is correct
+// when the SHA-256 hash has one or more full 64-bit words of zeros at the
+// start. This exercises the i*4 base calculation that was previously buggy
+// (using i/2*4, which undercounted by 50% for i >= 8).
+func TestHeightFromHash_MultiWordZeros(t *testing.T) {
+	t.Parallel()
+
+	// Reference: count leading zero 2-bit pairs byte-by-byte (simple, obviously correct).
+	refHeight := func(h *[32]byte) uint8 {
+		var count uint8
+		for _, b := range h {
+			if b < 64 {
+				count++
+			}
+			if b < 16 {
+				count++
+			}
+			if b < 4 {
+				count++
+			}
+			if b == 0 {
+				count++
+			} else {
+				break
+			}
+		}
+		return count
+	}
+
+	tests := []struct {
+		name   string
+		hash   [32]byte
+		height uint8
+	}{
+		{
+			name:   "no leading zeros",
+			hash:   [32]byte{0xFF},
+			height: 0,
+		},
+		{
+			name:   "one zero byte then 0x01",
+			hash:   [32]byte{0x00, 0x01},
+			height: 7, // 4 pairs from zero byte + 3 pairs from 0x01
+		},
+		{
+			name:   "8 zero bytes then 0x01 (crosses word boundary)",
+			hash:   [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0x01},
+			height: 35, // 32 pairs from 8 zero bytes + 3 from 0x01
+		},
+		{
+			name:   "8 zero bytes then 0x30",
+			hash:   [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0x30},
+			height: 33, // 32 + 1
+		},
+		{
+			name:   "16 zero bytes then 0x01",
+			hash:   [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01},
+			height: 67, // 64 + 3
+		},
+		{
+			name:   "24 zero bytes then 0xFF",
+			hash:   [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF},
+			height: 96, // 24*4 + 0
+		},
+		{
+			name:   "all zeros",
+			hash:   [32]byte{},
+			height: 128,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := heightFromHash(&tc.hash)
+			ref := refHeight(&tc.hash)
+			assert.Equal(t, tc.height, got, "heightFromHash mismatch")
+			assert.Equal(t, ref, got, "heightFromHash disagrees with reference impl")
+		})
+	}
+}
+
 // -------------------------------------------------------------------
 // Prefix length tests
 // -------------------------------------------------------------------

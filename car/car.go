@@ -158,9 +158,17 @@ func (r *Reader) Next() (Block, error) {
 		return Block{}, fmt.Errorf("car: parsing block CID: %w", err)
 	}
 
+	data := buf[cidLen:]
+
+	// Verify the block data matches the claimed CID.
+	expected := cbor.ComputeCID(cid.Codec(), data)
+	if !expected.Equal(cid) {
+		return Block{}, fmt.Errorf("car: block CID mismatch: claimed %s, computed %s", cid.String(), expected.String())
+	}
+
 	return Block{
 		CID:  cid,
-		Data: buf[cidLen:],
+		Data: data,
 	}, nil
 }
 
