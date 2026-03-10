@@ -1,0 +1,3220 @@
+[
+  {
+    "hex": "00",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "0"
+  },
+  {
+    "hex": "01",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "1"
+  },
+  {
+    "hex": "0a",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "10"
+  },
+  {
+    "hex": "17",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "23"
+  },
+  {
+    "hex": "1818",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "24"
+  },
+  {
+    "hex": "1819",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "25"
+  },
+  {
+    "hex": "1864",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "100"
+  },
+  {
+    "hex": "1903e8",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "1000"
+  },
+  {
+    "hex": "1a000f4240",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "1000000"
+  },
+  {
+    "hex": "1b000000e8d4a51000",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "1000000000000"
+  },
+  {
+    "hex": "1B3FFFFFFFFFFFFFFF",
+    "flags": ["valid", "canonical"],
+    "features": ["int63"],
+    "diagnostic": "4611686018427387903"
+  },
+  {
+    "hex": "1bffffffffffffffff",
+    "flags": ["valid", "canonical"],
+    "features": ["int64"],
+    "diagnostic": "18446744073709551615"
+  },
+  {
+    "hex": "c249010000000000000000",
+    "flags": ["valid", "canonical"],
+    "features": ["bignum"],
+    "diagnostic": "18446744073709551616"
+  },
+  {
+    "hex": "c249010000000000000000",
+    "flags": ["valid", "canonical"],
+    "features": ["!bignum"],
+    "diagnostic": "2(h'010000000000000000')"
+  },
+
+  {
+    "hex": "3bffffffffffffffff",
+    "flags": ["valid", "canonical"],
+    "features": ["int64"],
+    "diagnostic": "-18446744073709551616"
+  },
+  {
+    "hex": "c349010000000000000000",
+    "flags": ["valid", "canonical"],
+    "features": ["bignum"],
+    "diagnostic": "-18446744073709551617"
+  },
+  {
+    "hex": "c349010000000000000000",
+    "flags": ["valid", "canonical"],
+    "features": ["!bignum"],
+    "diagnostic": "3(h'010000000000000000')"
+  },
+  {
+    "hex": "20",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "-1"
+  },
+  {
+    "hex": "29",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "-10"
+  },
+  {
+    "hex": "3863",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "-100"
+  },
+  {
+    "hex": "3903e7",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "-1000"
+  },
+  {
+    "hex": "f90000",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "0.0"
+  },
+  {
+    "hex": "f98000",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "-0.0"
+  },
+  {
+    "hex": "f93c00",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "1.0"
+  },
+  {
+    "hex": "fb3ff199999999999a",
+    "flags": ["valid", "canonical", "float"],
+    "diagnostic": "1.1"
+  },
+  {
+    "hex": "f93e00",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "1.5"
+  },
+  {
+    "hex": "f97bff",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "65504.0"
+  },
+  {
+    "hex": "fa47c35000",
+    "flags": ["valid", "canonical", "float"],
+    "diagnostic": "100000.0"
+  },
+  {
+    "hex": "fa7f7fffff",
+    "flags": ["valid", "canonical", "float"],
+    "diagnostic": "3.40282346638529e+38"
+  },
+  {
+    "hex": "fb7e37e43c8800759c",
+    "flags": ["valid", "canonical", "float"],
+    "diagnostic": "1.0e+300"
+  },
+  {
+    "hex": "f90001",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "5.96046447753906e-8"
+  },
+  {
+    "hex": "f90400",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "6.103515625e-5"
+  },
+  {
+    "hex": "f9c400",
+    "flags": ["valid", "canonical", "float"],
+    "features": ["float16"],
+    "diagnostic": "-4.0"
+  },
+  {
+    "hex": "fbc010666666666666",
+    "flags": ["valid", "canonical", "float"],
+    "diagnostic": "-4.1"
+  },
+  {
+    "hex": "f97c00",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "Infinity"
+  },
+  {
+    "hex": "f97e00",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "NaN"
+  },
+  {
+    "hex": "f9fc00",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "-Infinity"
+  },
+  {
+    "hex": "fa7f800000",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "Infinity"
+  },
+  {
+    "hex": "fa7fc00000",
+    "flags": ["valid"],
+    "diagnostic": "NaN"
+  },
+  {
+    "hex": "faff800000",
+    "flags": ["valid"],
+    "diagnostic": "-Infinity"
+  },
+  {
+    "hex": "fb7ff0000000000000",
+    "flags": ["valid"],
+    "diagnostic": "Infinity"
+  },
+  {
+    "hex": "fb7ff8000000000000",
+    "flags": ["valid"],
+    "diagnostic": "NaN"
+  },
+  {
+    "hex": "fbfff0000000000000",
+    "flags": ["valid"],
+    "diagnostic": "-Infinity"
+  },
+  {
+    "hex": "f4",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "false"
+  },
+  {
+    "hex": "f5",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "true"
+  },
+  {
+    "hex": "f6",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "null"
+  },
+  {
+    "hex": "f7",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "undefined"
+  },
+  {
+    "hex": "f0",
+    "flags": ["valid", "canonical"],
+    "features": ["simple"],
+    "diagnostic": "simple(16)"
+  },
+  {
+    "hex": "f820",
+    "flags": ["valid", "canonical"],
+    "features": ["simple"],
+    "diagnostic": "simple(32)"
+  },
+  {
+    "hex": "f8ff",
+    "flags": ["valid", "canonical"],
+    "features": ["simple"],
+    "diagnostic": "simple(255)"
+  },
+  {
+    "hex": "c074323031332d30332d32315432303a30343a30305a",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "0(\"2013-03-21T20:04:00Z\")"
+  },
+  {
+    "hex": "c11a514b67b0",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "1(1363896240)"
+  },
+  {
+    "hex": "c1fb41d452d9ec200000",
+    "flags": ["valid", "canonical", "float"],
+    "diagnostic": "1(1363896240.5)"
+  },
+  {
+    "hex": "d74401020304",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "23(h'01020304')"
+  },
+  {
+    "hex": "d818456449455446",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "24(h'6449455446')"
+  },
+  {
+    "hex": "d82076687474703a2f2f7777772e6578616d706c652e636f6d",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "32(\"http://www.example.com\")"
+  },
+  {
+    "hex": "40",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "h''"
+  },
+  {
+    "hex": "4401020304",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "h'01020304'"
+  },
+  {
+    "hex": "60",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"\""
+  },
+  {
+    "hex": "6161",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"a\""
+  },
+  {
+    "hex": "6449455446",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"IETF\""
+  },
+  {
+    "hex": "62225c",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"\\\"\\\\\""
+  },
+  {
+    "hex": "62c3bc",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"ü\""
+  },
+  {
+    "hex": "63e6b0b4",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"水\""
+  },
+  {
+    "hex": "64f0908591",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "\"\uD800\uDD51\""
+  },
+  {
+    "hex": "80",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "[]"
+  },
+  {
+    "hex": "83010203",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "[1, 2, 3]"
+  },
+  {
+    "hex": "8301820203820405",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "[1, [2, 3], [4, 5]]"
+  },
+  {
+    "hex": "98190102030405060708090a0b0c0d0e0f101112131415161718181819",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]"
+  },
+  {
+    "hex": "a0",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "{}"
+  },
+  {
+    "hex": "a201020304",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "{1: 2, 3: 4}"
+  },
+  {
+    "hex": "a26161016162820203",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "{\"a\": 1, \"b\": [2, 3]}"
+  },
+  {
+    "hex": "826161a161626163",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "[\"a\", {\"b\": \"c\"}]"
+  },
+  {
+    "hex": "a56161614161626142616361436164614461656145",
+    "flags": ["valid", "canonical"],
+    "diagnostic": "{\"a\": \"A\", \"b\": \"B\", \"c\": \"C\", \"d\": \"D\", \"e\": \"E\"}"
+  },
+  {
+    "hex": "5f42010243030405ff",
+    "flags": ["valid"],
+    "diagnostic": "h'0102030405'",
+    "diagnosticExact": "(_ h'0102', h'030405')"
+  },
+  {
+    "hex": "7f657374726561646d696e67ff",
+    "flags": ["valid"],
+    "diagnostic": "\"streaming\"",
+    "diagnosticExact": "(_ \"strea\", \"ming\")"
+  },
+  {
+    "hex": "9fff",
+    "flags": ["valid"],
+    "diagnostic": "[]"
+  },
+  {
+    "hex": "9f018202039f0405ffff",
+    "flags": ["valid"],
+    "diagnostic": "[1, [2, 3], [4, 5]]"
+  },
+  {
+    "hex": "9f01820203820405ff",
+    "flags": ["valid"],
+    "diagnostic": "[1, [2, 3], [4, 5]]"
+  },
+  {
+    "hex": "83018202039f0405ff",
+    "flags": ["valid"],
+    "diagnostic": "[1, [2, 3], [4, 5]]"
+  },
+  {
+    "hex": "83019f0203ff820405",
+    "flags": ["valid"],
+    "diagnostic": "[1, [2, 3], [4, 5]]"
+  },
+  {
+    "hex": "9f0102030405060708090a0b0c0d0e0f101112131415161718181819ff",
+    "flags": ["valid"],
+    "diagnostic": "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]"
+  },
+  {
+    "hex": "bf61610161629f0203ffff",
+    "flags": ["valid"],
+    "diagnostic": "{\"a\": 1, \"b\": [2, 3]}"
+  },
+  {
+    "hex": "826161bf61626163ff",
+    "flags": ["valid"],
+    "diagnostic": "[\"a\", {\"b\": \"c\"}]"
+  },
+  {
+    "hex": "bf6346756ef563416d7421ff",
+    "flags": ["valid"],
+    "diagnostic": "{\"Fun\": true, \"Amt\": -2}"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f01"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f02"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f03"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f04"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f05"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f06"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f07"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f08"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f09"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f0a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f0b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f0c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f0d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f0e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f0f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f10"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f11"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f12"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f13"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f14"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f15"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f16"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f17"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f18"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f19"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f1a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f1b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f1c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f1d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f1e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f1f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f20"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f21"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f22"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f23"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f24"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f25"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f26"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f27"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f28"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f29"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f2a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f2b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f2c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f2d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f2e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f2f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f30"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f31"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f32"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f33"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f34"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f35"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f36"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f37"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f38"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f39"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f3a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f3b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f3c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f3d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f3e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f3f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f5c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f5d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f5e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f5f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f60"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f61"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f62"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f63"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f64"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f65"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f66"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f67"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f68"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f69"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f70"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f71"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f72"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f73"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f74"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f75"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f76"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f77"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f78"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f79"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f7a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f7b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f7c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f7d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f7e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f7f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f80"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f81"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f82"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f83"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f84"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f85"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f86"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f87"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f88"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f89"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f8a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f8b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f8c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f8d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f8e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f8f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f90"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f91"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f92"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f93"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f94"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f95"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f96"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f97"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f98"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f99"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f9a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f9b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f9c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f9d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f9e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f9f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5faa"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fab"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fac"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fad"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fae"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5faf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fb9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fba"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fbb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fbc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fbd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fbe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fbf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fca"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fcb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fcc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fcd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fce"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fcf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fd9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fda"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fdb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fdc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fdd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fde"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fdf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fea"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5feb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fec"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fed"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fee"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fef"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ff9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ffa"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ffb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ffc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ffd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5ffe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f01"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f02"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f03"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f04"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f05"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f06"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f07"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f08"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f09"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f0a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f0b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f0c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f0d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f0e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f0f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f10"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f11"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f12"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f13"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f14"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f15"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f16"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f17"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f18"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f19"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f1a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f1b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f1c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f1d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f1e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f1f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f20"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f21"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f22"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f23"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f24"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f25"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f26"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f27"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f28"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f29"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f2a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f2b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f2c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f2d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f2e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f2f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f30"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f31"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f32"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f33"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f34"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f35"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f36"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f37"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f38"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f39"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f3a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f3b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f3c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f3d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f3e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f3f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f40"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f41"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f42"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f43"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f44"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f45"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f46"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f47"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f48"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f49"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f50"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f51"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f52"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f53"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f54"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f55"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f56"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f57"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f58"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f59"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f5a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f5b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f5c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f5d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f5e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f5f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f7c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f7d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f7e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f7f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f80"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f81"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f82"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f83"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f84"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f85"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f86"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f87"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f88"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f89"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f8a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f8b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f8c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f8d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f8e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f8f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f90"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f91"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f92"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f93"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f94"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f95"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f96"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f97"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f98"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f99"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f9a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f9b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f9c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f9d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f9e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f9f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fa9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7faa"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fab"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fac"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fad"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fae"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7faf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fb9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fba"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fbb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fbc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fbd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fbe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fbf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fc9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fca"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fcb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fcc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fcd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fce"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fcf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fd9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fda"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fdb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fdc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fdd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fde"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fdf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fe9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fea"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7feb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fec"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fed"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fee"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7fef"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff2"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff3"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff4"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff5"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff6"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff7"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ff9"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ffa"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ffb"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ffc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ffd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7ffe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f1c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f1d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f1e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f1f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f3c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f3d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f3e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f3f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f5c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f5d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f5e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f7c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f7d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f7e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f9c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f9d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f9e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fbc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fbd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fbe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fdc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fdd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fde"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fdf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9ffc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9ffd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9ffe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "be"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf1c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf1d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf1e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf1f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf3c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf3d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf3e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf3f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf5c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf5d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf5e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf7c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf7d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf7e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf9c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf9d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf9e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfbc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfbd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfbe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfdc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfdd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfde"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bfdf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bffc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bffd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bffe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "dc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "dd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "de"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "df"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f800"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f801"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f802"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f803"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f804"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f805"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f806"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f807"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f808"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f809"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f810"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f811"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f812"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f813"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f814"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f815"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f816"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f817"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f818"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f819"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f81a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f81b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f81c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f81d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f81e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f81f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f4100"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f6100"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f6100ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f4100ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f00ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f21ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f80ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fa0ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fc000ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5fe0ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5f5f4100ffff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7f7f6100ffff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "81"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "8200"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9a01ff00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a1"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a20102"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f0102"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf01020102"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f8000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "819f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "818181818181818181"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f9f9f9f9fffffffff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f819f819f9fffffff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f829f819f9fffffffff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "18"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "19"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1901"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1a0102"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1b01020304050607"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "38"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "58"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "78"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "98"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "b8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "d8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f8"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "81ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "8200ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a1ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a1ff00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a100ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a20000ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "80ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9fffff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f800"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f801"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f802"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f803"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f804"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f805"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f806"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f807"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f808"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f809"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80a"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80b"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f80f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f810"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f811"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f812"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f813"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f814"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f815"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f816"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f817"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f818"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3f"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "df00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "df"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "41"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "61"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5affffffff00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7affffffff00"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "1e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "3e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9c"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9d"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9e"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "be"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "dc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "dd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "de"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fc"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fd"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fe"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a100"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "a2000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf00ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bf000000ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "f900"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fa0000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "fb000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "5bffffffffffffffff010203"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "7b7fffffffffffffff010203"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "c0"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9f81ff"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9bFFFFFFFFFFFFFFFF00000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "9b0FFFFFFFFFFFFFFF00000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bbFFFFFFFFFFFFFFFF00000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "bb0FFFFFFFFFFFFFFF00000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "6bFFFFFFFFFFFFFFFF00000000"
+  },
+  {
+    "flags": ["invalid"],
+    "hex": "6b0FFFFFFFFFFFFFFF00000000"
+  }
+]

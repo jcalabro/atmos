@@ -1,0 +1,66 @@
+[
+  {
+    "type": "roundtrip",
+    "data": "1b001fffffffffffff",
+    "name": "max safe JS integer, 2^53-1",
+    "tags": [
+      "basic"
+    ],
+    "desc": "the largest integer considered safe for use in JavaScript"
+  },
+  {
+    "type": "roundtrip",
+    "data": "1b0020000000000001",
+    "name": "2^53+1, unrepresentable in JS",
+    "tags": [
+      "basic"
+    ],
+    "desc": "an integer that can't be represented in JavaScript (without BigInt)"
+  },
+  {
+    "type": "roundtrip",
+    "data": "3b001ffffffffffffe",
+    "name": "min safe JS integer, -(2^53-1)",
+    "tags": [
+      "basic"
+    ],
+    "desc": "the smallest integer considered safe for use in JavaScript"
+  },
+  {
+    "type": "roundtrip",
+    "data": "3b0020000000000000",
+    "name": "-(2^53+1), unrepresentable in JS",
+    "tags": [
+      "basic"
+    ],
+    "desc": "a negative integer that can't be represented in JavaScript (without BigInt)"
+  },
+  {
+    "type": "invalid_out",
+    "data": "c249010000000000000000",
+    "name": "bignum",
+    "tags": [
+      "dag-cbor"
+    ],
+    "desc": "big integers are banned for encoding by dag-cbor"
+  },
+  {
+    "type": "invalid_in",
+    "data": "c249010000000000000000",
+    "name": "bignum",
+    "tags": [
+      "dag-cbor"
+    ],
+    "desc": "big integers are banned for decoding by dag-cbor"
+  },
+  {
+    "type": "invalid_in",
+    "data": "c24101",
+    "name": "bignum with small value",
+    "tags": [
+      "dag-cbor",
+      "rfc8949"
+    ],
+    "desc": "an bignum with a value in the valid range is still banned in dag-cbor, and improper in RFC 8949 preferred serialization"
+  }
+]

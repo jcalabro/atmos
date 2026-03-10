@@ -1,0 +1,11 @@
+{
+    "packages": [
+        {"prefix": "app.bsky", "package": "bsky", "outDir": "api/bsky", "import": "github.com/jcalabro/atmos/api/bsky"},
+        {"prefix": "com.atproto", "package": "comatproto", "outDir": "api/comatproto", "import": "github.com/jcalabro/atmos/api/comatproto"},
+        {"prefix": "chat.bsky", "package": "chatbsky", "outDir": "api/chatbsky", "import": "github.com/jcalabro/atmos/api/chatbsky"},
+        {"prefix": "tools.ozone", "package": "ozone", "outDir": "api/ozone", "import": "github.com/jcalabro/atmos/api/ozone"}
+    ],
+    "sharedTypesDir": "api/lextypes",
+    "sharedTypesPkg": "lextypes",
+    "sharedTypesImport": "github.com/jcalabro/atmos/api/lextypes"
+}

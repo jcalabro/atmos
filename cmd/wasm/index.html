@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AT Protocol WASM Demo</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 2rem; }
+    h1 { color: #0984e3; }
+    .result { background: #16213e; padding: 1rem; margin: 0.5rem 0; border-radius: 4px; }
+    .ok { border-left: 3px solid #00b894; }
+    .err { border-left: 3px solid #d63031; }
+    #log { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>AT Protocol WASM Demo</h1>
+  <div id="log"></div>
+
+  <script src="wasm_exec.js"></script>
+  <script type="module">
+    const log = document.getElementById('log');
+    function emit(label, value, ok = true) {
+      const div = document.createElement('div');
+      div.className = `result ${ok ? 'ok' : 'err'}`;
+      div.textContent = `${label}: ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}`;
+      log.appendChild(div);
+    }
+
+    async function run() {
+      emit('Status', 'Loading WASM...');
+
+      const go = new Go();
+      const result = await WebAssembly.instantiateStreaming(
+        fetch('./atproto.wasm'),
+        go.importObject,
+      );
+      go.run(result.instance);
+
+      const atp = globalThis.atp;
+      if (!atp) {
+        emit('Error', 'atp global not found', false);
+        return;
+      }
+      emit('Status', 'WASM loaded');
+
+      // Syntax tests
+      try {
+        const did = atp.parseDID('did:plc:ewvi7nxzyoun6zhxrhs64oiz');
+        emit('parseDID', did);
+      } catch (e) { emit('parseDID', e.message, false); }
+
+      try {
+        const handle = atp.parseHandle('atproto.com');
+        emit('parseHandle', handle);
+      } catch (e) { emit('parseHandle', e.message, false); }
+
+      try {
+        const uri = atp.parseATURI('at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/abc123');
+        emit('parseATURI', uri);
+      } catch (e) { emit('parseATURI', e.message, false); }
+
+      try {
+        const nsid = atp.parseNSID('app.bsky.feed.post');
+        emit('parseNSID', nsid);
+      } catch (e) { emit('parseNSID', e.message, false); }
+
+      try {
+        const tid = atp.generateTID();
+        emit('generateTID', tid);
+      } catch (e) { emit('generateTID', e.message, false); }
+
+      // CBOR tests
+      try {
+        const encoded = atp.cbor.encode({text: 'hello', num: 42});
+        emit('cbor.encode', `${encoded.length} bytes`);
+
+        const decoded = atp.cbor.decode(encoded);
+        emit('cbor.decode', decoded);
+
+        const cid = atp.cbor.computeCID(encoded);
+        emit('cbor.computeCID', cid);
+      } catch (e) { emit('cbor', e.message, false); }
+
+      // Crypto tests
+      try {
+        const p256 = atp.crypto.generateP256();
+        emit('crypto.generateP256', { didKey: p256.didKey, pubLen: p256.publicKey.length });
+
+        const msg = new TextEncoder().encode('hello world');
+        const sig = atp.crypto.sign(p256.privateKey, msg);
+        emit('crypto.sign', `${sig.length} byte signature`);
+
+        const valid = atp.crypto.verify(p256.publicKey, msg, sig);
+        emit('crypto.verify', valid);
+
+        const parsed = atp.crypto.parseDIDKey(p256.didKey);
+        emit('crypto.parseDIDKey', { type: parsed.type, pubLen: parsed.publicKey.length });
+      } catch (e) { emit('crypto', e.message, false); }
+
+      // K-256
+      try {
+        const k256 = atp.crypto.generateK256();
+        emit('crypto.generateK256', { didKey: k256.didKey, pubLen: k256.publicKey.length });
+      } catch (e) { emit('crypto.generateK256', e.message, false); }
+
+      // OAuth tests
+      try {
+        const pkce = atp.oauth.generatePKCE();
+        emit('oauth.generatePKCE', pkce);
+      } catch (e) { emit('oauth', e.message, false); }
+
+      // Identity resolution (async, needs network)
+      try {
+        emit('Status', 'Resolving identity...');
+        const ident = await atp.identity.resolve('atproto.com');
+        emit('identity.resolve', ident);
+      } catch (e) { emit('identity.resolve', e.message, false); }
+
+      emit('Status', 'All tests complete');
+    }
+
+    run().catch(e => emit('Fatal', e.message, false));
+  </script>
+</body>
+</html>

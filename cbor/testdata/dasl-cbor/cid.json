@@ -1,0 +1,103 @@
+[
+  {
+    "type": "invalid_in",
+    "data": "d9002a582500015512205891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+    "name": "long CID tag",
+    "tags": [
+      "dag-cbor"
+    ],
+    "desc": "a longer than necessary CBOR representation of the CID tag is used, which is invalid in dag-cbor"
+  },
+  {
+    "type": "roundtrip",
+    "data": "d82a582500015512205891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+    "name": "valid CID with short tag",
+    "tags": [
+      "dag-cbor",
+      "dasl-cid",
+      "c42"
+    ],
+    "desc": "a valid CID (raw, SHA-256) using the correct short CBOR representation of the CID tag"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a4100",
+    "name": "invalid CID",
+    "tags": [
+      "basic"
+    ],
+    "desc": "this is tagged as a CID but is not valid, only containing a single zero byte"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a582300122022ad631c69ee983095b5b8acd029ff94aff1dc6c48837878589a92b90dfea317",
+    "name": "CIDv0",
+    "tags": [
+      "dasl-cid"
+    ],
+    "desc": "a valid CIDv0, which is invalid as a DASL CID"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a582400015512205891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be",
+    "name": "invalid hash size",
+    "tags": [
+      "basic"
+    ],
+    "desc": "a CIDv1 with a stated hash size of 32 bytes, but only 31 bytes provided"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a450001551200",
+    "name": "empty CID",
+    "tags": [
+      "dasl-cid"
+    ],
+    "desc": "a valid CIDv1 with no hash data (hash length of zero)"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a5824000155121f5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be",
+    "name": "short hash digest",
+    "tags": [
+      "dasl-cid"
+    ],
+    "desc": "a valid (IPFS) CID that has a hash digest < 32 bytes"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a582600015512215891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be0300",
+    "name": "long hash digest",
+    "tags": [
+      "dasl-cid"
+    ],
+    "desc": "a valid (IPFS) CID that has a hash digest > 32 bytes"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a58250001701220e9822efc7c48027a5429fdbd988d02b2b8e4eaee8f62c32bd1021dcf922e05de",
+    "name": "CIDv1 that isn't raw or cbor",
+    "tags": [
+      "dasl-cid"
+    ],
+    "desc": "a valid CIDv1 that uses dag-pb, invalid in the DASL CID spec"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a58190001551114f572d396fae9206628714fb2ce00f72e94f2258f",
+    "name": "disallowed hash type (SHA-1)",
+    "tags": [
+      "dasl-cid"
+    ],
+    "desc": "a valid CIDv1 that uses the SHA-1 hash, invalid in the DASL CID spec"
+  },
+  {
+    "type": "invalid_in",
+    "data": "d82a5824015512205891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+    "name": "CID with no null byte",
+    "tags": [
+      "basic"
+    ],
+    "desc": "valid CIDs in CBOR must start with 0x00, this one misses that but is otherwise valid"
+  }
+]
