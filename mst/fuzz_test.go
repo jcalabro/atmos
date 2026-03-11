@@ -79,6 +79,65 @@ func FuzzIsValidMstKey(f *testing.F) {
 	})
 }
 
+// FuzzDecodeNodeDataRoundTrip tests that successfully decoded MST nodes can be
+// re-encoded and decoded again to produce identical data. This verifies the
+// integrity of the specialized fast-path codec.
+func FuzzDecodeNodeDataRoundTrip(f *testing.F) {
+	cid := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("test"))
+	for _, nd := range []*NodeData{
+		{Entries: []EntryData{}},
+		{Entries: []EntryData{{PrefixLen: 0, KeySuffix: []byte("key"), Value: cid}}},
+		{Left: gt.Some(cid), Entries: []EntryData{
+			{PrefixLen: 0, KeySuffix: []byte("abc"), Value: cid},
+			{PrefixLen: 2, KeySuffix: []byte("d"), Value: cid, Right: gt.Some(cid)},
+		}},
+	} {
+		data, err := encodeNodeData(nd)
+		if err == nil {
+			f.Add(data)
+		}
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		nd, err := DecodeNodeData(data)
+		if err != nil {
+			return
+		}
+		// Re-encode.
+		encoded, err := encodeNodeData(&nd)
+		if err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		// Re-decode.
+		nd2, err := DecodeNodeData(encoded)
+		if err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		// Compare structurally.
+		if nd.Left != nd2.Left {
+			t.Fatalf("left CID mismatch")
+		}
+		if len(nd.Entries) != len(nd2.Entries) {
+			t.Fatalf("entry count mismatch: %d vs %d", len(nd.Entries), len(nd2.Entries))
+		}
+		for i := range nd.Entries {
+			e1, e2 := &nd.Entries[i], &nd2.Entries[i]
+			if e1.PrefixLen != e2.PrefixLen {
+				t.Fatalf("entry %d: prefix len mismatch", i)
+			}
+			if string(e1.KeySuffix) != string(e2.KeySuffix) {
+				t.Fatalf("entry %d: key suffix mismatch", i)
+			}
+			if !e1.Value.Equal(e2.Value) {
+				t.Fatalf("entry %d: value CID mismatch", i)
+			}
+			if e1.Right != e2.Right {
+				t.Fatalf("entry %d: right CID mismatch", i)
+			}
+		}
+	})
+}
+
 // FuzzHeightForKey tests that height computation never panics and is deterministic.
 func FuzzHeightForKey(f *testing.F) {
 	f.Add("")
