@@ -958,6 +958,46 @@ func TestIsValidMstKey(t *testing.T) {
 // Height algorithm equivalence with TypeScript
 // -------------------------------------------------------------------
 
+func TestWriteBlocks_EmptyTree(t *testing.T) {
+	t.Parallel()
+	store := NewMemBlockStore()
+	tree := NewTree(store)
+	cid, err := tree.WriteBlocks(store)
+	require.NoError(t, err)
+	require.True(t, cid.Defined())
+
+	// Block should be in the store.
+	data, err := store.GetBlock(cid)
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+
+	// Loading from the CID should give an equivalent empty tree.
+	tree2 := LoadTree(store, cid)
+	var count int
+	require.NoError(t, tree2.Walk(func(_ string, _ cbor.CID) error {
+		count++
+		return nil
+	}))
+	require.Equal(t, 0, count)
+}
+
+func TestWalk_ErrorPropagation(t *testing.T) {
+	t.Parallel()
+	tree, _ := buildTreeFromKeys(t, []string{"a", "b", "c", "d", "e"})
+
+	stopErr := fmt.Errorf("stop walking")
+	var visited int
+	err := tree.Walk(func(_ string, _ cbor.CID) error {
+		visited++
+		if visited == 2 {
+			return stopErr
+		}
+		return nil
+	})
+	require.ErrorIs(t, err, stopErr)
+	require.Equal(t, 2, visited)
+}
+
 func TestHeightForKey_TSEquivalence(t *testing.T) {
 	t.Parallel()
 	// Verify our Go implementation matches the TypeScript leading-zeros algorithm.

@@ -73,3 +73,33 @@ func TestTIDClock_ClockIDGetter(t *testing.T) {
 	clock2 := ClockFromTID(tid)
 	require.Equal(t, uint(7), clock2.ClockID())
 }
+
+func TestTID_MarshalRoundTrip(t *testing.T) {
+	t.Parallel()
+	raw := "3jqfcqzm3fo2j"
+	tid, err := ParseTID(raw)
+	require.NoError(t, err)
+	b, err := tid.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, raw, string(b))
+	var tid2 TID
+	require.NoError(t, tid2.UnmarshalText(b))
+	require.Equal(t, tid, tid2)
+
+	var bad TID
+	require.Error(t, bad.UnmarshalText([]byte("short")))
+}
+
+func TestNewTIDNow(t *testing.T) {
+	t.Parallel()
+	before := time.Now()
+	tid := NewTIDNow(42)
+	after := time.Now()
+	require.Len(t, string(tid), 13)
+	parsed, err := ParseTID(string(tid))
+	require.NoError(t, err)
+	require.Equal(t, tid, parsed)
+	ts := tid.Time()
+	require.False(t, ts.Before(before.Add(-time.Second)))
+	require.False(t, ts.After(after.Add(time.Second)))
+}

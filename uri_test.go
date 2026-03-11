@@ -40,3 +40,19 @@ func TestParseURI_SchemeWithDigitsAndPlus(t *testing.T) {
 		})
 	}
 }
+
+func TestURI_MarshalRoundTrip(t *testing.T) {
+	t.Parallel()
+	raw := "https://example.com/path"
+	u, err := ParseURI(raw)
+	require.NoError(t, err)
+	b, err := u.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, raw, string(b))
+	var u2 URI
+	require.NoError(t, u2.UnmarshalText(b))
+	require.Equal(t, u, u2)
+
+	var bad URI
+	require.Error(t, bad.UnmarshalText([]byte("")))
+}

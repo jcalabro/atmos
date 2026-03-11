@@ -760,3 +760,50 @@ func TestRecordPathValidation_ValidPathsAccepted(t *testing.T) {
 	require.NoError(t, r.Create("app.bsky.graph.follow", "key-with-dashes", record))
 	require.NoError(t, r.Create("app.bsky.actor.profile", "key_with_underscores", record))
 }
+
+// -------------------------------------------------------------------
+// LoadBlocksFromCAR
+// -------------------------------------------------------------------
+
+func TestLoadBlocksFromCAR(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("testdata/greenground.repo.car")
+	require.NoError(t, err)
+
+	store, rootCID, err := LoadBlocksFromCAR(bytes.NewReader(data))
+	require.NoError(t, err)
+	require.NotNil(t, store)
+	require.True(t, rootCID.Defined())
+
+	// The root CID should be retrievable from the store.
+	block, err := store.GetBlock(rootCID)
+	require.NoError(t, err)
+	require.NotEmpty(t, block)
+}
+
+func TestLoadBlocksFromCAR_RepoSlice(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("testdata/repo_slice.car")
+	require.NoError(t, err)
+
+	store, rootCID, err := LoadBlocksFromCAR(bytes.NewReader(data))
+	require.NoError(t, err)
+	require.NotNil(t, store)
+	require.True(t, rootCID.Defined())
+
+	block, err := store.GetBlock(rootCID)
+	require.NoError(t, err)
+	require.NotEmpty(t, block)
+}
+
+func TestLoadBlocksFromCAR_Invalid(t *testing.T) {
+	t.Parallel()
+
+	// Empty input.
+	_, _, err := LoadBlocksFromCAR(bytes.NewReader(nil))
+	require.Error(t, err)
+
+	// Garbage input.
+	_, _, err = LoadBlocksFromCAR(bytes.NewReader([]byte("not a car file")))
+	require.Error(t, err)
+}

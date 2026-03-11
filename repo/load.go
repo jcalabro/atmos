@@ -88,6 +88,11 @@ func LoadBlocksFromCAR(r io.Reader) (*mst.MemBlockStore, cbor.CID, error) {
 		return nil, cbor.CID{}, err
 	}
 
+	header := cr.Header()
+	if len(header.Roots) == 0 {
+		return nil, cbor.CID{}, errors.New("repo: CAR has no roots")
+	}
+
 	store := mst.NewMemBlockStore()
 	for {
 		block, err := cr.Next()
@@ -102,5 +107,5 @@ func LoadBlocksFromCAR(r io.Reader) (*mst.MemBlockStore, cbor.CID, error) {
 		}
 	}
 
-	return store, cr.Header().Roots[0], nil
+	return store, header.Roots[0], nil
 }

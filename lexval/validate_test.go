@@ -897,3 +897,190 @@ func TestValidate_Boolean_Const(t *testing.T) {
 	assert.NoError(t, ValidateValue(nil, "", f, true))
 	assert.Error(t, ValidateValue(nil, "", f, false))
 }
+
+// --- validateDef remaining branches ---
+
+func TestValidate_Ref_IntegerDef(t *testing.T) {
+	t.Parallel()
+	min := int64(10)
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#myInt"},
+				},
+			}},
+			"myInt": {Type: "integer", Minimum: &min},
+		},
+	}))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{"val": int64(15)}))
+	assert.Error(t, ValidateRecord(cat, "com.example.test", map[string]any{"val": int64(5)}))
+}
+
+func TestValidate_Ref_RecordDef(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#inner"},
+				},
+			}},
+			"inner": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"name": {Type: "string"},
+				},
+			}},
+		},
+	}))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{"val": map[string]any{"name": "ok"}}))
+	// Non-map value for record ref.
+	assert.Error(t, ValidateRecord(cat, "com.example.test", map[string]any{"val": "not-a-map"}))
+}
+
+func TestValidate_Ref_RecordDef_NilRecord(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#broken"},
+				},
+			}},
+			"broken": {Type: "record"}, // nil Record
+		},
+	}))
+	err := ValidateRecord(cat, "com.example.test", map[string]any{"val": map[string]any{}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "record def has no record object")
+}
+
+func TestValidate_Ref_ObjectDef_NotMap(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#myObj"},
+				},
+			}},
+			"myObj": {Type: "object", Properties: map[string]*lexicon.Field{"x": {Type: "string"}}},
+		},
+	}))
+	err := ValidateRecord(cat, "com.example.test", map[string]any{"val": 42})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected object for ref")
+}
+
+func TestValidate_Ref_BlobDef(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#myBlob"},
+				},
+			}},
+			"myBlob": {Type: "blob"},
+		},
+	}))
+	cid := cbor.ComputeCID(cbor.CodecRaw, []byte("data"))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{
+		"val": map[string]any{
+			"$type":    "blob",
+			"ref":      cid,
+			"mimeType": "image/png",
+			"size":     int64(100),
+		},
+	}))
+	assert.Error(t, ValidateRecord(cat, "com.example.test", map[string]any{"val": "not-a-blob"}))
+}
+
+func TestValidate_Ref_RefDef(t *testing.T) {
+	t.Parallel()
+	// Ref chain: main → #indirect → #target (object).
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#indirect"},
+				},
+			}},
+			"indirect": {Type: "ref", Ref: "#target"},
+			"target":   {Type: "object", Properties: map[string]*lexicon.Field{"x": {Type: "string"}}},
+		},
+	}))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{"val": map[string]any{"x": "ok"}}))
+}
+
+func TestValidate_Ref_UnionDef(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#myUnion"},
+				},
+			}},
+			"myUnion": {Type: "union", Refs: []string{"#optA"}, Closed: true},
+			"optA":    {Type: "object", Properties: map[string]*lexicon.Field{"a": {Type: "string"}}},
+		},
+	}))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{
+		"val": map[string]any{"$type": "com.example.test#optA", "a": "ok"},
+	}))
+	assert.Error(t, ValidateRecord(cat, "com.example.test", map[string]any{
+		"val": map[string]any{"$type": "com.example.test#nonexistent"},
+	}))
+}
+
+func TestValidate_Ref_DefaultType(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#unsupported"},
+				},
+			}},
+			"unsupported": {Type: "query"},
+		},
+	}))
+	err := ValidateRecord(cat, "com.example.test", map[string]any{"val": "anything"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported def type for ref: query")
+}
+
+func TestValidate_Ref_MissingDef(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					"val": {Type: "ref", Ref: "#nonexistent"},
+				},
+			}},
+		},
+	}))
+	err := ValidateRecord(cat, "com.example.test", map[string]any{"val": "anything"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unresolved ref")
+}

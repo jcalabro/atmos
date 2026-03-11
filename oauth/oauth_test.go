@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +20,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/jcalabro/gt"
+
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
+	"github.com/jcalabro/atmos/identity"
 )
 
 // --- PKCE ---
@@ -1284,6 +1290,545 @@ func TestIsUseDPoPNonceError_200(t *testing.T) {
 
 func nopCloser(s string) io.ReadCloser {
 	return io.NopCloser(strings.NewReader(s))
+}
+
+// --- verifyIssuer ---
+
+// fakeResolver is a test Resolver that returns a configurable DID document.
+type fakeResolver struct {
+	doc *identity.DIDDocument
+	err error
+}
+
+func (f *fakeResolver) ResolveDID(_ context.Context, _ atmos.DID) (*identity.DIDDocument, error) {
+	return f.doc, f.err
+}
+
+func (f *fakeResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
+	return "", errors.New("not implemented")
+}
+
+// verifyIssuerEnv holds the wired-up test environment for verifyIssuer tests.
+type verifyIssuerEnv struct {
+	client     *Client
+	httpClient *http.Client
+	pdsURL     string
+	asURL      string
+}
+
+// setupVerifyIssuer creates PDS + AS mock servers with the given handlers.
+// pdsHandler and asHandler receive both URLs via closure vars that are set after
+// both servers start, solving the circular-reference problem.
+func setupVerifyIssuer(t *testing.T, pdsHandler, asHandler http.Handler, resolver *fakeResolver) *verifyIssuerEnv {
+	t.Helper()
+
+	pdsSrv := httptest.NewServer(pdsHandler)
+	t.Cleanup(pdsSrv.Close)
+
+	asSrv := httptest.NewServer(asHandler)
+	t.Cleanup(asSrv.Close)
+
+	if resolver.doc != nil {
+		// Point the DID doc's PDS at the actual server URL.
+		for i, svc := range resolver.doc.Service {
+			if svc.ID == "#atproto_pds" && svc.ServiceEndpoint == "" {
+				resolver.doc.Service[i].ServiceEndpoint = pdsSrv.URL
+			}
+		}
+	}
+
+	return &verifyIssuerEnv{
+		client: &Client{
+			Identity:     &identity.Directory{Resolver: resolver},
+			SessionStore: NewMemorySessionStore(),
+			StateStore:   NewMemoryStateStore(),
+		},
+		httpClient: pdsSrv.Client(),
+		pdsURL:     pdsSrv.URL,
+		asURL:      asSrv.URL,
+	}
+}
+
+func TestVerifyIssuer_Valid(t *testing.T) {
+	t.Parallel()
+
+	// Use vars that both handlers close over; set after servers start.
+	var pdsURL, asURL string
+
+	pdsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-protected-resource" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resource":              pdsURL,
+			"authorization_servers": []string{asURL},
+		})
+	})
+	asHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-authorization-server" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                asURL,
+			"authorization_endpoint":                asURL + "/oauth/authorize",
+			"token_endpoint":                        asURL + "/oauth/token",
+			"pushed_authorization_request_endpoint": asURL + "/oauth/par",
+			"client_id_metadata_document_supported": true,
+			"require_pushed_authorization_requests": true,
+		})
+	})
+
+	// Use empty ServiceEndpoint so setupVerifyIssuer fills it in.
+	doc := &identity.DIDDocument{
+		ID:          "did:plc:testuser1234567890abcde",
+		AlsoKnownAs: []string{"at://test.example.com"},
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: ""},
+		},
+	}
+	env := setupVerifyIssuer(t, pdsHandler, asHandler, &fakeResolver{doc: doc})
+	pdsURL = env.pdsURL
+	asURL = env.asURL
+
+	got, err := env.client.verifyIssuer(context.Background(), env.httpClient, "did:plc:testuser1234567890abcde", asURL)
+	require.NoError(t, err)
+	require.Equal(t, pdsURL, got)
+}
+
+func TestVerifyIssuer_InvalidSub(t *testing.T) {
+	t.Parallel()
+
+	c := &Client{
+		Identity:     &identity.Directory{Resolver: &fakeResolver{}},
+		SessionStore: NewMemorySessionStore(),
+		StateStore:   NewMemoryStateStore(),
+	}
+
+	_, err := c.verifyIssuer(context.Background(), http.DefaultClient, "not-a-did", "https://as.example.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid sub DID")
+}
+
+func TestVerifyIssuer_LookupFails(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{err: fmt.Errorf("network error")}
+	c := &Client{
+		Identity:     &identity.Directory{Resolver: resolver},
+		SessionStore: NewMemorySessionStore(),
+		StateStore:   NewMemoryStateStore(),
+	}
+
+	_, err := c.verifyIssuer(context.Background(), http.DefaultClient, "did:plc:testuser1234567890abcde", "https://as.example.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "resolve sub DID")
+}
+
+func TestVerifyIssuer_NoPDS(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{doc: &identity.DIDDocument{
+		ID: "did:plc:testuser1234567890abcde",
+	}}
+	c := &Client{
+		Identity:     &identity.Directory{Resolver: resolver},
+		SessionStore: NewMemorySessionStore(),
+		StateStore:   NewMemoryStateStore(),
+	}
+
+	_, err := c.verifyIssuer(context.Background(), http.DefaultClient, "did:plc:testuser1234567890abcde", "https://as.example.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no PDS endpoint")
+}
+
+func TestVerifyIssuer_IssuerMismatch(t *testing.T) {
+	t.Parallel()
+
+	var pdsURL, asURL string
+
+	pdsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-protected-resource" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resource":              pdsURL,
+			"authorization_servers": []string{asURL},
+		})
+	})
+	asHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not reached", 500)
+	})
+
+	doc := &identity.DIDDocument{
+		ID: "did:plc:testuser1234567890abcde",
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: ""},
+		},
+	}
+	env := setupVerifyIssuer(t, pdsHandler, asHandler, &fakeResolver{doc: doc})
+	pdsURL = env.pdsURL
+	asURL = env.asURL
+
+	// Pass a different expected issuer than what the PDS metadata resolves to.
+	_, err := env.client.verifyIssuer(context.Background(), env.httpClient, "did:plc:testuser1234567890abcde", "https://wrong-issuer.example.com")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrIssuerVerification)
+}
+
+func TestVerifyIssuer_MultipleAuthServers(t *testing.T) {
+	t.Parallel()
+
+	var pdsURL string
+
+	pdsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-protected-resource" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resource":              pdsURL,
+			"authorization_servers": []string{"https://as1.example.com", "https://as2.example.com"},
+		})
+	})
+	asHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not reached", 500)
+	})
+
+	doc := &identity.DIDDocument{
+		ID: "did:plc:testuser1234567890abcde",
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: ""},
+		},
+	}
+	env := setupVerifyIssuer(t, pdsHandler, asHandler, &fakeResolver{doc: doc})
+	pdsURL = env.pdsURL
+
+	_, err := env.client.verifyIssuer(context.Background(), env.httpClient, "did:plc:testuser1234567890abcde", env.asURL)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrIssuerVerification)
+	require.Contains(t, err.Error(), "expected exactly 1 authorization server")
+}
+
+func TestVerifyIssuer_ProtectedResourceNotListed(t *testing.T) {
+	t.Parallel()
+
+	var pdsURL, asURL string
+
+	pdsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-protected-resource" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resource":              pdsURL,
+			"authorization_servers": []string{asURL},
+		})
+	})
+	// AS declares protected_resources but does NOT include the PDS.
+	asHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-authorization-server" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                asURL,
+			"authorization_endpoint":                asURL + "/oauth/authorize",
+			"token_endpoint":                        asURL + "/oauth/token",
+			"pushed_authorization_request_endpoint": asURL + "/oauth/par",
+			"client_id_metadata_document_supported": true,
+			"require_pushed_authorization_requests": true,
+			"protected_resources":                   []string{"https://other-pds.example.com"},
+		})
+	})
+
+	doc := &identity.DIDDocument{
+		ID: "did:plc:testuser1234567890abcde",
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: ""},
+		},
+	}
+	env := setupVerifyIssuer(t, pdsHandler, asHandler, &fakeResolver{doc: doc})
+	pdsURL = env.pdsURL
+	asURL = env.asURL
+
+	_, err := env.client.verifyIssuer(context.Background(), env.httpClient, "did:plc:testuser1234567890abcde", asURL)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrIssuerVerification)
+	require.Contains(t, err.Error(), "not in issuer's protected_resources")
+}
+
+// --- extractRequestURI / parsePARError ---
+
+func TestExtractRequestURI_Valid(t *testing.T) {
+	t.Parallel()
+	uri, err := extractRequestURI([]byte(`{"request_uri":"urn:ietf:params:oauth:request_uri:abc"}`))
+	require.NoError(t, err)
+	assert.Equal(t, "urn:ietf:params:oauth:request_uri:abc", uri)
+}
+
+func TestExtractRequestURI_Missing(t *testing.T) {
+	t.Parallel()
+	_, err := extractRequestURI([]byte(`{"other":"field"}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing request_uri")
+}
+
+func TestExtractRequestURI_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	_, err := extractRequestURI([]byte(`not json`))
+	require.Error(t, err)
+}
+
+func TestParsePARError_OAuthJSON(t *testing.T) {
+	t.Parallel()
+	err := parsePARError(400, []byte(`{"error":"invalid_request","error_description":"bad param"}`))
+	require.Error(t, err)
+	var oauthErr *OAuthError
+	require.ErrorAs(t, err, &oauthErr)
+	assert.Equal(t, "invalid_request", oauthErr.Code)
+}
+
+func TestParsePARError_NonJSON(t *testing.T) {
+	t.Parallel()
+	err := parsePARError(500, []byte(`Internal Server Error`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 500")
+}
+
+// --- doPAR ---
+
+func TestDoPAR_Success(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"request_uri":"urn:ietf:params:oauth:request_uri:test123"}`))
+	}))
+	defer srv.Close()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	nonces := NewNonceStore()
+
+	uri, err := doPAR(context.Background(), srv.Client(), srv.URL, nil, key, nonces)
+	require.NoError(t, err)
+	assert.Equal(t, "urn:ietf:params:oauth:request_uri:test123", uri)
+}
+
+func TestDoPAR_NonceRetry(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := callCount.Add(1)
+		if n == 1 {
+			w.Header().Set("DPoP-Nonce", "new-nonce")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"use_dpop_nonce"}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"request_uri":"urn:ietf:params:oauth:request_uri:after-retry"}`))
+	}))
+	defer srv.Close()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	nonces := NewNonceStore()
+
+	uri, err := doPAR(context.Background(), srv.Client(), srv.URL, nil, key, nonces)
+	require.NoError(t, err)
+	assert.Equal(t, "urn:ietf:params:oauth:request_uri:after-retry", uri)
+	assert.Equal(t, int32(2), callCount.Load())
+}
+
+// --- RevokeToken ---
+
+func TestRevokeToken_EmptyEndpoint(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	// Should not panic or make any HTTP calls.
+	RevokeToken(context.Background(), "", "token", &PublicClientAuth{ClientID: "x"}, key, NewNonceStore(), http.DefaultClient)
+}
+
+func TestRevokeToken_EmptyToken(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	RevokeToken(context.Background(), "https://example.com/revoke", "", &PublicClientAuth{ClientID: "x"}, key, NewNonceStore(), http.DefaultClient)
+}
+
+func TestRevokeToken_FireAndForget(t *testing.T) {
+	t.Parallel()
+
+	var called atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	RevokeToken(context.Background(), srv.URL, "my-token", &PublicClientAuth{ClientID: "x"}, key, NewNonceStore(), srv.Client())
+	assert.True(t, called.Load())
+}
+
+// --- SignOut ---
+
+func TestSignOut_NoSession(t *testing.T) {
+	t.Parallel()
+	c := &Client{
+		SessionStore: NewMemorySessionStore(),
+	}
+	err := c.SignOut(context.Background(), "did:plc:nonexistent")
+	require.Error(t, err)
+}
+
+func TestSignOut_WithRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	var revokedToken string
+	revokeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		revokedToken = r.Form.Get("token")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer revokeSrv.Close()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	store := NewMemorySessionStore()
+	_ = store.SetSession(context.Background(), "did:plc:test", &Session{
+		DPoPKey: key,
+		TokenSet: TokenSet{
+			Issuer:              "https://as.example.com",
+			Sub:                 "did:plc:test",
+			AccessToken:         "access-tok",
+			RefreshToken:        "refresh-tok",
+			RevocationEndpoint:  revokeSrv.URL,
+		},
+	})
+
+	c := &Client{
+		SessionStore: store,
+		HTTPClient:   gt.Some(revokeSrv.Client()),
+		ClientMetadata: ClientMetadata{ClientID: "https://test.example.com/client-metadata.json"},
+	}
+
+	require.NoError(t, c.SignOut(context.Background(), "did:plc:test"))
+	assert.Equal(t, "refresh-tok", revokedToken)
+
+	// Session should be deleted.
+	_, err = store.GetSession(context.Background(), "did:plc:test")
+	require.Error(t, err)
+}
+
+// --- resolvedPDS ---
+
+func TestResolvedPDS_Valid(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{doc: &identity.DIDDocument{
+		ID: "did:plc:testuser1234567890abcde",
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: "https://pds.example.com"},
+		},
+	}}
+	c := &Client{
+		Identity: &identity.Directory{Resolver: resolver},
+	}
+	pds, err := c.resolvedPDS(context.Background(), "did:plc:testuser1234567890abcde")
+	require.NoError(t, err)
+	assert.Equal(t, "https://pds.example.com", pds)
+}
+
+func TestResolvedPDS_NoPDS(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{doc: &identity.DIDDocument{ID: "did:plc:testuser1234567890abcde"}}
+	c := &Client{
+		Identity: &identity.Directory{Resolver: resolver},
+	}
+	_, err := c.resolvedPDS(context.Background(), "did:plc:testuser1234567890abcde")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no PDS endpoint")
+}
+
+func TestResolvedPDS_InvalidDID(t *testing.T) {
+	t.Parallel()
+	c := &Client{
+		Identity: &identity.Directory{Resolver: &fakeResolver{}},
+	}
+	_, err := c.resolvedPDS(context.Background(), "not-a-did")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid sub DID")
+}
+
+// --- AuthenticatedClient ---
+
+func TestAuthenticatedClient_ReturnsClient(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	store := NewMemorySessionStore()
+	_ = store.SetSession(context.Background(), "did:plc:test", &Session{
+		DPoPKey: key,
+		TokenSet: TokenSet{
+			Issuer:      "https://as.example.com",
+			Sub:         "did:plc:test",
+			AccessToken: "access-tok",
+			Aud:         "https://pds.example.com",
+		},
+	})
+
+	c := &Client{
+		SessionStore: store,
+	}
+	xc, err := c.AuthenticatedClient(context.Background(), "did:plc:test")
+	require.NoError(t, err)
+	assert.Equal(t, "https://pds.example.com", xc.Host)
+}
+
+func TestAuthenticatedClient_NoSession(t *testing.T) {
+	t.Parallel()
+	c := &Client{
+		SessionStore: NewMemorySessionStore(),
+	}
+	_, err := c.AuthenticatedClient(context.Background(), "did:plc:nonexistent")
+	require.Error(t, err)
+}
+
+// --- refreshSession ---
+
+func TestRefreshSession_NoRefreshToken(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	c := &Client{}
+	session := &Session{
+		DPoPKey: key,
+		TokenSet: TokenSet{
+			AccessToken: "access-tok",
+			// No RefreshToken
+		},
+	}
+	err = c.refreshSession(context.Background(), "did:plc:test", session)
+	require.ErrorIs(t, err, ErrNoRefreshToken)
 }
 
 // --- Fuzz Tests ---

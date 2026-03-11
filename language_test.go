@@ -25,3 +25,19 @@ func TestParseLanguage_Invalid(t *testing.T) {
 		})
 	}
 }
+
+func TestLanguage_MarshalRoundTrip(t *testing.T) {
+	t.Parallel()
+	raw := "en-US"
+	l, err := ParseLanguage(raw)
+	require.NoError(t, err)
+	b, err := l.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, raw, string(b))
+	var l2 Language
+	require.NoError(t, l2.UnmarshalText(b))
+	require.Equal(t, l, l2)
+
+	var bad Language
+	require.Error(t, bad.UnmarshalText([]byte("")))
+}

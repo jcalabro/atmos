@@ -83,3 +83,12 @@ func TestHandle_MarshalRoundTrip(t *testing.T) {
 	require.NoError(t, h2.UnmarshalText(b))
 	require.Equal(t, h, h2)
 }
+
+func TestHandle_AtIdentifier(t *testing.T) {
+	t.Parallel()
+	h, err := ParseHandle("test.example.com")
+	require.NoError(t, err)
+	id := h.AtIdentifier()
+	require.Equal(t, AtIdentifier("test.example.com"), id)
+	require.True(t, id.IsHandle())
+}

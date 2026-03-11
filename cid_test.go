@@ -33,3 +33,20 @@ func TestParseCID_RejectsCIDv0(t *testing.T) {
 	_, err = ParseCID("QmcRD4wkPPi6dig81r5sLj9Zm1gDCL4zgpEj9CfuRrGbzF")
 	require.Error(t, err)
 }
+
+func TestCID_MarshalRoundTrip(t *testing.T) {
+	t.Parallel()
+	raw := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
+	c, err := ParseCID(raw)
+	require.NoError(t, err)
+	require.Equal(t, raw, c.String())
+	b, err := c.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, raw, string(b))
+	var c2 CID
+	require.NoError(t, c2.UnmarshalText(b))
+	require.Equal(t, c, c2)
+
+	var bad CID
+	require.Error(t, bad.UnmarshalText([]byte("notacid")))
+}

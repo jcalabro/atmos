@@ -473,3 +473,57 @@ func TestBlockCIDMismatch_ValidBlocksPass(t *testing.T) {
 	_, err = cr.Next()
 	require.ErrorIs(t, err, io.EOF)
 }
+
+// -------------------------------------------------------------------
+// Slow path: readUvarintFromReader without io.ByteReader
+// -------------------------------------------------------------------
+
+// bareReader wraps an io.Reader and strips the io.ByteReader interface,
+// forcing readUvarintFromReader to use the slow path.
+type bareReader struct{ r io.Reader }
+
+func (b *bareReader) Read(p []byte) (int, error) { return b.r.Read(p) }
+
+func TestReadSlowPath(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("testdata/greenground.repo.car")
+	require.NoError(t, err)
+
+	// Read via the fast path (bytes.Reader implements io.ByteReader).
+	fastHeader, fastBlocks, err := ReadAll(bytes.NewReader(data))
+	require.NoError(t, err)
+
+	// Read via the slow path (bareReader does not implement io.ByteReader).
+	cr, err := NewReader(&bareReader{bytes.NewReader(data)})
+	require.NoError(t, err)
+	require.Equal(t, fastHeader.Version, cr.Header().Version)
+	require.Len(t, cr.Header().Roots, len(fastHeader.Roots))
+	for i := range fastHeader.Roots {
+		require.True(t, fastHeader.Roots[i].Equal(cr.Header().Roots[i]))
+	}
+
+	var slowBlocks []Block
+	for {
+		b, err := cr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		slowBlocks = append(slowBlocks, b)
+	}
+
+	require.Equal(t, len(fastBlocks), len(slowBlocks))
+	for i := range fastBlocks {
+		require.True(t, fastBlocks[i].CID.Equal(slowBlocks[i].CID), "block %d CID mismatch", i)
+		require.Equal(t, fastBlocks[i].Data, slowBlocks[i].Data, "block %d data mismatch", i)
+	}
+}
+
+func TestReadSlowPath_VarintTooLong(t *testing.T) {
+	t.Parallel()
+	// 11 bytes all with continuation bit set — exceeds the 10-byte varint limit.
+	data := bytes.Repeat([]byte{0x80}, 11)
+	_, err := NewReader(&bareReader{bytes.NewReader(data)})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "varint too long")
+}

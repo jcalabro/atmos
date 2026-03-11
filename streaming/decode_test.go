@@ -3,6 +3,7 @@ package streaming
 import (
 	"testing"
 
+	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,4 +102,117 @@ func TestDecodeFrame_CommitWithNullCID(t *testing.T) {
 	require.Len(t, evt.Commit.Ops, 1)
 	assert.Equal(t, "delete", evt.Commit.Ops[0].Action)
 	assert.False(t, evt.Commit.Ops[0].CID.HasVal(), "delete op should have null CID")
+}
+
+// buildDecodeFrame constructs a frame header + body without the build tag
+// constraint that client_test.go's buildFrame has.
+func buildDecodeFrame(t string, body []byte) []byte {
+	hdr := make([]byte, 0, 32)
+	hdr = cbor.AppendMapHeader(hdr, 2)
+	hdr = cbor.AppendText(hdr, "op")
+	hdr = cbor.AppendInt(hdr, 1)
+	hdr = cbor.AppendText(hdr, "t")
+	hdr = cbor.AppendText(hdr, t)
+	return append(hdr, body...)
+}
+
+func TestDecodeFrame_Sync(t *testing.T) {
+	t.Parallel()
+	body, err := (&comatproto.SyncSubscribeRepos_Sync{
+		DID: "did:plc:test123",
+		Seq: 42,
+		Rev: "3abc",
+		Time: "2024-01-01T00:00:00Z",
+	}).MarshalCBOR()
+	require.NoError(t, err)
+
+	frame := buildDecodeFrame("#sync", body)
+	evt, err := decodeFrame(frame)
+	require.NoError(t, err)
+	require.NotNil(t, evt.Sync)
+	assert.Equal(t, int64(42), evt.Seq)
+	assert.Equal(t, "did:plc:test123", evt.Sync.DID)
+}
+
+func TestDecodeFrame_Identity(t *testing.T) {
+	t.Parallel()
+	body, err := (&comatproto.SyncSubscribeRepos_Identity{
+		DID:  "did:plc:test123",
+		Seq:  99,
+		Time: "2024-01-01T00:00:00Z",
+	}).MarshalCBOR()
+	require.NoError(t, err)
+
+	frame := buildDecodeFrame("#identity", body)
+	evt, err := decodeFrame(frame)
+	require.NoError(t, err)
+	require.NotNil(t, evt.Identity)
+	assert.Equal(t, int64(99), evt.Seq)
+}
+
+func TestDecodeFrame_Account(t *testing.T) {
+	t.Parallel()
+	body, err := (&comatproto.SyncSubscribeRepos_Account{
+		DID:    "did:plc:test123",
+		Seq:    77,
+		Active: true,
+		Time:   "2024-01-01T00:00:00Z",
+	}).MarshalCBOR()
+	require.NoError(t, err)
+
+	frame := buildDecodeFrame("#account", body)
+	evt, err := decodeFrame(frame)
+	require.NoError(t, err)
+	require.NotNil(t, evt.Account)
+	assert.Equal(t, int64(77), evt.Seq)
+}
+
+func TestDecodeFrame_Info(t *testing.T) {
+	t.Parallel()
+	body, err := (&comatproto.SyncSubscribeRepos_Info{
+		Name: "OutdatedCursor",
+	}).MarshalCBOR()
+	require.NoError(t, err)
+
+	frame := buildDecodeFrame("#info", body)
+	evt, err := decodeFrame(frame)
+	require.NoError(t, err)
+	require.NotNil(t, evt.Info)
+	assert.Equal(t, "OutdatedCursor", evt.Info.Name)
+}
+
+func TestDecodeFrame_UnknownType(t *testing.T) {
+	t.Parallel()
+	// Build a frame with op=1 and unknown type
+	hdr := make([]byte, 0, 32)
+	hdr = cbor.AppendMapHeader(hdr, 2)
+	hdr = cbor.AppendText(hdr, "op")
+	hdr = cbor.AppendInt(hdr, 1)
+	hdr = cbor.AppendText(hdr, "t")
+	hdr = cbor.AppendText(hdr, "#unknown")
+
+	body := make([]byte, 0, 16)
+	body = cbor.AppendMapHeader(body, 0)
+
+	frame := append(hdr, body...)
+	_, err := decodeFrame(frame)
+	require.ErrorIs(t, err, errUnknownType)
+}
+
+func TestDecodeFrame_UnknownOp(t *testing.T) {
+	t.Parallel()
+	hdr := make([]byte, 0, 32)
+	hdr = cbor.AppendMapHeader(hdr, 2)
+	hdr = cbor.AppendText(hdr, "op")
+	hdr = cbor.AppendInt(hdr, 2) // op=2 is unknown
+	hdr = cbor.AppendText(hdr, "t")
+	hdr = cbor.AppendText(hdr, "#commit")
+
+	body := make([]byte, 0, 16)
+	body = cbor.AppendMapHeader(body, 0)
+
+	frame := append(hdr, body...)
+	_, err := decodeFrame(frame)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown frame op: 2")
 }

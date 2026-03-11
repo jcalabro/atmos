@@ -53,3 +53,19 @@ func TestNSID_ZeroValue(t *testing.T) {
 	require.Equal(t, "", n.Authority())
 	require.Equal(t, "", n.Name())
 }
+
+func TestNSID_MarshalRoundTrip(t *testing.T) {
+	t.Parallel()
+	raw := "app.bsky.feed.post"
+	n, err := ParseNSID(raw)
+	require.NoError(t, err)
+	b, err := n.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, raw, string(b))
+	var n2 NSID
+	require.NoError(t, n2.UnmarshalText(b))
+	require.Equal(t, n, n2)
+
+	var bad NSID
+	require.Error(t, bad.UnmarshalText([]byte("x")))
+}

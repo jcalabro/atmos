@@ -51,3 +51,19 @@ func TestATURI_Normalize(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ATURI("at://alice.bsky.social/com.example.fooBar/tid123"), a.Normalize())
 }
+
+func TestATURI_MarshalRoundTrip(t *testing.T) {
+	t.Parallel()
+	raw := "at://did:plc:testuser1234567890abcde/app.bsky.feed.post/3jqfcqzm3fo2j"
+	u, err := ParseATURI(raw)
+	require.NoError(t, err)
+	b, err := u.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, raw, string(b))
+	var u2 ATURI
+	require.NoError(t, u2.UnmarshalText(b))
+	require.Equal(t, u, u2)
+
+	var bad ATURI
+	require.Error(t, bad.UnmarshalText([]byte("not-an-aturi")))
+}

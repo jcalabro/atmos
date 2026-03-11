@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/crypto"
+	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/atmos/sync"
@@ -324,6 +326,225 @@ func TestVerifyCommit_Invalid(t *testing.T) {
 
 	pubkey := key.PublicKey()
 	err = commit.VerifySignature(pubkey)
+	require.Error(t, err)
+}
+
+// --- VerifyCommit via sync.Client ---
+
+type fakeResolver struct {
+	doc *identity.DIDDocument
+	err error
+}
+
+func (f *fakeResolver) ResolveDID(_ context.Context, _ atmos.DID) (*identity.DIDDocument, error) {
+	return f.doc, f.err
+}
+
+func (f *fakeResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
+	return "", errors.New("not implemented")
+}
+
+func TestClientVerifyCommit_NoDirectory(t *testing.T) {
+	t.Parallel()
+	sc := sync.NewClient(sync.Options{}) // no Directory
+	commit := &repo.Commit{DID: "did:plc:test123"}
+	err := sc.VerifyCommit(context.Background(), commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no directory configured")
+}
+
+func TestClientVerifyCommit_InvalidDID(t *testing.T) {
+	t.Parallel()
+	dir := &identity.Directory{Resolver: &fakeResolver{}}
+	sc := sync.NewClient(sync.Options{Directory: gt.Some(dir)})
+	commit := &repo.Commit{DID: "notadid"}
+	err := sc.VerifyCommit(context.Background(), commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid DID")
+}
+
+func TestClientVerifyCommit_LookupFails(t *testing.T) {
+	t.Parallel()
+	dir := &identity.Directory{Resolver: &fakeResolver{err: errors.New("network error")}}
+	sc := sync.NewClient(sync.Options{Directory: gt.Some(dir)})
+	commit := &repo.Commit{DID: "did:plc:test123"}
+	err := sc.VerifyCommit(context.Background(), commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolving DID")
+}
+
+func TestClientVerifyCommit_NoKey(t *testing.T) {
+	t.Parallel()
+	// DID doc with no verification methods.
+	dir := &identity.Directory{Resolver: &fakeResolver{doc: &identity.DIDDocument{
+		ID: "did:plc:test123",
+	}}}
+	sc := sync.NewClient(sync.Options{Directory: gt.Some(dir)})
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	store := mst.NewMemBlockStore()
+	r := &repo.Repo{DID: "did:plc:test123", Clock: atmos.NewTIDClock(0), Store: store, Tree: mst.NewTree(store)}
+	commit, err := r.Commit(key)
+	require.NoError(t, err)
+
+	err = sc.VerifyCommit(context.Background(), commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "getting public key")
+}
+
+func TestClientVerifyCommit_BadSignature(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	p256pub, ok := key.PublicKey().(*crypto.P256PublicKey)
+	require.True(t, ok)
+	multibase := p256pub.DIDKey()[8:] // strip "did:key:" prefix
+
+	dir := &identity.Directory{Resolver: &fakeResolver{doc: &identity.DIDDocument{
+		ID: "did:plc:test123",
+		VerificationMethod: []identity.VerificationMethod{
+			{ID: "#atproto", Type: "Multikey", Controller: "did:plc:test123", PublicKeyMultibase: multibase},
+		},
+	}}}
+	sc := sync.NewClient(sync.Options{Directory: gt.Some(dir)})
+
+	store := mst.NewMemBlockStore()
+	r := &repo.Repo{DID: "did:plc:test123", Clock: atmos.NewTIDClock(0), Store: store, Tree: mst.NewTree(store)}
+	commit, err := r.Commit(key)
+	require.NoError(t, err)
+
+	// Tamper with signature.
+	commit.Sig[0] ^= 0xff
+
+	err = sc.VerifyCommit(context.Background(), commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "signature verification failed")
+}
+
+func TestClientVerifyCommit_Valid(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	p256pub, ok := key.PublicKey().(*crypto.P256PublicKey)
+	require.True(t, ok)
+	multibase := p256pub.DIDKey()[8:]
+
+	dir := &identity.Directory{Resolver: &fakeResolver{doc: &identity.DIDDocument{
+		ID: "did:plc:test123",
+		VerificationMethod: []identity.VerificationMethod{
+			{ID: "#atproto", Type: "Multikey", Controller: "did:plc:test123", PublicKeyMultibase: multibase},
+		},
+	}}}
+	sc := sync.NewClient(sync.Options{Directory: gt.Some(dir)})
+
+	store := mst.NewMemBlockStore()
+	r := &repo.Repo{DID: "did:plc:test123", Clock: atmos.NewTIDClock(0), Store: store, Tree: mst.NewTree(store)}
+	commit, err := r.Commit(key)
+	require.NoError(t, err)
+
+	require.NoError(t, sc.VerifyCommit(context.Background(), commit))
+}
+
+// --- ListRepos and GetLatestCommit gap tests ---
+
+func TestListRepos_ContextCanceled(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(listReposPage{
+			Repos: []listReposRepo{{DID: "did:plc:aaa", Head: "bafyaaa", Rev: "rev1", Active: true}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before iterating
+
+	count := 0
+	for range sc.ListRepos(ctx) {
+		count++
+	}
+	assert.Equal(t, 0, count)
+}
+
+func TestListRepos_InvalidDID(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(listReposPage{
+			Repos: []listReposRepo{
+				{DID: "not-a-did", Head: "bafyaaa", Rev: "rev1", Active: true},
+				{DID: "did:plc:valid1234567890abcde", Head: "bafybbb", Rev: "rev2", Active: true},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var gotError, gotEntry bool
+	for entry, err := range sc.ListRepos(context.Background()) {
+		if err != nil {
+			gotError = true
+			continue
+		}
+		if entry.DID == "did:plc:valid1234567890abcde" {
+			gotEntry = true
+		}
+	}
+	assert.True(t, gotError, "should have received an error for invalid DID")
+	assert.True(t, gotEntry, "should have received the valid entry")
+}
+
+func TestListRepos_BreakEarly(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		_ = json.NewEncoder(w).Encode(listReposPage{
+			Cursor: "more",
+			Repos: []listReposRepo{
+				{DID: "did:plc:aaa", Head: "bafyaaa", Rev: "rev1", Active: true},
+				{DID: "did:plc:bbb", Head: "bafybbb", Rev: "rev2", Active: true},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	count := 0
+	for _, err := range sc.ListRepos(context.Background()) {
+		require.NoError(t, err)
+		count++
+		if count >= 1 {
+			break
+		}
+	}
+	assert.Equal(t, 1, count)
+	assert.Equal(t, 1, callCount, "should only have fetched one page")
+}
+
+func TestGetLatestCommit_InvalidCID(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"rev": "3jqfcqzm3fp2j",
+			"cid": "not-a-valid-cid",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	_, _, err := sc.GetLatestCommit(context.Background(), "did:plc:test123")
 	require.Error(t, err)
 }
 

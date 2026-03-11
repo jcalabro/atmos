@@ -203,6 +203,34 @@ func TestSignVerify_WithOptionalFields(t *testing.T) {
 	require.NoError(t, Verify(label, key.PublicKey()))
 }
 
+func TestNegate_UsesCurrentTime(t *testing.T) {
+	t.Parallel()
+	before := time.Now().UTC()
+	label := Negate(atmos.DID("did:plc:test"), "at://did:plc:test/app.bsky.feed.post/abc", "spam")
+	after := time.Now().UTC()
+
+	cts, err := time.Parse(time.RFC3339, label.Cts)
+	require.NoError(t, err)
+	require.False(t, cts.Before(before.Add(-time.Second)))
+	require.False(t, cts.After(after.Add(time.Second)))
+}
+
+func TestNegateAt_Fields(t *testing.T) {
+	t.Parallel()
+	cts := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	label := NegateAt(atmos.DID("did:plc:test"), "at://did:plc:test/app.bsky.feed.post/abc", "spam", cts)
+
+	assert.Equal(t, "did:plc:test", label.Src)
+	assert.Equal(t, "at://did:plc:test/app.bsky.feed.post/abc", label.URI)
+	assert.Equal(t, "spam", label.Val)
+	assert.Equal(t, "2024-06-15T12:00:00Z", label.Cts)
+	assert.True(t, label.Ver.HasVal())
+	assert.Equal(t, int64(1), label.Ver.Val())
+	assert.True(t, label.Neg.HasVal())
+	assert.True(t, label.Neg.Val())
+	assert.Nil(t, label.Sig)
+}
+
 func TestMarshalUnmarshalRoundtrip(t *testing.T) {
 	t.Parallel()
 	key, err := crypto.GenerateP256()
