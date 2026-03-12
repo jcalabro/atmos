@@ -46,6 +46,13 @@ type Options struct {
 	// OnReconnect is called each time a reconnection attempt begins, with the
 	// attempt number and delay. Useful for logging. None means no callback.
 	OnReconnect gt.Option[func(attempt int, delay time.Duration)]
+
+	// Locker enables distributed lock coordination for high availability
+	// deployments. When set, only the lock holder consumes events from the
+	// firehose. Other nodes wait idle and attempt to acquire the lock
+	// periodically. None uses a noop lock (always leader, suitable for
+	// single-node deployments).
+	Locker gt.Option[DistributedLockerOptions]
 }
 
 const defaultCursorInterval int64 = 100
@@ -57,6 +64,15 @@ type Client struct {
 	conn           atomic.Pointer[websocket.Conn]
 	cursorCount    int64 // only used in readLoop goroutine
 	cursorInterval int64
+
+	// Lock-related fields, initialized in NewClient.
+	lock                DistributedLocker
+	lockOpts            *DistributedLockerOptions // nil when no lock configured
+	leaseDuration       time.Duration
+	renewalInterval     time.Duration
+	acquisitionInterval time.Duration
+	isLeader            atomic.Bool
+	lockSleep           func(ctx context.Context, d time.Duration) error // overridable for testing
 }
 
 // NewClient creates a new streaming client. Does not connect until Events is
@@ -72,7 +88,46 @@ func NewClient(opts Options) (*Client, error) {
 
 	interval := opts.CursorInterval.ValOr(defaultCursorInterval)
 
-	c := &Client{opts: opts, cursorInterval: interval}
+	lk := DistributedLocker(NoopLock{})
+	var lockOpts *DistributedLockerOptions
+	leaseDur := defaultLeaseDuration
+	renewInt := defaultRenewalInterval
+	acqInt := defaultAcquisitionInterval
+
+	if opts.Locker.HasVal() {
+		lo := opts.Locker.Val()
+		if lo.Locker == nil {
+			return nil, errors.New("DistributedLockerOptions.Locker must not be nil")
+		}
+		lockOpts = &lo
+		lk = lo.Locker
+		if lo.LeaseDuration > 0 {
+			leaseDur = lo.LeaseDuration
+		}
+		if lo.RenewalInterval > 0 {
+			renewInt = lo.RenewalInterval
+		}
+		if lo.AcquisitionInterval > 0 {
+			acqInt = lo.AcquisitionInterval
+		}
+	}
+
+	c := &Client{
+		opts:                opts,
+		cursorInterval:      interval,
+		lock:                lk,
+		lockOpts:            lockOpts,
+		leaseDuration:       leaseDur,
+		renewalInterval:     renewInt,
+		acquisitionInterval: acqInt,
+	}
+
+	c.lockSleep = sleep
+
+	// When no lock is configured, the client is always the leader.
+	if !opts.Locker.HasVal() {
+		c.isLeader.Store(true)
+	}
 
 	if opts.Cursor.HasVal() {
 		c.cursor.Store(opts.Cursor.Val())
@@ -95,7 +150,10 @@ func (c *Client) Cursor() int64 {
 }
 
 // Close gracefully shuts down the WebSocket connection. If a CursorStore is
-// configured, the current cursor is persisted (best-effort).
+// configured, the current cursor is persisted (best-effort). Close does not
+// release the distributed lock — the lock is released when the [Events]
+// iterator terminates (via context cancellation or the caller breaking out
+// of the range loop).
 func (c *Client) Close() error {
 	if c.opts.CursorStore.HasVal() {
 		cur := c.cursor.Load()
@@ -112,9 +170,23 @@ func (c *Client) Close() error {
 	return conn.Close(websocket.StatusNormalClosure, "client closing")
 }
 
+// IsLeader returns whether this node currently believes it holds the
+// distributed lock. Always returns true when no lock is configured.
+// Safe to call concurrently.
+func (c *Client) IsLeader() bool {
+	return c.isLeader.Load()
+}
+
 // Events returns an iterator over firehose events. It connects to the
 // WebSocket, automatically handles ping/pong, reconnects with backoff on
 // connection loss, and resumes from the last seen cursor.
+//
+// When a distributed lock is configured via [DistributedLockerOptions], the
+// iterator first acquires the lock before consuming events. If the lock is
+// lost, consumption pauses and resumes once the lock is reacquired, picking
+// up from the last cursor. Events are delivered at least once; in rare cases
+// during leader failover the same event may be emitted more than once.
+// Consumers must handle events idempotently.
 //
 // The iterator yields events until the context is cancelled. Cancel the
 // context to stop; [Client.Close] only closes the current WebSocket but
@@ -123,35 +195,148 @@ func (c *Client) Close() error {
 // Events must not be called concurrently from multiple goroutines.
 func (c *Client) Events(ctx context.Context) iter.Seq2[Event, error] {
 	return func(yield func(Event, error) bool) {
-		attempt := 0
+		defer c.releaseOnShutdown()
+
 		for {
 			if ctx.Err() != nil {
 				return
 			}
 
-			conn, err := c.dial(ctx)
-			if err != nil {
-				if ctx.Err() != nil {
-					return
-				}
-				// Dial failed — backoff and retry.
-				attempt = c.backoffAndRetry(ctx, attempt)
-				continue
+			// Acquire the distributed lock before consuming.
+			if err := c.waitForLock(ctx); err != nil {
+				return // context cancelled
 			}
 
-			// Reset backoff after successful connection.
-			attempt = 0
+			// Create an inner context that is cancelled when the lock is
+			// lost, stopping event consumption promptly.
+			innerCtx, innerCancel := context.WithCancel(ctx)
 
-			// Read loop — process messages until error.
-			shouldReturn := c.readLoop(ctx, conn, yield)
-			_ = conn.CloseNow()
-			if shouldReturn {
-				return
+			// Renew the lock in the background. If renewal fails, innerCancel
+			// is called to stop the consume loop. Skipped for NoopLock
+			// (single-node) since there is nothing to renew.
+			renewDone := make(chan struct{})
+			if c.lockOpts != nil {
+				go c.renewLoop(innerCtx, innerCancel, renewDone)
+			} else {
+				close(renewDone)
 			}
 
-			// Connection lost — reconnect with backoff.
-			attempt = c.backoffAndRetry(ctx, attempt)
+			// Consume events while holding the lock.
+			yieldStopped := c.consumeLoop(innerCtx, yield)
+
+			innerCancel()
+			<-renewDone
+
+			if yieldStopped {
+				return // caller stopped iteration
+			}
+			// Either the lock was lost (innerCtx cancelled by renewLoop) or
+			// the parent ctx was cancelled. The loop check at the top handles
+			// parent cancellation; otherwise we try to reacquire.
 		}
+	}
+}
+
+// consumeLoop connects to the WebSocket and reads events, reconnecting with
+// backoff on connection loss. Returns true only when the yield function
+// returns false (caller wants to stop iterating). Returns false when the
+// context is cancelled or connection errors occur.
+func (c *Client) consumeLoop(ctx context.Context, yield func(Event, error) bool) bool {
+	attempt := 0
+	for {
+		if ctx.Err() != nil {
+			return false
+		}
+
+		conn, err := c.dial(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return false
+			}
+			// Dial failed — backoff and retry.
+			attempt = c.backoffAndRetry(ctx, attempt)
+			continue
+		}
+
+		// Reset backoff after successful connection.
+		attempt = 0
+
+		// Read loop — process messages until error.
+		yieldStopped := c.readLoop(ctx, conn, yield)
+		_ = conn.CloseNow()
+		if yieldStopped {
+			return true
+		}
+		if ctx.Err() != nil {
+			return false
+		}
+
+		// Connection lost — reconnect with backoff.
+		attempt = c.backoffAndRetry(ctx, attempt)
+	}
+}
+
+// waitForLock polls the distributed lock until it is acquired or the context
+// is cancelled. With [NoopLock] this returns immediately.
+func (c *Client) waitForLock(ctx context.Context) error {
+	for {
+		err := c.lock.Acquire(ctx, c.leaseDuration)
+		if err == nil {
+			c.isLeader.Store(true)
+			if c.lockOpts != nil && c.lockOpts.OnBecameLeader != nil {
+				c.lockOpts.OnBecameLeader()
+			}
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		// Lock held by another node or infra error — wait and retry.
+		if sleepErr := c.lockSleep(ctx, c.acquisitionInterval); sleepErr != nil {
+			return sleepErr
+		}
+	}
+}
+
+// renewLoop renews the distributed lock periodically. If renewal fails
+// (because we lost the lock), it calls cancel to stop event consumption.
+// Always closes done when it returns.
+func (c *Client) renewLoop(ctx context.Context, cancel context.CancelFunc, done chan struct{}) {
+	defer close(done)
+	for {
+		if err := c.lockSleep(ctx, c.renewalInterval); err != nil {
+			return // context cancelled
+		}
+		if err := c.lock.Renew(ctx, c.leaseDuration); err != nil {
+			if ctx.Err() != nil {
+				return // context cancelled during Renew; let shutdown handle it
+			}
+			// Genuine lock loss.
+			c.isLeader.Store(false)
+			if c.lockOpts != nil && c.lockOpts.OnLostLeadership != nil {
+				c.lockOpts.OnLostLeadership()
+			}
+			cancel()
+			return
+		}
+	}
+}
+
+// releaseOnShutdown attempts to release the distributed lock if this node
+// is the current leader. Uses a background context with timeout so it works
+// even when the parent context is already cancelled. Safe to call multiple
+// times (idempotent via atomic compare-and-swap).
+func (c *Client) releaseOnShutdown() {
+	if !c.isLeader.CompareAndSwap(true, false) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	_ = c.lock.Release(ctx)
+
+	if c.lockOpts != nil && c.lockOpts.OnLostLeadership != nil {
+		c.lockOpts.OnLostLeadership()
 	}
 }
 
@@ -183,20 +368,15 @@ func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 	return conn, nil
 }
 
-// readLoop reads messages from the WebSocket and yields events. Returns true if
-// the iterator should stop (context cancelled or non-retryable error).
+// readLoop reads messages from the WebSocket and yields events. Returns true
+// only when the yield function returns false (caller wants to stop). Returns
+// false for context cancellation and connection errors (caller should
+// reconnect or exit).
 func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(Event, error) bool) bool {
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
-			if ctx.Err() != nil {
-				return true // context cancelled
-			}
-			if isConsumerTooSlow(err) {
-				return false // reconnect
-			}
-			// Other connection errors — reconnect.
-			return false
+			return false // context cancelled or connection error
 		}
 
 		evt, err := decodeFrame(data)
@@ -248,13 +428,4 @@ func (c *Client) backoffAndRetry(ctx context.Context, attempt int) int {
 	}
 	_ = sleep(ctx, d)
 	return attempt + 1
-}
-
-// isConsumerTooSlow checks if the error is a WebSocket close with policy
-// violation status (1008), which ATProto relays use for "ConsumerTooSlow".
-func isConsumerTooSlow(err error) bool {
-	if closeErr, ok := errors.AsType[websocket.CloseError](err); ok {
-		return closeErr.Code == websocket.StatusPolicyViolation
-	}
-	return false
 }
