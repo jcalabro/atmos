@@ -12,7 +12,7 @@ import (
 // silently skipped for forward compatibility.
 var errUnknownType = errors.New("unknown event type")
 
-// Event is a single firehose event with its sequence number.
+// Event is a single event from a subscribeRepos or subscribeLabels stream.
 type Event struct {
 	Seq      int64
 	Commit   *comatproto.SyncSubscribeRepos_Commit
@@ -20,6 +20,19 @@ type Event struct {
 	Identity *comatproto.SyncSubscribeRepos_Identity
 	Account  *comatproto.SyncSubscribeRepos_Account
 	Info     *comatproto.SyncSubscribeRepos_Info
+
+	// Label stream fields (access via Labels()).
+	labelBatch *comatproto.LabelSubscribeLabels_Labels
+	LabelInfo  *comatproto.LabelSubscribeLabels_Info
+}
+
+// Labels returns the individual labels from a subscribeLabels event,
+// or nil for non-label events.
+func (e *Event) Labels() []comatproto.LabelDefs_Label {
+	if e.labelBatch == nil {
+		return nil
+	}
+	return e.labelBatch.Labels
 }
 
 // frameHeader is the CBOR header that precedes each event body on the wire.
@@ -131,4 +144,45 @@ func decodeMessageBody(typ string, body []byte) (Event, error) {
 // seqOf returns the sequence number for an event, or 0 if none.
 func (e *Event) seqOf() int64 {
 	return e.Seq
+}
+
+// decodeLabelFrame decodes an ATProto subscribeLabels frame (two concatenated
+// CBOR values: header map + body).
+func decodeLabelFrame(data []byte) (Event, error) {
+	hdr, bodyStart, err := decodeFrameHeader(data)
+	if err != nil {
+		return Event{}, fmt.Errorf("decode frame header: %w", err)
+	}
+
+	body := data[bodyStart:]
+
+	if hdr.Op == -1 {
+		// Error frame — decode as LabelInfo.
+		var info comatproto.LabelSubscribeLabels_Info
+		if err := info.UnmarshalCBOR(body); err != nil {
+			return Event{}, fmt.Errorf("decode error frame: %w", err)
+		}
+		return Event{LabelInfo: &info}, nil
+	}
+
+	if hdr.Op != 1 {
+		return Event{}, fmt.Errorf("unknown frame op: %d", hdr.Op)
+	}
+
+	switch hdr.T {
+	case "#labels":
+		var v comatproto.LabelSubscribeLabels_Labels
+		if err := v.UnmarshalCBOR(body); err != nil {
+			return Event{}, fmt.Errorf("decode labels: %w", err)
+		}
+		return Event{Seq: v.Seq, labelBatch: &v}, nil
+	case "#info":
+		var v comatproto.LabelSubscribeLabels_Info
+		if err := v.UnmarshalCBOR(body); err != nil {
+			return Event{}, fmt.Errorf("decode label info: %w", err)
+		}
+		return Event{LabelInfo: &v}, nil
+	default:
+		return Event{}, errUnknownType
+	}
 }

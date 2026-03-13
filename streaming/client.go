@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"iter"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,8 +18,14 @@ const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
 
 // Options configures a streaming client.
 type Options struct {
-	// URL is the full WebSocket URL
-	// (e.g. "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos").
+	// URL is the full WebSocket URL. The decoder is auto-detected: URLs
+	// containing "subscribeLabels" use the label decoder, all others use
+	// the repository decoder.
+	//
+	// Examples:
+	//   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos"
+	//   "wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels"
+	//
 	// Required.
 	URL string
 
@@ -49,7 +56,7 @@ type Options struct {
 
 	// Locker enables distributed lock coordination for high availability
 	// deployments. When set, only the lock holder consumes events from the
-	// firehose. Other nodes wait idle and attempt to acquire the lock
+	// stream. Other nodes wait idle and attempt to acquire the lock
 	// periodically. None uses a noop lock (always leader, suitable for
 	// single-node deployments).
 	Locker gt.Option[DistributedLockerOptions]
@@ -57,13 +64,14 @@ type Options struct {
 
 const defaultCursorInterval int64 = 100
 
-// Client connects to an ATProto event stream (firehose).
+// Client connects to an ATProto event stream (firehose or label stream).
 type Client struct {
 	opts           Options
 	cursor         atomic.Int64
 	conn           atomic.Pointer[websocket.Conn]
 	cursorCount    int64 // only used in readLoop goroutine
 	cursorInterval int64
+	decode         func([]byte) (Event, error)
 
 	// Lock-related fields, initialized in NewClient.
 	lock                DistributedLocker
@@ -112,9 +120,15 @@ func NewClient(opts Options) (*Client, error) {
 		}
 	}
 
+	decode := decodeFrame
+	if strings.Contains(opts.URL, "subscribeLabels") {
+		decode = decodeLabelFrame
+	}
+
 	c := &Client{
 		opts:                opts,
 		cursorInterval:      interval,
+		decode:              decode,
 		lock:                lk,
 		lockOpts:            lockOpts,
 		leaseDuration:       leaseDur,
@@ -177,9 +191,9 @@ func (c *Client) IsLeader() bool {
 	return c.isLeader.Load()
 }
 
-// Events returns an iterator over firehose events. It connects to the
-// WebSocket, automatically handles ping/pong, reconnects with backoff on
-// connection loss, and resumes from the last seen cursor.
+// Events returns an iterator over stream events (repository or label). It
+// connects to the WebSocket, automatically handles ping/pong, reconnects with
+// backoff on connection loss, and resumes from the last seen cursor.
 //
 // When a distributed lock is configured via [DistributedLockerOptions], the
 // iterator first acquires the lock before consuming events. If the lock is
@@ -379,7 +393,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			return false // context cancelled or connection error
 		}
 
-		evt, err := decodeFrame(data)
+		evt, err := c.decode(data)
 		if errors.Is(err, errUnknownType) {
 			continue // skip unrecognized event types for forward compat
 		}
