@@ -1960,6 +1960,150 @@ func (s *ModerationDefs_AgeAssuranceOverrideEvent) UnmarshalJSONAt(data []byte, 
 	}
 }
 
+// ModerationDefs_AgeAssurancePurgeEvent is a "ageAssurancePurgeEvent" in the tools.ozone.moderation.defs schema.
+//
+// Purges all age assurance events for the subject. Only works on DID subjects. Moderator-only.
+type ModerationDefs_AgeAssurancePurgeEvent struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	Comment       string `json:"comment"` // Comment describing the reason for the purge.
+}
+
+// Precomputed CBOR key tokens for ModerationDefs_AgeAssurancePurgeEvent.
+var (
+	cborKey_ModerationDefs_AgeAssurancePurgeEvent_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ModerationDefs_AgeAssurancePurgeEvent_comment     = cbor.AppendTextKey(nil, "comment")
+)
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if s.LexiconTypeID != "" {
+		buf = append(buf, cborKey_ModerationDefs_AgeAssurancePurgeEvent_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	}
+	buf = append(buf, cborKey_ModerationDefs_AgeAssurancePurgeEvent_comment...)
+	buf = cbor.AppendText(buf, s.Comment)
+	return buf, nil
+}
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		key, newPos, err := cbor.ReadText(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "comment":
+			s.Comment, pos, err = cbor.ReadText(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ModerationDefs_AgeAssurancePurgeEvent.
+var (
+	jsonKey_ModerationDefs_AgeAssurancePurgeEvent_dollar_type = []byte("\"$type\":")
+	jsonKey_ModerationDefs_AgeAssurancePurgeEvent_comment     = []byte("\"comment\":")
+)
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationDefs_AgeAssurancePurgeEvent_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ModerationDefs_AgeAssurancePurgeEvent_comment...)
+	buf = cbor.AppendJSONString(buf, s.Comment)
+	first = false
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ModerationDefs_AgeAssurancePurgeEvent) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "comment":
+			s.Comment, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ModerationDefs_BlobView is a "blobView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_BlobView struct {
 	LexiconTypeID string                                     `json:"$type,omitempty"`
@@ -7094,6 +7238,7 @@ type ModerationDefs_ModEventView_Event struct {
 	ModerationDefs_ModEventPriorityScore         gt.Ref[ModerationDefs_ModEventPriorityScore]
 	ModerationDefs_AgeAssuranceEvent             gt.Ref[ModerationDefs_AgeAssuranceEvent]
 	ModerationDefs_AgeAssuranceOverrideEvent     gt.Ref[ModerationDefs_AgeAssuranceOverrideEvent]
+	ModerationDefs_AgeAssurancePurgeEvent        gt.Ref[ModerationDefs_AgeAssurancePurgeEvent]
 	ModerationDefs_RevokeAccountCredentialsEvent gt.Ref[ModerationDefs_RevokeAccountCredentialsEvent]
 	ModerationDefs_ScheduleTakedownEvent         gt.Ref[ModerationDefs_ScheduleTakedownEvent]
 	ModerationDefs_CancelScheduledTakedownEvent  gt.Ref[ModerationDefs_CancelScheduledTakedownEvent]
@@ -7208,6 +7353,11 @@ func (u ModerationDefs_ModEventView_Event) AppendJSON(buf []byte) ([]byte, error
 	if u.ModerationDefs_AgeAssuranceOverrideEvent.HasVal() {
 		v := *u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return v.AppendJSON(buf)
+	}
+	if u.ModerationDefs_AgeAssurancePurgeEvent.HasVal() {
+		v := *u.ModerationDefs_AgeAssurancePurgeEvent.Val()
+		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RevokeAccountCredentialsEvent.HasVal() {
@@ -7414,6 +7564,14 @@ func (u *ModerationDefs_ModEventView_Event) UnmarshalJSONAt(data []byte, pos int
 		}
 		u.ModerationDefs_AgeAssuranceOverrideEvent = gt.SomeRef(v)
 		return endPos, nil
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		var v ModerationDefs_AgeAssurancePurgeEvent
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ModerationDefs_AgeAssurancePurgeEvent = gt.SomeRef(v)
+		return endPos, nil
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		var v ModerationDefs_RevokeAccountCredentialsEvent
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -7552,6 +7710,11 @@ func (u ModerationDefs_ModEventView_Event) AppendCBOR(buf []byte) ([]byte, error
 	if u.ModerationDefs_AgeAssuranceOverrideEvent.HasVal() {
 		v := *u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return v.AppendCBOR(buf)
+	}
+	if u.ModerationDefs_AgeAssurancePurgeEvent.HasVal() {
+		v := *u.ModerationDefs_AgeAssurancePurgeEvent.Val()
+		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RevokeAccountCredentialsEvent.HasVal() {
@@ -7753,6 +7916,14 @@ func (u *ModerationDefs_ModEventView_Event) UnmarshalCBORAt(data []byte, pos int
 			return 0, err
 		}
 		u.ModerationDefs_AgeAssuranceOverrideEvent = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		var v ModerationDefs_AgeAssurancePurgeEvent
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ModerationDefs_AgeAssurancePurgeEvent = gt.SomeRef(v)
 		return pos, nil
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		var v ModerationDefs_RevokeAccountCredentialsEvent
@@ -8425,6 +8596,7 @@ type ModerationDefs_ModEventViewDetail_Event struct {
 	ModerationDefs_ModEventPriorityScore         gt.Ref[ModerationDefs_ModEventPriorityScore]
 	ModerationDefs_AgeAssuranceEvent             gt.Ref[ModerationDefs_AgeAssuranceEvent]
 	ModerationDefs_AgeAssuranceOverrideEvent     gt.Ref[ModerationDefs_AgeAssuranceOverrideEvent]
+	ModerationDefs_AgeAssurancePurgeEvent        gt.Ref[ModerationDefs_AgeAssurancePurgeEvent]
 	ModerationDefs_RevokeAccountCredentialsEvent gt.Ref[ModerationDefs_RevokeAccountCredentialsEvent]
 	ModerationDefs_ScheduleTakedownEvent         gt.Ref[ModerationDefs_ScheduleTakedownEvent]
 	ModerationDefs_CancelScheduledTakedownEvent  gt.Ref[ModerationDefs_CancelScheduledTakedownEvent]
@@ -8539,6 +8711,11 @@ func (u ModerationDefs_ModEventViewDetail_Event) AppendJSON(buf []byte) ([]byte,
 	if u.ModerationDefs_AgeAssuranceOverrideEvent.HasVal() {
 		v := *u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return v.AppendJSON(buf)
+	}
+	if u.ModerationDefs_AgeAssurancePurgeEvent.HasVal() {
+		v := *u.ModerationDefs_AgeAssurancePurgeEvent.Val()
+		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
 		return v.AppendJSON(buf)
 	}
 	if u.ModerationDefs_RevokeAccountCredentialsEvent.HasVal() {
@@ -8745,6 +8922,14 @@ func (u *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSONAt(data []byte, p
 		}
 		u.ModerationDefs_AgeAssuranceOverrideEvent = gt.SomeRef(v)
 		return endPos, nil
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		var v ModerationDefs_AgeAssurancePurgeEvent
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ModerationDefs_AgeAssurancePurgeEvent = gt.SomeRef(v)
+		return endPos, nil
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		var v ModerationDefs_RevokeAccountCredentialsEvent
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -8883,6 +9068,11 @@ func (u ModerationDefs_ModEventViewDetail_Event) AppendCBOR(buf []byte) ([]byte,
 	if u.ModerationDefs_AgeAssuranceOverrideEvent.HasVal() {
 		v := *u.ModerationDefs_AgeAssuranceOverrideEvent.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return v.AppendCBOR(buf)
+	}
+	if u.ModerationDefs_AgeAssurancePurgeEvent.HasVal() {
+		v := *u.ModerationDefs_AgeAssurancePurgeEvent.Val()
+		v.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
 		return v.AppendCBOR(buf)
 	}
 	if u.ModerationDefs_RevokeAccountCredentialsEvent.HasVal() {
@@ -9084,6 +9274,14 @@ func (u *ModerationDefs_ModEventViewDetail_Event) UnmarshalCBORAt(data []byte, p
 			return 0, err
 		}
 		u.ModerationDefs_AgeAssuranceOverrideEvent = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		var v ModerationDefs_AgeAssurancePurgeEvent
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ModerationDefs_AgeAssurancePurgeEvent = gt.SomeRef(v)
 		return pos, nil
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		var v ModerationDefs_RevokeAccountCredentialsEvent
