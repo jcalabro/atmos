@@ -21,7 +21,7 @@ test-race:
     gotestsum --format-hide-empty-pkg --format-icons hivis -- -race -count=1 ./...
 
 # Regenerates all API types from vendored lexicon schemas
-generate:
+lexgen:
     go run ./cmd/lexgen -lexdir lexicons -config lexgen.json
 
 # Runs benchmarks
@@ -49,3 +49,11 @@ fuzz DURATION="10s" *ARGS="":
             go test "$pkg" -run='^$' -fuzz="^${t}$" -fuzztime={{DURATION}}
         done
     done
+
+# Pulls and builds the latest lexicons from the atproto repo (assuming well-structured GOPATH)
+update-lexicons:
+    #!/usr/bin/env bash
+
+    rm -rf lexicons/*
+    cp -r ../../bluesky-social/atproto/lexicons/* lexicons
+    just lexgen
