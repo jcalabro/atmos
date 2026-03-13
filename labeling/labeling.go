@@ -1,5 +1,6 @@
 // Package labeling provides label creation, signing, and verification
-// for ATProto content labels.
+// for ATProto content labels. It does not provide utilities for subscribing
+// to a labeler (see the [streaming] package for that).
 package labeling
 
 import (
@@ -10,7 +11,6 @@ import (
 	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/crypto"
-
 	"github.com/jcalabro/gt"
 )
 
