@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 func BenchmarkHeightForKey(b *testing.B) {

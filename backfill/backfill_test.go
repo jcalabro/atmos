@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jcalabro/gt"
 	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/backfill"
 	"github.com/jcalabro/atmos/crypto"
@@ -20,6 +19,7 @@ import (
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

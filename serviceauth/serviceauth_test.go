@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jcalabro/gt"
 	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

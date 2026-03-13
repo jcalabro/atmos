@@ -3,8 +3,8 @@ package mst
 import (
 	"fmt"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // NodeData is the on-disk CBOR representation of an MST node.

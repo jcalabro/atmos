@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 const defaultMaxRequestBody = 2 << 20 // 2 MB

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/gt"
 )
 
 // Resolver performs low-level network resolution without verification or caching.

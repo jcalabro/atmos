@@ -340,15 +340,15 @@ func FuzzReadJSONString(f *testing.F) {
 	f.Add([]byte(`""`))
 	f.Add([]byte(`"abc\ndef"`))
 	f.Add([]byte(`"escaped\"quote"`))
-	f.Add([]byte(`"\u0041"`))                 // \uXXXX escape
-	f.Add([]byte(`"\uD83D\uDE00"`))           // surrogate pair (😀)
-	f.Add([]byte(`"\uD800"`))                 // lone high surrogate
-	f.Add([]byte(`"hello\tworld\n"`))         // tab + newline escapes
-	f.Add([]byte(`"\u003c\u003e\u0026"`))     // HTML-unsafe chars
-	f.Add([]byte(`""`))                       // empty
-	f.Add([]byte{})                           // no data
-	f.Add([]byte(`"unterminated`))            // missing close quote
-	f.Add([]byte(`"\`))                       // truncated escape
+	f.Add([]byte(`"\u0041"`))             // \uXXXX escape
+	f.Add([]byte(`"\uD83D\uDE00"`))       // surrogate pair (😀)
+	f.Add([]byte(`"\uD800"`))             // lone high surrogate
+	f.Add([]byte(`"hello\tworld\n"`))     // tab + newline escapes
+	f.Add([]byte(`"\u003c\u003e\u0026"`)) // HTML-unsafe chars
+	f.Add([]byte(`""`))                   // empty
+	f.Add([]byte{})                       // no data
+	f.Add([]byte(`"unterminated`))        // missing close quote
+	f.Add([]byte(`"\`))                   // truncated escape
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		s, end, err := ReadJSONString(data, 0)
@@ -532,8 +532,8 @@ func FuzzUnmarshalReader(f *testing.F) {
 		{0xf6},                  // null
 		{0xf5},                  // true
 		{0x00},                  // 0
-		{0x63, 'a', 'b', 'c'},  // "abc"
-		{0x82, 0x01, 0x02},     // [1, 2]
+		{0x63, 'a', 'b', 'c'},   // "abc"
+		{0x82, 0x01, 0x02},      // [1, 2]
 		{0xa1, 0x61, 'a', 0x01}, // {"a": 1}
 	}
 	for _, s := range seeds {

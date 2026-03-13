@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/api/bsky"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

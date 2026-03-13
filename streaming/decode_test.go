@@ -119,9 +119,9 @@ func buildDecodeFrame(t string, body []byte) []byte {
 func TestDecodeFrame_Sync(t *testing.T) {
 	t.Parallel()
 	body, err := (&comatproto.SyncSubscribeRepos_Sync{
-		DID: "did:plc:test123",
-		Seq: 42,
-		Rev: "3abc",
+		DID:  "did:plc:test123",
+		Seq:  42,
+		Rev:  "3abc",
 		Time: "2024-01-01T00:00:00Z",
 	}).MarshalCBOR()
 	require.NoError(t, err)

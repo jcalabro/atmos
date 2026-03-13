@@ -1713,17 +1713,17 @@ func TestSignOut_WithRefreshToken(t *testing.T) {
 	_ = store.SetSession(context.Background(), "did:plc:test", &Session{
 		DPoPKey: key,
 		TokenSet: TokenSet{
-			Issuer:              "https://as.example.com",
-			Sub:                 "did:plc:test",
-			AccessToken:         "access-tok",
-			RefreshToken:        "refresh-tok",
-			RevocationEndpoint:  revokeSrv.URL,
+			Issuer:             "https://as.example.com",
+			Sub:                "did:plc:test",
+			AccessToken:        "access-tok",
+			RefreshToken:       "refresh-tok",
+			RevocationEndpoint: revokeSrv.URL,
 		},
 	})
 
 	c := &Client{
-		SessionStore: store,
-		HTTPClient:   gt.Some(revokeSrv.Client()),
+		SessionStore:   store,
+		HTTPClient:     gt.Some(revokeSrv.Client()),
 		ClientMetadata: ClientMetadata{ClientID: "https://test.example.com/client-metadata.json"},
 	}
 

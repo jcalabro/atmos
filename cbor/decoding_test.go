@@ -274,7 +274,7 @@ func TestDecode_RejectInvalidUTF8MapKey(t *testing.T) {
 		{
 			name: "0xFF byte in map key",
 			data: []byte{
-				0xa1,             // map of 1
+				0xa1,                   // map of 1
 				0x63, 0x61, 0xFF, 0x62, // text(3) "a\xffb" — invalid UTF-8
 				0x01, // value: 1
 			},
@@ -282,7 +282,7 @@ func TestDecode_RejectInvalidUTF8MapKey(t *testing.T) {
 		{
 			name: "truncated multi-byte sequence in map key",
 			data: []byte{
-				0xa1,       // map of 1
+				0xa1,             // map of 1
 				0x62, 0xC0, 0x41, // text(2) "\xc0A" — overlong encoding
 				0x01,
 			},
@@ -290,7 +290,7 @@ func TestDecode_RejectInvalidUTF8MapKey(t *testing.T) {
 		{
 			name: "lone continuation byte in map key",
 			data: []byte{
-				0xa1,       // map of 1
+				0xa1,             // map of 1
 				0x62, 0x80, 0x41, // text(2) "\x80A" — starts with continuation byte
 				0x01,
 			},
@@ -298,8 +298,8 @@ func TestDecode_RejectInvalidUTF8MapKey(t *testing.T) {
 		{
 			name: "surrogate half in map key",
 			data: []byte{
-				0xa1,                         // map of 1
-				0x63, 0xED, 0xA0, 0x80,       // text(3) U+D800 — surrogate
+				0xa1,                   // map of 1
+				0x63, 0xED, 0xA0, 0x80, // text(3) U+D800 — surrogate
 				0x01,
 			},
 		},

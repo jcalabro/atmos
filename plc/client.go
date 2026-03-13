@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/gt"
 )
 
 const (

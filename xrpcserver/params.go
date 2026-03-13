@@ -15,8 +15,8 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Params provides typed access to XRPC query parameters.

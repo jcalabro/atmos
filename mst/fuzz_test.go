@@ -3,8 +3,8 @@ package mst
 import (
 	"testing"
 
-	"github.com/jcalabro/gt"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // FuzzDecodeNodeData tests that the specialized MST node decoder never panics

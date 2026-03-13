@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jcalabro/gt"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
