@@ -309,6 +309,157 @@ func TestParse_ArrayField(t *testing.T) {
 	assert.Equal(t, 640, tags.Items.MaxLength)
 }
 
+func TestParse_StringDef(t *testing.T) {
+	t.Parallel()
+	s, err := Parse([]byte(`{
+		"lexicon": 1,
+		"id": "test.stringdef",
+		"defs": {
+			"main": {
+				"type": "string",
+				"description": "A constrained string type",
+				"format": "did",
+				"maxLength": 2048,
+				"minLength": 7,
+				"maxGraphemes": 500,
+				"minGraphemes": 1,
+				"enum": ["did:plc:abc", "did:web:example.com"],
+				"knownValues": ["did:plc:known"],
+				"const": "did:plc:abc"
+			}
+		}
+	}`))
+	require.NoError(t, err)
+
+	main := s.Defs["main"]
+	require.NotNil(t, main)
+	assert.Equal(t, "string", main.Type)
+	assert.Equal(t, "did", main.Format)
+	assert.Equal(t, 2048, main.MaxLength)
+	assert.Equal(t, 7, main.MinLength)
+	assert.Equal(t, 500, main.MaxGraphemes)
+	assert.Equal(t, 1, main.MinGraphemes)
+	assert.Equal(t, []string{"did:plc:abc", "did:web:example.com"}, main.Enum)
+	assert.Equal(t, []string{"did:plc:known"}, main.KnownValues)
+	assert.Equal(t, "did:plc:abc", main.Const)
+}
+
+func TestParse_IntegerDef(t *testing.T) {
+	t.Parallel()
+	s, err := Parse([]byte(`{
+		"lexicon": 1,
+		"id": "test.integerdef",
+		"defs": {
+			"main": {
+				"type": "object",
+				"properties": {
+					"count": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 1000,
+						"default": 10
+					}
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+
+	count := s.Defs["main"].Properties["count"]
+	require.NotNil(t, count)
+	assert.Equal(t, "integer", count.Type)
+	require.NotNil(t, count.Minimum)
+	assert.Equal(t, int64(0), *count.Minimum)
+	require.NotNil(t, count.Maximum)
+	assert.Equal(t, int64(1000), *count.Maximum)
+	assert.Equal(t, float64(10), count.Default)
+}
+
+func TestParse_NullField(t *testing.T) {
+	t.Parallel()
+	s, err := Parse([]byte(`{
+		"lexicon": 1,
+		"id": "test.nullfield",
+		"defs": {
+			"main": {
+				"type": "object",
+				"nullable": ["optional"],
+				"properties": {
+					"optional": {"type": "string"}
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"optional"}, s.Defs["main"].Nullable)
+}
+
+func TestParse_NestedObject(t *testing.T) {
+	t.Parallel()
+	s, err := Parse([]byte(`{
+		"lexicon": 1,
+		"id": "test.nested",
+		"defs": {
+			"main": {
+				"type": "record",
+				"key": "tid",
+				"record": {
+					"type": "object",
+					"required": ["data"],
+					"properties": {
+						"data": {
+							"type": "object",
+							"required": ["items"],
+							"properties": {
+								"items": {
+									"type": "array",
+									"maxLength": 10,
+									"items": {
+										"type": "union",
+										"refs": ["#itemA", "#itemB"],
+										"closed": true
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"itemA": {
+				"type": "object",
+				"properties": {
+					"a": {"type": "string"}
+				}
+			},
+			"itemB": {
+				"type": "object",
+				"properties": {
+					"b": {"type": "integer"}
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+
+	main := s.Defs["main"]
+	require.NotNil(t, main)
+	assert.Equal(t, "record", main.Type)
+
+	data := main.Record.Properties["data"]
+	require.NotNil(t, data)
+	assert.Equal(t, "object", data.Type)
+
+	items := data.Properties["items"]
+	require.NotNil(t, items)
+	assert.Equal(t, "array", items.Type)
+	assert.Equal(t, 10, items.MaxLength)
+
+	require.NotNil(t, items.Items)
+	assert.Equal(t, "union", items.Items.Type)
+	assert.True(t, items.Items.Closed)
+	assert.Equal(t, []string{"#itemA", "#itemB"}, items.Items.Refs)
+}
+
 func TestParseDirVendoredLexicons(t *testing.T) {
 	t.Parallel()
 	schemas, err := ParseDir("../lexicons")

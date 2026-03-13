@@ -1084,3 +1084,207 @@ func TestValidate_Ref_MissingDef(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unresolved ref")
 }
+
+// --- Unknown type (spec: "Top-level data must be object") ---
+
+func TestValidate_Unknown_AcceptsObject(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "unknown"}
+	assert.NoError(t, ValidateValue(nil, "", f, map[string]any{"key": "value"}))
+	assert.NoError(t, ValidateValue(nil, "", f, map[string]any{}))
+}
+
+func TestValidate_Unknown_RejectsString(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "unknown"}
+	err := ValidateValue(nil, "", f, "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown type must be an object")
+}
+
+func TestValidate_Unknown_RejectsNumber(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "unknown"}
+	assert.Error(t, ValidateValue(nil, "", f, int64(42)))
+	assert.Error(t, ValidateValue(nil, "", f, float64(3.14)))
+}
+
+func TestValidate_Unknown_RejectsBool(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "unknown"}
+	assert.Error(t, ValidateValue(nil, "", f, true))
+}
+
+func TestValidate_Unknown_RejectsArray(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "unknown"}
+	assert.Error(t, ValidateValue(nil, "", f, []any{"a", "b"}))
+}
+
+func TestValidate_Unknown_RejectsNil(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "unknown"}
+	err := ValidateValue(nil, "", f, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "required")
+}
+
+// --- Integer enum ---
+
+func TestValidate_Integer_Enum(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "integer", Enum: []string{"1", "2", "3"}}
+	assert.NoError(t, ValidateValue(nil, "", f, int64(1)))
+	assert.NoError(t, ValidateValue(nil, "", f, int64(3)))
+	assert.Error(t, ValidateValue(nil, "", f, int64(4)))
+	assert.Error(t, ValidateValue(nil, "", f, int64(0)))
+}
+
+func TestValidate_Integer_Enum_Negative(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "integer", Enum: []string{"-1", "0", "1"}}
+	assert.NoError(t, ValidateValue(nil, "", f, int64(-1)))
+	assert.NoError(t, ValidateValue(nil, "", f, int64(0)))
+	assert.Error(t, ValidateValue(nil, "", f, int64(2)))
+}
+
+// --- String format: unknown format skipped for forward compatibility ---
+
+func TestValidate_String_FormatUnknown_Skipped(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "string", Format: "some-future-format"}
+	assert.NoError(t, ValidateValue(nil, "", f, "anything"))
+}
+
+// --- Object edge cases ---
+
+func TestValidate_Object_OptionalFieldNull_NonNullable(t *testing.T) {
+	t.Parallel()
+	// Optional (not in required) but not nullable: null value triggers validation
+	// because the field IS present with a null value.
+	obj := &lexicon.Object{
+		Properties: map[string]*lexicon.Field{
+			"name": {Type: "string"},
+		},
+	}
+	// null for a non-nullable field that IS present should be caught by validateField.
+	err := ValidateObject(nil, "", obj, map[string]any{"name": nil})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "required")
+}
+
+func TestValidate_Object_OptionalFieldMissing(t *testing.T) {
+	t.Parallel()
+	obj := &lexicon.Object{
+		Properties: map[string]*lexicon.Field{
+			"name":     {Type: "string"},
+			"optional": {Type: "string"},
+		},
+		Required: []string{"name"},
+	}
+	assert.NoError(t, ValidateObject(nil, "", obj, map[string]any{"name": "Alice"}))
+}
+
+func TestValidate_Object_RequiredNullNonNullable(t *testing.T) {
+	t.Parallel()
+	obj := &lexicon.Object{
+		Properties: map[string]*lexicon.Field{
+			"name": {Type: "string"},
+		},
+		Required: []string{"name"},
+	}
+	err := ValidateObject(nil, "", obj, map[string]any{"name": nil})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "null")
+}
+
+// --- Blob wrong type ---
+
+func TestValidate_Blob_WrongType(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "blob"}
+	assert.Error(t, ValidateValue(nil, "", f, "not a blob"))
+	assert.Error(t, ValidateValue(nil, "", f, 42))
+}
+
+// --- Array wrong type ---
+
+func TestValidate_Array_WrongType(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "array", Items: &lexicon.Field{Type: "string"}}
+	assert.Error(t, ValidateValue(nil, "", f, "not an array"))
+	assert.Error(t, ValidateValue(nil, "", f, map[string]any{}))
+}
+
+// --- Union wrong type ---
+
+func TestValidate_Union_WrongType(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "union", Refs: []string{}}
+	assert.Error(t, ValidateValue(nil, "", f, "not a union"))
+	assert.Error(t, ValidateValue(nil, "", f, 42))
+}
+
+func TestValidate_Union_NonStringType(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "union", Refs: []string{}}
+	err := ValidateValue(nil, "", f, map[string]any{"$type": 42})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "$type expected string")
+}
+
+// --- Record edge cases ---
+
+func TestValidate_Record_MainNotRecord(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "object", Properties: map[string]*lexicon.Field{}},
+		},
+	}))
+	err := ValidateRecord(cat, "com.example.test", map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "main def is not a record")
+}
+
+func TestValidate_Record_NilRecord(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1, ID: "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record"}, // nil Record
+		},
+	}))
+	err := ValidateRecord(cat, "com.example.test", map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "record def has no record object")
+}
+
+// --- String edge cases ---
+
+func TestValidate_String_ZeroLength(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "string", MinLength: 1}
+	assert.Error(t, ValidateValue(nil, "", f, ""))
+	assert.NoError(t, ValidateValue(nil, "", f, "a"))
+}
+
+func TestValidate_String_EmptyEnum(t *testing.T) {
+	t.Parallel()
+	// Empty enum slice — no values match.
+	f := &lexicon.Field{Type: "string", Enum: []string{}}
+	assert.NoError(t, ValidateValue(nil, "", f, "anything"))
+}
+
+// --- Unknown field type ---
+
+func TestValidate_UnknownFieldType(t *testing.T) {
+	t.Parallel()
+	f := &lexicon.Field{Type: "nonexistent-type"}
+	err := ValidateValue(nil, "", f, "anything")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown field type")
+}

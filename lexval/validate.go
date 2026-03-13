@@ -2,6 +2,8 @@
 package lexval
 
 import (
+	"fmt"
+
 	"github.com/jcalabro/atmos/lexicon"
 )
 
@@ -92,7 +94,10 @@ func validateField(cat *lexicon.Catalog, nsid string, p *path, f *lexicon.Field,
 	case "union":
 		validateUnion(cat, nsid, p, f.Refs, f.Closed, val, errs)
 	case "unknown":
-		// accept anything
+		// Spec: "Top-level data must be object (not primitive)".
+		if _, ok := val.(map[string]any); !ok {
+			addErr(errs, p, fmt.Sprintf("unknown type must be an object, got %T", val))
+		}
 	default:
 		addErr(errs, p, "unknown field type: "+f.Type)
 	}

@@ -3,6 +3,7 @@ package lexval
 import (
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/jcalabro/atmos/lexicon"
 )
@@ -46,5 +47,18 @@ func validateInteger(p *path, f *lexicon.Field, val any, errs *[]*ValidationErro
 
 	if f.Maximum != nil && n > *f.Maximum {
 		addErr(errs, p, fmt.Sprintf("value %d exceeds maximum %d", n, *f.Maximum))
+	}
+
+	if len(f.Enum) > 0 {
+		found := false
+		for _, e := range f.Enum {
+			if ev, err := strconv.ParseInt(e, 10, 64); err == nil && n == ev {
+				found = true
+				break
+			}
+		}
+		if !found {
+			addErr(errs, p, fmt.Sprintf("value %d not in enum", n))
+		}
 	}
 }
