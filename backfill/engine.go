@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 )
 
 type repoJob struct {
@@ -57,16 +57,14 @@ func (e *Engine) Run(ctx context.Context) error {
 
 	// Workers.
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for job := range jobs {
 				if ctx.Err() != nil {
 					return
 				}
 				e.processRepo(ctx, job, collections)
 			}
-		}()
+		})
 	}
 
 	// Producer: enumerate repos.

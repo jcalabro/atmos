@@ -5,9 +5,8 @@ package backfill
 import (
 	"context"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/sync"
-
 	"github.com/jcalabro/gt"
 )
 
