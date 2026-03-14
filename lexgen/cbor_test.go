@@ -274,16 +274,7 @@ func TestGenerate_ArrayOfRefsCBOR(t *testing.T) {
 
 func TestGenerate_AllVendoredLexiconsCBOR(t *testing.T) {
 	t.Parallel()
-	schemas, err := lexicon.ParseDir("../lexicons")
-	if err != nil {
-		t.Skipf("no vendored lexicons: %v", err)
-	}
-
-	cat := lexicon.NewCatalog()
-	require.NoError(t, cat.AddAll(schemas))
-	require.NoError(t, cat.Resolve())
-
-	files, err := Generate(testConfig(), cat)
+	files, err := generateAllVendored()
 	require.NoError(t, err)
 
 	// Spot-check that at least some record types got CBOR methods.

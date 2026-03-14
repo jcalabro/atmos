@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/jcalabro/atmos/lexicon"
 )
@@ -28,7 +29,11 @@ type PackageConfig struct {
 // Generate produces Go source files from parsed lexicon schemas.
 // Returns a map of file path → file contents.
 func Generate(cfg *Config, cat *lexicon.Catalog) (map[string][]byte, error) {
-	files := make(map[string][]byte)
+	type rawFile struct {
+		path string
+		code string
+	}
+	var raw []rawFile
 
 	for _, s := range cat.Schemas() {
 		pkg := findPackage(cfg, s.ID)
@@ -54,32 +59,20 @@ func Generate(cfg *Config, cat *lexicon.Catalog) (map[string][]byte, error) {
 
 		fname := schemaFileName(s.ID)
 		path := pkg.OutDir + "/" + fname
-		formatted, err := formatSource(path, []byte(code))
-		if err != nil {
-			return nil, fmt.Errorf("lexgen: %s: format: %w", s.ID, err)
-		}
-		files[path] = formatted
+		raw = append(raw, rawFile{path: path, code: code})
 	}
 
 	// Generate shared types into the dedicated shared package.
 	if cfg.SharedTypesDir != "" {
 		code := generateSharedTypes(cfg.SharedTypesPkg)
 		path := cfg.SharedTypesDir + "/types.go"
-		formatted, err := formatSource(path, []byte(code))
-		if err != nil {
-			return nil, fmt.Errorf("lexgen: shared types: %w", err)
-		}
-		files[path] = formatted
+		raw = append(raw, rawFile{path: path, code: code})
 	} else {
 		// Fallback: emit into each package (legacy behavior).
 		for _, pkg := range cfg.Packages {
 			code := generateSharedTypes(pkg.Package)
 			path := pkg.OutDir + "/types.go"
-			formatted, err := formatSource(path, []byte(code))
-			if err != nil {
-				return nil, fmt.Errorf("lexgen: shared types for %s: %w", pkg.Package, err)
-			}
-			files[path] = formatted
+			raw = append(raw, rawFile{path: path, code: code})
 		}
 	}
 
@@ -110,13 +103,32 @@ func Generate(cfg *Config, cat *lexicon.Catalog) (map[string][]byte, error) {
 
 		code := generateDecodeRecord(pkg.Package, records)
 		path := pkg.OutDir + "/decode.go"
-		formatted, err := formatSource(path, []byte(code))
-		if err != nil {
-			return nil, fmt.Errorf("lexgen: decode for %s: %w", pkg.Package, err)
-		}
-		files[path] = formatted
+		raw = append(raw, rawFile{path: path, code: code})
 	}
 
+	// Format all files in parallel.
+	type fmtResult struct {
+		path string
+		data []byte
+		err  error
+	}
+	results := make([]fmtResult, len(raw))
+	var wg sync.WaitGroup
+	for i, f := range raw {
+		wg.Go(func() {
+			formatted, err := formatSource(f.path, []byte(f.code))
+			results[i] = fmtResult{path: f.path, data: formatted, err: err}
+		})
+	}
+	wg.Wait()
+
+	files := make(map[string][]byte, len(results))
+	for _, r := range results {
+		if r.err != nil {
+			return nil, r.err
+		}
+		files[r.path] = r.data
+	}
 	return files, nil
 }
 

@@ -1,12 +1,40 @@
 package lexgen
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/jcalabro/atmos/lexicon"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var (
+	allVendoredOnce  sync.Once
+	allVendoredFiles map[string][]byte
+	allVendoredErr   error
+)
+
+func generateAllVendored() (map[string][]byte, error) {
+	allVendoredOnce.Do(func() {
+		schemas, err := lexicon.ParseDir("../lexicons")
+		if err != nil {
+			allVendoredErr = err
+			return
+		}
+		cat := lexicon.NewCatalog()
+		if err := cat.AddAll(schemas); err != nil {
+			allVendoredErr = err
+			return
+		}
+		if err := cat.Resolve(); err != nil {
+			allVendoredErr = err
+			return
+		}
+		allVendoredFiles, allVendoredErr = Generate(testConfig(), cat)
+	})
+	return allVendoredFiles, allVendoredErr
+}
 
 func testConfig() *Config {
 	return &Config{
@@ -746,14 +774,7 @@ func TestGenerate_ArrayOfRefs(t *testing.T) {
 
 func TestGenerate_AllVendoredLexicons(t *testing.T) {
 	t.Parallel()
-	schemas, err := lexicon.ParseDir("../lexicons")
-	require.NoError(t, err)
-
-	cat := lexicon.NewCatalog()
-	require.NoError(t, cat.AddAll(schemas))
-	require.NoError(t, cat.Resolve())
-
-	files, err := Generate(testConfig(), cat)
+	files, err := generateAllVendored()
 	require.NoError(t, err)
 
 	assert.Greater(t, len(files), 100)
