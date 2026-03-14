@@ -223,11 +223,10 @@ func (c CID) Bytes() []byte {
 }
 
 // AppendBytes appends the raw binary CID to buf and returns the extended buffer.
+// All varint values (version=1, codec, hash_code=0x12, hash_len=32) are single-byte,
+// so we inline them directly instead of calling AppendUvarint 4 times.
 func (c CID) AppendBytes(buf []byte) []byte {
-	buf = AppendUvarint(buf, 1)
-	buf = AppendUvarint(buf, uint64(c.codec))
-	buf = AppendUvarint(buf, HashSHA256)
-	buf = AppendUvarint(buf, 32)
+	buf = append(buf, 0x01, c.codec, 0x12, 0x20)
 	return append(buf, c.hash[:]...)
 }
 

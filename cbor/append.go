@@ -72,29 +72,24 @@ func AppendMapHeader(buf []byte, length uint64) []byte {
 }
 
 // AppendCIDLink appends a DAG-CBOR CID link (tag 42 + byte string with 0x00 prefix + CID bytes).
+// The encoding is always 41 bytes: tag42(2) + bytesHeader(2) + prefix(1) + CID(36).
+// All fixed bytes are inlined in a single append to minimize overhead.
 func AppendCIDLink(buf []byte, c *CID) []byte {
-	cidLen := CIDByteLen(c)
-	// Tag 42: 0xd8, 0x2a
-	buf = append(buf, 0xd8, 0x2a)
-	buf = AppendBytesHeader(buf, uint64(1+cidLen))
-	buf = append(buf, 0x00) // CID prefix byte
-	return c.AppendBytes(buf)
+	// 0xd8, 0x2a = tag 42
+	// 0x58, 0x25 = byte string of length 37 (1 prefix + 36 CID)
+	// 0x00       = CID multibase prefix
+	// 0x01       = CID version 1
+	// c.codec    = codec (0x71=dag-cbor, 0x55=raw)
+	// 0x12       = SHA-256 hash code
+	// 0x20       = hash length 32
+	buf = append(buf, 0xd8, 0x2a, 0x58, 0x25, 0x00, 0x01, c.codec, 0x12, 0x20)
+	return append(buf, c.hash[:]...)
 }
 
 // CIDByteLen returns the byte length of a CID's binary encoding without allocating.
+// This is always 36: version(1) + codec(1) + hashCode(1) + hashLen(1) + hash(32).
 func CIDByteLen(c *CID) int {
-	return 32 + uvarintLen(1) + uvarintLen(uint64(c.codec)) +
-		uvarintLen(HashSHA256) + uvarintLen(32)
-}
-
-// uvarintLen returns the number of bytes needed to encode v as an unsigned varint.
-func uvarintLen(v uint64) int {
-	n := 1
-	for v >= 0x80 {
-		n++
-		v >>= 7
-	}
-	return n
+	return 36
 }
 
 // AppendTextKey returns the precomputed CBOR bytes for a text string key.

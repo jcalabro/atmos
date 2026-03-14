@@ -34,6 +34,10 @@ func readHeaderSlow(data []byte, pos int, b byte) (major byte, val uint64, newPo
 				return 0, 0, 0, errTruncated
 			}
 			return major, uint64(data[pos+1]), pos + 2, nil
+		case info == 25:
+			return 0, 0, 0, fmt.Errorf("cbor: float16 not allowed in DAG-CBOR")
+		case info == 26:
+			return 0, 0, 0, fmt.Errorf("cbor: float32 not allowed in DAG-CBOR")
 		case info == 27:
 			if pos+8 >= len(data) {
 				return 0, 0, 0, errTruncated
@@ -43,6 +47,8 @@ func readHeaderSlow(data []byte, pos int, b byte) (major byte, val uint64, newPo
 				uint64(data[pos+5])<<24 | uint64(data[pos+6])<<16 |
 				uint64(data[pos+7])<<8 | uint64(data[pos+8])
 			return major, v, pos + 9, nil
+		case info == 31:
+			return 0, 0, 0, fmt.Errorf("cbor: break stop code not allowed in DAG-CBOR")
 		default:
 			return 0, 0, 0, fmt.Errorf("cbor: unsupported simple value info %d", info)
 		}
@@ -90,6 +96,8 @@ func readHeaderSlow(data []byte, pos int, b byte) (major byte, val uint64, newPo
 			return 0, 0, 0, errNonMinimal
 		}
 		return major, v, pos + 9, nil
+	case 31:
+		return 0, 0, 0, fmt.Errorf("cbor: indefinite length not allowed in DAG-CBOR")
 	default:
 		return 0, 0, 0, fmt.Errorf("cbor: unsupported additional info %d", info)
 	}
@@ -102,7 +110,18 @@ var (
 )
 
 // ReadMapHeader reads a CBOR map header at position pos, returns count and new position.
+// The fast path for maps with 0-23 entries (single-byte header) is inlinable.
 func ReadMapHeader(data []byte, pos int) (uint64, int, error) {
+	if pos < len(data) {
+		b := data[pos]
+		if b >= 0xa0 && b <= 0xb7 { // major 5, additional 0-23
+			return uint64(b - 0xa0), pos + 1, nil
+		}
+	}
+	return readMapHeaderSlow(data, pos)
+}
+
+func readMapHeaderSlow(data []byte, pos int) (uint64, int, error) {
 	major, val, newPos, err := ReadHeader(data, pos)
 	if err != nil {
 		return 0, 0, err
@@ -114,7 +133,18 @@ func ReadMapHeader(data []byte, pos int) (uint64, int, error) {
 }
 
 // ReadArrayHeader reads a CBOR array header at position pos.
+// The fast path for arrays with 0-23 elements (single-byte header) is inlinable.
 func ReadArrayHeader(data []byte, pos int) (uint64, int, error) {
+	if pos < len(data) {
+		b := data[pos]
+		if b >= 0x80 && b <= 0x97 { // major 4, additional 0-23
+			return uint64(b - 0x80), pos + 1, nil
+		}
+	}
+	return readArrayHeaderSlow(data, pos)
+}
+
+func readArrayHeaderSlow(data []byte, pos int) (uint64, int, error) {
 	major, val, newPos, err := ReadHeader(data, pos)
 	if err != nil {
 		return 0, 0, err
@@ -262,6 +292,28 @@ func ReadFloat64(data []byte, pos int) (float64, int, error) {
 
 // ReadCIDLink reads a DAG-CBOR CID link (tag 42) at position pos.
 func ReadCIDLink(data []byte, pos int) (CID, int, error) {
+	// Fast path: standard CID link = 41 bytes total:
+	//   0xd8, 0x2a (tag 42) + 0x58, 0x25 (bytes len 37) + 0x00 (prefix)
+	//   + 0x01 (CIDv1) + codec + 0x12 (SHA-256) + 0x20 (32) + 32 hash bytes
+	end := pos + 41
+	if end <= len(data) &&
+		data[pos] == 0xd8 && data[pos+1] == 0x2a && // tag 42
+		data[pos+2] == 0x58 && data[pos+3] == 0x25 && // bytes(37)
+		data[pos+4] == 0x00 && // CID prefix
+		data[pos+5] == 0x01 && // CIDv1
+		data[pos+7] == 0x12 && data[pos+8] == 0x20 { // SHA-256, len 32
+		codec := data[pos+6]
+		if codec == 0x71 || codec == 0x55 { // dag-cbor or raw
+			var c CID
+			c.codec = codec
+			copy(c.hash[:], data[pos+9:end])
+			return c, end, nil
+		}
+	}
+	return readCIDLinkSlow(data, pos)
+}
+
+func readCIDLinkSlow(data []byte, pos int) (CID, int, error) {
 	// Tag 42: 0xd8 0x2a
 	if pos+1 >= len(data) || data[pos] != 0xd8 || data[pos+1] != 0x2a {
 		return CID{}, 0, fmt.Errorf("cbor: expected tag 42 at pos %d", pos)
@@ -311,54 +363,64 @@ func IsNull(data []byte, pos int) bool {
 }
 
 // SkipValue skips one complete CBOR value at position pos, returns new position.
+// Uses an iterative approach with a stack-allocated counter array to avoid
+// recursive function call overhead for nested containers.
 func SkipValue(data []byte, pos int) (int, error) {
-	if pos >= len(data) {
-		return 0, fmt.Errorf("cbor: unexpected end of data")
-	}
+	// Stack of remaining items to skip at each nesting level.
+	// 32 levels is more than enough for any real ATProto data (MaxDepth=128).
+	var stack [32]uint64
+	depth := 0
+	remaining := uint64(1)
 
-	major, val, newPos, err := ReadHeader(data, pos)
-	if err != nil {
-		return 0, err
-	}
+	for {
+		for remaining == 0 {
+			if depth == 0 {
+				return pos, nil
+			}
+			depth--
+			remaining = stack[depth]
+		}
+		remaining--
 
-	switch major {
-	case 0, 1: // uint, negint
-		return newPos, nil
-	case 2, 3: // bytes, text
-		if val > uint64(len(data)-newPos) {
-			return 0, fmt.Errorf("cbor: data truncated")
+		if pos >= len(data) {
+			return 0, fmt.Errorf("cbor: unexpected end of data")
 		}
-		return newPos + int(val), nil
-	case 4: // array
-		p := newPos
-		for range val {
-			p, err = SkipValue(data, p)
-			if err != nil {
-				return 0, err
-			}
+
+		major, val, newPos, err := ReadHeader(data, pos)
+		if err != nil {
+			return 0, err
 		}
-		return p, nil
-	case 5: // map
-		p := newPos
-		for range val {
-			// skip key
-			p, err = SkipValue(data, p)
-			if err != nil {
-				return 0, err
+
+		switch major {
+		case 0, 1, 7: // uint, negint, simple/float
+			pos = newPos
+		case 2, 3: // bytes, text
+			if val > uint64(len(data)-newPos) {
+				return 0, fmt.Errorf("cbor: data truncated")
 			}
-			// skip value
-			p, err = SkipValue(data, p)
-			if err != nil {
-				return 0, err
+			pos = newPos + int(val)
+		case 4: // array
+			if depth >= len(stack) {
+				return 0, fmt.Errorf("cbor: nesting too deep for skip")
 			}
+			stack[depth] = remaining
+			depth++
+			remaining = val
+			pos = newPos
+		case 5: // map
+			if depth >= len(stack) {
+				return 0, fmt.Errorf("cbor: nesting too deep for skip")
+			}
+			stack[depth] = remaining
+			depth++
+			remaining = val * 2 // key + value per entry
+			pos = newPos
+		case 6: // tag — need to skip the tagged value
+			remaining++ // the tag's content is one more item
+			pos = newPos
+		default:
+			return 0, fmt.Errorf("cbor: unknown major type %d", major)
 		}
-		return p, nil
-	case 6: // tag
-		return SkipValue(data, newPos)
-	case 7: // simple/float
-		return newPos, nil
-	default:
-		return 0, fmt.Errorf("cbor: unknown major type %d", major)
 	}
 }
 
