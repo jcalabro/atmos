@@ -35,7 +35,7 @@ func testServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *Clie
 func TestQuery_Success(t *testing.T) {
 	t.Parallel()
 	_, c := testServer(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/xrpc/app.bsky.feed.getTimeline", r.URL.Path)
 		assert.Equal(t, "abc", r.URL.Query().Get("cursor"))
 		assert.Equal(t, "50", r.URL.Query().Get("limit"))
@@ -78,7 +78,7 @@ func TestQuery_NoOutput(t *testing.T) {
 func TestProcedure_Success(t *testing.T) {
 	t.Parallel()
 	_, c := testServer(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		body, _ := io.ReadAll(r.Body)
 		var in map[string]string
@@ -96,7 +96,7 @@ func TestProcedure_Success(t *testing.T) {
 func TestProcedure_NoBody(t *testing.T) {
 	t.Parallel()
 	_, c := testServer(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		w.WriteHeader(200)
 	})
 
@@ -294,7 +294,7 @@ func TestQuery_NonSeekableBodyNotRetried(t *testing.T) {
 		HTTPClient: gt.Some(srv.Client()),
 	}
 	// strings.Reader is not *bytes.Reader, so it's treated as non-seekable.
-	err := c.Do(context.Background(), "POST", "test.method", "text/plain", nil, strings.NewReader("stream-data"), nil)
+	err := c.Do(context.Background(), http.MethodPost, "test.method", "text/plain", nil, strings.NewReader("stream-data"), nil)
 	require.NoError(t, err)
 	assert.Equal(t, int32(2), attempts.Load())
 }
@@ -444,7 +444,7 @@ func TestQueryRaw_Success(t *testing.T) {
 	t.Parallel()
 	want := []byte{0x00, 0x01, 0x02, 0xff}
 	_, c := testServer(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/xrpc/com.atproto.sync.getBlob", r.URL.Path)
 		w.Header().Set("Content-Type", "application/octet-stream")
 		_, _ = w.Write(want)
@@ -548,7 +548,7 @@ func TestQueryStream_Success(t *testing.T) {
 	t.Parallel()
 	want := []byte{0x00, 0x01, 0x02, 0xff}
 	_, c := testServer(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/xrpc/com.atproto.sync.getRepo", r.URL.Path)
 		assert.Equal(t, "*/*", r.Header.Get("Accept"))
 		assert.Equal(t, "did:plc:test", r.URL.Query().Get("did"))

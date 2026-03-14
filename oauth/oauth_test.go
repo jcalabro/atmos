@@ -104,7 +104,7 @@ func TestCreateDPoPProof_Basic(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	proof, err := CreateDPoPProof(key, "POST", "https://as.example.com/token", "", "")
+	proof, err := CreateDPoPProof(key, http.MethodPost, "https://as.example.com/token", "", "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, proof)
 
@@ -126,7 +126,7 @@ func TestCreateDPoPProof_Basic(t *testing.T) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	require.True(t, ok)
-	assert.Equal(t, "POST", claims["htm"])
+	assert.Equal(t, http.MethodPost, claims["htm"])
 	assert.Equal(t, "https://as.example.com/token", claims["htu"])
 	assert.NotEmpty(t, claims["jti"])
 	assert.NotNil(t, claims["iat"])
@@ -140,7 +140,7 @@ func TestCreateDPoPProof_WithNonce(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	proof, err := CreateDPoPProof(key, "GET", "https://pds.example.com/xrpc/foo", "server-nonce-123", "")
+	proof, err := CreateDPoPProof(key, http.MethodGet, "https://pds.example.com/xrpc/foo", "server-nonce-123", "")
 	require.NoError(t, err)
 
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
@@ -159,7 +159,7 @@ func TestCreateDPoPProof_WithAccessToken(t *testing.T) {
 	require.NoError(t, err)
 
 	accessToken := "test-access-token-value"
-	proof, err := CreateDPoPProof(key, "GET", "https://pds.example.com/xrpc/foo", "", accessToken)
+	proof, err := CreateDPoPProof(key, http.MethodGet, "https://pds.example.com/xrpc/foo", "", accessToken)
 	require.NoError(t, err)
 
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
@@ -180,7 +180,7 @@ func TestCreateDPoPProof_HTUNormalization(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	proof, err := CreateDPoPProof(key, "GET", "https://example.com/path?query=1#frag", "", "")
+	proof, err := CreateDPoPProof(key, http.MethodGet, "https://example.com/path?query=1#frag", "", "")
 	require.NoError(t, err)
 
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
@@ -198,9 +198,9 @@ func TestCreateDPoPProof_UniqueJTI(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	proof1, err := CreateDPoPProof(key, "POST", "https://example.com/token", "", "")
+	proof1, err := CreateDPoPProof(key, http.MethodPost, "https://example.com/token", "", "")
 	require.NoError(t, err)
-	proof2, err := CreateDPoPProof(key, "POST", "https://example.com/token", "", "")
+	proof2, err := CreateDPoPProof(key, http.MethodPost, "https://example.com/token", "", "")
 	require.NoError(t, err)
 
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
@@ -578,7 +578,7 @@ func TestExchangeCode(t *testing.T) {
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.NotEmpty(t, r.Header.Get("DPoP"))
 
 		err := r.ParseForm()

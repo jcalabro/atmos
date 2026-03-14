@@ -43,7 +43,7 @@ func newTestServer(t *testing.T, s *xrpcserver.Server) testEnv {
 
 func get(t *testing.T, env testEnv, url string) *http.Response {
 	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	require.NoError(t, err)
 	resp, err := env.client.Do(req)
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func get(t *testing.T, env testEnv, url string) *http.Response {
 
 func post(t *testing.T, env testEnv, url, contentType string, body io.Reader) *http.Response {
 	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), "POST", url, body)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, body)
 	require.NoError(t, err)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -610,7 +610,7 @@ func TestMiddleware(t *testing.T) {
 	assert.Equal(t, 401, resp.StatusCode)
 
 	// With auth header → 200.
-	req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL+"/xrpc/com.example.auth", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/xrpc/com.example.auth", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer testuser")
 	resp2, err := ts.client.Do(req)
@@ -658,7 +658,7 @@ func TestConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL+"/xrpc/com.example.echo?n="+strconv.Itoa(n%10), nil)
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/xrpc/com.example.echo?n="+strconv.Itoa(n%10), nil)
 			if err != nil {
 				return
 			}

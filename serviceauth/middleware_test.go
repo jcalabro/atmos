@@ -37,7 +37,7 @@ func TestMiddleware_ValidToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.sync.getBlob", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.sync.getBlob", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
@@ -62,7 +62,7 @@ func TestMiddleware_MissingToken_Required(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.sync.getBlob", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.sync.getBlob", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -87,7 +87,7 @@ func TestMiddleware_MissingToken_Optional(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.sync.getBlob", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.sync.getBlob", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -111,7 +111,7 @@ func TestMiddleware_InvalidToken_Required(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.sync.getBlob", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.sync.getBlob", nil)
 	req.Header.Set("Authorization", "Bearer not.a.valid.jwt")
 	rec := httptest.NewRecorder()
 
@@ -137,7 +137,7 @@ func TestMiddleware_InvalidToken_Optional(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.sync.getBlob", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.sync.getBlob", nil)
 	req.Header.Set("Authorization", "Bearer garbage")
 	rec := httptest.NewRecorder()
 
@@ -172,14 +172,14 @@ func TestMiddleware_ExtractsNSIDFromPath(t *testing.T) {
 	}))
 
 	// Matching path — should succeed.
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.sync.getBlob", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.sync.getBlob", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	// Mismatching path — should fail.
-	req2 := httptest.NewRequestWithContext(t.Context(), "GET", "/xrpc/com.atproto.repo.getRecord", nil)
+	req2 := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.atproto.repo.getRecord", nil)
 	req2.Header.Set("Authorization", "Bearer "+token)
 	rec2 := httptest.NewRecorder()
 	handler.ServeHTTP(rec2, req2)
@@ -189,7 +189,7 @@ func TestMiddleware_ExtractsNSIDFromPath(t *testing.T) {
 func TestDIDFromContext_Empty(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	assert.Equal(t, atmos.DID(""), DIDFromContext(req.Context()))
 }
 

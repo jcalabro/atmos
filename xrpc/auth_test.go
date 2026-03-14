@@ -40,7 +40,7 @@ func TestCreateSession_Success(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/xrpc/com.atproto.server.createSession", r.URL.Path)
-		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Empty(t, r.Header.Get("Authorization"))
 
 		body, _ := io.ReadAll(r.Body)
