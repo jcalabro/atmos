@@ -219,7 +219,7 @@ func TestDirectory_Lookup_DIDInput(t *testing.T) {
 	}
 	dir := &Directory{Resolver: r}
 
-	atid, err := atmos.ParseAtIdentifier("did:plc:alice")
+	atid, err := atmos.ParseATIdentifier("did:plc:alice")
 	require.NoError(t, err)
 
 	id, err := dir.Lookup(context.Background(), atid)
@@ -236,7 +236,7 @@ func TestDirectory_Lookup_HandleInput(t *testing.T) {
 	}
 	dir := &Directory{Resolver: r}
 
-	atid, err := atmos.ParseAtIdentifier("alice.test")
+	atid, err := atmos.ParseATIdentifier("alice.test")
 	require.NoError(t, err)
 
 	id, err := dir.Lookup(context.Background(), atid)

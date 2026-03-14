@@ -38,8 +38,8 @@ type Directory struct {
 	flights sync.Map // map[string]*inflight
 }
 
-// Lookup resolves an AtIdentifier (DID or handle) to a verified Identity.
-func (d *Directory) Lookup(ctx context.Context, id atmos.AtIdentifier) (*Identity, error) {
+// Lookup resolves an ATIdentifier (DID or handle) to a verified Identity.
+func (d *Directory) Lookup(ctx context.Context, id atmos.ATIdentifier) (*Identity, error) {
 	if id.IsDID() {
 		did, err := id.AsDID()
 		if err != nil {

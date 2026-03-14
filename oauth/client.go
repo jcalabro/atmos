@@ -89,7 +89,7 @@ func (c *Client) Authorize(ctx context.Context, opts AuthorizeOptions) (*Authori
 	httpClient := c.httpClient()
 
 	// 1. Resolve identity → PDS → AS metadata.
-	id, err := atmos.ParseAtIdentifier(opts.Input)
+	id, err := atmos.ParseATIdentifier(opts.Input)
 	if err != nil {
 		return nil, fmt.Errorf("oauth: invalid identifier %q: %w", opts.Input, err)
 	}

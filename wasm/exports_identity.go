@@ -26,7 +26,7 @@ func jsResolve(_ js.Value, args []js.Value) any {
 			Resolver: &identity.DefaultResolver{},
 		}
 
-		id, err := atmos.ParseAtIdentifier(input)
+		id, err := atmos.ParseATIdentifier(input)
 		if err != nil {
 			reject("identity.resolve: " + err.Error())
 			return

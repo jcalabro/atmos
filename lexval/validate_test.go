@@ -101,7 +101,7 @@ func TestValidate_String_Format_CID(t *testing.T) {
 	assert.Error(t, ValidateValue(nil, "", f, "not-a-cid"))
 }
 
-func TestValidate_String_Format_AtIdentifier(t *testing.T) {
+func TestValidate_String_Format_ATIdentifier(t *testing.T) {
 	t.Parallel()
 	f := &lexicon.Field{Type: "string", Format: "at-identifier"}
 	assert.NoError(t, ValidateValue(nil, "", f, "did:plc:abcde1234"))

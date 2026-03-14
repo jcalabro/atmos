@@ -30,7 +30,7 @@ func TestATURI_Parts(t *testing.T) {
 	t.Parallel()
 	a, err := ParseATURI("at://did:plc:abc123/app.bsky.feed.post/tid123")
 	require.NoError(t, err)
-	require.Equal(t, AtIdentifier("did:plc:abc123"), a.Authority())
+	require.Equal(t, ATIdentifier("did:plc:abc123"), a.Authority())
 	require.Equal(t, NSID("app.bsky.feed.post"), a.Collection())
 	require.Equal(t, RecordKey("tid123"), a.RecordKey())
 	require.Equal(t, "app.bsky.feed.post/tid123", a.Path())
@@ -40,7 +40,7 @@ func TestATURI_AuthorityOnly(t *testing.T) {
 	t.Parallel()
 	a, err := ParseATURI("at://did:plc:abc123")
 	require.NoError(t, err)
-	require.Equal(t, AtIdentifier("did:plc:abc123"), a.Authority())
+	require.Equal(t, ATIdentifier("did:plc:abc123"), a.Authority())
 	require.Equal(t, NSID(""), a.Collection())
 	require.Equal(t, RecordKey(""), a.RecordKey())
 }

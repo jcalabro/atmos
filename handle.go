@@ -95,9 +95,9 @@ func (h Handle) IsInvalidHandle() bool {
 	return h.Normalize() == HandleInvalid
 }
 
-// AtIdentifier converts the Handle to an [AtIdentifier].
-func (h Handle) AtIdentifier() AtIdentifier {
-	return AtIdentifier(h)
+// ATIdentifier converts the Handle to an [ATIdentifier].
+func (h Handle) ATIdentifier() ATIdentifier {
+	return ATIdentifier(h)
 }
 
 func (h Handle) String() string {

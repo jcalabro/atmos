@@ -105,9 +105,9 @@ func (d DID) Identifier() string {
 	return rest[idx+1:]
 }
 
-// AtIdentifier converts the DID to an [AtIdentifier].
-func (d DID) AtIdentifier() AtIdentifier {
-	return AtIdentifier(d)
+// ATIdentifier converts the DID to an [ATIdentifier].
+func (d DID) ATIdentifier() ATIdentifier {
+	return ATIdentifier(d)
 }
 
 func (d DID) String() string {

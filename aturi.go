@@ -38,7 +38,7 @@ func ParseATURI(raw string) (ATURI, error) {
 		authority = rest[:slash1]
 	}
 
-	if _, err := ParseAtIdentifier(authority); err != nil {
+	if _, err := ParseATIdentifier(authority); err != nil {
 		return "", syntaxErr("ATURI", raw, "invalid authority: "+err.Error())
 	}
 
@@ -88,7 +88,7 @@ func ParseATURI(raw string) (ATURI, error) {
 }
 
 // Authority returns the parsed authority portion.
-func (a ATURI) Authority() AtIdentifier {
+func (a ATURI) Authority() ATIdentifier {
 	s := string(a)
 	if len(s) < 5 || s[:5] != "at://" {
 		return ""
@@ -96,9 +96,9 @@ func (a ATURI) Authority() AtIdentifier {
 	rest := s[5:]
 	idx := strings.IndexByte(rest, '/')
 	if idx < 0 {
-		return AtIdentifier(rest)
+		return ATIdentifier(rest)
 	}
-	return AtIdentifier(rest[:idx])
+	return ATIdentifier(rest[:idx])
 }
 
 // Path returns the path portion without leading slash.

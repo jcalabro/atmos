@@ -2,53 +2,53 @@ package atmos
 
 import "strings"
 
-// AtIdentifier represents either a DID or a Handle.
-type AtIdentifier string
+// ATIdentifier represents either a DID or a Handle.
+type ATIdentifier string
 
-// ParseAtIdentifier validates the string as either a DID or Handle.
-func ParseAtIdentifier(raw string) (AtIdentifier, error) {
+// ParseATIdentifier validates the string as either a DID or Handle.
+func ParseATIdentifier(raw string) (ATIdentifier, error) {
 	if strings.HasPrefix(raw, "did:") {
 		d, err := ParseDID(raw)
 		if err != nil {
 			return "", err
 		}
-		return AtIdentifier(d), nil
+		return ATIdentifier(d), nil
 	}
 	h, err := ParseHandle(raw)
 	if err != nil {
 		return "", err
 	}
-	return AtIdentifier(h), nil
+	return ATIdentifier(h), nil
 }
 
 // IsDID reports whether this identifier is a DID.
-func (a AtIdentifier) IsDID() bool {
+func (a ATIdentifier) IsDID() bool {
 	return strings.HasPrefix(string(a), "did:")
 }
 
 // IsHandle reports whether this identifier is a Handle.
-func (a AtIdentifier) IsHandle() bool {
+func (a ATIdentifier) IsHandle() bool {
 	return !a.IsDID() && len(a) > 0
 }
 
 // AsDID returns the identifier as a DID, or an error if it is a Handle.
-func (a AtIdentifier) AsDID() (DID, error) {
+func (a ATIdentifier) AsDID() (DID, error) {
 	if !a.IsDID() {
-		return "", syntaxErr("AtIdentifier", string(a), "not a DID")
+		return "", syntaxErr("ATIdentifier", string(a), "not a DID")
 	}
 	return DID(a), nil
 }
 
 // AsHandle returns the identifier as a Handle, or an error if it is a DID.
-func (a AtIdentifier) AsHandle() (Handle, error) {
+func (a ATIdentifier) AsHandle() (Handle, error) {
 	if !a.IsHandle() {
-		return "", syntaxErr("AtIdentifier", string(a), "not a Handle")
+		return "", syntaxErr("ATIdentifier", string(a), "not a Handle")
 	}
 	return Handle(a), nil
 }
 
 // DID returns the identifier as a DID, or empty if it is a Handle.
-func (a AtIdentifier) DID() DID {
+func (a ATIdentifier) DID() DID {
 	if a.IsDID() {
 		return DID(a)
 	}
@@ -56,7 +56,7 @@ func (a AtIdentifier) DID() DID {
 }
 
 // Handle returns the identifier as a Handle, or empty if it is a DID.
-func (a AtIdentifier) Handle() Handle {
+func (a ATIdentifier) Handle() Handle {
 	if a.IsHandle() {
 		return Handle(a)
 	}
@@ -64,23 +64,23 @@ func (a AtIdentifier) Handle() Handle {
 }
 
 // Normalize lowercases handles; DIDs are returned as-is.
-func (a AtIdentifier) Normalize() AtIdentifier {
+func (a ATIdentifier) Normalize() ATIdentifier {
 	if a.IsHandle() {
-		return AtIdentifier(strings.ToLower(string(a)))
+		return ATIdentifier(strings.ToLower(string(a)))
 	}
 	return a
 }
 
-func (a AtIdentifier) String() string {
+func (a ATIdentifier) String() string {
 	return string(a)
 }
 
-func (a AtIdentifier) MarshalText() ([]byte, error) {
+func (a ATIdentifier) MarshalText() ([]byte, error) {
 	return []byte(a), nil
 }
 
-func (a *AtIdentifier) UnmarshalText(b []byte) error {
-	parsed, err := ParseAtIdentifier(string(b))
+func (a *ATIdentifier) UnmarshalText(b []byte) error {
+	parsed, err := ParseATIdentifier(string(b))
 	if err != nil {
 		return err
 	}

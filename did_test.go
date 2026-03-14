@@ -33,7 +33,7 @@ func TestDID_Methods(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "plc", d.Method())
 	require.Equal(t, "abcde1234", d.Identifier())
-	require.Equal(t, AtIdentifier("did:plc:abcde1234"), d.AtIdentifier())
+	require.Equal(t, ATIdentifier("did:plc:abcde1234"), d.ATIdentifier())
 }
 
 func TestDID_ZeroValue(t *testing.T) {

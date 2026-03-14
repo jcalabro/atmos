@@ -170,9 +170,9 @@ func FuzzParseURI(f *testing.F) {
 	})
 }
 
-// FuzzParseAtIdentifier tests that AtIdentifier parsing never panics, round-trips,
+// FuzzParseATIdentifier tests that ATIdentifier parsing never panics, round-trips,
 // and maintains DID/Handle type consistency.
-func FuzzParseAtIdentifier(f *testing.F) {
+func FuzzParseATIdentifier(f *testing.F) {
 	f.Add("did:plc:abc123def456ghij")
 	f.Add("did:web:example.com")
 	f.Add("user.bsky.social")
@@ -181,7 +181,7 @@ func FuzzParseAtIdentifier(f *testing.F) {
 	f.Add("did:")
 
 	f.Fuzz(func(t *testing.T, s string) {
-		id, err := ParseAtIdentifier(s)
+		id, err := ParseATIdentifier(s)
 		if err != nil {
 			return
 		}

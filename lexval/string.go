@@ -67,7 +67,7 @@ func validateStringFormat(p *path, format, s string, errs *[]*ValidationError) {
 	case "at-uri":
 		_, err = atmos.ParseATURI(s)
 	case "at-identifier":
-		_, err = atmos.ParseAtIdentifier(s)
+		_, err = atmos.ParseATIdentifier(s)
 	case "nsid":
 		_, err = atmos.ParseNSID(s)
 	case "cid":
