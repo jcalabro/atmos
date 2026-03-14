@@ -25,41 +25,22 @@ type errorEnvelope struct {
 	Message string `json:"message"`
 }
 
-// testEnv bundles a test server with its own HTTP client to avoid sharing
-// http.DefaultClient across parallel tests. httptest.Server.Close calls
-// CloseIdleConnections on the default transport, which races with other
-// tests' in-flight requests when using http.DefaultClient.
-type testEnv struct {
-	URL    string
-	client *http.Client
+func doGet(t *testing.T, h http.Handler, target string) *http.Response {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+	return rec.Result()
 }
 
-func newTestServer(t *testing.T, s *xrpcserver.Server) testEnv {
+func doPost(t *testing.T, h http.Handler, target, contentType string, body io.Reader) *http.Response {
 	t.Helper()
-	ts := httptest.NewServer(s)
-	t.Cleanup(ts.Close)
-	return testEnv{URL: ts.URL, client: ts.Client()}
-}
-
-func get(t *testing.T, env testEnv, url string) *http.Response {
-	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-	require.NoError(t, err)
-	resp, err := env.client.Do(req)
-	require.NoError(t, err)
-	return resp
-}
-
-func post(t *testing.T, env testEnv, url, contentType string, body io.Reader) *http.Response {
-	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, body)
-	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, target, body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	resp, err := env.client.Do(req)
-	require.NoError(t, err)
-	return resp
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Result()
 }
 
 func decodeError(t *testing.T, resp *http.Response) errorEnvelope {
@@ -77,27 +58,25 @@ func TestRouting(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	// Known NSID works.
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.ping")
+	resp := doGet(t, s, "/xrpc/com.example.ping")
 	assert.Equal(t, 200, resp.StatusCode)
 	_ = resp.Body.Close()
 
 	// Unknown NSID → 400 MethodNotImplemented.
-	resp = get(t, ts, ts.URL+"/xrpc/com.example.unknown")
+	resp = doGet(t, s, "/xrpc/com.example.unknown")
 	assert.Equal(t, 400, resp.StatusCode)
 	env := decodeError(t, resp)
 	assert.Equal(t, "MethodNotImplemented", env.Error)
 	_ = resp.Body.Close()
 
 	// Non-XRPC path → 404.
-	resp = get(t, ts, ts.URL+"/other")
+	resp = doGet(t, s, "/other")
 	assert.Equal(t, 404, resp.StatusCode)
 	_ = resp.Body.Close()
 
 	// Empty NSID → 400.
-	resp = get(t, ts, ts.URL+"/xrpc/")
+	resp = doGet(t, s, "/xrpc/")
 	assert.Equal(t, 400, resp.StatusCode)
 	env = decodeError(t, resp)
 	assert.Equal(t, "InvalidRequest", env.Error)
@@ -115,17 +94,15 @@ func TestMethodCheck(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	// POST on query → 405.
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.query", "", nil)
+	resp := doPost(t, s, "/xrpc/com.example.query", "", nil)
 	assert.Equal(t, 405, resp.StatusCode)
 	env := decodeError(t, resp)
 	assert.Equal(t, "MethodNotAllowed", env.Error)
 	_ = resp.Body.Close()
 
 	// GET on procedure → 405.
-	resp = get(t, ts, ts.URL+"/xrpc/com.example.proc")
+	resp = doGet(t, s, "/xrpc/com.example.proc")
 	assert.Equal(t, 405, resp.StatusCode)
 	_ = resp.Body.Close()
 }
@@ -146,9 +123,7 @@ func TestQueryJSON(t *testing.T) {
 		return &output{Greeting: "hello " + name}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.hello?name=world")
+	resp := doGet(t, s, "/xrpc/com.example.hello?name=world")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -166,8 +141,7 @@ func TestQueryEmpty(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.noop")
+	resp := doGet(t, s, "/xrpc/com.example.noop")
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode)
@@ -190,10 +164,8 @@ func TestProcedureJSON(t *testing.T) {
 		return &output{Sum: in.X + in.Y}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	body, _ := json.Marshal(input{X: 3, Y: 4})
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.add", "application/json", bytes.NewReader(body))
+	resp := doPost(t, s, "/xrpc/com.example.add", "application/json", bytes.NewReader(body))
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 
@@ -221,10 +193,8 @@ func TestProcedureWithParams(t *testing.T) {
 		}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	body, _ := json.Marshal(input{Value: "test"})
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.proc?mode=fast", "application/json", bytes.NewReader(body))
+	resp := doPost(t, s, "/xrpc/com.example.proc?mode=fast", "application/json", bytes.NewReader(body))
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 
@@ -248,10 +218,8 @@ func TestProcedureEmpty(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	body, _ := json.Marshal(input{Value: "test"})
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.store", "application/json", bytes.NewReader(body))
+	resp := doPost(t, s, "/xrpc/com.example.store", "application/json", bytes.NewReader(body))
 	respBody, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode)
@@ -269,9 +237,7 @@ func TestProcedureVoid(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.void", "", nil)
+	resp := doPost(t, s, "/xrpc/com.example.void", "", nil)
 	_ = resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.True(t, called)
@@ -285,9 +251,7 @@ func TestError_XRPC(t *testing.T) {
 		return xrpcserver.NotFound("thing not found")
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.fail")
+	resp := doGet(t, s, "/xrpc/com.example.fail")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 404, resp.StatusCode)
 	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -305,9 +269,7 @@ func TestError_Plain(t *testing.T) {
 		return errors.New("secret internal detail")
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.panic")
+	resp := doGet(t, s, "/xrpc/com.example.panic")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 500, resp.StatusCode)
 
@@ -328,9 +290,7 @@ func TestParams_Required(t *testing.T) {
 		return &struct{}{}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.req")
+	resp := doGet(t, s, "/xrpc/com.example.req")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 400, resp.StatusCode)
 
@@ -365,9 +325,7 @@ func TestParams_Types(t *testing.T) {
 		return &output{S: str, N: n, B: b, SS: p.Strings("ss")}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.types?s=hello&n=42&b=true&ss=a&ss=b")
+	resp := doGet(t, s, "/xrpc/com.example.types?s=hello&n=42&b=true&ss=a&ss=b")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 
@@ -379,12 +337,12 @@ func TestParams_Types(t *testing.T) {
 	assert.Equal(t, []string{"a", "b"}, out.SS)
 
 	// Invalid int.
-	resp2 := get(t, ts, ts.URL+"/xrpc/com.example.types?s=x&n=notint&b=true")
+	resp2 := doGet(t, s, "/xrpc/com.example.types?s=x&n=notint&b=true")
 	_ = resp2.Body.Close()
 	assert.Equal(t, 400, resp2.StatusCode)
 
 	// Invalid bool.
-	resp3 := get(t, ts, ts.URL+"/xrpc/com.example.types?s=x&n=1&b=notbool")
+	resp3 := doGet(t, s, "/xrpc/com.example.types?s=x&n=1&b=notbool")
 	_ = resp3.Body.Close()
 	assert.Equal(t, 400, resp3.StatusCode)
 }
@@ -410,10 +368,8 @@ func TestParams_Optional(t *testing.T) {
 		}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	// Defaults.
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.opt")
+	resp := doGet(t, s, "/xrpc/com.example.opt")
 	defer func() { _ = resp.Body.Close() }()
 	var out output
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
@@ -423,7 +379,7 @@ func TestParams_Optional(t *testing.T) {
 	assert.False(t, out.O)
 
 	// Overrides.
-	resp2 := get(t, ts, ts.URL+"/xrpc/com.example.opt?s=x&n=1&b=false&cursor=abc")
+	resp2 := doGet(t, s, "/xrpc/com.example.opt?s=x&n=1&b=false&cursor=abc")
 	defer func() { _ = resp2.Body.Close() }()
 	var out2 output
 	require.NoError(t, json.NewDecoder(resp2.Body).Decode(&out2))
@@ -451,9 +407,7 @@ func TestParams_Has(t *testing.T) {
 		return &output{HasA: p.Has("a"), HasB: p.Has("b"), A: a}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.has?a=val")
+	resp := doGet(t, s, "/xrpc/com.example.has?a=val")
 	defer func() { _ = resp.Body.Close() }()
 	var out output
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
@@ -480,10 +434,8 @@ func TestParams_EmptyString(t *testing.T) {
 		}{Val: v, Has: p.Has("key")}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	// ?key= is present with empty value — should succeed, not error.
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.empty?key=")
+	resp := doGet(t, s, "/xrpc/com.example.empty?key=")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 
@@ -506,9 +458,7 @@ func TestRawQuery(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.blob")
+	resp := doGet(t, s, "/xrpc/com.example.blob")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "application/octet-stream", resp.Header.Get("Content-Type"))
@@ -527,9 +477,7 @@ func TestRawProcedure(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.upload", "image/png", bytes.NewReader([]byte("pngdata")))
+	resp := doPost(t, s, "/xrpc/com.example.upload", "image/png", bytes.NewReader([]byte("pngdata")))
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 
@@ -552,10 +500,8 @@ func TestRawQuery_ErrorAfterWrite(t *testing.T) {
 		return errors.New("oops after write")
 	}))
 
-	ts := newTestServer(t, s)
-
 	// Should get the partial response, not a corrupted error envelope.
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.partial")
+	resp := doGet(t, s, "/xrpc/com.example.partial")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 200, resp.StatusCode)
 	body, _ := io.ReadAll(resp.Body)
@@ -570,11 +516,9 @@ func TestMaxRequestBody(t *testing.T) {
 		return nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	// Valid JSON that exceeds the 10-byte limit.
 	bigBody := []byte(`{"data":"` + string(bytes.Repeat([]byte("a"), 100)) + `"}`)
-	resp := post(t, ts, ts.URL+"/xrpc/com.example.small", "application/json", bytes.NewReader(bigBody))
+	resp := doPost(t, s, "/xrpc/com.example.small", "application/json", bytes.NewReader(bigBody))
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, 413, resp.StatusCode)
@@ -600,21 +544,18 @@ func TestMiddleware(t *testing.T) {
 
 	// Wrap with a simple test middleware that sets a context value.
 	handler := testAuthMiddleware(s)
-	srv := httptest.NewServer(handler)
-	t.Cleanup(srv.Close)
-	ts := testEnv{URL: srv.URL, client: srv.Client()}
 
 	// Without auth header → 401.
-	resp := get(t, ts, ts.URL+"/xrpc/com.example.auth")
+	resp := doGet(t, handler, "/xrpc/com.example.auth")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 401, resp.StatusCode)
 
 	// With auth header → 200.
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/xrpc/com.example.auth", nil)
-	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodGet, "/xrpc/com.example.auth", nil)
 	req.Header.Set("Authorization", "Bearer testuser")
-	resp2, err := ts.client.Do(req)
-	require.NoError(t, err)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	resp2 := rec.Result()
 	defer func() { _ = resp2.Body.Close() }()
 	assert.Equal(t, 200, resp2.StatusCode)
 
@@ -651,22 +592,13 @@ func TestConcurrency(t *testing.T) {
 		return &output{N: int(n)}, nil
 	}))
 
-	ts := newTestServer(t, s)
-
 	var wg sync.WaitGroup
 	for i := range 50 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/xrpc/com.example.echo?n="+strconv.Itoa(n%10), nil)
-			if err != nil {
-				return
-			}
-			resp, err := ts.client.Do(req)
-			if err != nil {
-				return
-			}
-			_ = resp.Body.Close()
+			rec := httptest.NewRecorder()
+			s.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/xrpc/com.example.echo?n="+strconv.Itoa(n%10), nil))
 		}(i)
 	}
 	wg.Wait()
