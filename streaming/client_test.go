@@ -16,6 +16,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/atmos/sync"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -504,4 +506,81 @@ func TestInfoEvent(t *testing.T) {
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].Info)
 	assert.Equal(t, "OutdatedCursor", events[0].Info.Name)
+}
+
+// --- deriveHTTPURL tests ---
+
+func TestDeriveHTTPURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input string
+		want  string
+		err   bool
+	}{
+		{"wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos", "https://bsky.network", false},
+		{"ws://localhost:8080/xrpc/com.atproto.sync.subscribeRepos", "http://localhost:8080", false},
+		{"wss://relay.example.com/xrpc/com.atproto.sync.subscribeRepos?cursor=42", "https://relay.example.com", false},
+		{"https://example.com", "", true}, // unexpected scheme
+		{"://bad", "", true},              // invalid URL
+	}
+
+	for _, tt := range tests {
+		got, err := deriveHTTPURL(tt.input)
+		if tt.err {
+			assert.Error(t, err, "input: %s", tt.input)
+		} else {
+			require.NoError(t, err, "input: %s", tt.input)
+			assert.Equal(t, tt.want, got, "input: %s", tt.input)
+		}
+	}
+}
+
+// --- SyncClient auto-creation tests ---
+
+func TestNewClient_DefaultSyncClient(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient(Options{URL: "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos"})
+	require.NoError(t, err)
+	assert.NotNil(t, c.syncClient, "should auto-create sync client for repo streams")
+}
+
+func TestNewClient_DefaultSyncClient_LabelStream(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient(Options{URL: "wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels"})
+	require.NoError(t, err)
+	assert.Nil(t, c.syncClient, "should not create sync client for label streams")
+}
+
+func TestNewClient_ExplicitSyncClient(t *testing.T) {
+	t.Parallel()
+
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://custom.example.com"}})
+	c, err := NewClient(Options{
+		URL:        "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		SyncClient: gt.Some(sc),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, sc, c.syncClient, "should use explicit sync client")
+}
+
+func TestNewClient_DisabledSyncClient(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient(Options{
+		URL:        "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		SyncClient: gt.Some[*sync.Client](nil), // explicit opt-out
+	})
+	require.NoError(t, err)
+	assert.Nil(t, c.syncClient, "should disable sync client with gt.Some(nil)")
+}
+
+func TestNewClient_BadURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewClient(Options{URL: "https://not-a-websocket-url"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "derive HTTP URL")
 }

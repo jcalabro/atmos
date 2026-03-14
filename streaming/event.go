@@ -1,11 +1,13 @@
 package streaming
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/atmos/sync"
 )
 
 // errUnknownType is returned for unrecognized event types, which are
@@ -24,6 +26,10 @@ type Event struct {
 	// Label stream fields (access via Labels()).
 	labelBatch *comatproto.LabelSubscribeLabels_Labels
 	LabelInfo  *comatproto.LabelSubscribeLabels_Info
+
+	// Set by readLoop for lazy #sync handling. Unexported, single-goroutine.
+	ctx        context.Context
+	syncClient *sync.Client
 }
 
 // Labels returns the individual labels from a subscribeLabels event,

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jcalabro/atmos/sync"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 )
 
@@ -60,9 +62,15 @@ type Options struct {
 	// periodically. None uses a noop lock (always leader, suitable for
 	// single-node deployments).
 	Locker gt.Option[DistributedLockerOptions]
-}
 
-const defaultCursorInterval int64 = 100
+	// SyncClient overrides the sync client used for automatic #sync
+	// re-fetching. By default, a sync client is auto-created from the
+	// WebSocket URL (the relay typically 302-redirects getRepo requests to
+	// the account's PDS). To disable automatic resync, set to
+	// gt.Some[*sync.Client](nil). This option is only used for repo
+	// consumption, not labels.
+	SyncClient gt.Option[*sync.Client]
+}
 
 // Client connects to an ATProto event stream (firehose or label stream).
 type Client struct {
@@ -72,6 +80,7 @@ type Client struct {
 	cursorCount    int64 // only used in readLoop goroutine
 	cursorInterval int64
 	decode         func([]byte) (Event, error)
+	syncClient     *sync.Client // nil disables automatic #sync resync
 
 	// Lock-related fields, initialized in NewClient.
 	lock                DistributedLocker
@@ -94,7 +103,7 @@ func NewClient(opts Options) (*Client, error) {
 		opts.Backoff = gt.Some(defaultBackoff)
 	}
 
-	interval := opts.CursorInterval.ValOr(defaultCursorInterval)
+	interval := opts.CursorInterval.ValOr(100)
 
 	lk := DistributedLocker(NoopLock{})
 	var lockOpts *DistributedLockerOptions
@@ -125,10 +134,26 @@ func NewClient(opts Options) (*Client, error) {
 		decode = decodeLabelFrame
 	}
 
+	// Resolve the sync client for automatic #sync resync.
+	var sc *sync.Client
+	if opts.SyncClient.HasVal() {
+		sc = opts.SyncClient.Val() // may be nil (opt-out)
+	} else if !strings.Contains(opts.URL, "subscribeLabels") {
+		// Auto-create from the WebSocket URL for repo streams.
+		httpURL, err := deriveHTTPURL(opts.URL)
+		if err != nil {
+			return nil, fmt.Errorf("derive HTTP URL for sync client: %w", err)
+		}
+		sc = sync.NewClient(sync.Options{
+			Client: &xrpc.Client{Host: httpURL},
+		})
+	}
+
 	c := &Client{
 		opts:                opts,
 		cursorInterval:      interval,
 		decode:              decode,
+		syncClient:          sc,
 		lock:                lk,
 		lockOpts:            lockOpts,
 		leaseDuration:       leaseDur,
@@ -154,6 +179,7 @@ func NewClient(opts Options) (*Client, error) {
 			c.cursor.Store(cur)
 		}
 	}
+
 	return c, nil
 }
 
@@ -177,10 +203,12 @@ func (c *Client) Close() error {
 			_ = c.opts.CursorStore.Val().SaveCursor(context.Background(), cur)
 		}
 	}
+
 	conn := c.conn.Load()
 	if conn == nil {
 		return nil
 	}
+
 	return conn.Close(websocket.StatusNormalClosure, "client closing")
 }
 
@@ -244,6 +272,7 @@ func (c *Client) Events(ctx context.Context) iter.Seq2[Event, error] {
 			if yieldStopped {
 				return // caller stopped iteration
 			}
+
 			// Either the lock was lost (innerCtx cancelled by renewLoop) or
 			// the parent ctx was cancelled. The loop check at the top handles
 			// parent cancellation; otherwise we try to reacquire.
@@ -267,6 +296,7 @@ func (c *Client) consumeLoop(ctx context.Context, yield func(Event, error) bool)
 			if ctx.Err() != nil {
 				return false
 			}
+
 			// Dial failed — backoff and retry.
 			attempt = c.backoffAndRetry(ctx, attempt)
 			continue
@@ -281,6 +311,7 @@ func (c *Client) consumeLoop(ctx context.Context, yield func(Event, error) bool)
 		if yieldStopped {
 			return true
 		}
+
 		if ctx.Err() != nil {
 			return false
 		}
@@ -405,6 +436,12 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			continue
 		}
 
+		// Attach context and sync client for lazy #sync handling.
+		if evt.Sync != nil && c.syncClient != nil {
+			evt.ctx = ctx
+			evt.syncClient = c.syncClient
+		}
+
 		// Sequence gap detection.
 		seq := evt.seqOf()
 		if seq > 0 {
@@ -442,4 +479,25 @@ func (c *Client) backoffAndRetry(ctx context.Context, attempt int) int {
 	}
 	_ = sleep(ctx, d)
 	return attempt + 1
+}
+
+// deriveHTTPURL converts a WebSocket URL to an HTTP base URL.
+// "wss://bsky.network/xrpc/..." → "https://bsky.network"
+func deriveHTTPURL(wsURL string) (string, error) {
+	parsed, err := url.Parse(wsURL)
+	if err != nil {
+		return "", err
+	}
+	switch parsed.Scheme {
+	case "wss":
+		parsed.Scheme = "https"
+	case "ws":
+		parsed.Scheme = "http"
+	default:
+		return "", fmt.Errorf("unexpected scheme: %s", parsed.Scheme)
+	}
+	parsed.Path = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
 }

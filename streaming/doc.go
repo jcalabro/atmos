@@ -5,7 +5,12 @@
 // with exponential backoff, cursor tracking, and decoding of events.
 //
 // For repository events, use [Event.Operations] to iterate over record
-// mutations. For label events, use [Event.Labels] to access the individual
+// mutations. When a #sync event arrives (indicating a broken commit chain),
+// Operations automatically re-fetches the full repository and yields every
+// record as an [ActionResync] operation. This behavior is enabled by default;
+// override via [Options.SyncClient] or disable with gt.Some[*sync.Client](nil).
+//
+// For label events, use [Event.Labels] to access the individual
 // labels — including negation labels (Neg=true) that revoke a previous label.
 //
 // For high availability deployments, the client supports optional distributed

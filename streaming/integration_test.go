@@ -6,10 +6,14 @@ package streaming
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jcalabro/atmos/api/comatproto"
+	"github.com/jcalabro/atmos/sync"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -179,5 +183,66 @@ func TestIntegration_FuzzFrameDecoder(t *testing.T) {
 	}
 	for _, input := range inputs {
 		_, _ = decodeFrame(input)
+	}
+}
+
+// TestIntegration_SyncEvent_EndToEnd tests the full pipeline: WebSocket sends
+// a #sync frame → readLoop stamps ctx/syncClient → consumer calls Operations()
+// → gets ActionResync operations from the HTTP-fetched repo.
+func TestIntegration_SyncEvent_EndToEnd(t *testing.T) {
+	t.Parallel()
+
+	// Build a test repo and serve it over HTTP.
+	carData := buildResyncRepo(t, 3)
+	httpSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.ipld.car")
+		_, _ = w.Write(carData)
+	}))
+	t.Cleanup(httpSrv.Close)
+
+	xc := &xrpc.Client{Host: httpSrv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	// Build a #sync CBOR frame.
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		LexiconTypeID: "com.atproto.sync.subscribeRepos#sync",
+		DID:           "did:plc:test123",
+		Rev:           "3abc",
+		Seq:           1,
+		Time:          "2024-01-01T00:00:00Z",
+	}
+	syncBody, err := syncEvt.MarshalCBOR()
+	require.NoError(t, err)
+
+	// WebSocket relay that sends the #sync frame.
+	wsSrv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, buildFrame("#sync", syncBody))
+	})
+
+	client := mustNewClient(t, Options{
+		URL:        wsURL(wsSrv),
+		SyncClient: gt.Some(sc),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var ops []Operation
+	for evt, err := range client.Events(ctx) {
+		require.NoError(t, err)
+		for op, err := range evt.Operations() {
+			require.NoError(t, err)
+			ops = append(ops, op)
+		}
+		cancel() // only process one event
+	}
+
+	require.Len(t, ops, 3)
+	for _, op := range ops {
+		assert.Equal(t, ActionResync, op.Action)
+		assert.Equal(t, "app.bsky.feed.post", op.Collection)
+		assert.Equal(t, "did:plc:test123", op.Repo)
+		assert.Equal(t, "3abc", op.Rev)
+		assert.NotEmpty(t, op.CID)
 	}
 }

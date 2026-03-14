@@ -2,11 +2,13 @@ package streaming
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"iter"
 	"strings"
 
+	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/car"
 )
 
@@ -17,6 +19,7 @@ const (
 	ActionCreate Action = "create"
 	ActionUpdate Action = "update"
 	ActionDelete Action = "delete"
+	ActionResync Action = "resync"
 )
 
 // CBORUnmarshaler is implemented by all generated ATProto types.
@@ -24,10 +27,10 @@ type CBORUnmarshaler interface {
 	UnmarshalCBOR([]byte) error
 }
 
-// Operation is a single record mutation from a commit event, with
-// convenient access to the underlying record data.
+// Operation is a single record mutation from a #commit or #sync event,
+// with convenient access to the underlying record data.
 type Operation struct {
-	Action     Action // ActionCreate, ActionUpdate, or ActionDelete
+	Action     Action // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
 	Collection string // e.g. "app.bsky.feed.post"
 	RKey       string // record key, e.g. "3abc123"
 	Repo       string // DID of the repo
@@ -46,50 +49,100 @@ func (o *Operation) Decode(dst CBORUnmarshaler) error {
 }
 
 // Operations returns an iterator over record mutations in this event.
-// For non-commit events, yields nothing. The CAR archive is decoded
-// each time this method is called; callers that need to iterate multiple
-// times should collect the results.
+// For #commit events, the CAR diff is decoded and each repo operation is
+// yielded. For #sync events (when a [sync.Client] is configured), the full
+// repository is fetched via HTTP and every record is yielded as an
+// [ActionResync] operation. For all other event types, yields nothing.
+//
+// Each call re-decodes the CAR (#commit) or re-fetches the repo (#sync);
+// callers that need to iterate multiple times should collect the results.
 func (e *Event) Operations() iter.Seq2[Operation, error] {
 	return func(yield func(Operation, error) bool) {
-		if e.Commit == nil {
+		if e.Commit != nil {
+			e.yieldCommitOps(yield)
 			return
 		}
+		if e.Sync != nil && e.syncClient != nil {
+			e.yieldResyncOps(yield)
+			return
+		}
+	}
+}
 
-		commit := e.Commit
+// yieldCommitOps yields operations from a #commit event's CAR diff.
+func (e *Event) yieldCommitOps(yield func(Operation, error) bool) {
+	commit := e.Commit
 
-		// Decode the CAR once for all ops.
-		_, blocks, err := car.ReadAll(bytes.NewReader(commit.Blocks))
+	// Decode the CAR once for all ops.
+	_, blocks, err := car.ReadAll(bytes.NewReader(commit.Blocks))
+	if err != nil {
+		yield(Operation{}, err)
+		return
+	}
+
+	// Index blocks by CID string for fast lookup.
+	blockIdx := make(map[string][]byte, len(blocks))
+	for _, b := range blocks {
+		blockIdx[b.CID.String()] = b.Data
+	}
+
+	for _, op := range commit.Ops {
+		collection, rkey := splitPath(op.Path)
+
+		o := Operation{
+			Action:     Action(op.Action),
+			Collection: collection,
+			RKey:       rkey,
+			Repo:       commit.Repo,
+			Rev:        commit.Rev,
+		}
+
+		if op.CID.HasVal() {
+			cidLink := op.CID.Val().Link
+			o.CID = []byte(cidLink)
+			o.blockData = blockIdx[cidLink]
+		}
+
+		if !yield(o, nil) {
+			return
+		}
+	}
+}
+
+// yieldResyncOps fetches the full repo for a #sync event and yields every
+// record as an ActionResync operation.
+func (e *Event) yieldResyncOps(yield func(Operation, error) bool) {
+	ctx := e.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	did, err := atmos.ParseDID(e.Sync.DID)
+	if err != nil {
+		_ = yield(Operation{}, fmt.Errorf("resync: parse DID: %w", err))
+		return
+	}
+
+	for rec, err := range e.syncClient.IterRecords(ctx, did) {
 		if err != nil {
-			yield(Operation{}, err)
-			return
-		}
-
-		// Index blocks by CID string for fast lookup.
-		blockIdx := make(map[string][]byte, len(blocks))
-		for _, b := range blocks {
-			blockIdx[b.CID.String()] = b.Data
-		}
-
-		for _, op := range commit.Ops {
-			collection, rkey := splitPath(op.Path)
-
-			o := Operation{
-				Action:     Action(op.Action),
-				Collection: collection,
-				RKey:       rkey,
-				Repo:       commit.Repo,
-				Rev:        commit.Rev,
-			}
-
-			if op.CID.HasVal() {
-				cidLink := op.CID.Val().Link
-				o.CID = []byte(cidLink)
-				o.blockData = blockIdx[cidLink]
-			}
-
-			if !yield(o, nil) {
+			if !yield(Operation{}, fmt.Errorf("resync: %w", err)) {
 				return
 			}
+			continue
+		}
+
+		op := Operation{
+			Action:     ActionResync,
+			Collection: rec.Collection,
+			RKey:       rec.RKey,
+			Repo:       e.Sync.DID,
+			Rev:        e.Sync.Rev,
+			CID:        rec.CID.Bytes(),
+			blockData:  rec.Data,
+		}
+
+		if !yield(op, nil) {
+			return
 		}
 	}
 }

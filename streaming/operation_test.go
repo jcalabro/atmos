@@ -1,18 +1,26 @@
 package streaming
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/bsky"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/car"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/atmos/crypto"
+	"github.com/jcalabro/atmos/mst"
+	"github.com/jcalabro/atmos/repo"
+	"github.com/jcalabro/atmos/sync"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"bytes"
 
 	"github.com/jcalabro/gt"
 )
@@ -321,4 +329,218 @@ func TestSplitPath(t *testing.T) {
 		assert.Equal(t, tt.collection, col)
 		assert.Equal(t, tt.rkey, rk)
 	}
+}
+
+// --- Resync tests ---
+
+func buildResyncRepo(t *testing.T, n int) []byte {
+	t.Helper()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	store := mst.NewMemBlockStore()
+	r := &repo.Repo{
+		DID:   atmos.DID("did:plc:test123"),
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+
+	for i := range n {
+		record := map[string]any{
+			"text":      fmt.Sprintf("record %d", i),
+			"createdAt": "2024-01-01T00:00:00Z",
+		}
+		require.NoError(t, r.Create("app.bsky.feed.post", fmt.Sprintf("rec%d", i), record))
+	}
+
+	var buf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&buf, key))
+	return buf.Bytes()
+}
+
+func serveSyncCAR(t *testing.T, carData []byte) *sync.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.ipld.car")
+		_, _ = w.Write(carData)
+	}))
+	t.Cleanup(srv.Close)
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	return sync.NewClient(sync.Options{Client: xc})
+}
+
+func TestOperations_SyncEvent(t *testing.T) {
+	t.Parallel()
+
+	carData := buildResyncRepo(t, 3)
+	sc := serveSyncCAR(t, carData)
+
+	evt := Event{
+		Seq: 42,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:test123",
+			Rev: "3abc",
+			Seq: 42,
+		},
+		ctx:        context.Background(),
+		syncClient: sc,
+	}
+
+	var ops []Operation
+	for op, err := range evt.Operations() {
+		require.NoError(t, err)
+		ops = append(ops, op)
+	}
+
+	require.Len(t, ops, 3)
+	for _, op := range ops {
+		assert.Equal(t, ActionResync, op.Action)
+		assert.Equal(t, "app.bsky.feed.post", op.Collection)
+		assert.Equal(t, "did:plc:test123", op.Repo)
+		assert.Equal(t, "3abc", op.Rev)
+		assert.NotEmpty(t, op.CID)
+		assert.NotEmpty(t, op.blockData)
+	}
+}
+
+func TestOperations_SyncEvent_NoSyncClient(t *testing.T) {
+	t.Parallel()
+
+	evt := Event{
+		Seq: 42,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:test123",
+			Rev: "3abc",
+			Seq: 42,
+		},
+		// syncClient is nil — opt-out
+	}
+
+	var count int
+	for range evt.Operations() {
+		count++
+	}
+	assert.Equal(t, 0, count)
+}
+
+func TestOperations_SyncEvent_Error(t *testing.T) {
+	t.Parallel()
+
+	// Mock server that returns 500 for getRepo.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(`{"error":"InternalError"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	evt := Event{
+		Seq: 42,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:test123",
+			Rev: "3abc",
+			Seq: 42,
+		},
+		ctx:        context.Background(),
+		syncClient: sc,
+	}
+
+	var errCount int
+	for _, err := range evt.Operations() {
+		if err != nil {
+			errCount++
+		}
+	}
+	assert.Equal(t, 1, errCount)
+}
+
+func TestOperations_SyncEvent_Decode(t *testing.T) {
+	t.Parallel()
+
+	carData := buildResyncRepo(t, 1)
+	sc := serveSyncCAR(t, carData)
+
+	evt := Event{
+		Seq: 1,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:test123",
+			Rev: "3abc",
+			Seq: 1,
+		},
+		ctx:        context.Background(),
+		syncClient: sc,
+	}
+
+	for op, err := range evt.Operations() {
+		require.NoError(t, err)
+
+		// Verify Decode works on resync ops.
+		rec, err := op.Record(bsky.DecodeRecord)
+		// The test repo uses map[string]any, not a generated type, so
+		// DecodeRecord won't recognize it. Verify blockData is at least
+		// valid CBOR instead.
+		_ = rec
+		_ = err
+		v, err := cbor.Unmarshal(op.blockData)
+		require.NoError(t, err)
+		m, ok := v.(map[string]any)
+		require.True(t, ok)
+		assert.Contains(t, m, "text")
+	}
+}
+
+func TestOperations_SyncEvent_BreakEarly(t *testing.T) {
+	t.Parallel()
+
+	carData := buildResyncRepo(t, 10)
+	sc := serveSyncCAR(t, carData)
+
+	evt := Event{
+		Seq: 1,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:test123",
+			Rev: "3abc",
+			Seq: 1,
+		},
+		ctx:        context.Background(),
+		syncClient: sc,
+	}
+
+	count := 0
+	for _, err := range evt.Operations() {
+		require.NoError(t, err)
+		count++
+		if count >= 1 {
+			break
+		}
+	}
+	assert.Equal(t, 1, count)
+}
+
+func TestOperations_SyncEvent_EmptyRepo(t *testing.T) {
+	t.Parallel()
+
+	carData := buildResyncRepo(t, 0)
+	sc := serveSyncCAR(t, carData)
+
+	evt := Event{
+		Seq: 1,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:test123",
+			Rev: "3abc",
+			Seq: 1,
+		},
+		ctx:        context.Background(),
+		syncClient: sc,
+	}
+
+	count := 0
+	for _, err := range evt.Operations() {
+		require.NoError(t, err)
+		count++
+	}
+	assert.Equal(t, 0, count)
 }
