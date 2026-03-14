@@ -53,21 +53,35 @@ func (s *ActorDefs_AdultContentPref) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "enabled":
-			s.Enabled, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "enabled" {
+				s.Enabled, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -197,21 +211,28 @@ func (s *ActorDefs_BskyAppProgressGuide) UnmarshalCBORAt(data []byte, pos int) (
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "guide":
-			s.Guide, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "guide" {
+				s.Guide, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -383,57 +404,85 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "nuxs":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Nuxs = make([]ActorDefs_Nux, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Nuxs[idx].UnmarshalCBORAt(data, pos)
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "nuxs" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
-				}
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "queuedNudges":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.QueuedNudges = make([]string, arrLen)
-				for idx := range arrLen {
-					s.QueuedNudges[idx], pos, err = cbor.ReadText(data, pos)
-					if err != nil {
-						return 0, err
+					pos = newPos
+					s.Nuxs = make([]ActorDefs_Nux, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Nuxs[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
 					}
 				}
-			}
-		case "activeProgressGuide":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v ActorDefs_BskyAppProgressGuide
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ActiveProgressGuide = gt.Some(v)
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "queuedNudges" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.QueuedNudges = make([]string, arrLen)
+					for idx := range arrLen {
+						s.QueuedNudges[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 19:
+			if string(data[keyStart:keyEnd]) == "activeProgressGuide" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_BskyAppProgressGuide
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActiveProgressGuide = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -684,37 +733,51 @@ func (s *ActorDefs_ContentLabelPref) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "label":
-			s.Label, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "labelerDid":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.LabelerDid = gt.Some(v)
+			} else if string(data[keyStart:keyEnd]) == "label" {
+				s.Label, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "visibility":
-			s.Visibility, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 10:
+			if string(data[keyStart:keyEnd]) == "labelerDid" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.LabelerDid = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "visibility" {
+				s.Visibility, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -902,49 +965,63 @@ func (s *ActorDefs_DeclaredAgePref) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "isOverAge13":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IsOverAge13 = gt.Some(v)
-			}
-		case "isOverAge16":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IsOverAge16 = gt.Some(v)
 			}
-		case "isOverAge18":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 11:
+			if string(data[keyStart:keyEnd]) == "isOverAge13" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsOverAge13 = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "isOverAge16" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsOverAge16 = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "isOverAge18" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsOverAge18 = gt.Some(v)
+				}
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IsOverAge18 = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1174,76 +1251,118 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "feed":
-			s.Feed, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "hideReplies":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "feed" {
+				s.Feed, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideReplies = gt.Some(v)
-			}
-		case "hideReposts":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideReposts = gt.Some(v)
 			}
-		case "hideQuotePosts":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideQuotePosts = gt.Some(v)
-			}
-		case "hideRepliesByLikeCount":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideRepliesByLikeCount = gt.Some(v)
 			}
-		case "hideRepliesByUnfollowed":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 11:
+			if string(data[keyStart:keyEnd]) == "hideReplies" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HideReplies = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "hideReposts" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HideReposts = gt.Some(v)
+				}
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideRepliesByUnfollowed = gt.Some(v)
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "hideQuotePosts" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HideQuotePosts = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 22:
+			if string(data[keyStart:keyEnd]) == "hideRepliesByLikeCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HideRepliesByLikeCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 23:
+			if string(data[keyStart:keyEnd]) == "hideRepliesByUnfollowed" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HideRepliesByUnfollowed = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1489,30 +1608,37 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "items":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Items = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Items[idx], pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "items" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Items = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Items[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -1673,31 +1799,45 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, er
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "tags":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Tags = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Tags[idx], pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "tags" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Tags = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Tags[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1867,35 +2007,49 @@ func (s *ActorDefs_KnownFollowers) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "count":
-			s.Count, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "followers":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Followers = make([]ActorDefs_ProfileViewBasic, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Followers[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "count" {
+				s.Count, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "followers" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Followers = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Followers[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -2069,21 +2223,35 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -2218,30 +2386,44 @@ func (s *ActorDefs_LabelersPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "labelers":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labelers = make([]ActorDefs_LabelerPrefItem, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labelers[idx].UnmarshalCBORAt(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "labelers" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Labelers = make([]ActorDefs_LabelerPrefItem, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labelers[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -2422,41 +2604,62 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalCBORAt(data []byte, pos int) (
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "hideAllFeeds":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideAllFeeds = gt.Some(v)
 			}
-		case "hiddenFeedIds":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.HiddenFeedIds = make([]string, arrLen)
-				for idx := range arrLen {
-					s.HiddenFeedIds[idx], pos, err = cbor.ReadText(data, pos)
+		case 12:
+			if string(data[keyStart:keyEnd]) == "hideAllFeeds" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.HideAllFeeds = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "hiddenFeedIds" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.HiddenFeedIds = make([]string, arrLen)
+					for idx := range arrLen {
+						s.HiddenFeedIds[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -2675,69 +2878,104 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "id":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Id = gt.Some(v)
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "value":
-			s.Value, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "targets":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Targets = make([]ActorDefs_MutedWordTarget, arrLen)
-				for idx := range arrLen {
-					s.Targets[idx], pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Id = gt.Some(v)
 				}
-			}
-		case "expiresAt":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ExpiresAt = gt.Some(v)
 			}
-		case "actorTarget":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ActorTarget = gt.Some(v)
+			} else if string(data[keyStart:keyEnd]) == "value" {
+				s.Value, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "targets" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Targets = make([]ActorDefs_MutedWordTarget, arrLen)
+					for idx := range arrLen {
+						s.Targets[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "expiresAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ExpiresAt = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "actorTarget" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActorTarget = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -2991,30 +3229,37 @@ func (s *ActorDefs_MutedWordsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "items":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Items = make([]ActorDefs_MutedWord, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Items[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "items" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Items = make([]ActorDefs_MutedWord, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Items[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -3200,48 +3445,76 @@ func (s *ActorDefs_Nux) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "id":
-			s.Id, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "data":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Data = gt.Some(v)
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "completed":
-			s.Completed, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "expiresAt":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ExpiresAt = gt.Some(v)
+			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "data" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Data = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "completed" {
+				s.Completed, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "expiresAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ExpiresAt = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -3432,27 +3705,41 @@ func (s *ActorDefs_PersonalDetailsPref) UnmarshalCBORAt(data []byte, pos int) (i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "birthDate":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BirthDate = gt.Some(v)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "birthDate" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BirthDate = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -3900,45 +4187,66 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "threadgateAllowRules":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.ThreadgateAllowRules = make([]ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules, arrLen)
-				for idx := range arrLen {
-					pos, err = s.ThreadgateAllowRules[idx].UnmarshalCBORAt(data, pos)
-					if err != nil {
-						return 0, err
-					}
-				}
-			}
-		case "postgateEmbeddingRules":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.PostgateEmbeddingRules = make([]ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules, arrLen)
-				for idx := range arrLen {
-					pos, err = s.PostgateEmbeddingRules[idx].UnmarshalCBORAt(data, pos)
+			}
+		case 20:
+			if string(data[keyStart:keyEnd]) == "threadgateAllowRules" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.ThreadgateAllowRules = make([]ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules, arrLen)
+					for idx := range arrLen {
+						pos, err = s.ThreadgateAllowRules[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 22:
+			if string(data[keyStart:keyEnd]) == "postgateEmbeddingRules" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.PostgateEmbeddingRules = make([]ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules, arrLen)
+					for idx := range arrLen {
+						pos, err = s.PostgateEmbeddingRules[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -4742,93 +5050,135 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "chat":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "chat" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileAssociatedChat
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Chat = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "germ" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileAssociatedGerm
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Germ = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ProfileAssociatedChat
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Chat = gt.Some(v)
 			}
-		case "germ":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ActorDefs_ProfileAssociatedGerm
-				pos, err = v.UnmarshalCBORAt(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Germ = gt.Some(v)
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "lists":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "lists" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Lists = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Lists = gt.Some(v)
 			}
-		case "labeler":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 7:
+			if string(data[keyStart:keyEnd]) == "labeler" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Labeler = gt.Some(v)
+				}
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Labeler = gt.Some(v)
 			}
-		case "feedgens":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "feedgens" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Feedgens = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Feedgens = gt.Some(v)
 			}
-		case "starterPacks":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 12:
+			if string(data[keyStart:keyEnd]) == "starterPacks" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.StarterPacks = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.StarterPacks = gt.Some(v)
 			}
-		case "activitySubscription":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 20:
+			if string(data[keyStart:keyEnd]) == "activitySubscription" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileAssociatedActivitySubscription
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActivitySubscription = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ProfileAssociatedActivitySubscription
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ActivitySubscription = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -5132,21 +5482,35 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBORAt(data [
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "allowSubscriptions":
-			s.AllowSubscriptions, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 18:
+			if string(data[keyStart:keyEnd]) == "allowSubscriptions" {
+				s.AllowSubscriptions, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -5274,21 +5638,35 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBORAt(data []byte, pos int) 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "allowIncoming":
-			s.AllowIncoming, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 13:
+			if string(data[keyStart:keyEnd]) == "allowIncoming" {
+				s.AllowIncoming, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -5420,26 +5798,40 @@ func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalCBORAt(data []byte, pos int) 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "messageMeUrl":
-			s.MessageMeUrl, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "showButtonTo":
-			s.ShowButtonTo, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 12:
+			if string(data[keyStart:keyEnd]) == "messageMeUrl" {
+				s.MessageMeUrl, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "showButtonTo" {
+				s.ShowButtonTo, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -5734,156 +6126,212 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "debug":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "avatar":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Avatar = gt.Some(v)
 			}
-		case "handle":
-			s.Handle, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "debug" {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "avatar" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Avatar = gt.Some(v)
 				}
-			}
-		case "status":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ActorDefs_StatusView
-				pos, err = v.UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "handle" {
+				s.Handle, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Status = gt.Some(v)
-			}
-		case "viewer":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "status" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_StatusView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Status = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "viewer" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ViewerState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Viewer = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ViewerState
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Viewer = gt.Some(v)
 			}
-		case "pronouns":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "pronouns" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Pronouns = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Pronouns = gt.Some(v)
 			}
-		case "createdAt":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.CreatedAt = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "indexedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IndexedAt = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.CreatedAt = gt.Some(v)
 			}
-		case "indexedAt":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 10:
+			if string(data[keyStart:keyEnd]) == "associated" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileAssociated
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Associated = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IndexedAt = gt.Some(v)
 			}
-		case "associated":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 11:
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "displayName" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.DisplayName = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ProfileAssociated
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Associated = gt.Some(v)
 			}
-		case "description":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 12:
+			if string(data[keyStart:keyEnd]) == "verification" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_VerificationState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Verification = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Description = gt.Some(v)
-			}
-		case "displayName":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.DisplayName = gt.Some(v)
-			}
-		case "verification":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ActorDefs_VerificationState
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Verification = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -6491,134 +6939,190 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "debug":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "avatar":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Avatar = gt.Some(v)
 			}
-		case "handle":
-			s.Handle, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "debug" {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "avatar" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Avatar = gt.Some(v)
 				}
-			}
-		case "status":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ActorDefs_StatusView
-				pos, err = v.UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "handle" {
+				s.Handle, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Status = gt.Some(v)
-			}
-		case "viewer":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "status" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_StatusView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Status = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "viewer" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ViewerState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Viewer = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ViewerState
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Viewer = gt.Some(v)
 			}
-		case "pronouns":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "pronouns" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Pronouns = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Pronouns = gt.Some(v)
 			}
-		case "createdAt":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.CreatedAt = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.CreatedAt = gt.Some(v)
 			}
-		case "associated":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 10:
+			if string(data[keyStart:keyEnd]) == "associated" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileAssociated
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Associated = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ProfileAssociated
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Associated = gt.Some(v)
 			}
-		case "displayName":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 11:
+			if string(data[keyStart:keyEnd]) == "displayName" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.DisplayName = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.DisplayName = gt.Some(v)
 			}
-		case "verification":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 12:
+			if string(data[keyStart:keyEnd]) == "verification" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_VerificationState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Verification = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_VerificationState
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Verification = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -7279,233 +7783,310 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "debug":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "avatar":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Avatar = gt.Some(v)
 			}
-		case "banner":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "debug" {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Banner = gt.Some(v)
 			}
-		case "handle":
-			s.Handle, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+		case 6:
+			if string(data[keyStart:keyEnd]) == "avatar" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Avatar = gt.Some(v)
 				}
-			}
-		case "status":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ActorDefs_StatusView
-				pos, err = v.UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "banner" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Banner = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "handle" {
+				s.Handle, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Status = gt.Some(v)
-			}
-		case "viewer":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "status" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_StatusView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Status = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "viewer" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ViewerState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Viewer = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ViewerState
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Viewer = gt.Some(v)
 			}
-		case "website":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 7:
+			if string(data[keyStart:keyEnd]) == "website" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Website = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Website = gt.Some(v)
 			}
-		case "pronouns":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "pronouns" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Pronouns = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Pronouns = gt.Some(v)
 			}
-		case "createdAt":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.CreatedAt = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "indexedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IndexedAt = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.CreatedAt = gt.Some(v)
 			}
-		case "indexedAt":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 10:
+			if string(data[keyStart:keyEnd]) == "associated" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileAssociated
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Associated = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "pinnedPost" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v comatproto.RepoStrongRef
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PinnedPost = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "postsCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PostsCount = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IndexedAt = gt.Some(v)
 			}
-		case "associated":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 11:
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "displayName" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.DisplayName = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_ProfileAssociated
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Associated = gt.Some(v)
 			}
-		case "pinnedPost":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 12:
+			if string(data[keyStart:keyEnd]) == "followsCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.FollowsCount = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "verification" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_VerificationState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Verification = gt.Some(v)
+				}
 			} else {
-				var v comatproto.RepoStrongRef
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.PinnedPost = gt.Some(v)
 			}
-		case "postsCount":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 14:
+			if string(data[keyStart:keyEnd]) == "followersCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.FollowersCount = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.PostsCount = gt.Some(v)
 			}
-		case "description":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 20:
+			if string(data[keyStart:keyEnd]) == "joinedViaStarterPack" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_StarterPackViewBasic
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinedViaStarterPack = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Description = gt.Some(v)
-			}
-		case "displayName":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.DisplayName = gt.Some(v)
-			}
-		case "followsCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.FollowsCount = gt.Some(v)
-			}
-		case "verification":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ActorDefs_VerificationState
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Verification = gt.Some(v)
-			}
-		case "followersCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.FollowersCount = gt.Some(v)
-			}
-		case "joinedViaStarterPack":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v GraphDefs_StarterPackViewBasic
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.JoinedViaStarterPack = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -8167,36 +8748,64 @@ func (s *ActorDefs_SavedFeed) UnmarshalCBORAt(data []byte, pos int) (int, error)
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "id":
-			s.Id, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "type":
-			s.Type, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 4:
+			if string(data[keyStart:keyEnd]) == "type" {
+				s.Type, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "value" {
+				s.Value, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "value":
-			s.Value, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "pinned":
-			s.Pinned, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 6:
+			if string(data[keyStart:keyEnd]) == "pinned" {
+				s.Pinned, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -8379,57 +8988,78 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "saved":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Saved = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Saved[idx], pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "saved" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
-				}
-			}
-		case "pinned":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Pinned = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Pinned[idx], pos, err = cbor.ReadText(data, pos)
-					if err != nil {
-						return 0, err
+					pos = newPos
+					s.Saved = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Saved[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
 					}
 				}
-			}
-		case "timelineIndex":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.TimelineIndex = gt.Some(v)
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "pinned" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Pinned = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Pinned[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "timelineIndex" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.TimelineIndex = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -8657,30 +9287,37 @@ func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "items":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Items = make([]ActorDefs_SavedFeed, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Items[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "items" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Items = make([]ActorDefs_SavedFeed, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Items[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -9008,92 +9645,134 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "cid":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "cid" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.CID = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "uri" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.URI = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.CID = gt.Some(v)
 			}
-		case "uri":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.URI = gt.Some(v)
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "embed":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "embed" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_StatusView_Embed
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Embed = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_StatusView_Embed
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Embed = gt.Some(v)
 			}
-		case "record":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "status":
-			s.Status, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "isActive":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		case 6:
+			if string(data[keyStart:keyEnd]) == "record" {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IsActive = gt.Some(v)
-			}
-		case "expiresAt":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "status" {
+				s.Status, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ExpiresAt = gt.Some(v)
-			}
-		case "isDisabled":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IsDisabled = gt.Some(v)
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "isActive" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsActive = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "expiresAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ExpiresAt = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "isDisabled" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsDisabled = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -9389,27 +10068,41 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "sort":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "sort" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Sort = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Sort = gt.Some(v)
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -9555,27 +10248,41 @@ func (s *ActorDefs_VerificationPrefs) UnmarshalCBORAt(data []byte, pos int) (int
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "hideBadges":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HideBadges = gt.Some(v)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "hideBadges" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HideBadges = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -9731,41 +10438,69 @@ func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "verifications":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Verifications = make([]ActorDefs_VerificationView, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Verifications[idx].UnmarshalCBORAt(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "verifications" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Verifications = make([]ActorDefs_VerificationView, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Verifications[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
-		case "verifiedStatus":
-			s.VerifiedStatus, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 14:
+			if string(data[keyStart:keyEnd]) == "verifiedStatus" {
+				s.VerifiedStatus, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "trustedVerifierStatus":
-			s.TrustedVerifierStatus, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 21:
+			if string(data[keyStart:keyEnd]) == "trustedVerifierStatus" {
+				s.TrustedVerifierStatus, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -9964,36 +10699,71 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "issuer":
-			s.Issuer, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 6:
+			if string(data[keyStart:keyEnd]) == "issuer" {
+				s.Issuer, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "isValid":
-			s.IsValid, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "isValid" {
+				s.IsValid, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "createdAt":
-			s.CreatedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -10272,115 +11042,164 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "muted":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Muted = gt.Some(v)
-			}
-		case "blocking":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "muted" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Muted = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Blocking = gt.Some(v)
 			}
-		case "blockedBy":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "blocking" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Blocking = gt.Some(v)
+				}
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BlockedBy = gt.Some(v)
 			}
-		case "following":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 9:
+			if string(data[keyStart:keyEnd]) == "blockedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlockedBy = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "following" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Following = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Following = gt.Some(v)
 			}
-		case "followedBy":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 10:
+			if string(data[keyStart:keyEnd]) == "followedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.FollowedBy = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.FollowedBy = gt.Some(v)
 			}
-		case "mutedByList":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 11:
+			if string(data[keyStart:keyEnd]) == "mutedByList" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_ListViewBasic
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.MutedByList = gt.Some(v)
+				}
 			} else {
-				var v GraphDefs_ListViewBasic
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.MutedByList = gt.Some(v)
 			}
-		case "blockingByList":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 14:
+			if string(data[keyStart:keyEnd]) == "blockingByList" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_ListViewBasic
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlockingByList = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "knownFollowers" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_KnownFollowers
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.KnownFollowers = gt.Some(v)
+				}
 			} else {
-				var v GraphDefs_ListViewBasic
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BlockingByList = gt.Some(v)
 			}
-		case "knownFollowers":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 20:
+			if string(data[keyStart:keyEnd]) == "activitySubscription" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_ActivitySubscription
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActivitySubscription = gt.Some(v)
+				}
 			} else {
-				var v ActorDefs_KnownFollowers
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.KnownFollowers = gt.Some(v)
-			}
-		case "activitySubscription":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v NotificationDefs_ActivitySubscription
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.ActivitySubscription = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

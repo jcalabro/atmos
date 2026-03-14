@@ -380,82 +380,131 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "pds":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "pds" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerGetConfig_ServiceConfig
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Pds = gt.Some(v)
+				}
 			} else {
-				var v ServerGetConfig_ServiceConfig
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Pds = gt.Some(v)
 			}
-		case "chat":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 4:
+			if string(data[keyStart:keyEnd]) == "chat" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerGetConfig_ServiceConfig
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Chat = gt.Some(v)
+				}
 			} else {
-				var v ServerGetConfig_ServiceConfig
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Chat = gt.Some(v)
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "viewer":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ServerGetConfig_ViewerConfig
-				pos, err = v.UnmarshalCBORAt(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Viewer = gt.Some(v)
-			}
-		case "appview":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v ServerGetConfig_ServiceConfig
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Appview = gt.Some(v)
 			}
-		case "blobDivert":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 6:
+			if string(data[keyStart:keyEnd]) == "viewer" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerGetConfig_ViewerConfig
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Viewer = gt.Some(v)
+				}
 			} else {
-				var v ServerGetConfig_ServiceConfig
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BlobDivert = gt.Some(v)
 			}
-		case "verifierDid":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 7:
+			if string(data[keyStart:keyEnd]) == "appview" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerGetConfig_ServiceConfig
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Appview = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.VerifierDid = gt.Some(v)
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "blobDivert" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerGetConfig_ServiceConfig
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlobDivert = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "verifierDid" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.VerifierDid = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -532,27 +581,41 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalCBORAt(data []byte, pos int) (i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "url":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "url" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.URL = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.URL = gt.Some(v)
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -696,27 +759,41 @@ func (s *ServerGetConfig_ViewerConfig) UnmarshalCBORAt(data []byte, pos int) (in
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "role":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "role" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Role = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Role = gt.Some(v)
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

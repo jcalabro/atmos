@@ -57,36 +57,50 @@ func (s *ServerCreateInviteCodes_AccountCodes) UnmarshalCBORAt(data []byte, pos 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "codes":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Codes = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Codes[idx], pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "codes" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Codes = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Codes[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
-		case "account":
-			s.Account, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "account" {
+				s.Account, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -363,30 +377,37 @@ func (s *ServerCreateInviteCodes_Output) UnmarshalCBORAt(data []byte, pos int) (
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "codes":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Codes = make([]ServerCreateInviteCodes_AccountCodes, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Codes[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "codes" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Codes = make([]ServerCreateInviteCodes_AccountCodes, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Codes[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -583,40 +604,68 @@ func (s *ServerCreateInviteCodes_Input) UnmarshalCBORAt(data []byte, pos int) (i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "useCount":
-			s.UseCount, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "codeCount":
-			s.CodeCount, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "forAccounts":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.ForAccounts = make([]string, arrLen)
-				for idx := range arrLen {
-					s.ForAccounts[idx], pos, err = cbor.ReadText(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "useCount" {
+				s.UseCount, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "codeCount" {
+				s.CodeCount, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "forAccounts" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.ForAccounts = make([]string, arrLen)
+					for idx := range arrLen {
+						s.ForAccounts[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:

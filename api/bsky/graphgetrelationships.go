@@ -198,41 +198,55 @@ func (s *GraphGetRelationships_Output) UnmarshalCBORAt(data []byte, pos int) (in
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "actor":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Actor = gt.Some(v)
-			}
-		case "relationships":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Relationships = make([]GraphGetRelationships_Output_Relationships, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Relationships[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "actor" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Actor = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "relationships" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Relationships = make([]GraphGetRelationships_Output_Relationships, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Relationships[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:

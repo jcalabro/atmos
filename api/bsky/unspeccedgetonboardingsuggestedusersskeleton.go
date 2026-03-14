@@ -213,53 +213,74 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBORAt(da
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "dids":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Dids = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Dids[idx], pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "dids" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Dids = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Dids[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "recId":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RecId = gt.Some(v)
 			}
-		case "recIdStr":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RecIdStr = gt.Some(v)
+			} else if string(data[keyStart:keyEnd]) == "recId" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RecId = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "recIdStr" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RecIdStr = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

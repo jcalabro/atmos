@@ -56,27 +56,34 @@ func (s *ServerDescribeServer_Contact) UnmarshalCBORAt(data []byte, pos int) (in
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "email":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Email = gt.Some(v)
+			} else if string(data[keyStart:keyEnd]) == "email" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Email = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -229,38 +236,59 @@ func (s *ServerDescribeServer_Links) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "privacyPolicy":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.PrivacyPolicy = gt.Some(v)
-			}
-		case "termsOfService":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.TermsOfService = gt.Some(v)
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "privacyPolicy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PrivacyPolicy = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "termsOfService" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.TermsOfService = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -697,80 +725,122 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "links":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v ServerDescribeServer_Links
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Links = gt.Some(v)
 			}
-		case "contact":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v ServerDescribeServer_Contact
-				pos, err = v.UnmarshalCBORAt(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Contact = gt.Some(v)
-			}
-		case "inviteCodeRequired":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.InviteCodeRequired = gt.Some(v)
-			}
-		case "availableUserDomains":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.AvailableUserDomains = make([]string, arrLen)
-				for idx := range arrLen {
-					s.AvailableUserDomains[idx], pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "links" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerDescribeServer_Links
+					pos, err = v.UnmarshalCBORAt(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Links = gt.Some(v)
 				}
-			}
-		case "phoneVerificationRequired":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.PhoneVerificationRequired = gt.Some(v)
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "contact" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ServerDescribeServer_Contact
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Contact = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "inviteCodeRequired" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.InviteCodeRequired = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 20:
+			if string(data[keyStart:keyEnd]) == "availableUserDomains" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.AvailableUserDomains = make([]string, arrLen)
+					for idx := range arrLen {
+						s.AvailableUserDomains[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 25:
+			if string(data[keyStart:keyEnd]) == "phoneVerificationRequired" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PhoneVerificationRequired = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

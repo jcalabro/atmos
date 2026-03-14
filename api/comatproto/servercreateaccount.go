@@ -202,41 +202,76 @@ func (s *ServerCreateAccount_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "didDoc":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
+		case 6:
+			if string(data[keyStart:keyEnd]) == "didDoc" {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "handle" {
+				s.Handle, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "handle":
-			s.Handle, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 9:
+			if string(data[keyStart:keyEnd]) == "accessJwt" {
+				s.AccessJwt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "accessJwt":
-			s.AccessJwt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "refreshJwt":
-			s.RefreshJwt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 10:
+			if string(data[keyStart:keyEnd]) == "refreshJwt" {
+				s.RefreshJwt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -610,103 +645,159 @@ func (s *ServerCreateAccount_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.DID = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.DID = gt.Some(v)
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "email":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Email = gt.Some(v)
-			}
-		case "plcOp":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "handle":
-			s.Handle, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "password":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "email" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Email = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "plcOp" {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Password = gt.Some(v)
-			}
-		case "inviteCode":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.InviteCode = gt.Some(v)
 			}
-		case "recoveryKey":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 6:
+			if string(data[keyStart:keyEnd]) == "handle" {
+				s.Handle, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RecoveryKey = gt.Some(v)
-			}
-		case "verificationCode":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.VerificationCode = gt.Some(v)
 			}
-		case "verificationPhone":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "password" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Password = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.VerificationPhone = gt.Some(v)
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "inviteCode" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.InviteCode = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "recoveryKey" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RecoveryKey = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 16:
+			if string(data[keyStart:keyEnd]) == "verificationCode" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.VerificationCode = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "verificationPhone" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.VerificationPhone = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

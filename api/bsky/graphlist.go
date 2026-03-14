@@ -223,78 +223,127 @@ func (s *GraphList) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "name":
-			s.Name, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "avatar":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "name" {
+				s.Name, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v lextypes.LexBlob
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Avatar = gt.Some(v)
 			}
-		case "labels":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v GraphList_Labels
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Labels = gt.Some(v)
 			}
-		case "purpose":
-			s.Purpose, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "createdAt":
-			s.CreatedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "description":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Description = gt.Some(v)
-			}
-		case "descriptionFacets":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.DescriptionFacets = make([]RichtextFacet, arrLen)
-				for idx := range arrLen {
-					pos, err = s.DescriptionFacets[idx].UnmarshalCBORAt(data, pos)
+		case 6:
+			if string(data[keyStart:keyEnd]) == "avatar" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v lextypes.LexBlob
+					pos, err = v.UnmarshalCBORAt(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Avatar = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphList_Labels
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Labels = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "purpose" {
+				s.Purpose, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "descriptionFacets" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.DescriptionFacets = make([]RichtextFacet, arrLen)
+					for idx := range arrLen {
+						pos, err = s.DescriptionFacets[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:

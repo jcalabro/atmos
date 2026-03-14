@@ -60,26 +60,40 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalCBORAt(data []byte, pos int)
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "match" {
+				pos, err = s.Match.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "match":
-			pos, err = s.Match.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "contactIndex":
-			s.ContactIndex, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
+		case 12:
+			if string(data[keyStart:keyEnd]) == "contactIndex" {
+				s.ContactIndex, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -231,26 +245,47 @@ func (s *ContactDefs_Notification) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "to":
-			s.To, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "to" {
+				s.To, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "from":
-			s.From, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 4:
+			if string(data[keyStart:keyEnd]) == "from" {
+				s.From, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -394,26 +429,47 @@ func (s *ContactDefs_SyncStatus) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "syncedAt":
-			s.SyncedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 8:
+			if string(data[keyStart:keyEnd]) == "syncedAt" {
+				s.SyncedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "matchesCount":
-			s.MatchesCount, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
+		case 12:
+			if string(data[keyStart:keyEnd]) == "matchesCount" {
+				s.MatchesCount, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

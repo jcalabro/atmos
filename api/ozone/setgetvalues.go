@@ -214,46 +214,67 @@ func (s *SetGetValues_Output) UnmarshalCBORAt(data []byte, pos int) (int, error)
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "set":
-			pos, err = s.Set.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "cursor":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "set" {
+				pos, err = s.Set.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Cursor = gt.Some(v)
 			}
-		case "values":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Values = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Values[idx], pos, err = cbor.ReadText(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "cursor" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Cursor = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "values" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Values = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Values[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:

@@ -91,73 +91,129 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "id":
-			s.Id, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "lang":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Lang = gt.Some(v)
-			}
-		case "name":
-			s.Name, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "subject":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Subject = gt.Some(v)
 			}
-		case "disabled":
-			s.Disabled, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 4:
+			if string(data[keyStart:keyEnd]) == "lang" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Lang = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "name" {
+				s.Name, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "createdAt":
-			s.CreatedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "updatedAt":
-			s.UpdatedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "subject" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Subject = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "lastUpdatedBy":
-			s.LastUpdatedBy, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 8:
+			if string(data[keyStart:keyEnd]) == "disabled" {
+				s.Disabled, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "contentMarkdown":
-			s.ContentMarkdown, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "updatedAt" {
+				s.UpdatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "lastUpdatedBy" {
+				s.LastUpdatedBy, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "contentMarkdown" {
+				s.ContentMarkdown, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

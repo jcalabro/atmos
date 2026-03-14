@@ -131,21 +131,35 @@ func (s *NotificationPutPreferencesV2_Output) UnmarshalCBORAt(data []byte, pos i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "preferences":
-			pos, err = s.Preferences.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
+		case 11:
+			if string(data[keyStart:keyEnd]) == "preferences" {
+				pos, err = s.Preferences.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -894,159 +908,229 @@ func (s *NotificationPutPreferencesV2_Input) UnmarshalCBORAt(data []byte, pos in
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "chat":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "chat" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_ChatPreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Chat = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "like" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Like = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_ChatPreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Chat = gt.Some(v)
 			}
-		case "like":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Like = gt.Some(v)
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "quote":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "quote" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Quote = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "reply" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Reply = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Quote = gt.Some(v)
 			}
-		case "reply":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 6:
+			if string(data[keyStart:keyEnd]) == "follow" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Follow = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "repost" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Repost = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Reply = gt.Some(v)
 			}
-		case "follow":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 7:
+			if string(data[keyStart:keyEnd]) == "mention" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Mention = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Follow = gt.Some(v)
 			}
-		case "repost":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "verified" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_Preference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Verified = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Repost = gt.Some(v)
 			}
-		case "mention":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 10:
+			if string(data[keyStart:keyEnd]) == "unverified" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_Preference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Unverified = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Mention = gt.Some(v)
 			}
-		case "verified":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 13:
+			if string(data[keyStart:keyEnd]) == "likeViaRepost" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.LikeViaRepost = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_Preference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Verified = gt.Some(v)
 			}
-		case "unverified":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 14:
+			if string(data[keyStart:keyEnd]) == "subscribedPost" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_Preference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.SubscribedPost = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_Preference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Unverified = gt.Some(v)
 			}
-		case "likeViaRepost":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 15:
+			if string(data[keyStart:keyEnd]) == "repostViaRepost" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_FilterablePreference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RepostViaRepost = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.LikeViaRepost = gt.Some(v)
 			}
-		case "subscribedPost":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 17:
+			if string(data[keyStart:keyEnd]) == "starterpackJoined" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v NotificationDefs_Preference
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.StarterpackJoined = gt.Some(v)
+				}
 			} else {
-				var v NotificationDefs_Preference
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.SubscribedPost = gt.Some(v)
-			}
-		case "repostViaRepost":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v NotificationDefs_FilterablePreference
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.RepostViaRepost = gt.Some(v)
-			}
-		case "starterpackJoined":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v NotificationDefs_Preference
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.StarterpackJoined = gt.Some(v)
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

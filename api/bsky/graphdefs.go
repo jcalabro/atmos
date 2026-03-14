@@ -68,26 +68,47 @@ func (s *GraphDefs_ListItemView) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "subject":
-			pos, err = s.Subject.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "subject" {
+				pos, err = s.Subject.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -346,119 +367,182 @@ func (s *GraphDefs_ListView) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "cid":
-			s.CID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "name":
-			s.Name, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "avatar":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "cid" {
+				s.CID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Avatar = gt.Some(v)
 			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		case 4:
+			if string(data[keyStart:keyEnd]) == "name" {
+				s.Name, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "avatar" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Avatar = gt.Some(v)
 				}
-			}
-		case "viewer":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v GraphDefs_ListViewerState
-				pos, err = v.UnmarshalCBORAt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Viewer = gt.Some(v)
-			}
-		case "creator":
-			pos, err = s.Creator.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "purpose":
-			s.Purpose, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "indexedAt":
-			s.IndexedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "description":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Description = gt.Some(v)
-			}
-		case "listItemCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.ListItemCount = gt.Some(v)
-			}
-		case "descriptionFacets":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.DescriptionFacets = make([]RichtextFacet, arrLen)
-				for idx := range arrLen {
-					pos, err = s.DescriptionFacets[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "viewer" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_ListViewerState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Viewer = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "creator" {
+				pos, err = s.Creator.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "purpose" {
+				s.Purpose, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "indexedAt" {
+				s.IndexedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "listItemCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ListItemCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "descriptionFacets" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.DescriptionFacets = make([]RichtextFacet, arrLen)
+					for idx := range arrLen {
+						pos, err = s.DescriptionFacets[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:
@@ -921,95 +1005,144 @@ func (s *GraphDefs_ListViewBasic) UnmarshalCBORAt(data []byte, pos int) (int, er
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "cid":
-			s.CID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "name":
-			s.Name, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "avatar":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "cid" {
+				s.CID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Avatar = gt.Some(v)
 			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		case 4:
+			if string(data[keyStart:keyEnd]) == "name" {
+				s.Name, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "avatar" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.Avatar = gt.Some(v)
 				}
-			}
-		case "viewer":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "viewer" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_ListViewerState
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Viewer = gt.Some(v)
+				}
 			} else {
-				var v GraphDefs_ListViewerState
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Viewer = gt.Some(v)
 			}
-		case "purpose":
-			s.Purpose, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "indexedAt":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 7:
+			if string(data[keyStart:keyEnd]) == "purpose" {
+				s.Purpose, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IndexedAt = gt.Some(v)
-			}
-		case "listItemCount":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ListItemCount = gt.Some(v)
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "indexedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IndexedAt = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "listItemCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ListItemCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1335,38 +1468,52 @@ func (s *GraphDefs_ListViewerState) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "muted":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v bool
-				v, pos, err = cbor.ReadBool(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Muted = gt.Some(v)
-			}
-		case "blocked":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "muted" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Muted = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Blocked = gt.Some(v)
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "blocked" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Blocked = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1534,26 +1681,40 @@ func (s *GraphDefs_NotFoundActor) UnmarshalCBORAt(data []byte, pos int) (int, er
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "actor" {
+				s.Actor, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "actor":
-			s.Actor, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "notFound":
-			s.NotFound, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 8:
+			if string(data[keyStart:keyEnd]) == "notFound" {
+				s.NotFound, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1749,87 +1910,136 @@ func (s *GraphDefs_Relationship) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "did":
-			s.DID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "blocking":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Blocking = gt.Some(v)
-			}
-		case "blockedBy":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BlockedBy = gt.Some(v)
 			}
-		case "following":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Following = gt.Some(v)
-			}
-		case "followedBy":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.FollowedBy = gt.Some(v)
 			}
-		case "blockedByList":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 8:
+			if string(data[keyStart:keyEnd]) == "blocking" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Blocking = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BlockedByList = gt.Some(v)
 			}
-		case "blockingByList":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 9:
+			if string(data[keyStart:keyEnd]) == "blockedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlockedBy = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "following" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Following = gt.Some(v)
+				}
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.BlockingByList = gt.Some(v)
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "followedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.FollowedBy = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "blockedByList" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlockedByList = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "blockingByList" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlockingByList = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -2201,119 +2411,175 @@ func (s *GraphDefs_StarterPackView) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "cid":
-			s.CID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "list":
-			if cbor.IsNull(data, pos) {
-				pos++
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "cid" {
+				s.CID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			} else {
-				var v GraphDefs_ListViewBasic
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.List = gt.Some(v)
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "feeds":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Feeds = make([]FeedDefs_GeneratorView, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Feeds[idx].UnmarshalCBORAt(data, pos)
+		case 4:
+			if string(data[keyStart:keyEnd]) == "list" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_ListViewBasic
+					pos, err = v.UnmarshalCBORAt(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					s.List = gt.Some(v)
 				}
-			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "feeds" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Feeds = make([]FeedDefs_GeneratorView, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Feeds[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "record":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "creator":
-			pos, err = s.Creator.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "indexedAt":
-			s.IndexedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "joinedWeekCount":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.JoinedWeekCount = gt.Some(v)
 			}
-		case "listItemsSample":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.ListItemsSample = make([]GraphDefs_ListItemView, arrLen)
-				for idx := range arrLen {
-					pos, err = s.ListItemsSample[idx].UnmarshalCBORAt(data, pos)
+		case 6:
+			if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "joinedAllTimeCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "record" {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.JoinedAllTimeCount = gt.Some(v)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "creator" {
+				pos, err = s.Creator.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "indexedAt" {
+				s.IndexedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "joinedWeekCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinedWeekCount = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "listItemsSample" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.ListItemsSample = make([]GraphDefs_ListItemView, arrLen)
+					for idx := range arrLen {
+						pos, err = s.ListItemsSample[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "joinedAllTimeCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinedAllTimeCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -2783,89 +3049,145 @@ func (s *GraphDefs_StarterPackViewBasic) UnmarshalCBORAt(data []byte, pos int) (
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "cid":
-			s.CID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "cid" {
+				s.CID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "record":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "creator":
-			pos, err = s.Creator.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "indexedAt":
-			s.IndexedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "listItemCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "record" {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ListItemCount = gt.Some(v)
-			}
-		case "joinedWeekCount":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.JoinedWeekCount = gt.Some(v)
 			}
-		case "joinedAllTimeCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+		case 7:
+			if string(data[keyStart:keyEnd]) == "creator" {
+				pos, err = s.Creator.UnmarshalCBORAt(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.JoinedAllTimeCount = gt.Some(v)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "indexedAt" {
+				s.IndexedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "listItemCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ListItemCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "joinedWeekCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinedWeekCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "joinedAllTimeCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinedAllTimeCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

@@ -232,43 +232,71 @@ func (s *AdminGetSubjectStatus_Output) UnmarshalCBORAt(data []byte, pos int) (in
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "subject":
-			pos, err = s.Subject.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "takedown":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v AdminDefs_StatusAttr
-				pos, err = v.UnmarshalCBORAt(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Takedown = gt.Some(v)
-			}
-		case "deactivated":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v AdminDefs_StatusAttr
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Deactivated = gt.Some(v)
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "subject" {
+				pos, err = s.Subject.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "takedown" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v AdminDefs_StatusAttr
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Takedown = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "deactivated" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v AdminDefs_StatusAttr
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Deactivated = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

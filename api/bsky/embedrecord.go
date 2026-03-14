@@ -59,21 +59,35 @@ func (s *EmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "record":
-			pos, err = s.Record.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
+		case 6:
+			if string(data[keyStart:keyEnd]) == "record" {
+				pos, err = s.Record.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -501,21 +515,35 @@ func (s *EmbedRecord_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "record":
-			pos, err = s.Record.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
+		case 6:
+			if string(data[keyStart:keyEnd]) == "record" {
+				pos, err = s.Record.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -663,31 +691,59 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalCBORAt(data []byte, pos int) (int, er
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "author":
-			pos, err = s.Author.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
+		case 6:
+			if string(data[keyStart:keyEnd]) == "author" {
+				pos, err = s.Author.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "blocked":
-			s.Blocked, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "blocked" {
+				s.Blocked, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -849,26 +905,47 @@ func (s *EmbedRecord_ViewDetached) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "detached":
-			s.Detached, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 8:
+			if string(data[keyStart:keyEnd]) == "detached" {
+				s.Detached, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1012,26 +1089,47 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalCBORAt(data []byte, pos int) (int, e
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "notFound":
-			s.NotFound, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 8:
+			if string(data[keyStart:keyEnd]) == "notFound" {
+				s.NotFound, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)
@@ -1468,115 +1566,157 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "cid":
-			s.CID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "value":
-			pos, err = cbor.SkipValue(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "author":
-			pos, err = s.Author.UnmarshalCBORAt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "embeds":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "cid" {
+				s.CID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Embeds = make([]EmbedRecord_ViewRecord_Embeds, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Embeds[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "value" {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "author" {
+				pos, err = s.Author.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "embeds" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Embeds = make([]EmbedRecord_ViewRecord_Embeds, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Embeds[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "labels":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				pos = newPos
-				s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "indexedAt":
-			s.IndexedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "likeCount":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.LikeCount = gt.Some(v)
 			}
-		case "quoteCount":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+		case 9:
+			if string(data[keyStart:keyEnd]) == "indexedAt" {
+				s.IndexedAt, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.QuoteCount = gt.Some(v)
-			}
-		case "replyCount":
-			if cbor.IsNull(data, pos) {
-				pos++
+			} else if string(data[keyStart:keyEnd]) == "likeCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.LikeCount = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.ReplyCount = gt.Some(v)
 			}
-		case "repostCount":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 10:
+			if string(data[keyStart:keyEnd]) == "quoteCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.QuoteCount = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "replyCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReplyCount = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RepostCount = gt.Some(v)
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "repostCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RepostCount = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

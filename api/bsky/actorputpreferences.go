@@ -153,32 +153,46 @@ func (s *ActorPutPreferences_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "preferences":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Preferences = make(ActorDefs_Preferences, arrLen)
-				for i := range arrLen {
-					var elem ActorDefs_Preferences_Elem
-					pos, err = elem.UnmarshalCBORAt(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "preferences" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
-					s.Preferences[i] = elem
+					pos = newPos
+					s.Preferences = make(ActorDefs_Preferences, arrLen)
+					for i := range arrLen {
+						var elem ActorDefs_Preferences_Elem
+						pos, err = elem.UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+						s.Preferences[i] = elem
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:

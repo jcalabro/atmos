@@ -569,123 +569,193 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "uri":
-			s.URI, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "handle":
-			s.Handle, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "issuer":
-			s.Issuer, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "subject":
-			s.Subject, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "createdAt":
-			s.CreatedAt, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "revokedAt":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RevokedAt = gt.Some(v)
-			}
-		case "revokedBy":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RevokedBy = gt.Some(v)
 			}
-		case "issuerRepo":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v VerificationDefs_VerificationView_IssuerRepo
-				pos, err = v.UnmarshalCBORAt(data, pos)
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IssuerRepo = gt.Some(v)
-			}
-		case "displayName":
-			s.DisplayName, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "subjectRepo":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v VerificationDefs_VerificationView_SubjectRepo
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.SubjectRepo = gt.Some(v)
 			}
-		case "revokeReason":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+		case 6:
+			if string(data[keyStart:keyEnd]) == "handle" {
+				s.Handle, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.RevokeReason = gt.Some(v)
-			}
-		case "issuerProfile":
-			if cbor.IsNull(data, pos) {
-				pos++
-			} else {
-				var v VerificationDefs_VerificationView_IssuerProfile
-				pos, err = v.UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "issuer" {
+				s.Issuer, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.IssuerProfile = gt.Some(v)
-			}
-		case "subjectProfile":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v VerificationDefs_VerificationView_SubjectProfile
-				pos, err = v.UnmarshalCBORAt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.SubjectProfile = gt.Some(v)
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "subject" {
+				s.Subject, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "revokedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RevokedAt = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "revokedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RevokedBy = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "issuerRepo" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v VerificationDefs_VerificationView_IssuerRepo
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IssuerRepo = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "displayName" {
+				s.DisplayName, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "subjectRepo" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v VerificationDefs_VerificationView_SubjectRepo
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.SubjectRepo = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "revokeReason" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RevokeReason = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "issuerProfile" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v VerificationDefs_VerificationView_IssuerProfile
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IssuerProfile = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "subjectProfile" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v VerificationDefs_VerificationView_SubjectProfile
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.SubjectProfile = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

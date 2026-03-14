@@ -45,14 +45,43 @@ func AppendFloat64(buf []byte, v float64) []byte {
 }
 
 // AppendText appends a CBOR text string (major type 3).
+// The fast path (len < 24) is inlinable and covers all ATProto field names
+// and most short string values.
 func AppendText(buf []byte, s string) []byte {
-	buf = appendHeader(buf, 3, uint64(len(s)))
+	if len(s) < 24 {
+		buf = append(buf, 0x60|byte(len(s)))
+		return append(buf, s...)
+	}
+	return appendTextLong(buf, s)
+}
+
+func appendTextLong(buf []byte, s string) []byte {
+	n := uint64(len(s))
+	if n <= 0xFF {
+		buf = append(buf, 0x78, byte(n))
+	} else {
+		buf = appendHeaderSlow(buf, 3, n)
+	}
 	return append(buf, s...)
 }
 
 // AppendBytes appends a CBOR byte string (major type 2).
+// The fast path (len < 24) is inlinable.
 func AppendBytes(buf []byte, data []byte) []byte {
-	buf = appendHeader(buf, 2, uint64(len(data)))
+	if len(data) < 24 {
+		buf = append(buf, 0x40|byte(len(data)))
+		return append(buf, data...)
+	}
+	return appendBytesLong(buf, data)
+}
+
+func appendBytesLong(buf []byte, data []byte) []byte {
+	n := uint64(len(data))
+	if n <= 0xFF {
+		buf = append(buf, 0x58, byte(n))
+	} else {
+		buf = appendHeaderSlow(buf, 2, n)
+	}
 	return append(buf, data...)
 }
 
@@ -62,13 +91,21 @@ func AppendBytesHeader(buf []byte, length uint64) []byte {
 }
 
 // AppendArrayHeader appends a CBOR array header (major type 4).
+// Inlines the fast path for arrays with 0-23 elements.
 func AppendArrayHeader(buf []byte, length uint64) []byte {
-	return appendHeader(buf, 4, length)
+	if length < 24 {
+		return append(buf, 0x80|byte(length))
+	}
+	return appendHeaderSlow(buf, 4, length)
 }
 
 // AppendMapHeader appends a CBOR map header (major type 5).
+// Inlines the fast path for maps with 0-23 entries.
 func AppendMapHeader(buf []byte, length uint64) []byte {
-	return appendHeader(buf, 5, length)
+	if length < 24 {
+		return append(buf, 0xa0|byte(length))
+	}
+	return appendHeaderSlow(buf, 5, length)
 }
 
 // AppendCIDLink appends a DAG-CBOR CID link (tag 42 + byte string with 0x00 prefix + CID bytes).

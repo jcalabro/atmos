@@ -226,53 +226,74 @@ func (s *UnspeccedSearchPostsSkeleton_Output) UnmarshalCBORAt(data []byte, pos i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "posts":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Posts = make([]UnspeccedDefs_SkeletonSearchPost, arrLen)
-				for idx := range arrLen {
-					pos, err = s.Posts[idx].UnmarshalCBORAt(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "posts" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Posts = make([]UnspeccedDefs_SkeletonSearchPost, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Posts[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "cursor":
-			if cbor.IsNull(data, pos) {
-				pos++
 			} else {
-				var v string
-				v, pos, err = cbor.ReadText(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.Cursor = gt.Some(v)
 			}
-		case "hitsTotal":
-			if cbor.IsNull(data, pos) {
-				pos++
+		case 6:
+			if string(data[keyStart:keyEnd]) == "cursor" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Cursor = gt.Some(v)
+				}
 			} else {
-				var v int64
-				v, pos, err = cbor.ReadInt(data, pos)
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				s.HitsTotal = gt.Some(v)
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "hitsTotal" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.HitsTotal = gt.Some(v)
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

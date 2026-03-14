@@ -211,45 +211,59 @@ func (s *AdminDisableInviteCodes_Input) UnmarshalCBORAt(data []byte, pos int) (i
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "codes":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Codes = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Codes[idx], pos, err = cbor.ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "codes" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Codes = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Codes[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
-			}
-		case "accounts":
-			{
-				arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
-				pos = newPos
-				s.Accounts = make([]string, arrLen)
-				for idx := range arrLen {
-					s.Accounts[idx], pos, err = cbor.ReadText(data, pos)
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "accounts" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
 						return 0, err
 					}
+					pos = newPos
+					s.Accounts = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Accounts[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
 				}
 			}
 		default:

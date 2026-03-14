@@ -238,61 +238,117 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 		return 0, err
 	}
 	for i := uint64(0); i < count; i++ {
-		key, newPos, err := cbor.ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
 		pos = newPos
-		switch key {
-		case "$type":
-			s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "repoRev":
-			s.RepoRev, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 7:
+			if string(data[keyStart:keyEnd]) == "repoRev" {
+				s.RepoRev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "validDid":
-			s.ValidDid, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 8:
+			if string(data[keyStart:keyEnd]) == "validDid" {
+				s.ValidDid, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "activated":
-			s.Activated, pos, err = cbor.ReadBool(data, pos)
-			if err != nil {
-				return 0, err
+		case 9:
+			if string(data[keyStart:keyEnd]) == "activated" {
+				s.Activated, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "repoBlocks":
-			s.RepoBlocks, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
+		case 10:
+			if string(data[keyStart:keyEnd]) == "repoBlocks" {
+				s.RepoBlocks, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "repoCommit" {
+				s.RepoCommit, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "repoCommit":
-			s.RepoCommit, pos, err = cbor.ReadText(data, pos)
-			if err != nil {
-				return 0, err
+		case 13:
+			if string(data[keyStart:keyEnd]) == "expectedBlobs" {
+				s.ExpectedBlobs, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "importedBlobs" {
+				s.ImportedBlobs, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "expectedBlobs":
-			s.ExpectedBlobs, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
+		case 14:
+			if string(data[keyStart:keyEnd]) == "indexedRecords" {
+				s.IndexedRecords, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
-		case "importedBlobs":
-			s.ImportedBlobs, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "indexedRecords":
-			s.IndexedRecords, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
-			}
-		case "privateStateValues":
-			s.PrivateStateValues, pos, err = cbor.ReadInt(data, pos)
-			if err != nil {
-				return 0, err
+		case 18:
+			if string(data[keyStart:keyEnd]) == "privateStateValues" {
+				s.PrivateStateValues, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		default:
 			pos, err = cbor.SkipValue(data, pos)

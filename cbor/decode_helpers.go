@@ -156,7 +156,31 @@ func readArrayHeaderSlow(data []byte, pos int) (uint64, int, error) {
 }
 
 // ReadText reads a CBOR text string at position pos.
+// The fast path for text strings with length 1-23 (single-byte header) avoids
+// the ReadHeader call, which is the dominant cost for short string reads.
 func ReadText(data []byte, pos int) (string, int, error) {
+	if pos < len(data) {
+		b := data[pos]
+		if b >= 0x61 && b <= 0x77 { // major 3, length 1-23
+			n := int(b - 0x60)
+			end := pos + 1 + n
+			if end > len(data) {
+				return "", 0, fmt.Errorf("cbor: text data truncated")
+			}
+			s := unsafe.String(&data[pos+1], n)
+			if !utf8.ValidString(s) {
+				return "", 0, fmt.Errorf("cbor: text string contains invalid UTF-8")
+			}
+			return s, end, nil
+		}
+		if b == 0x60 { // empty text string
+			return "", pos + 1, nil
+		}
+	}
+	return readTextSlow(data, pos)
+}
+
+func readTextSlow(data []byte, pos int) (string, int, error) {
 	major, val, newPos, err := ReadHeader(data, pos)
 	if err != nil {
 		return "", 0, err
@@ -177,6 +201,42 @@ func ReadText(data []byte, pos int) (string, int, error) {
 		return "", 0, fmt.Errorf("cbor: text string contains invalid UTF-8")
 	}
 	return s, end, nil
+}
+
+// ReadTextKey reads a CBOR text string header at position pos, returning the
+// key's byte range and new position WITHOUT creating a string or validating UTF-8.
+// This is designed for generated unmarshal code where keys are compared against
+// known constants using string(data[start:end]) == "literal" (which Go optimizes
+// to avoid allocation). Unknown keys are validated separately.
+func ReadTextKey(data []byte, pos int) (keyStart, keyEnd, newPos int, err error) {
+	if pos < len(data) {
+		b := data[pos]
+		if b >= 0x60 && b <= 0x77 { // major 3, length 0-23
+			n := int(b - 0x60)
+			start := pos + 1
+			end := start + n
+			if end > len(data) {
+				return 0, 0, 0, fmt.Errorf("cbor: text data truncated")
+			}
+			return start, end, end, nil
+		}
+	}
+	return readTextKeySlow(data, pos)
+}
+
+func readTextKeySlow(data []byte, pos int) (keyStart, keyEnd, newPos int, err error) {
+	major, val, hdrEnd, err := ReadHeader(data, pos)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if major != 3 {
+		return 0, 0, 0, fmt.Errorf("cbor: expected text (major 3), got major %d", major)
+	}
+	if val > uint64(len(data)-hdrEnd) {
+		return 0, 0, 0, fmt.Errorf("cbor: text data truncated")
+	}
+	end := hdrEnd + int(val)
+	return hdrEnd, end, end, nil
 }
 
 // ReadBytes reads a CBOR byte string at position pos, returning a copy of the bytes.
@@ -386,6 +446,45 @@ func SkipValue(data []byte, pos int) (int, error) {
 			return 0, fmt.Errorf("cbor: unexpected end of data")
 		}
 
+		// Fast path: decode the initial byte inline for the most common cases,
+		// avoiding the non-inlinable ReadHeader function call.
+		b := data[pos]
+		if b&0x1f < 24 && b>>5 != 7 {
+			major := b >> 5
+			val := uint64(b & 0x1f)
+			switch major {
+			case 0, 1: // uint, negint — single byte header
+				pos++
+			case 2, 3: // bytes, text — single byte header + val bytes payload
+				end := pos + 1 + int(val)
+				if end > len(data) {
+					return 0, fmt.Errorf("cbor: data truncated")
+				}
+				pos = end
+			case 4: // array
+				if depth >= len(stack) {
+					return 0, fmt.Errorf("cbor: nesting too deep for skip")
+				}
+				stack[depth] = remaining
+				depth++
+				remaining = val
+				pos++
+			case 5: // map
+				if depth >= len(stack) {
+					return 0, fmt.Errorf("cbor: nesting too deep for skip")
+				}
+				stack[depth] = remaining
+				depth++
+				remaining = val * 2
+				pos++
+			case 6: // tag
+				remaining++
+				pos++
+			}
+			continue
+		}
+
+		// Slow path: multi-byte headers, major type 7.
 		major, val, newPos, err := ReadHeader(data, pos)
 		if err != nil {
 			return 0, err
@@ -413,10 +512,10 @@ func SkipValue(data []byte, pos int) (int, error) {
 			}
 			stack[depth] = remaining
 			depth++
-			remaining = val * 2 // key + value per entry
+			remaining = val * 2
 			pos = newPos
-		case 6: // tag — need to skip the tagged value
-			remaining++ // the tag's content is one more item
+		case 6: // tag
+			remaining++
 			pos = newPos
 		default:
 			return 0, fmt.Errorf("cbor: unknown major type %d", major)
@@ -433,31 +532,24 @@ func PeekType(data []byte) (string, error) {
 
 // PeekTypeAt reads a CBOR map starting at pos, finds the "$type" key, and
 // returns its string value. Like PeekType but works at an arbitrary offset.
+// Uses ReadTextKey to avoid ReadHeader overhead on the common path.
 func PeekTypeAt(data []byte, pos int) (string, error) {
 	count, pos, err := ReadMapHeader(data, pos)
 	if err != nil {
 		return "", err
 	}
 	for range count {
-		// Read key header to get position and length without allocating a string.
-		major, val, newPos, err := ReadHeader(data, pos)
+		keyStart, keyEnd, newPos, err := ReadTextKey(data, pos)
 		if err != nil {
 			return "", err
 		}
-		if major != 3 {
-			return "", fmt.Errorf("cbor: expected text key (major 3), got major %d", major)
-		}
-		if val > uint64(len(data)-newPos) {
-			return "", fmt.Errorf("cbor: text data truncated")
-		}
-		keyEnd := newPos + int(val)
-		// Compare key bytes directly: "$type" = [0x24, 0x74, 0x79, 0x70, 0x65].
-		// Go optimizes string(b) == "literal" to avoid allocation.
-		if string(data[newPos:keyEnd]) == "$type" {
-			typ, _, err := ReadText(data, keyEnd)
+		// Compare key bytes directly. Go optimizes string(b) == "literal"
+		// to avoid allocation.
+		if string(data[keyStart:keyEnd]) == "$type" {
+			typ, _, err := ReadText(data, newPos)
 			return typ, err
 		}
-		pos, err = SkipValue(data, keyEnd)
+		pos, err = SkipValue(data, newPos)
 		if err != nil {
 			return "", err
 		}

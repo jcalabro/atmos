@@ -143,20 +143,48 @@ func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields
 	buf.WriteString("}\n\n")
 
 	// UnmarshalCBORAt decodes from data starting at pos, returns new position.
+	// Uses ReadTextKey for zero-allocation, zero-validation key dispatch.
+	// Keys are compared via string(data[start:end]) == "literal" which the Go
+	// compiler optimizes to avoid allocation. UTF-8 is only validated for
+	// unknown keys (known keys are implicitly valid since they match ASCII literals).
 	fmt.Fprintf(buf, "func (s *%s) UnmarshalCBORAt(data []byte, pos int) (int, error) {\n", typeName)
 	buf.WriteString("\tcount, pos, err := cbor.ReadMapHeader(data, pos)\n")
 	buf.WriteString("\tif err != nil { return 0, err }\n")
 	buf.WriteString("\tfor i := uint64(0); i < count; i++ {\n")
-	buf.WriteString("\t\tkey, newPos, err := cbor.ReadText(data, pos)\n")
+	buf.WriteString("\t\tkeyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)\n")
 	buf.WriteString("\t\tif err != nil { return 0, err }\n")
 	buf.WriteString("\t\tpos = newPos\n")
-	buf.WriteString("\t\tswitch key {\n")
 
+	// Group fields by key length for efficient dispatch.
+	byLen := map[int][]fieldInfo{}
 	for _, f := range fields {
-		fmt.Fprintf(buf, "\t\tcase %q:\n", f.jsonName)
-		g.genCBORDecodeField(buf, f, "\t\t\t")
+		byLen[len(f.jsonName)] = append(byLen[len(f.jsonName)], f)
 	}
 
+	// Collect and sort unique lengths.
+	var lengths []int
+	for l := range byLen {
+		lengths = append(lengths, l)
+	}
+	sort.Ints(lengths)
+
+	buf.WriteString("\t\tswitch keyEnd - keyStart {\n")
+	for _, l := range lengths {
+		group := byLen[l]
+		fmt.Fprintf(buf, "\t\tcase %d:\n", l)
+		for i, f := range group {
+			kw := "if"
+			if i > 0 {
+				kw = "} else if"
+			}
+			fmt.Fprintf(buf, "\t\t\t%s string(data[keyStart:keyEnd]) == %q {\n", kw, f.jsonName)
+			g.genCBORDecodeField(buf, f, "\t\t\t\t")
+		}
+		buf.WriteString("\t\t\t} else {\n")
+		buf.WriteString("\t\t\t\tpos, err = cbor.SkipValue(data, pos)\n")
+		buf.WriteString("\t\t\t\tif err != nil { return 0, err }\n")
+		buf.WriteString("\t\t\t}\n")
+	}
 	buf.WriteString("\t\tdefault:\n")
 	buf.WriteString("\t\t\tpos, err = cbor.SkipValue(data, pos)\n")
 	buf.WriteString("\t\t\tif err != nil { return 0, err }\n")

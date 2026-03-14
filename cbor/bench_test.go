@@ -106,37 +106,49 @@ func marshalStrongRef(buf []byte, uri, cidStr string) []byte {
 }
 
 // unmarshalPostRead simulates what generated UnmarshalCBOR looks like:
-// position-tracking reads with key switch.
+// ReadTextKey-based key dispatch with length-first branching.
 func unmarshalPostRead(data []byte) (typ, text, createdAt string, langs []string, err error) {
 	count, pos, err := ReadMapHeader(data, 0)
 	if err != nil {
 		return "", "", "", nil, err
 	}
 	for range count {
-		var key string
-		key, pos, err = ReadText(data, pos)
+		keyStart, keyEnd, newPos, err := ReadTextKey(data, pos)
 		if err != nil {
 			return "", "", "", nil, err
 		}
-		switch key {
-		case "$type":
-			typ, pos, err = ReadText(data, pos)
-		case "text":
-			text, pos, err = ReadText(data, pos)
-		case "createdAt":
-			createdAt, pos, err = ReadText(data, pos)
-		case "langs":
-			var arrLen uint64
-			arrLen, pos, err = ReadArrayHeader(data, pos)
-			if err != nil {
-				return "", "", "", nil, err
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4: // "text"
+			if string(data[keyStart:keyEnd]) == "text" {
+				text, pos, err = ReadText(data, pos)
+			} else {
+				pos, err = SkipValue(data, pos)
 			}
-			langs = make([]string, arrLen)
-			for i := range arrLen {
-				langs[i], pos, err = ReadText(data, pos)
+		case 5: // "$type", "langs", "reply"
+			if string(data[keyStart:keyEnd]) == "$type" {
+				typ, pos, err = ReadText(data, pos)
+			} else if string(data[keyStart:keyEnd]) == "langs" {
+				var arrLen uint64
+				arrLen, pos, err = ReadArrayHeader(data, pos)
 				if err != nil {
 					return "", "", "", nil, err
 				}
+				langs = make([]string, arrLen)
+				for i := range arrLen {
+					langs[i], pos, err = ReadText(data, pos)
+					if err != nil {
+						return "", "", "", nil, err
+					}
+				}
+			} else {
+				pos, err = SkipValue(data, pos)
+			}
+		case 9: // "createdAt"
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				createdAt, pos, err = ReadText(data, pos)
+			} else {
+				pos, err = SkipValue(data, pos)
 			}
 		default:
 			pos, err = SkipValue(data, pos)
