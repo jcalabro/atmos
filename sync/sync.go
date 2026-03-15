@@ -17,6 +17,7 @@ type Record struct {
 	RKey       string   // record key
 	CID        cbor.CID // content hash
 	Data       []byte   // raw DAG-CBOR bytes
+	Rev        string   // commit rev from the repo download
 }
 
 // ListReposEntry is a single repo from ListRepos pagination.

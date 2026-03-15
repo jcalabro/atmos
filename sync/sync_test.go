@@ -87,6 +87,7 @@ func TestIterRecords_SmallRepo(t *testing.T) {
 		assert.NotEmpty(t, rec.RKey)
 		assert.NotEmpty(t, rec.Data)
 		assert.True(t, rec.CID.Defined())
+		assert.NotEmpty(t, rec.Rev, "Rev should be populated from commit")
 	}
 }
 

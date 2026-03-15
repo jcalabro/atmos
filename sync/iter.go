@@ -58,7 +58,7 @@ func (c *Client) IterRecords(ctx context.Context, did atmos.DID) iter.Seq2[Recor
 				return nil
 			}
 
-			if !yield(Record{Collection: col, RKey: rkey, CID: val, Data: data}, nil) {
+			if !yield(Record{Collection: col, RKey: rkey, CID: val, Data: data, Rev: commit.Rev}, nil) {
 				return errBreak
 			}
 			return nil
