@@ -1,7 +1,10 @@
-# atmos
+# atmos ☁️
 
-[![CI](https://github.com/jcalabro/atmos/actions/workflows/ci.yml/badge.svg)](https://github.com/jcalabro/atmos/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jcalabro/atmos.svg)](https://pkg.go.dev/github.com/jcalabro/atmos)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jcalabro/atmos)](https://github.com/jcalabro/atmos/blob/main/go.mod)
+[![Latest Release](https://img.shields.io/github/v/release/jcalabro/atmos)](https://github.com/jcalabro/atmos/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](https://github.com/jcalabro/atmos/blob/main/LICENSE-DUAL)
+[![CI](https://github.com/jcalabro/atmos/actions/workflows/ci.yml/badge.svg)](https://github.com/jcalabro/atmos/actions/workflows/ci.yml)
 
 [Atmos](https://www.youtube.com/watch?v=cXTlFx5z9_c&list=PLESQxfE6Z-wpSUECVDVsntZ_A33Z3nlqQ) is a go library for [atproto](https://atproto.com). Designed to be correct, fast, and easy to use.
 
