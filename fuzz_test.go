@@ -195,26 +195,6 @@ func FuzzParseATIdentifier(f *testing.F) {
 	})
 }
 
-// FuzzParseCID tests that CID parsing never panics and round-trips.
-func FuzzParseCID(f *testing.F) {
-	f.Add("bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454")
-	f.Add("bafkreiey2qhmw4tkalcnv5uy3ghbiuqhszgatpzameqmemwqe2kkzajeqe")
-	f.Add("")
-	f.Add("Qm") // CIDv0 prefix
-	f.Add("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n")
-	f.Add("short")
-
-	f.Fuzz(func(t *testing.T, s string) {
-		c, err := ParseCID(s)
-		if err != nil {
-			return
-		}
-		if c.String() != s {
-			t.Fatalf("round-trip mismatch: %q vs %q", c.String(), s)
-		}
-	})
-}
-
 // FuzzParseRepoPath tests that repo path parsing never panics and round-trips.
 func FuzzParseRepoPath(f *testing.F) {
 	f.Add("app.bsky.feed.post/3jqfcqzm3fo2j")

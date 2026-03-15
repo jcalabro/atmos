@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/lexicon"
 	"github.com/rivo/uniseg"
 )
@@ -71,7 +72,7 @@ func validateStringFormat(p *path, format, s string, errs *[]*ValidationError) {
 	case "nsid":
 		_, err = atmos.ParseNSID(s)
 	case "cid":
-		_, err = atmos.ParseCID(s)
+		_, err = cbor.ParseCIDString(s)
 	case "datetime":
 		_, err = atmos.ParseDatetime(s)
 	case "tid":

@@ -3,7 +3,6 @@ package lexval
 import (
 	"fmt"
 
-	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/lexicon"
 )
@@ -59,7 +58,7 @@ func validateCIDLink(p *path, val any, errs *[]*ValidationError) {
 			addErr(errs, p, fmt.Sprintf("cid-link $link expected string, got %T", link))
 			return
 		}
-		if _, err := atmos.ParseCID(ls); err != nil {
+		if _, err := cbor.ParseCIDString(ls); err != nil {
 			addErr(errs, p, fmt.Sprintf("cid-link $link invalid CID: %v", err))
 		}
 	default:

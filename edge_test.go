@@ -307,22 +307,3 @@ func TestLanguage_EdgeCases(t *testing.T) {
 	_, err = ParseLanguage("en-")
 	require.Error(t, err)
 }
-
-func TestCID_EdgeCases(t *testing.T) {
-	t.Parallel()
-	// Too short (< 8).
-	_, err := ParseCID("abcdefg")
-	require.Error(t, err)
-
-	// Exactly 8 — valid.
-	_, err = ParseCID("abcdefgh")
-	require.NoError(t, err)
-
-	// CIDv0 Qm prefix — invalid.
-	_, err = ParseCID("Qmabcdefgh")
-	require.Error(t, err)
-
-	// Space in middle — invalid.
-	_, err = ParseCID("abcd efgh")
-	require.Error(t, err)
-}
