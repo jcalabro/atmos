@@ -369,6 +369,47 @@ func TestEngine_Cancellation(t *testing.T) {
 	assert.Less(t, engine.Completed(), int64(100))
 }
 
+func TestEngine_BatchShuffle(t *testing.T) {
+	t.Parallel()
+
+	numRepos := 50
+	repos := make(map[string][]byte)
+	var dids []string
+	for i := range numRepos {
+		did := fmt.Sprintf("did:plc:repo%04d", i)
+		dids = append(dids, did)
+		repos[did] = buildTestRepoCAR(t, did, 1)
+	}
+
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var mu gosync.Mutex
+	var order []string
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Workers:    gt.Some(1), // Single worker to observe dispatch order.
+		BatchSize:  gt.Some(numRepos),
+		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
+			mu.Lock()
+			order = append(order, string(did))
+			mu.Unlock()
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(numRepos), engine.Completed())
+
+	// The shuffled order should differ from enumeration order.
+	// Probability of identical order is 1/50! ≈ 0.
+	mu.Lock()
+	defer mu.Unlock()
+	assert.NotEqual(t, dids, order, "shuffled order should differ from enumeration order")
+}
+
 func TestEngine_Concurrency(t *testing.T) {
 	t.Parallel()
 

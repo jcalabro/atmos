@@ -2,6 +2,7 @@ package backfill
 
 import (
 	"context"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 
@@ -67,7 +68,8 @@ func (e *Engine) Run(ctx context.Context) error {
 		})
 	}
 
-	// Producer: enumerate repos.
+	// Producer: enumerate repos in batches, shuffle each batch to break up
+	// PDS clustering from relay enumeration order.
 	var producerErr error
 	func() {
 		defer close(jobs)
@@ -82,7 +84,9 @@ func (e *Engine) Run(ctx context.Context) error {
 			cursor = c
 		}
 
-		count := 0
+		batchSize := e.opts.BatchSize.ValOr(1000)
+		batch := make([]repoJob, 0, batchSize)
+
 		for entry, err := range e.opts.SyncClient.ListRepos(ctx) {
 			if ctx.Err() != nil {
 				producerErr = ctx.Err()
@@ -110,27 +114,51 @@ func (e *Engine) Run(ctx context.Context) error {
 				}
 			}
 
-			select {
-			case jobs <- repoJob{DID: entry.DID, Rev: entry.Rev}:
-			case <-ctx.Done():
-				producerErr = ctx.Err()
-				return
-			}
-
+			batch = append(batch, repoJob{DID: entry.DID, Rev: entry.Rev})
 			cursor = string(entry.DID)
-			count++
-			if e.opts.Checkpoint.HasVal() && count%500 == 0 {
-				_ = e.opts.Checkpoint.Val().SaveCursor(ctx, cursor)
+
+			if len(batch) >= batchSize {
+				if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
+					producerErr = err
+					return
+				}
+				batch = batch[:0]
 			}
 		}
 
-		if e.opts.Checkpoint.HasVal() && cursor != "" {
-			_ = e.opts.Checkpoint.Val().SaveCursor(ctx, cursor)
+		// Flush remaining partial batch.
+		if len(batch) > 0 {
+			if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
+				producerErr = err
+				return
+			}
 		}
 	}()
 
 	wg.Wait()
 	return producerErr
+}
+
+// dispatchBatch shuffles the batch and sends each job to the workers channel,
+// then saves the checkpoint cursor.
+func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob, cursor string) error {
+	rand.Shuffle(len(batch), func(i, j int) {
+		batch[i], batch[j] = batch[j], batch[i]
+	})
+
+	for _, job := range batch {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case jobs <- job:
+		}
+	}
+
+	if e.opts.Checkpoint.HasVal() && cursor != "" {
+		_ = e.opts.Checkpoint.Val().SaveCursor(ctx, cursor)
+	}
+
+	return nil
 }
 
 func (e *Engine) processRepo(ctx context.Context, job repoJob, collections map[string]bool) {

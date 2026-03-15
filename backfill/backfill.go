@@ -57,4 +57,10 @@ type Options struct {
 	// Collections filters to only yield records from these collections.
 	// None = all collections.
 	Collections gt.Option[[]string]
+
+	// BatchSize is the number of repos to collect before shuffling and
+	// dispatching to workers. Shuffling breaks up PDS clustering from relay
+	// enumeration order, spreading worker load across many PDS hosts.
+	// None = 1000.
+	BatchSize gt.Option[int]
 }
