@@ -5,8 +5,10 @@ import (
 	"math/rand/v2"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/xrpc"
 )
 
 type repoJob struct {
@@ -162,12 +164,57 @@ func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch [
 }
 
 func (e *Engine) processRepo(ctx context.Context, job repoJob, collections map[string]bool) {
-	for rec, err := range e.opts.SyncClient.IterRecords(ctx, job.DID) {
-		if err != nil {
+	maxRetries := e.opts.MaxRetries.ValOr(5)
+	baseDelay := e.opts.RetryBaseDelay.ValOr(time.Second)
+	maxDelay := e.opts.RetryMaxDelay.ValOr(30 * time.Second)
+
+	for attempt := range maxRetries + 1 {
+		err := e.tryRepo(ctx, job, collections)
+		if err == nil {
+			break
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+
+		if !xrpc.IsTransient(err) || attempt >= maxRetries {
 			if e.opts.OnError.HasVal() {
 				e.opts.OnError.Val()(job.DID, err)
 			}
 			return
+		}
+
+		// Exponential backoff with jitter.
+		delay := baseDelay << attempt
+		if delay <= 0 || delay > maxDelay {
+			delay = maxDelay
+		}
+		if half := int64(delay) / 2; half > 0 {
+			delay += time.Duration(rand.Int64N(half))
+		}
+
+		// Respect Retry-After if available and reasonable.
+		// Use as a floor — never sleep less than the server requested.
+		if ra := xrpc.RetryAfter(err); !ra.IsZero() {
+			if wait := time.Until(ra); wait > delay && wait < maxDelay {
+				delay = wait
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+	}
+}
+
+// tryRepo downloads and processes a single repo, returning the first error.
+func (e *Engine) tryRepo(ctx context.Context, job repoJob, collections map[string]bool) error {
+	for rec, err := range e.opts.SyncClient.IterRecords(ctx, job.DID) {
+		if err != nil {
+			return err
 		}
 
 		if collections != nil && !collections[rec.Collection] {
@@ -175,10 +222,7 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob, collections map[s
 		}
 
 		if err := e.opts.Handler.HandleRecord(ctx, job.DID, rec); err != nil {
-			if e.opts.OnError.HasVal() {
-				e.opts.OnError.Val()(job.DID, err)
-			}
-			return
+			return err
 		}
 	}
 
@@ -190,4 +234,6 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob, collections map[s
 	if e.opts.OnProgress.HasVal() {
 		e.opts.OnProgress.Val()(n)
 	}
+
+	return nil
 }

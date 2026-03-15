@@ -4,6 +4,7 @@ package backfill
 
 import (
 	"context"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/sync"
@@ -63,4 +64,23 @@ type Options struct {
 	// enumeration order, spreading worker load across many PDS hosts.
 	// None = 1000.
 	BatchSize gt.Option[int]
+
+	// MaxRetries is the number of retry attempts for transient errors
+	// (429, 5xx, timeouts, connection resets) per repo. The initial
+	// attempt is not counted. None = 5. Set to 0 to disable retries.
+	//
+	// Note: xrpc.Client has its own retry logic (default 3 attempts).
+	// To avoid compounding retries, set xrpc.RetryPolicy{MaxAttempts: 1}
+	// on the xrpc.Client used by the SyncClient, and let the backfill
+	// engine handle all retry logic.
+	MaxRetries gt.Option[int]
+
+	// RetryBaseDelay is the initial backoff duration before the first retry.
+	// Subsequent retries use exponential backoff with jitter.
+	// None = 1s.
+	RetryBaseDelay gt.Option[time.Duration]
+
+	// RetryMaxDelay is the maximum backoff duration between retries.
+	// None = 30s.
+	RetryMaxDelay gt.Option[time.Duration]
 }

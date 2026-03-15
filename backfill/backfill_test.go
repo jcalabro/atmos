@@ -450,3 +450,240 @@ func TestEngine_Concurrency(t *testing.T) {
 	// Should have seen some concurrency.
 	assert.Greater(t, maxConcurrent.Load(), int32(1))
 }
+
+// flakyTestServer returns a transient error for the first N requests to
+// getRepo for a given DID, then serves the real CAR data.
+type flakyTestServer struct {
+	srv       *httptest.Server
+	repos     map[string][]byte
+	allDIDs   []string
+	failCode  int // HTTP status to return for transient failures
+	failCount int // how many times to fail before succeeding
+	attempts  map[string]*atomic.Int32
+}
+
+func newFlakyTestServer(t *testing.T, repos map[string][]byte, dids []string, failCode, failCount int) *flakyTestServer {
+	t.Helper()
+	fs := &flakyTestServer{
+		repos:     repos,
+		allDIDs:   dids,
+		failCode:  failCode,
+		failCount: failCount,
+		attempts:  make(map[string]*atomic.Int32),
+	}
+	for _, d := range dids {
+		fs.attempts[d] = &atomic.Int32{}
+	}
+	fs.srv = httptest.NewServer(http.HandlerFunc(fs.handle))
+	t.Cleanup(fs.srv.Close)
+	return fs
+}
+
+func (fs *flakyTestServer) handle(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/xrpc/com.atproto.sync.listRepos":
+		cursor := r.URL.Query().Get("cursor")
+		start := 0
+		if cursor != "" {
+			for i, d := range fs.allDIDs {
+				if d == cursor {
+					start = i + 1
+					break
+				}
+			}
+		}
+		end := start + 3
+		if end > len(fs.allDIDs) {
+			end = len(fs.allDIDs)
+		}
+		page := listPage{}
+		for _, d := range fs.allDIDs[start:end] {
+			page.Repos = append(page.Repos, listRepo{
+				DID: d, Head: "bafytest", Rev: "rev1", Active: true,
+			})
+		}
+		if end < len(fs.allDIDs) {
+			page.Cursor = fs.allDIDs[end-1]
+		}
+		_ = json.NewEncoder(w).Encode(page)
+
+	case "/xrpc/com.atproto.sync.getRepo":
+		did := r.URL.Query().Get("did")
+		counter, ok := fs.attempts[did]
+		if !ok {
+			w.WriteHeader(404)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "RepoNotFound"})
+			return
+		}
+
+		n := int(counter.Add(1))
+		if n <= fs.failCount {
+			w.WriteHeader(fs.failCode)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "TransientError"})
+			return
+		}
+
+		carData, ok := fs.repos[did]
+		if !ok {
+			w.WriteHeader(404)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "RepoNotFound"})
+			return
+		}
+		w.Header().Set("Content-Type", "application/vnd.ipld.car")
+		_, _ = w.Write(carData)
+
+	default:
+		w.WriteHeader(404)
+	}
+}
+
+func TestEngine_RetryTransientError(t *testing.T) {
+	t.Parallel()
+
+	repos := map[string][]byte{
+		"did:plc:retry": buildTestRepoCAR(t, "did:plc:retry", 2),
+	}
+	dids := []string{"did:plc:retry"}
+
+	// Fail with 503 once, then succeed.
+	fs := newFlakyTestServer(t, repos, dids, 503, 1)
+
+	xc := &xrpc.Client{Host: fs.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var mu gosync.Mutex
+	recordCount := 0
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:     sc,
+		Workers:        gt.Some(1),
+		MaxRetries:     gt.Some(3),
+		RetryBaseDelay: gt.Some(time.Millisecond),
+		RetryMaxDelay:  gt.Some(10 * time.Millisecond),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ sync.Record) error {
+			mu.Lock()
+			recordCount++
+			mu.Unlock()
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(1), engine.Completed())
+
+	mu.Lock()
+	assert.Equal(t, 2, recordCount)
+	mu.Unlock()
+}
+
+func TestEngine_RetryExhausted(t *testing.T) {
+	t.Parallel()
+
+	repos := map[string][]byte{
+		"did:plc:always503": buildTestRepoCAR(t, "did:plc:always503", 2),
+	}
+	dids := []string{"did:plc:always503"}
+
+	// Always fail with 503 (failCount > maxRetries).
+	fs := newFlakyTestServer(t, repos, dids, 503, 100)
+
+	xc := &xrpc.Client{Host: fs.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var errorCalled atomic.Bool
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:     sc,
+		Workers:        gt.Some(1),
+		MaxRetries:     gt.Some(2),
+		RetryBaseDelay: gt.Some(time.Millisecond),
+		RetryMaxDelay:  gt.Some(10 * time.Millisecond),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ sync.Record) error {
+			return nil
+		}),
+		OnError: gt.Some(func(_ atmos.DID, _ error) {
+			errorCalled.Store(true)
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(0), engine.Completed())
+	assert.True(t, errorCalled.Load(), "OnError should be called after retries exhausted")
+
+	// Should have attempted 1 initial + 2 retries = 3 total.
+	assert.Equal(t, int32(3), fs.attempts["did:plc:always503"].Load())
+}
+
+func TestEngine_NoPermanentRetry(t *testing.T) {
+	t.Parallel()
+
+	repos := map[string][]byte{
+		"did:plc:bad400": buildTestRepoCAR(t, "did:plc:bad400", 2),
+	}
+	dids := []string{"did:plc:bad400"}
+
+	// Fail with 400 (permanent error).
+	fs := newFlakyTestServer(t, repos, dids, 400, 100)
+
+	xc := &xrpc.Client{Host: fs.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var errorCalled atomic.Bool
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:     sc,
+		Workers:        gt.Some(1),
+		MaxRetries:     gt.Some(5),
+		RetryBaseDelay: gt.Some(time.Millisecond),
+		RetryMaxDelay:  gt.Some(10 * time.Millisecond),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ sync.Record) error {
+			return nil
+		}),
+		OnError: gt.Some(func(_ atmos.DID, _ error) {
+			errorCalled.Store(true)
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(0), engine.Completed())
+	assert.True(t, errorCalled.Load(), "OnError should be called immediately for permanent errors")
+
+	// Should have only attempted once — no retries for 400.
+	assert.Equal(t, int32(1), fs.attempts["did:plc:bad400"].Load())
+}
+
+func TestEngine_RetryDisabled(t *testing.T) {
+	t.Parallel()
+
+	repos := map[string][]byte{
+		"did:plc:noretry": buildTestRepoCAR(t, "did:plc:noretry", 2),
+	}
+	dids := []string{"did:plc:noretry"}
+
+	// Always fail with 503, but retries disabled.
+	fs := newFlakyTestServer(t, repos, dids, 503, 100)
+
+	xc := &xrpc.Client{Host: fs.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var errorCalled atomic.Bool
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Workers:    gt.Some(1),
+		MaxRetries: gt.Some(0),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ sync.Record) error {
+			return nil
+		}),
+		OnError: gt.Some(func(_ atmos.DID, _ error) {
+			errorCalled.Store(true)
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(0), engine.Completed())
+	assert.True(t, errorCalled.Load())
+
+	// Exactly 1 attempt, no retries.
+	assert.Equal(t, int32(1), fs.attempts["did:plc:noretry"].Load())
+}
