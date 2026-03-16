@@ -11,6 +11,7 @@ import (
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 )
 
@@ -38,7 +39,7 @@ type Client struct {
 func NewClient(cfg ClientConfig) *Client {
 	return &Client{
 		directoryURL: cfg.DirectoryURL.ValOr(defaultDirectoryURL),
-		httpClient:   cfg.HTTPClient.ValOr(&http.Client{Timeout: 30 * time.Second}),
+		httpClient:   cfg.HTTPClient.ValOr(xrpc.NewHTTPClient(30 * time.Second)),
 		userAgent:    cfg.UserAgent.ValOr(defaultUserAgent),
 	}
 }

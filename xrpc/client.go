@@ -41,7 +41,7 @@ func (c *Client) client() *http.Client {
 		if c.HTTPClient.HasVal() {
 			c.httpClient = c.HTTPClient.Val()
 		} else {
-			c.httpClient = &http.Client{Timeout: 30 * time.Second}
+			c.httpClient = NewHTTPClient(30 * time.Second)
 		}
 	})
 	return c.httpClient

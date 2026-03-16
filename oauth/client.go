@@ -53,6 +53,8 @@ type Client struct {
 
 	noncesOnce sync.Once
 	nonces     *NonceStore
+	httpOnce   sync.Once
+	httpCached *http.Client
 }
 
 func (c *Client) getNonces() *NonceStore {
@@ -297,6 +299,7 @@ func (c *Client) AuthenticatedClient(ctx context.Context, did string) (*xrpc.Cli
 	}
 
 	transport := &Transport{
+		Base:   xrpc.NewTransport(),
 		Source: source,
 		Nonces: c.getNonces(),
 	}
@@ -350,7 +353,13 @@ func (c *Client) SignOut(ctx context.Context, did string) error {
 }
 
 func (c *Client) httpClient() *http.Client {
-	return c.HTTPClient.ValOr(&http.Client{Timeout: 30 * time.Second})
+	if c.HTTPClient.HasVal() {
+		return c.HTTPClient.Val()
+	}
+	c.httpOnce.Do(func() {
+		c.httpCached = xrpc.NewHTTPClient(30 * time.Second)
+	})
+	return c.httpCached
 }
 
 func (c *Client) clientAuth() ClientAuth {

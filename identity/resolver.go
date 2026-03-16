@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 )
 
@@ -37,7 +38,7 @@ func (r *DefaultResolver) client() *http.Client {
 		return r.HTTPClient.Val()
 	}
 	r.clientOnce.Do(func() {
-		r.httpClient = &http.Client{Timeout: 10 * time.Second}
+		r.httpClient = xrpc.NewHTTPClient(10 * time.Second)
 	})
 	return r.httpClient
 }
