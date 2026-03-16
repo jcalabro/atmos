@@ -27,11 +27,11 @@ func NewTransport() *http.Transport {
 }
 
 // NewHTTPClient returns an [*http.Client] backed by [NewTransport] with the
-// given overall request timeout. Use this as the default when no
-// caller-provided client is set.
+// given overall request timeout. Uses [WrapGzip] for faster gzip decompression.
+// Use this as the default when no caller-provided client is set.
 func NewHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
-		Transport: NewTransport(),
+		Transport: WrapGzip(NewTransport()),
 		Timeout:   timeout,
 	}
 }

@@ -7,6 +7,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jcalabro/gt v0.0.11
+	github.com/klauspost/compress v1.18.4
 	github.com/mr-tron/base58 v1.2.0
 	github.com/rivo/uniseg v0.4.7
 	github.com/stretchr/testify v1.11.1
