@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jcalabro/atmos"
+	atmosSync "github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 )
 
@@ -18,8 +19,9 @@ type repoJob struct {
 
 // Engine runs the backfill process.
 type Engine struct {
-	opts      Options
-	completed atomic.Int64
+	opts       Options
+	completed  atomic.Int64
+	pdsClients sync.Map // map[string]*sync.Client — pooled by PDS host URL
 }
 
 // NewEngine creates a new backfill engine.
@@ -211,9 +213,52 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob, collections map[s
 	}
 }
 
+// syncClientForRepo returns a sync client for downloading the given repo.
+// If a Directory is configured, the DID is resolved to its PDS endpoint and
+// a per-PDS client is used. Falls back to the relay SyncClient on failure.
+//
+// Uses the Directory's Resolver directly (single PLC HTTP GET) instead of
+// the full LookupDID which does bi-directional handle verification — that
+// requires connecting to every user's handle server and is far too slow for
+// bulk backfill.
+func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmosSync.Client {
+	if !e.opts.Directory.HasVal() {
+		return e.opts.SyncClient
+	}
+
+	doc, err := e.opts.Directory.Val().Resolver.ResolveDID(ctx, did)
+	if err != nil {
+		return e.opts.SyncClient
+	}
+
+	// Extract PDS endpoint from the DID document's service list.
+	var pds string
+	for _, svc := range doc.Service {
+		if svc.Type == "AtprotoPersonalDataServer" {
+			pds = svc.ServiceEndpoint
+			break
+		}
+	}
+	if pds == "" {
+		return e.opts.SyncClient
+	}
+
+	if v, ok := e.pdsClients.Load(pds); ok {
+		sc, _ := v.(*atmosSync.Client)
+		return sc
+	}
+
+	xc := &xrpc.Client{Host: pds, HTTPClient: e.opts.HTTPClient}
+	sc := atmosSync.NewClient(atmosSync.Options{Client: xc})
+	actual, _ := e.pdsClients.LoadOrStore(pds, sc)
+	stored, _ := actual.(*atmosSync.Client)
+	return stored
+}
+
 // tryRepo downloads and processes a single repo, returning the first error.
 func (e *Engine) tryRepo(ctx context.Context, job repoJob, collections map[string]bool) error {
-	for rec, err := range e.opts.SyncClient.IterRecords(ctx, job.DID) {
+	sc := e.syncClientForRepo(ctx, job.DID)
+	for rec, err := range sc.IterRecords(ctx, job.DID) {
 		if err != nil {
 			return err
 		}

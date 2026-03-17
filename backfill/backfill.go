@@ -4,9 +4,11 @@ package backfill
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/gt"
 )
@@ -83,4 +85,16 @@ type Options struct {
 	// RetryMaxDelay is the maximum backoff duration between retries.
 	// None = 30s.
 	RetryMaxDelay gt.Option[time.Duration]
+
+	// Directory enables DID-to-PDS resolution. When set, repos are
+	// downloaded directly from the account's PDS instead of through the
+	// relay, dramatically improving throughput. The SyncClient is still
+	// used for ListRepos and as fallback when resolution fails.
+	// None = all repos via SyncClient (relay).
+	Directory gt.Option[*identity.Directory]
+
+	// HTTPClient is shared with per-PDS sync clients created when
+	// Directory is set. Should use the same transport as the SyncClient
+	// for connection pooling. None = default 30s timeout client.
+	HTTPClient gt.Option[*http.Client]
 }

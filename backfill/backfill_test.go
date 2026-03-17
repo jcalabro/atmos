@@ -15,6 +15,7 @@ import (
 	atmos "github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/backfill"
 	"github.com/jcalabro/atmos/crypto"
+	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/atmos/sync"
@@ -686,4 +687,196 @@ func TestEngine_RetryDisabled(t *testing.T) {
 
 	// Exactly 1 attempt, no retries.
 	assert.Equal(t, int32(1), fs.attempts["did:plc:noretry"].Load())
+}
+
+// relayOnlyServer serves only ListRepos (not getRepo). Used with a separate
+// PDS server to verify DID-to-PDS resolution routes repos to the right host.
+type relayOnlyServer struct {
+	srv     *httptest.Server
+	allDIDs []string
+}
+
+func newRelayOnlyServer(t *testing.T, dids []string) *relayOnlyServer {
+	t.Helper()
+	rs := &relayOnlyServer{allDIDs: dids}
+	rs.srv = httptest.NewServer(http.HandlerFunc(rs.handle))
+	t.Cleanup(rs.srv.Close)
+	return rs
+}
+
+func (rs *relayOnlyServer) handle(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/xrpc/com.atproto.sync.listRepos":
+		cursor := r.URL.Query().Get("cursor")
+		start := 0
+		if cursor != "" {
+			for i, d := range rs.allDIDs {
+				if d == cursor {
+					start = i + 1
+					break
+				}
+			}
+		}
+		end := start + 3
+		if end > len(rs.allDIDs) {
+			end = len(rs.allDIDs)
+		}
+		page := listPage{}
+		for _, d := range rs.allDIDs[start:end] {
+			page.Repos = append(page.Repos, listRepo{
+				DID: d, Head: "bafytest", Rev: "rev1", Active: true,
+			})
+		}
+		if end < len(rs.allDIDs) {
+			page.Cursor = rs.allDIDs[end-1]
+		}
+		_ = json.NewEncoder(w).Encode(page)
+	default:
+		// No getRepo — force 404 so test fails if relay is used for downloads.
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "NotFound"})
+	}
+}
+
+// pdsServer serves only getRepo.
+type pdsServer struct {
+	srv      *httptest.Server
+	repos    map[string][]byte
+	requests atomic.Int32
+}
+
+func newPDSServer(t *testing.T, repos map[string][]byte) *pdsServer {
+	t.Helper()
+	ps := &pdsServer{repos: repos}
+	ps.srv = httptest.NewServer(http.HandlerFunc(ps.handle))
+	t.Cleanup(ps.srv.Close)
+	return ps
+}
+
+func (ps *pdsServer) handle(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/xrpc/com.atproto.sync.getRepo" {
+		ps.requests.Add(1)
+		did := r.URL.Query().Get("did")
+		carData, ok := ps.repos[did]
+		if !ok {
+			w.WriteHeader(404)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "RepoNotFound"})
+			return
+		}
+		w.Header().Set("Content-Type", "application/vnd.ipld.car")
+		_, _ = w.Write(carData)
+		return
+	}
+	w.WriteHeader(404)
+}
+
+// staticResolver is a test Resolver that maps DIDs to pre-configured documents
+// containing PDS endpoints.
+type staticResolver struct {
+	pdsURL string
+}
+
+func (r *staticResolver) ResolveDID(_ context.Context, did atmos.DID) (*identity.DIDDocument, error) {
+	return &identity.DIDDocument{
+		ID: string(did),
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: r.pdsURL},
+		},
+	}, nil
+}
+
+func (r *staticResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
+	return "", identity.ErrHandleNotFound
+}
+
+func TestEngine_DirectoryPDSResolution(t *testing.T) {
+	t.Parallel()
+
+	numRepos := 5
+	repos := make(map[string][]byte)
+	var dids []string
+	for i := range numRepos {
+		did := fmt.Sprintf("did:plc:pds%d", i)
+		dids = append(dids, did)
+		repos[did] = buildTestRepoCAR(t, did, 3)
+	}
+
+	// Relay serves ListRepos only — no getRepo.
+	relay := newRelayOnlyServer(t, dids)
+	// PDS serves getRepo only.
+	pds := newPDSServer(t, repos)
+
+	// Directory resolves all DIDs to the PDS server.
+	dir := &identity.Directory{
+		Resolver: &staticResolver{pdsURL: pds.srv.URL},
+		Cache:    identity.NewLRUCache(100, time.Hour),
+	}
+
+	xc := &xrpc.Client{Host: relay.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var mu gosync.Mutex
+	recordCount := make(map[string]int)
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Workers:    gt.Some(3),
+		Directory:  gt.Some(dir),
+		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
+			mu.Lock()
+			recordCount[string(did)]++
+			mu.Unlock()
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(numRepos), engine.Completed())
+
+	// Verify all repos were processed with correct record counts.
+	mu.Lock()
+	defer mu.Unlock()
+	for _, did := range dids {
+		assert.Equal(t, 3, recordCount[did], "did=%s", did)
+	}
+
+	// Verify getRepo requests went to PDS, not relay.
+	assert.Equal(t, int32(numRepos), pds.requests.Load())
+}
+
+func TestEngine_DirectoryFallbackToRelay(t *testing.T) {
+	t.Parallel()
+
+	repos := map[string][]byte{
+		"did:plc:fallback": buildTestRepoCAR(t, "did:plc:fallback", 2),
+	}
+	dids := []string{"did:plc:fallback"}
+
+	// Use a normal test server (serves both ListRepos and getRepo) as relay.
+	ts := newTestServer(t, repos, dids)
+
+	// Directory that always fails resolution.
+	dir := &identity.Directory{
+		Resolver: &staticResolver{pdsURL: ""},
+		Cache:    identity.NewLRUCache(100, time.Hour),
+	}
+
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var recordCount atomic.Int32
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Workers:    gt.Some(1),
+		Directory:  gt.Some(dir),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ sync.Record) error {
+			recordCount.Add(1)
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(1), engine.Completed())
+	assert.Equal(t, int32(2), recordCount.Load())
 }
