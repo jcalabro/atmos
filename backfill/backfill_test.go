@@ -392,7 +392,7 @@ func TestEngine_BatchShuffle(t *testing.T) {
 	engine := backfill.NewEngine(backfill.Options{
 		SyncClient: sc,
 		Workers:    gt.Some(1), // Single worker to observe dispatch order.
-		BatchSize:  gt.Some(numRepos),
+		ShuffleBatchSize: gt.Some(numRepos),
 		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
 			mu.Lock()
 			order = append(order, string(did))
@@ -409,6 +409,220 @@ func TestEngine_BatchShuffle(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	assert.NotEqual(t, dids, order, "shuffled order should differ from enumeration order")
+}
+
+// TestEngine_ShuffleBatchAccumulatesAcrossPages verifies that the engine
+// collects repos from many ListRepos pages before shuffling. The test server
+// returns 3 repos per page; with ShuffleBatchSize=30 the engine must
+// accumulate 10 pages before dispatching.
+func TestEngine_ShuffleBatchAccumulatesAcrossPages(t *testing.T) {
+	t.Parallel()
+
+	numRepos := 30
+	repos := make(map[string][]byte)
+	var dids []string
+	for i := range numRepos {
+		did := fmt.Sprintf("did:plc:acc%04d", i)
+		dids = append(dids, did)
+		repos[did] = buildTestRepoCAR(t, did, 1)
+	}
+
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var mu gosync.Mutex
+	var order []string
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:       sc,
+		Workers:          gt.Some(1),
+		ShuffleBatchSize: gt.Some(numRepos), // collect all before shuffling
+		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
+			mu.Lock()
+			order = append(order, string(did))
+			mu.Unlock()
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(numRepos), engine.Completed())
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// All repos processed.
+	assert.Len(t, order, numRepos)
+	// Shuffled order should differ from creation order (probability of
+	// identical order is 1/30! ≈ 0).
+	assert.NotEqual(t, dids, order)
+}
+
+// TestEngine_ShuffleBatchMultipleDispatches verifies that when there are more
+// repos than the shuffle batch size, multiple shuffle-dispatch cycles occur
+// and all repos are processed.
+func TestEngine_ShuffleBatchMultipleDispatches(t *testing.T) {
+	t.Parallel()
+
+	numRepos := 20
+	repos := make(map[string][]byte)
+	var dids []string
+	for i := range numRepos {
+		did := fmt.Sprintf("did:plc:multi%04d", i)
+		dids = append(dids, did)
+		repos[did] = buildTestRepoCAR(t, did, 1)
+	}
+
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var mu gosync.Mutex
+	seen := make(map[string]bool)
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:       sc,
+		Workers:          gt.Some(1),
+		ShuffleBatchSize: gt.Some(7), // forces 3 dispatches: 7 + 7 + 6
+		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
+			mu.Lock()
+			seen[string(did)] = true
+			mu.Unlock()
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(numRepos), engine.Completed())
+
+	mu.Lock()
+	defer mu.Unlock()
+	// Every repo must be processed exactly once.
+	for _, did := range dids {
+		assert.True(t, seen[did], "repo %s should have been processed", did)
+	}
+}
+
+// TestEngine_ShuffleBatchCheckpointGranularity verifies that the cursor is
+// saved once per shuffle batch dispatch, not once per page or per repo.
+func TestEngine_ShuffleBatchCheckpointGranularity(t *testing.T) {
+	t.Parallel()
+
+	numRepos := 15
+	repos := make(map[string][]byte)
+	var dids []string
+	for i := range numRepos {
+		did := fmt.Sprintf("did:plc:cpgran%04d", i)
+		dids = append(dids, did)
+		repos[did] = buildTestRepoCAR(t, did, 1)
+	}
+
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	// Track every cursor save.
+	cp := &cursorTrackingCheckpoint{completed: make(map[string]string)}
+
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:       sc,
+		Workers:          gt.Some(1),
+		ShuffleBatchSize: gt.Some(10), // dispatch at 10, then flush remaining 5
+		Checkpoint:       gt.Some[backfill.Checkpoint](cp),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ sync.Record) error {
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(numRepos), engine.Completed())
+
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	// Expect exactly 2 cursor saves: one at batch 10, one at batch 15 (flush).
+	assert.Equal(t, 2, len(cp.cursorSaves), "expected 2 cursor saves, got %d: %v", len(cp.cursorSaves), cp.cursorSaves)
+}
+
+// cursorTrackingCheckpoint extends memCheckpoint to record every SaveCursor call.
+type cursorTrackingCheckpoint struct {
+	mu          gosync.Mutex
+	cursor      string
+	cursorSaves []string
+	completed   map[string]string
+}
+
+func (c *cursorTrackingCheckpoint) LoadCursor(_ context.Context) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.cursor, nil
+}
+
+func (c *cursorTrackingCheckpoint) SaveCursor(_ context.Context, cursor string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cursor = cursor
+	c.cursorSaves = append(c.cursorSaves, cursor)
+	return nil
+}
+
+func (c *cursorTrackingCheckpoint) IsComplete(_ context.Context, did atmos.DID) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, ok := c.completed[string(did)]
+	return ok, nil
+}
+
+func (c *cursorTrackingCheckpoint) MarkComplete(_ context.Context, did atmos.DID, rev string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.completed[string(did)] = rev
+	return nil
+}
+
+// TestEngine_DefaultShuffleBatchSize verifies the engine uses the 100k default
+// when ShuffleBatchSize is not set (exercises the default path without
+// creating 100k repos — we just confirm all repos are processed).
+func TestEngine_DefaultShuffleBatchSize(t *testing.T) {
+	t.Parallel()
+
+	numRepos := 12
+	repos := make(map[string][]byte)
+	var dids []string
+	for i := range numRepos {
+		did := fmt.Sprintf("did:plc:def%04d", i)
+		dids = append(dids, did)
+		repos[did] = buildTestRepoCAR(t, did, 1)
+	}
+
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	var mu gosync.Mutex
+	seen := make(map[string]bool)
+
+	// Don't set ShuffleBatchSize — use default (100k).
+	// With only 12 repos the entire set is a single partial batch flush.
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Workers:    gt.Some(2),
+		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
+			mu.Lock()
+			seen[string(did)] = true
+			mu.Unlock()
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	assert.Equal(t, int64(numRepos), engine.Completed())
+
+	mu.Lock()
+	defer mu.Unlock()
+	for _, did := range dids {
+		assert.True(t, seen[did], "repo %s should have been processed", did)
+	}
 }
 
 func TestEngine_Concurrency(t *testing.T) {

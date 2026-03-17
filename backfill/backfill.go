@@ -61,11 +61,19 @@ type Options struct {
 	// None = all collections.
 	Collections gt.Option[[]string]
 
-	// BatchSize is the number of repos to collect before shuffling and
-	// dispatching to workers. Shuffling breaks up PDS clustering from relay
-	// enumeration order, spreading worker load across many PDS hosts.
-	// None = 1000.
-	BatchSize gt.Option[int]
+	// ShuffleBatchSize is the number of repos to accumulate before shuffling
+	// and dispatching to workers. A large value (the default is 100 000)
+	// dramatically improves PDS load distribution: listRepos returns DIDs
+	// roughly in creation order, so small batches cluster on the same few
+	// PDS hosts. Accumulating more repos before the shuffle spreads work
+	// across many more PDSes in parallel.
+	//
+	// The XRPC page size for listRepos is always 1000 (the protocol
+	// maximum); this option controls how many pages are collected before
+	// the shuffle-and-dispatch step.
+	//
+	// None = 100 000.
+	ShuffleBatchSize gt.Option[int]
 
 	// MaxRetries is the number of retry attempts for transient errors
 	// (429, 5xx, timeouts, connection resets) per repo. The initial

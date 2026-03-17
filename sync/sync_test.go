@@ -237,7 +237,7 @@ func TestListRepos_Pagination(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	var entries []sync.ListReposEntry
-	for entry, err := range sc.ListRepos(context.Background()) {
+	for entry, err := range sc.ListRepos(context.Background(), 1000) {
 		require.NoError(t, err)
 		entries = append(entries, entry)
 	}
@@ -259,7 +259,7 @@ func TestListRepos_Empty(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	count := 0
-	for _, err := range sc.ListRepos(context.Background()) {
+	for _, err := range sc.ListRepos(context.Background(), 1000) {
 		require.NoError(t, err)
 		count++
 	}
@@ -467,7 +467,7 @@ func TestListRepos_ContextCanceled(t *testing.T) {
 	cancel() // cancel before iterating
 
 	count := 0
-	for range sc.ListRepos(ctx) {
+	for range sc.ListRepos(ctx, 1000) {
 		count++
 	}
 	assert.Equal(t, 0, count)
@@ -489,7 +489,7 @@ func TestListRepos_InvalidDID(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	var gotError, gotEntry bool
-	for entry, err := range sc.ListRepos(context.Background()) {
+	for entry, err := range sc.ListRepos(context.Background(), 1000) {
 		if err != nil {
 			gotError = true
 			continue
@@ -521,7 +521,7 @@ func TestListRepos_BreakEarly(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	count := 0
-	for _, err := range sc.ListRepos(context.Background()) {
+	for _, err := range sc.ListRepos(context.Background(), 1000) {
 		require.NoError(t, err)
 		count++
 		if count >= 1 {

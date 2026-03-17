@@ -73,8 +73,8 @@ func (e *Engine) Run(ctx context.Context) error {
 		})
 	}
 
-	// Producer: enumerate repos in batches, shuffle each batch to break up
-	// PDS clustering from relay enumeration order.
+	// Producer: enumerate repos, accumulate a large batch, shuffle to break
+	// up PDS clustering from relay enumeration order, then dispatch.
 	var producerErr error
 	func() {
 		defer close(jobs)
@@ -89,10 +89,13 @@ func (e *Engine) Run(ctx context.Context) error {
 			cursor = c
 		}
 
-		batchSize := e.opts.BatchSize.ValOr(1000)
-		batch := make([]repoJob, 0, batchSize)
+		shuffleSize := e.opts.ShuffleBatchSize.ValOr(100_000)
+		batch := make([]repoJob, 0, shuffleSize)
 
-		for entry, err := range e.opts.SyncClient.ListRepos(ctx) {
+		// listRepos page size is always 1000 (the protocol maximum).
+		const listReposPageLimit = 1000
+
+		for entry, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit) {
 			if ctx.Err() != nil {
 				producerErr = ctx.Err()
 				return
@@ -122,7 +125,7 @@ func (e *Engine) Run(ctx context.Context) error {
 			batch = append(batch, repoJob{DID: entry.DID, Rev: entry.Rev})
 			cursor = string(entry.DID)
 
-			if len(batch) >= batchSize {
+			if len(batch) >= shuffleSize {
 				if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
 					producerErr = err
 					return

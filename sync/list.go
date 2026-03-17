@@ -10,7 +10,7 @@ import (
 )
 
 // ListRepos paginates through all repos on the service, yielding one entry at a time.
-func (c *Client) ListRepos(ctx context.Context) iter.Seq2[ListReposEntry, error] {
+func (c *Client) ListRepos(ctx context.Context, limit int64) iter.Seq2[ListReposEntry, error] {
 	return func(yield func(ListReposEntry, error) bool) {
 		cursor := ""
 		for {
@@ -18,7 +18,7 @@ func (c *Client) ListRepos(ctx context.Context) iter.Seq2[ListReposEntry, error]
 				return
 			}
 
-			out, err := comatproto.SyncListRepos(ctx, c.opts.Client, cursor, 1000)
+			out, err := comatproto.SyncListRepos(ctx, c.opts.Client, cursor, limit)
 			if err != nil {
 				yield(ListReposEntry{}, err)
 				return
