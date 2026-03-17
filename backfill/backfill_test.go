@@ -390,8 +390,8 @@ func TestEngine_BatchShuffle(t *testing.T) {
 	var order []string
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Workers:    gt.Some(1), // Single worker to observe dispatch order.
+		SyncClient:       sc,
+		Workers:          gt.Some(1), // Single worker to observe dispatch order.
 		ShuffleBatchSize: gt.Some(numRepos),
 		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ sync.Record) error {
 			mu.Lock()
