@@ -85,6 +85,36 @@ func LoadTree(store BlockStore, root cbor.CID) *Tree {
 	}
 }
 
+// LoadAll eagerly loads every node in the tree from the block store,
+// decoding all CBOR upfront. After LoadAll, operations like Walk and
+// Get become pure in-memory pointer traversals with no further I/O
+// or decoding.
+func (t *Tree) LoadAll() error {
+	if t.root == nil {
+		return nil
+	}
+	return t.loadAllNode(t.root)
+}
+
+func (t *Tree) loadAllNode(n *node) error {
+	if err := t.ensureLoaded(n); err != nil {
+		return err
+	}
+	if n.left != nil {
+		if err := t.loadAllNode(n.left); err != nil {
+			return err
+		}
+	}
+	for i := range n.entries {
+		if n.entries[i].right != nil {
+			if err := t.loadAllNode(n.entries[i].right); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Get looks up a key and returns its value CID, or nil if not found.
 func (t *Tree) Get(key string) (*cbor.CID, error) {
 	if t.root == nil {

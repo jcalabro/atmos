@@ -17,7 +17,7 @@ test *ARGS="./...":
     gotestsum --format-hide-empty-pkg --format-icons hivis -- -count=1 {{ARGS}}
 
 # Runs the tests with the race detector enabled
-test-rac *ARGS="./...":
+test-race *ARGS="./...":
     gotestsum --format-hide-empty-pkg --format-icons hivis -- -race -count=1 {{ARGS}}
 
 # Regenerates all API types from vendored lexicon schemas
