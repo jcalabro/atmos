@@ -114,7 +114,7 @@ func FuzzParsePrivateP256(f *testing.F) {
 // FuzzParsePrivateK256 tests that K-256 private key parsing never panics.
 func FuzzParsePrivateK256(f *testing.F) {
 	key, _ := GenerateK256()
-	f.Add(key.key.Serialize())
+	f.Add(key.key.Bytes())
 	f.Add([]byte{})
 	f.Add(bytes.Repeat([]byte{0xff}, 32))
 

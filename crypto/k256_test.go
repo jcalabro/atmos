@@ -76,7 +76,7 @@ func TestK256_PrivateKeyRoundTrip(t *testing.T) {
 	priv, err := GenerateK256()
 	require.NoError(t, err)
 
-	raw := priv.key.Serialize()
+	raw := priv.key.Bytes()
 	priv2, err := ParsePrivateK256(raw)
 	require.NoError(t, err)
 
