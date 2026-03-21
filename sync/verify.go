@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/repo"
 )
 

@@ -3,11 +3,10 @@
 package sync
 
 import (
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/xrpc"
-
 	"github.com/jcalabro/gt"
 )
 

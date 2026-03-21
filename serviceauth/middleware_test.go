@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

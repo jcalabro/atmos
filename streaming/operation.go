@@ -8,7 +8,7 @@ import (
 	"iter"
 	"strings"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/car"
 )
 

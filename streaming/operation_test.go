@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/bsky"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/api/lextypes"
@@ -19,10 +19,9 @@ import (
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/jcalabro/gt"
 )
 
 func buildTestCAR(t *testing.T, records map[string][]byte) ([]byte, map[string]lextypes.LexCIDLink) {

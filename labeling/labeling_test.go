@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/crypto"
 

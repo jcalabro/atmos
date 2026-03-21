@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/car"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/mst"

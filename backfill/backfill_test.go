@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/backfill"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"

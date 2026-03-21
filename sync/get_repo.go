@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 )
 
 // GetRepoStream downloads a repo as a streaming CAR. The caller MUST close

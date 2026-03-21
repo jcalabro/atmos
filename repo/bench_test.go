@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/mst"

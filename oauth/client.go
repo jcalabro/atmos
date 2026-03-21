@@ -14,12 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jcalabro/gt"
-
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Client is an ATProto OAuth 2.0 client that handles the complete

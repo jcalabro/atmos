@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/repo"
 )

@@ -15,11 +15,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jcalabro/gt"
-
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/gt"
 )
 
 // TokenParams configures a service auth JWT.

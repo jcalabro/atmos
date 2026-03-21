@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	atmos "github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/gt"

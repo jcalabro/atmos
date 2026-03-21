@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-
 	"github.com/jcalabro/atmos/crypto"
 
 	// Import serviceauth to register ES256/ES256K signing methods with golang-jwt.
