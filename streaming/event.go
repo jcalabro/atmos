@@ -27,6 +27,11 @@ type Event struct {
 	labelBatch *comatproto.LabelSubscribeLabels_Labels
 	LabelInfo  *comatproto.LabelSubscribeLabels_Info
 
+	// Jetstream event. Populated when consuming from a Jetstream server.
+	// For account/identity events, the existing Account/Identity fields
+	// are also populated.
+	Jetstream *JetstreamEvent
+
 	// Set by readLoop for lazy #sync handling. Unexported, single-goroutine.
 	ctx        context.Context
 	syncClient *sync.Client
@@ -148,7 +153,12 @@ func decodeMessageBody(typ string, body []byte) (Event, error) {
 }
 
 // seqOf returns the sequence number for an event, or 0 if none.
+// For Jetstream commit events (which lack a seq field), time_us is used
+// as the cursor value instead.
 func (e *Event) seqOf() int64 {
+	if e.Jetstream != nil && e.Seq == 0 {
+		return e.Jetstream.TimeUS
+	}
 	return e.Seq
 }
 

@@ -63,6 +63,14 @@ type Options struct {
 	// single-node deployments).
 	Locker gt.Option[DistributedLockerOptions]
 
+	// Collections filters a Jetstream subscription to these collection
+	// NSIDs. Ignored for firehose/label streams. Optional.
+	Collections gt.Option[[]string]
+
+	// DIDs filters a Jetstream subscription to these DIDs. Ignored for
+	// firehose/label streams. Optional.
+	DIDs gt.Option[[]string]
+
 	// SyncClient overrides the sync client used for automatic #sync
 	// re-fetching. By default, a sync client is auto-created from the
 	// WebSocket URL (the relay typically 302-redirects getRepo requests to
@@ -81,6 +89,7 @@ type Client struct {
 	cursorInterval int64
 	decode         func([]byte) (Event, error)
 	syncClient     *sync.Client // nil disables automatic #sync resync
+	isJetstream    bool
 
 	// Lock-related fields, initialized in NewClient.
 	lock                DistributedLocker
@@ -130,15 +139,20 @@ func NewClient(opts Options) (*Client, error) {
 	}
 
 	decode := decodeFrame
+	isJS := false
 	if strings.Contains(opts.URL, "subscribeLabels") {
 		decode = decodeLabelFrame
+	} else if isJetstreamURL(opts.URL) {
+		decode = decodeJetstreamFrame
+		isJS = true
 	}
 
 	// Resolve the sync client for automatic #sync resync.
+	// Jetstream and label streams don't need a sync client.
 	var sc *sync.Client
 	if opts.SyncClient.HasVal() {
 		sc = opts.SyncClient.Val() // may be nil (opt-out)
-	} else if !strings.Contains(opts.URL, "subscribeLabels") {
+	} else if !isJS && !strings.Contains(opts.URL, "subscribeLabels") {
 		// Auto-create from the WebSocket URL for repo streams.
 		httpURL, err := deriveHTTPURL(opts.URL)
 		if err != nil {
@@ -154,6 +168,7 @@ func NewClient(opts Options) (*Client, error) {
 		cursorInterval:      interval,
 		decode:              decode,
 		syncClient:          sc,
+		isJetstream:         isJS,
 		lock:                lk,
 		lockOpts:            lockOpts,
 		leaseDuration:       leaseDur,
@@ -388,14 +403,27 @@ func (c *Client) releaseOnShutdown() {
 // dial connects to the WebSocket endpoint with the current cursor.
 func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 	u := c.opts.URL
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return nil, fmt.Errorf("parse URL: %w", err)
+	}
+	q := parsed.Query()
+
 	cur := c.cursor.Load()
 	if cur > 0 {
-		parsed, err := url.Parse(u)
-		if err != nil {
-			return nil, fmt.Errorf("parse URL: %w", err)
-		}
-		q := parsed.Query()
 		q.Set("cursor", fmt.Sprintf("%d", cur))
+	}
+
+	if c.isJetstream {
+		if c.opts.Collections.HasVal() {
+			q.Set("collections", strings.Join(c.opts.Collections.Val(), ","))
+		}
+		if c.opts.DIDs.HasVal() {
+			q.Set("dids", strings.Join(c.opts.DIDs.Val(), ","))
+		}
+	}
+
+	if len(q) > 0 {
 		parsed.RawQuery = q.Encode()
 		u = parsed.String()
 	}
@@ -442,9 +470,10 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			evt.syncClient = c.syncClient
 		}
 
-		// Sequence gap detection.
+		// Sequence gap detection (firehose/labels only — Jetstream uses
+		// time_us as cursor which is not sequential).
 		seq := evt.seqOf()
-		if seq > 0 {
+		if seq > 0 && !c.isJetstream {
 			lastSeq := c.cursor.Load()
 			if lastSeq > 0 && seq > lastSeq+1 {
 				if !yield(Event{}, &GapError{Expected: lastSeq + 1, Got: seq}) {
