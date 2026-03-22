@@ -14,7 +14,7 @@ import (
 
 // fastTick is the sampling interval for tests. Short enough for fast tests,
 // long enough to avoid flakes.
-const fastTick = 20 * time.Millisecond
+const fastTick = 2 * time.Millisecond
 
 // nopCloser wraps a reader with a no-op Close for tests that don't need
 // close-to-unblock behavior.
