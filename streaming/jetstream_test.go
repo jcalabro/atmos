@@ -421,7 +421,7 @@ func TestJetstream_Integration_QueryParams(t *testing.T) {
 		_ = conn.Close(websocket.StatusNormalClosure, "done")
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	client := mustNewClient(t, Options{
@@ -430,11 +430,19 @@ func TestJetstream_Integration_QueryParams(t *testing.T) {
 		DIDs:        gt.Some([]string{"did:plc:alice"}),
 	})
 
-	for range client.Events(ctx) {
-		// Server closes immediately; loop exits.
-	}
+	// Start consuming in a goroutine — we only need the first connection
+	// to verify query params, then cancel to avoid reconnect backoff.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range client.Events(ctx) {
+		}
+	}()
 
 	q := <-queries
+	cancel()
+	<-done
+
 	assert.Contains(t, q, "collections=")
 	assert.Contains(t, q, "app.bsky.feed.like")
 	assert.Contains(t, q, "app.bsky.feed.post")
