@@ -416,10 +416,10 @@ func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 
 	if c.isJetstream {
 		if c.opts.Collections.HasVal() {
-			q.Set("collections", strings.Join(c.opts.Collections.Val(), ","))
+			q.Set("wantedCollections", strings.Join(c.opts.Collections.Val(), ","))
 		}
 		if c.opts.DIDs.HasVal() {
-			q.Set("dids", strings.Join(c.opts.DIDs.Val(), ","))
+			q.Set("wantedDids", strings.Join(c.opts.DIDs.Val(), ","))
 		}
 	}
 

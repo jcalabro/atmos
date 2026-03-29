@@ -443,10 +443,10 @@ func TestJetstream_Integration_QueryParams(t *testing.T) {
 	cancel()
 	<-done
 
-	assert.Contains(t, q, "collections=")
+	assert.Contains(t, q, "wantedCollections=")
 	assert.Contains(t, q, "app.bsky.feed.like")
 	assert.Contains(t, q, "app.bsky.feed.post")
-	assert.Contains(t, q, "dids=did")
+	assert.Contains(t, q, "wantedDids=did")
 }
 
 func TestJetstream_Integration_ErrorFrame(t *testing.T) {
