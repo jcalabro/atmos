@@ -53,10 +53,6 @@ func TestDID_EdgeCases(t *testing.T) {
 	d, err := ParseDID("did:plc:z234567890abcdefghijklmn")
 	require.NoError(t, err)
 	require.Equal(t, "plc", d.Method())
-
-	// did:plc: fast path — 32 chars but non-alphanumeric.
-	_, err = ParseDID("did:plc:z234567890abcdef.hijklmn")
-	require.Error(t, err)
 }
 
 func TestHandle_EdgeCases(t *testing.T) {

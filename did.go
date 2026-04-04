@@ -14,17 +14,6 @@ func ParseDID(raw string) (DID, error) {
 		return "", syntaxErr("DID", raw, "too long")
 	}
 
-	// Fast-path for did:plc: DIDs (always exactly 32 chars).
-	if len(raw) == 32 && strings.HasPrefix(raw, "did:plc:") {
-		for i := 8; i < 32; i++ {
-			c := raw[i]
-			if !isAlphanumeric(c) {
-				return "", syntaxErr("DID", raw, "invalid character in did:plc identifier")
-			}
-		}
-		return DID(raw), nil
-	}
-
 	// Must start with "did:".
 	if !strings.HasPrefix(raw, "did:") {
 		return "", syntaxErr("DID", raw, "must start with \"did:\"")
