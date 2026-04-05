@@ -172,28 +172,48 @@ func (s *SafelinkQueryRules_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SafelinkQueryRules_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rules", buf)
-	buf = append(buf, cborKey_SafelinkQueryRules_Output_rules...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
-	for _, item := range s.Rules {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkQueryRules_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rules", buf)
+		buf = append(buf, cborKey_SafelinkQueryRules_Output_rules...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
+		for _, item := range s.Rules {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkQueryRules_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SafelinkQueryRules_Output_rules...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
+		for _, item := range s.Rules {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -631,59 +651,104 @@ func (s *SafelinkQueryRules_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "urls", buf)
-	if len(s.Urls) > 0 {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_urls...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Urls)))
-		for _, item := range s.Urls {
-			buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "urls", buf)
+		if len(s.Urls) > 0 {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_urls...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Urls)))
+			for _, item := range s.Urls {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "limit", buf)
+		if s.Limit.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_limit...)
+			buf = cbor.AppendInt(buf, s.Limit.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		if s.Reason.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_reason...)
+			buf = cbor.AppendText(buf, s.Reason.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actions", buf)
+		if len(s.Actions) > 0 {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_actions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
+			for _, item := range s.Actions {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		if s.CreatedBy.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_createdBy...)
+			buf = cbor.AppendText(buf, s.CreatedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "patternType", buf)
+		if s.PatternType.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_patternType...)
+			buf = cbor.AppendText(buf, s.PatternType.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sortDirection", buf)
+		if s.SortDirection.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_sortDirection...)
+			buf = cbor.AppendText(buf, s.SortDirection.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if len(s.Urls) > 0 {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_urls...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Urls)))
+			for _, item := range s.Urls {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Limit.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_limit...)
+			buf = cbor.AppendInt(buf, s.Limit.Val())
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		if s.Reason.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_reason...)
+			buf = cbor.AppendText(buf, s.Reason.Val())
+		}
+		if len(s.Actions) > 0 {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_actions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
+			for _, item := range s.Actions {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if s.CreatedBy.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_createdBy...)
+			buf = cbor.AppendText(buf, s.CreatedBy.Val())
+		}
+		if s.PatternType.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_patternType...)
+			buf = cbor.AppendText(buf, s.PatternType.Val())
+		}
+		if s.SortDirection.HasVal() {
+			buf = append(buf, cborKey_SafelinkQueryRules_Input_sortDirection...)
+			buf = cbor.AppendText(buf, s.SortDirection.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "limit", buf)
-	if s.Limit.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_limit...)
-		buf = cbor.AppendInt(buf, s.Limit.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	if s.Reason.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_reason...)
-		buf = cbor.AppendText(buf, s.Reason.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actions", buf)
-	if len(s.Actions) > 0 {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_actions...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
-		for _, item := range s.Actions {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	if s.CreatedBy.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_createdBy...)
-		buf = cbor.AppendText(buf, s.CreatedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "patternType", buf)
-	if s.PatternType.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_patternType...)
-		buf = cbor.AppendText(buf, s.PatternType.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sortDirection", buf)
-	if s.SortDirection.HasVal() {
-		buf = append(buf, cborKey_SafelinkQueryRules_Input_sortDirection...)
-		buf = cbor.AppendText(buf, s.SortDirection.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

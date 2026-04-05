@@ -123,22 +123,37 @@ func (s *ConvoRemoveReaction_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoRemoveReaction_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoRemoveReaction_Output_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoRemoveReaction_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoRemoveReaction_Output_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoRemoveReaction_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoRemoveReaction_Output_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -337,22 +352,35 @@ func (s *ConvoRemoveReaction_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoRemoveReaction_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoRemoveReaction_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_ConvoRemoveReaction_Input_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoRemoveReaction_Input_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageId", buf)
+		buf = append(buf, cborKey_ConvoRemoveReaction_Input_messageId...)
+		buf = cbor.AppendText(buf, s.MessageId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoRemoveReaction_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoRemoveReaction_Input_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		buf = append(buf, cborKey_ConvoRemoveReaction_Input_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoRemoveReaction_Input_messageId...)
+		buf = cbor.AppendText(buf, s.MessageId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_ConvoRemoveReaction_Input_value...)
-	buf = cbor.AppendText(buf, s.Value)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoRemoveReaction_Input_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageId", buf)
-	buf = append(buf, cborKey_ConvoRemoveReaction_Input_messageId...)
-	buf = cbor.AppendText(buf, s.MessageId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

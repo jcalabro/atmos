@@ -46,37 +46,65 @@ func (s *FeedRepost) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "via", buf)
-	if s.Via.HasVal() {
-		buf = append(buf, cborKey_FeedRepost_via...)
-		{
-			v := s.Via.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "via", buf)
+		if s.Via.HasVal() {
+			buf = append(buf, cborKey_FeedRepost_via...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Via.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_FeedRepost_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_FeedRepost_subject...)
-	{
-		var err error
-		buf, err = s.Subject.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_FeedRepost_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_FeedRepost_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_FeedRepost_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Via.HasVal() {
+			buf = append(buf, cborKey_FeedRepost_via...)
+			{
+				v := s.Via.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_FeedRepost_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_FeedRepost_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_FeedRepost_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_FeedRepost_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

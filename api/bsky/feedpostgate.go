@@ -41,13 +41,20 @@ func (s *FeedPostgate_DisableRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedPostgate_DisableRule_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedPostgate_DisableRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedPostgate_DisableRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -305,37 +312,64 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
-	buf = append(buf, cborKey_FeedPostgate_post...)
-	buf = cbor.AppendText(buf, s.Post)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_FeedPostgate_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_FeedPostgate_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embeddingRules", buf)
-	if len(s.EmbeddingRules) > 0 {
-		buf = append(buf, cborKey_FeedPostgate_embeddingRules...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbeddingRules)))
-		for _, item := range s.EmbeddingRules {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
+		buf = append(buf, cborKey_FeedPostgate_post...)
+		buf = cbor.AppendText(buf, s.Post)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_FeedPostgate_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_FeedPostgate_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embeddingRules", buf)
+		if len(s.EmbeddingRules) > 0 {
+			buf = append(buf, cborKey_FeedPostgate_embeddingRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbeddingRules)))
+			for _, item := range s.EmbeddingRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "detachedEmbeddingUris", buf)
+		if len(s.DetachedEmbeddingUris) > 0 {
+			buf = append(buf, cborKey_FeedPostgate_detachedEmbeddingUris...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DetachedEmbeddingUris)))
+			for _, item := range s.DetachedEmbeddingUris {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_FeedPostgate_post...)
+		buf = cbor.AppendText(buf, s.Post)
+		buf = append(buf, cborKey_FeedPostgate_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_FeedPostgate_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if len(s.EmbeddingRules) > 0 {
+			buf = append(buf, cborKey_FeedPostgate_embeddingRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbeddingRules)))
+			for _, item := range s.EmbeddingRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.DetachedEmbeddingUris) > 0 {
+			buf = append(buf, cborKey_FeedPostgate_detachedEmbeddingUris...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DetachedEmbeddingUris)))
+			for _, item := range s.DetachedEmbeddingUris {
+				buf = cbor.AppendText(buf, item)
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "detachedEmbeddingUris", buf)
-	if len(s.DetachedEmbeddingUris) > 0 {
-		buf = append(buf, cborKey_FeedPostgate_detachedEmbeddingUris...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.DetachedEmbeddingUris)))
-		for _, item := range s.DetachedEmbeddingUris {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

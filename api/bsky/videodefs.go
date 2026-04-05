@@ -58,51 +58,89 @@ func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_VideoDefs_JobStatus_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blob", buf)
-	if s.Blob.HasVal() {
-		buf = append(buf, cborKey_VideoDefs_JobStatus_blob...)
-		{
-			v := s.Blob.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_VideoDefs_JobStatus_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blob", buf)
+		if s.Blob.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_blob...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Blob.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		if s.Error.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_error...)
+			buf = cbor.AppendText(buf, s.Error.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "jobId", buf)
+		buf = append(buf, cborKey_VideoDefs_JobStatus_jobId...)
+		buf = cbor.AppendText(buf, s.JobId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "state", buf)
+		buf = append(buf, cborKey_VideoDefs_JobStatus_state...)
+		buf = cbor.AppendText(buf, s.State)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "progress", buf)
+		if s.Progress.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_progress...)
+			buf = cbor.AppendInt(buf, s.Progress.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_VideoDefs_JobStatus_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.Blob.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_blob...)
+			{
+				v := s.Blob.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Error.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_error...)
+			buf = cbor.AppendText(buf, s.Error.Val())
+		}
+		buf = append(buf, cborKey_VideoDefs_JobStatus_jobId...)
+		buf = cbor.AppendText(buf, s.JobId)
+		buf = append(buf, cborKey_VideoDefs_JobStatus_state...)
+		buf = cbor.AppendText(buf, s.State)
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
+		if s.Progress.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_progress...)
+			buf = cbor.AppendInt(buf, s.Progress.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VideoDefs_JobStatus_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
-	if s.Error.HasVal() {
-		buf = append(buf, cborKey_VideoDefs_JobStatus_error...)
-		buf = cbor.AppendText(buf, s.Error.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "jobId", buf)
-	buf = append(buf, cborKey_VideoDefs_JobStatus_jobId...)
-	buf = cbor.AppendText(buf, s.JobId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "state", buf)
-	buf = append(buf, cborKey_VideoDefs_JobStatus_state...)
-	buf = cbor.AppendText(buf, s.State)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	if s.Message.HasVal() {
-		buf = append(buf, cborKey_VideoDefs_JobStatus_message...)
-		buf = cbor.AppendText(buf, s.Message.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "progress", buf)
-	if s.Progress.HasVal() {
-		buf = append(buf, cborKey_VideoDefs_JobStatus_progress...)
-		buf = cbor.AppendInt(buf, s.Progress.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -39,16 +39,25 @@ func (s *GraphStarterpack_FeedItem) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_GraphStarterpack_FeedItem_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphStarterpack_FeedItem_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_GraphStarterpack_FeedItem_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphStarterpack_FeedItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphStarterpack_FeedItem_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphStarterpack_FeedItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -240,49 +249,86 @@ func (s *GraphStarterpack) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
-	buf = append(buf, cborKey_GraphStarterpack_list...)
-	buf = cbor.AppendText(buf, s.List)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_GraphStarterpack_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_GraphStarterpack_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
-	if len(s.Feeds) > 0 {
-		buf = append(buf, cborKey_GraphStarterpack_feeds...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
-		for _, item := range s.Feeds {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
+		buf = append(buf, cborKey_GraphStarterpack_list...)
+		buf = cbor.AppendText(buf, s.List)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_GraphStarterpack_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_GraphStarterpack_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
+		if len(s.Feeds) > 0 {
+			buf = append(buf, cborKey_GraphStarterpack_feeds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+			for _, item := range s.Feeds {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_GraphStarterpack_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_GraphStarterpack_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
+		if len(s.DescriptionFacets) > 0 {
+			buf = append(buf, cborKey_GraphStarterpack_descriptionFacets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
+			for _, item := range s.DescriptionFacets {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphStarterpack_list...)
+		buf = cbor.AppendText(buf, s.List)
+		buf = append(buf, cborKey_GraphStarterpack_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		buf = append(buf, cborKey_GraphStarterpack_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		if len(s.Feeds) > 0 {
+			buf = append(buf, cborKey_GraphStarterpack_feeds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+			for _, item := range s.Feeds {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphStarterpack_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_GraphStarterpack_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if len(s.DescriptionFacets) > 0 {
+			buf = append(buf, cborKey_GraphStarterpack_descriptionFacets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
+			for _, item := range s.DescriptionFacets {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_GraphStarterpack_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_GraphStarterpack_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
-	if len(s.DescriptionFacets) > 0 {
-		buf = append(buf, cborKey_GraphStarterpack_descriptionFacets...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
-		for _, item := range s.DescriptionFacets {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

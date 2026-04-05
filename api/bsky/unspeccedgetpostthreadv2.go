@@ -196,40 +196,71 @@ func (s *UnspeccedGetPostThreadV2_Output) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thread", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_thread...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Thread)))
-	for _, item := range s.Thread {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgate", buf)
-	if s.Threadgate.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_threadgate...)
-		{
-			v := s.Threadgate.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thread", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_thread...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Thread)))
+		for _, item := range s.Thread {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgate", buf)
+		if s.Threadgate.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_threadgate...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Threadgate.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hasOtherReplies", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_hasOtherReplies...)
+		buf = cbor.AppendBool(buf, s.HasOtherReplies)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_thread...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Thread)))
+		for _, item := range s.Thread {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Threadgate.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_threadgate...)
+			{
+				v := s.Threadgate.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_hasOtherReplies...)
+		buf = cbor.AppendBool(buf, s.HasOtherReplies)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hasOtherReplies", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadV2_Output_hasOtherReplies...)
-	buf = cbor.AppendBool(buf, s.HasOtherReplies)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -578,28 +609,47 @@ func (s *UnspeccedGetPostThreadV2_ThreadItem) AppendCBOR(buf []byte) ([]byte, er
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "depth", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_depth...)
-	buf = cbor.AppendInt(buf, s.Depth)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_value...)
-	{
-		var err error
-		buf, err = s.Value.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "depth", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_depth...)
+		buf = cbor.AppendInt(buf, s.Depth)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_value...)
+		{
+			var err error
+			buf, err = s.Value.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_depth...)
+		buf = cbor.AppendInt(buf, s.Depth)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadV2_ThreadItem_value...)
+		{
+			var err error
+			buf, err = s.Value.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -187,29 +187,50 @@ func (s *VerificationRevokeVerifications_Output) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationRevokeVerifications_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failedRevocations", buf)
-	buf = append(buf, cborKey_VerificationRevokeVerifications_Output_failedRevocations...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedRevocations)))
-	for _, item := range s.FailedRevocations {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failedRevocations", buf)
+		buf = append(buf, cborKey_VerificationRevokeVerifications_Output_failedRevocations...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedRevocations)))
+		for _, item := range s.FailedRevocations {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedVerifications", buf)
+		buf = append(buf, cborKey_VerificationRevokeVerifications_Output_revokedVerifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RevokedVerifications)))
+		for _, item := range s.RevokedVerifications {
+			buf = cbor.AppendText(buf, item)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationRevokeVerifications_Output_failedRevocations...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedRevocations)))
+		for _, item := range s.FailedRevocations {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_VerificationRevokeVerifications_Output_revokedVerifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RevokedVerifications)))
+		for _, item := range s.RevokedVerifications {
+			buf = cbor.AppendText(buf, item)
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedVerifications", buf)
-	buf = append(buf, cborKey_VerificationRevokeVerifications_Output_revokedVerifications...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.RevokedVerifications)))
-	for _, item := range s.RevokedVerifications {
-		buf = cbor.AppendText(buf, item)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -473,24 +494,40 @@ func (s *VerificationRevokeVerifications_Input) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uris", buf)
-	buf = append(buf, cborKey_VerificationRevokeVerifications_Input_uris...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uris)))
-	for _, item := range s.Uris {
-		buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uris", buf)
+		buf = append(buf, cborKey_VerificationRevokeVerifications_Input_uris...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uris)))
+		for _, item := range s.Uris {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokeReason", buf)
+		if s.RevokeReason.HasVal() {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_Input_revokeReason...)
+			buf = cbor.AppendText(buf, s.RevokeReason.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_VerificationRevokeVerifications_Input_uris...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uris)))
+		for _, item := range s.Uris {
+			buf = cbor.AppendText(buf, item)
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.RevokeReason.HasVal() {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_Input_revokeReason...)
+			buf = cbor.AppendText(buf, s.RevokeReason.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationRevokeVerifications_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokeReason", buf)
-	if s.RevokeReason.HasVal() {
-		buf = append(buf, cborKey_VerificationRevokeVerifications_Input_revokeReason...)
-		buf = cbor.AppendText(buf, s.RevokeReason.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -630,19 +667,30 @@ func (s *VerificationRevokeVerifications_RevokeError) AppendCBOR(buf []byte) ([]
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_error...)
+		buf = cbor.AppendText(buf, s.Error)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_error...)
+		buf = cbor.AppendText(buf, s.Error)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
-	buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_error...)
-	buf = cbor.AppendText(buf, s.Error)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

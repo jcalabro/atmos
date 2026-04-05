@@ -45,41 +45,69 @@ func (s *ServerDefs_InviteCode) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "code", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_code...)
-	buf = cbor.AppendText(buf, s.Code)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uses", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_uses...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uses)))
-	for _, item := range s.Uses {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "code", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uses", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_uses...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uses)))
+		for _, item := range s.Uses {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDefs_InviteCode_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_disabled...)
+		buf = cbor.AppendBool(buf, s.Disabled)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "available", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_available...)
+		buf = cbor.AppendInt(buf, s.Available)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "forAccount", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_forAccount...)
+		buf = cbor.AppendText(buf, s.ForAccount)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ServerDefs_InviteCode_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_uses...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uses)))
+		for _, item := range s.Uses {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDefs_InviteCode_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ServerDefs_InviteCode_disabled...)
+		buf = cbor.AppendBool(buf, s.Disabled)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_available...)
+		buf = cbor.AppendInt(buf, s.Available)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		buf = append(buf, cborKey_ServerDefs_InviteCode_forAccount...)
+		buf = cbor.AppendText(buf, s.ForAccount)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerDefs_InviteCode_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_disabled...)
-	buf = cbor.AppendBool(buf, s.Disabled)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "available", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_available...)
-	buf = cbor.AppendInt(buf, s.Available)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_createdBy...)
-	buf = cbor.AppendText(buf, s.CreatedBy)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "forAccount", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCode_forAccount...)
-	buf = cbor.AppendText(buf, s.ForAccount)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -427,19 +455,30 @@ func (s *ServerDefs_InviteCodeUse) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerDefs_InviteCodeUse_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDefs_InviteCodeUse_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "usedAt", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedAt...)
+		buf = cbor.AppendText(buf, s.UsedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "usedBy", buf)
+		buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedBy...)
+		buf = cbor.AppendText(buf, s.UsedBy)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDefs_InviteCodeUse_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedAt...)
+		buf = cbor.AppendText(buf, s.UsedAt)
+		buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedBy...)
+		buf = cbor.AppendText(buf, s.UsedBy)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "usedAt", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedAt...)
-	buf = cbor.AppendText(buf, s.UsedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "usedBy", buf)
-	buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedBy...)
-	buf = cbor.AppendText(buf, s.UsedBy)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

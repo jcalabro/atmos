@@ -192,29 +192,50 @@ func (s *AdminDisableInviteCodes_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminDisableInviteCodes_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "codes", buf)
-	if len(s.Codes) > 0 {
-		buf = append(buf, cborKey_AdminDisableInviteCodes_Input_codes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Codes)))
-		for _, item := range s.Codes {
-			buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDisableInviteCodes_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "codes", buf)
+		if len(s.Codes) > 0 {
+			buf = append(buf, cborKey_AdminDisableInviteCodes_Input_codes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Codes)))
+			for _, item := range s.Codes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accounts", buf)
+		if len(s.Accounts) > 0 {
+			buf = append(buf, cborKey_AdminDisableInviteCodes_Input_accounts...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Accounts)))
+			for _, item := range s.Accounts {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDisableInviteCodes_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Codes) > 0 {
+			buf = append(buf, cborKey_AdminDisableInviteCodes_Input_codes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Codes)))
+			for _, item := range s.Codes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.Accounts) > 0 {
+			buf = append(buf, cborKey_AdminDisableInviteCodes_Input_accounts...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Accounts)))
+			for _, item := range s.Accounts {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accounts", buf)
-	if len(s.Accounts) > 0 {
-		buf = append(buf, cborKey_AdminDisableInviteCodes_Input_accounts...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Accounts)))
-		for _, item := range s.Accounts {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

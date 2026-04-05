@@ -45,25 +45,42 @@ func (s *GraphDefs_ListItemView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_GraphDefs_ListItemView_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_ListItemView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_GraphDefs_ListItemView_subject...)
-	{
-		var err error
-		buf, err = s.Subject.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_GraphDefs_ListItemView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListItemView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_GraphDefs_ListItemView_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphDefs_ListItemView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListItemView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_GraphDefs_ListItemView_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -319,90 +336,162 @@ func (s *GraphDefs_ListView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_GraphDefs_ListView_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_GraphDefs_ListView_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_GraphDefs_ListView_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_ListView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListView_avatar...)
-		buf = cbor.AppendText(buf, s.Avatar.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_GraphDefs_ListView_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_GraphDefs_ListView_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_GraphDefs_ListView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_GraphDefs_ListView_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_ListView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
+		buf = append(buf, cborKey_GraphDefs_ListView_creator...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Creator.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListView_viewer...)
-		{
-			v := s.Viewer.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "purpose", buf)
+		buf = append(buf, cborKey_GraphDefs_ListView_purpose...)
+		buf = cbor.AppendText(buf, s.Purpose)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_GraphDefs_ListView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemCount", buf)
+		if s.ListItemCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_listItemCount...)
+			buf = cbor.AppendInt(buf, s.ListItemCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
+		if len(s.DescriptionFacets) > 0 {
+			buf = append(buf, cborKey_GraphDefs_ListView_descriptionFacets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
+			for _, item := range s.DescriptionFacets {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphDefs_ListView_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_GraphDefs_ListView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		buf = append(buf, cborKey_GraphDefs_ListView_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_ListView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphDefs_ListView_creator...)
+		{
+			var err error
+			buf, err = s.Creator.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_GraphDefs_ListView_purpose...)
+		buf = cbor.AppendText(buf, s.Purpose)
+		buf = append(buf, cborKey_GraphDefs_ListView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.ListItemCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListView_listItemCount...)
+			buf = cbor.AppendInt(buf, s.ListItemCount.Val())
+		}
+		if len(s.DescriptionFacets) > 0 {
+			buf = append(buf, cborKey_GraphDefs_ListView_descriptionFacets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
+			for _, item := range s.DescriptionFacets {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
-	buf = append(buf, cborKey_GraphDefs_ListView_creator...)
-	{
-		var err error
-		buf, err = s.Creator.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "purpose", buf)
-	buf = append(buf, cborKey_GraphDefs_ListView_purpose...)
-	buf = cbor.AppendText(buf, s.Purpose)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_GraphDefs_ListView_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListView_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemCount", buf)
-	if s.ListItemCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListView_listItemCount...)
-		buf = cbor.AppendInt(buf, s.ListItemCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
-	if len(s.DescriptionFacets) > 0 {
-		buf = append(buf, cborKey_GraphDefs_ListView_descriptionFacets...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
-		for _, item := range s.DescriptionFacets {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1030,66 +1119,117 @@ func (s *GraphDefs_ListViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_GraphDefs_ListViewBasic_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_GraphDefs_ListViewBasic_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_GraphDefs_ListViewBasic_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_ListViewBasic_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListViewBasic_avatar...)
-		buf = cbor.AppendText(buf, s.Avatar.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_GraphDefs_ListViewBasic_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListViewBasic_viewer...)
-		{
-			v := s.Viewer.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "purpose", buf)
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_purpose...)
+		buf = cbor.AppendText(buf, s.Purpose)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		if s.IndexedAt.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_indexedAt...)
+			buf = cbor.AppendText(buf, s.IndexedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemCount", buf)
+		if s.ListItemCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_listItemCount...)
+			buf = cbor.AppendInt(buf, s.ListItemCount.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphDefs_ListViewBasic_purpose...)
+		buf = cbor.AppendText(buf, s.Purpose)
+		if s.IndexedAt.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_indexedAt...)
+			buf = cbor.AppendText(buf, s.IndexedAt.Val())
+		}
+		if s.ListItemCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewBasic_listItemCount...)
+			buf = cbor.AppendInt(buf, s.ListItemCount.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "purpose", buf)
-	buf = append(buf, cborKey_GraphDefs_ListViewBasic_purpose...)
-	buf = cbor.AppendText(buf, s.Purpose)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	if s.IndexedAt.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListViewBasic_indexedAt...)
-		buf = cbor.AppendText(buf, s.IndexedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemCount", buf)
-	if s.ListItemCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListViewBasic_listItemCount...)
-		buf = cbor.AppendInt(buf, s.ListItemCount.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1574,23 +1714,38 @@ func (s *GraphDefs_ListViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_ListViewerState_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
+		if s.Muted.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_muted...)
+			buf = cbor.AppendBool(buf, s.Muted.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocked", buf)
+		if s.Blocked.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_blocked...)
+			buf = cbor.AppendText(buf, s.Blocked.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Muted.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_muted...)
+			buf = cbor.AppendBool(buf, s.Muted.Val())
+		}
+		if s.Blocked.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_blocked...)
+			buf = cbor.AppendText(buf, s.Blocked.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
-	if s.Muted.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListViewerState_muted...)
-		buf = cbor.AppendBool(buf, s.Muted.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocked", buf)
-	if s.Blocked.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_ListViewerState_blocked...)
-		buf = cbor.AppendText(buf, s.Blocked.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1819,19 +1974,30 @@ func (s *GraphDefs_NotFoundActor) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_NotFoundActor_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_NotFoundActor_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actor", buf)
+		buf = append(buf, cborKey_GraphDefs_NotFoundActor_actor...)
+		buf = cbor.AppendText(buf, s.Actor)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notFound", buf)
+		buf = append(buf, cborKey_GraphDefs_NotFoundActor_notFound...)
+		buf = cbor.AppendBool(buf, s.NotFound)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_NotFoundActor_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_GraphDefs_NotFoundActor_actor...)
+		buf = cbor.AppendText(buf, s.Actor)
+		buf = append(buf, cborKey_GraphDefs_NotFoundActor_notFound...)
+		buf = cbor.AppendBool(buf, s.NotFound)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actor", buf)
-	buf = append(buf, cborKey_GraphDefs_NotFoundActor_actor...)
-	buf = cbor.AppendText(buf, s.Actor)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notFound", buf)
-	buf = append(buf, cborKey_GraphDefs_NotFoundActor_notFound...)
-	buf = cbor.AppendBool(buf, s.NotFound)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2054,46 +2220,79 @@ func (s *GraphDefs_Relationship) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_GraphDefs_Relationship_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_Relationship_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_GraphDefs_Relationship_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_Relationship_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocking", buf)
+		if s.Blocking.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blocking...)
+			buf = cbor.AppendText(buf, s.Blocking.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedBy", buf)
+		if s.BlockedBy.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blockedBy...)
+			buf = cbor.AppendText(buf, s.BlockedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "following", buf)
+		if s.Following.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_following...)
+			buf = cbor.AppendText(buf, s.Following.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followedBy", buf)
+		if s.FollowedBy.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_followedBy...)
+			buf = cbor.AppendText(buf, s.FollowedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedByList", buf)
+		if s.BlockedByList.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blockedByList...)
+			buf = cbor.AppendText(buf, s.BlockedByList.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockingByList", buf)
+		if s.BlockingByList.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blockingByList...)
+			buf = cbor.AppendText(buf, s.BlockingByList.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphDefs_Relationship_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_Relationship_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Blocking.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blocking...)
+			buf = cbor.AppendText(buf, s.Blocking.Val())
+		}
+		if s.BlockedBy.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blockedBy...)
+			buf = cbor.AppendText(buf, s.BlockedBy.Val())
+		}
+		if s.Following.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_following...)
+			buf = cbor.AppendText(buf, s.Following.Val())
+		}
+		if s.FollowedBy.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_followedBy...)
+			buf = cbor.AppendText(buf, s.FollowedBy.Val())
+		}
+		if s.BlockedByList.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blockedByList...)
+			buf = cbor.AppendText(buf, s.BlockedByList.Val())
+		}
+		if s.BlockingByList.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_Relationship_blockingByList...)
+			buf = cbor.AppendText(buf, s.BlockingByList.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocking", buf)
-	if s.Blocking.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_Relationship_blocking...)
-		buf = cbor.AppendText(buf, s.Blocking.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedBy", buf)
-	if s.BlockedBy.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_Relationship_blockedBy...)
-		buf = cbor.AppendText(buf, s.BlockedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "following", buf)
-	if s.Following.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_Relationship_following...)
-		buf = cbor.AppendText(buf, s.Following.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followedBy", buf)
-	if s.FollowedBy.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_Relationship_followedBy...)
-		buf = cbor.AppendText(buf, s.FollowedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedByList", buf)
-	if s.BlockedByList.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_Relationship_blockedByList...)
-		buf = cbor.AppendText(buf, s.BlockedByList.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockingByList", buf)
-	if s.BlockingByList.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_Relationship_blockingByList...)
-		buf = cbor.AppendText(buf, s.BlockingByList.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2554,94 +2753,171 @@ func (s *GraphDefs_StarterPackView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackView_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackView_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
-	if s.List.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_list...)
-		{
-			v := s.List.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
+		if s.List.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_list...)
 			{
+				v := s.List.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
+		if len(s.Feeds) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_feeds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+			for _, item := range s.Feeds {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
-	if len(s.Feeds) > 0 {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_feeds...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
-		for _, item := range s.Feeds {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_record...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_creator...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Creator.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedWeekCount", buf)
+		if s.JoinedWeekCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_joinedWeekCount...)
+			buf = cbor.AppendInt(buf, s.JoinedWeekCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemsSample", buf)
+		if len(s.ListItemsSample) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_listItemsSample...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ListItemsSample)))
+			for _, item := range s.ListItemsSample {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedAllTimeCount", buf)
+		if s.JoinedAllTimeCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_joinedAllTimeCount...)
+			buf = cbor.AppendInt(buf, s.JoinedAllTimeCount.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.List.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_list...)
+			{
+				v := s.List.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Feeds) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_feeds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+			for _, item := range s.Feeds {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_record...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_creator...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Creator.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackView_record...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackView_creator...)
-	{
-		var err error
-		buf, err = s.Creator.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		buf = append(buf, cborKey_GraphDefs_StarterPackView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.JoinedWeekCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_joinedWeekCount...)
+			buf = cbor.AppendInt(buf, s.JoinedWeekCount.Val())
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackView_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedWeekCount", buf)
-	if s.JoinedWeekCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_joinedWeekCount...)
-		buf = cbor.AppendInt(buf, s.JoinedWeekCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemsSample", buf)
-	if len(s.ListItemsSample) > 0 {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_listItemsSample...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ListItemsSample)))
-		for _, item := range s.ListItemsSample {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+		if len(s.ListItemsSample) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_listItemsSample...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ListItemsSample)))
+			for _, item := range s.ListItemsSample {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
+		if s.JoinedAllTimeCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackView_joinedAllTimeCount...)
+			buf = cbor.AppendInt(buf, s.JoinedAllTimeCount.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedAllTimeCount", buf)
-	if s.JoinedAllTimeCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_StarterPackView_joinedAllTimeCount...)
-		buf = cbor.AppendInt(buf, s.JoinedAllTimeCount.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3272,61 +3548,107 @@ func (s *GraphDefs_StarterPackViewBasic) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_record...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_creator...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Creator.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_record...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_creator...)
-	{
-		var err error
-		buf, err = s.Creator.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemCount", buf)
+		if s.ListItemCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_listItemCount...)
+			buf = cbor.AppendInt(buf, s.ListItemCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedWeekCount", buf)
+		if s.JoinedWeekCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_joinedWeekCount...)
+			buf = cbor.AppendInt(buf, s.JoinedWeekCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedAllTimeCount", buf)
+		if s.JoinedAllTimeCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_joinedAllTimeCount...)
+			buf = cbor.AppendInt(buf, s.JoinedAllTimeCount.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_record...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_creator...)
+		{
+			var err error
+			buf, err = s.Creator.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.ListItemCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_listItemCount...)
+			buf = cbor.AppendInt(buf, s.ListItemCount.Val())
+		}
+		if s.JoinedWeekCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_joinedWeekCount...)
+			buf = cbor.AppendInt(buf, s.JoinedWeekCount.Val())
+		}
+		if s.JoinedAllTimeCount.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_joinedAllTimeCount...)
+			buf = cbor.AppendInt(buf, s.JoinedAllTimeCount.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItemCount", buf)
-	if s.ListItemCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_listItemCount...)
-		buf = cbor.AppendInt(buf, s.ListItemCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedWeekCount", buf)
-	if s.JoinedWeekCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_joinedWeekCount...)
-		buf = cbor.AppendInt(buf, s.JoinedWeekCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedAllTimeCount", buf)
-	if s.JoinedAllTimeCount.HasVal() {
-		buf = append(buf, cborKey_GraphDefs_StarterPackViewBasic_joinedAllTimeCount...)
-		buf = cbor.AppendInt(buf, s.JoinedAllTimeCount.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

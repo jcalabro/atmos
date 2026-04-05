@@ -178,30 +178,49 @@ func (s *NotificationRegisterPush_Input) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationRegisterPush_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationRegisterPush_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "appId", buf)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_appId...)
+		buf = cbor.AppendText(buf, s.AppId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_token...)
+		buf = cbor.AppendText(buf, s.Token)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "platform", buf)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_platform...)
+		buf = cbor.AppendText(buf, s.Platform)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "serviceDid", buf)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_serviceDid...)
+		buf = cbor.AppendText(buf, s.ServiceDid)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ageRestricted", buf)
+		if s.AgeRestricted.HasVal() {
+			buf = append(buf, cborKey_NotificationRegisterPush_Input_ageRestricted...)
+			buf = cbor.AppendBool(buf, s.AgeRestricted.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationRegisterPush_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_appId...)
+		buf = cbor.AppendText(buf, s.AppId)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_token...)
+		buf = cbor.AppendText(buf, s.Token)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_platform...)
+		buf = cbor.AppendText(buf, s.Platform)
+		buf = append(buf, cborKey_NotificationRegisterPush_Input_serviceDid...)
+		buf = cbor.AppendText(buf, s.ServiceDid)
+		if s.AgeRestricted.HasVal() {
+			buf = append(buf, cborKey_NotificationRegisterPush_Input_ageRestricted...)
+			buf = cbor.AppendBool(buf, s.AgeRestricted.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "appId", buf)
-	buf = append(buf, cborKey_NotificationRegisterPush_Input_appId...)
-	buf = cbor.AppendText(buf, s.AppId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
-	buf = append(buf, cborKey_NotificationRegisterPush_Input_token...)
-	buf = cbor.AppendText(buf, s.Token)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "platform", buf)
-	buf = append(buf, cborKey_NotificationRegisterPush_Input_platform...)
-	buf = cbor.AppendText(buf, s.Platform)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "serviceDid", buf)
-	buf = append(buf, cborKey_NotificationRegisterPush_Input_serviceDid...)
-	buf = cbor.AppendText(buf, s.ServiceDid)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ageRestricted", buf)
-	if s.AgeRestricted.HasVal() {
-		buf = append(buf, cborKey_NotificationRegisterPush_Input_ageRestricted...)
-		buf = cbor.AppendBool(buf, s.AgeRestricted.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

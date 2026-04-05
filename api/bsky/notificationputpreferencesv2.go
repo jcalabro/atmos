@@ -118,22 +118,37 @@ func (s *NotificationPutPreferencesV2_Output) AppendCBOR(buf []byte) ([]byte, er
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "preferences", buf)
-	buf = append(buf, cborKey_NotificationPutPreferencesV2_Output_preferences...)
-	{
-		var err error
-		buf, err = s.Preferences.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "preferences", buf)
+		buf = append(buf, cborKey_NotificationPutPreferencesV2_Output_preferences...)
+		{
+			var err error
+			buf, err = s.Preferences.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationPutPreferencesV2_Output_preferences...)
+		{
+			var err error
+			buf, err = s.Preferences.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -761,195 +776,371 @@ func (s *NotificationPutPreferencesV2_Input) AppendCBOR(buf []byte) ([]byte, err
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
-	if s.Chat.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_chat...)
-		{
-			v := s.Chat.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
+		if s.Chat.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_chat...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Chat.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "like", buf)
+		if s.Like.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_like...)
+			{
+				v := s.Like.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quote", buf)
+		if s.Quote.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_quote...)
+			{
+				v := s.Quote.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reply", buf)
+		if s.Reply.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_reply...)
+			{
+				v := s.Reply.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "follow", buf)
+		if s.Follow.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_follow...)
+			{
+				v := s.Follow.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repost", buf)
+		if s.Repost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_repost...)
+			{
+				v := s.Repost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mention", buf)
+		if s.Mention.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_mention...)
+			{
+				v := s.Mention.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verified", buf)
+		if s.Verified.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_verified...)
+			{
+				v := s.Verified.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "unverified", buf)
+		if s.Unverified.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_unverified...)
+			{
+				v := s.Unverified.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeViaRepost", buf)
+		if s.LikeViaRepost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_likeViaRepost...)
+			{
+				v := s.LikeViaRepost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subscribedPost", buf)
+		if s.SubscribedPost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_subscribedPost...)
+			{
+				v := s.SubscribedPost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostViaRepost", buf)
+		if s.RepostViaRepost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_repostViaRepost...)
+			{
+				v := s.RepostViaRepost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterpackJoined", buf)
+		if s.StarterpackJoined.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_starterpackJoined...)
+			{
+				v := s.StarterpackJoined.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Chat.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_chat...)
+			{
+				v := s.Chat.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Like.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_like...)
+			{
+				v := s.Like.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Quote.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_quote...)
+			{
+				v := s.Quote.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Reply.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_reply...)
+			{
+				v := s.Reply.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Follow.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_follow...)
+			{
+				v := s.Follow.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Repost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_repost...)
+			{
+				v := s.Repost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Mention.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_mention...)
+			{
+				v := s.Mention.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Verified.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_verified...)
+			{
+				v := s.Verified.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Unverified.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_unverified...)
+			{
+				v := s.Unverified.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LikeViaRepost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_likeViaRepost...)
+			{
+				v := s.LikeViaRepost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.SubscribedPost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_subscribedPost...)
+			{
+				v := s.SubscribedPost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.RepostViaRepost.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_repostViaRepost...)
+			{
+				v := s.RepostViaRepost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.StarterpackJoined.HasVal() {
+			buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_starterpackJoined...)
+			{
+				v := s.StarterpackJoined.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "like", buf)
-	if s.Like.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_like...)
-		{
-			v := s.Like.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quote", buf)
-	if s.Quote.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_quote...)
-		{
-			v := s.Quote.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reply", buf)
-	if s.Reply.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_reply...)
-		{
-			v := s.Reply.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "follow", buf)
-	if s.Follow.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_follow...)
-		{
-			v := s.Follow.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repost", buf)
-	if s.Repost.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_repost...)
-		{
-			v := s.Repost.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mention", buf)
-	if s.Mention.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_mention...)
-		{
-			v := s.Mention.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verified", buf)
-	if s.Verified.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_verified...)
-		{
-			v := s.Verified.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "unverified", buf)
-	if s.Unverified.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_unverified...)
-		{
-			v := s.Unverified.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeViaRepost", buf)
-	if s.LikeViaRepost.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_likeViaRepost...)
-		{
-			v := s.LikeViaRepost.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subscribedPost", buf)
-	if s.SubscribedPost.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_subscribedPost...)
-		{
-			v := s.SubscribedPost.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostViaRepost", buf)
-	if s.RepostViaRepost.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_repostViaRepost...)
-		{
-			v := s.RepostViaRepost.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterpackJoined", buf)
-	if s.StarterpackJoined.HasVal() {
-		buf = append(buf, cborKey_NotificationPutPreferencesV2_Input_starterpackJoined...)
-		{
-			v := s.StarterpackJoined.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

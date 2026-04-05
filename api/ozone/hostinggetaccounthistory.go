@@ -46,23 +46,38 @@ func (s *HostingGetAccountHistory_AccountCreated) AppendCBOR(buf []byte) ([]byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		if s.Handle.HasVal() {
+			buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_handle...)
+			buf = cbor.AppendText(buf, s.Handle.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		if s.Handle.HasVal() {
+			buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_handle...)
+			buf = cbor.AppendText(buf, s.Handle.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	if s.Handle.HasVal() {
-		buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_handle...)
-		buf = cbor.AppendText(buf, s.Handle.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -287,16 +302,25 @@ func (s *HostingGetAccountHistory_EmailConfirmed) AppendCBOR(buf []byte) ([]byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_email...)
+		buf = cbor.AppendText(buf, s.Email)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_email...)
+		buf = cbor.AppendText(buf, s.Email)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_email...)
-	buf = cbor.AppendText(buf, s.Email)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -461,16 +485,25 @@ func (s *HostingGetAccountHistory_EmailUpdated) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_email...)
+		buf = cbor.AppendText(buf, s.Email)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_email...)
+		buf = cbor.AppendText(buf, s.Email)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_email...)
-	buf = cbor.AppendText(buf, s.Email)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -846,28 +879,47 @@ func (s *HostingGetAccountHistory_Event) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_Event_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "details", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_Event_details...)
-	{
-		var err error
-		buf, err = s.Details.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_Event_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "details", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_Event_details...)
+		{
+			var err error
+			buf, err = s.Details.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_Event_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_HostingGetAccountHistory_Event_details...)
+		{
+			var err error
+			buf, err = s.Details.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdBy...)
-	buf = cbor.AppendText(buf, s.CreatedBy)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1090,16 +1142,25 @@ func (s *HostingGetAccountHistory_HandleUpdated) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1409,28 +1470,48 @@ func (s *HostingGetAccountHistory_Output) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_HostingGetAccountHistory_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "events", buf)
-	buf = append(buf, cborKey_HostingGetAccountHistory_Output_events...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Events)))
-	for _, item := range s.Events {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_HostingGetAccountHistory_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "events", buf)
+		buf = append(buf, cborKey_HostingGetAccountHistory_Output_events...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Events)))
+		for _, item := range s.Events {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_HostingGetAccountHistory_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		buf = append(buf, cborKey_HostingGetAccountHistory_Output_events...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Events)))
+		for _, item := range s.Events {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1566,13 +1647,20 @@ func (s *HostingGetAccountHistory_PasswordUpdated) AppendCBOR(buf []byte) ([]byt
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_HostingGetAccountHistory_PasswordUpdated_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_PasswordUpdated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_HostingGetAccountHistory_PasswordUpdated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

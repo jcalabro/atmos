@@ -148,30 +148,52 @@ func (s *NotificationPutActivitySubscription_Output) AppendCBOR(buf []byte) ([]b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
-	if s.ActivitySubscription.HasVal() {
-		buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_activitySubscription...)
-		{
-			v := s.ActivitySubscription.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
+		if s.ActivitySubscription.HasVal() {
+			buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_activitySubscription...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.ActivitySubscription.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		if s.ActivitySubscription.HasVal() {
+			buf = append(buf, cborKey_NotificationPutActivitySubscription_Output_activitySubscription...)
+			{
+				v := s.ActivitySubscription.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -384,25 +406,42 @@ func (s *NotificationPutActivitySubscription_Input) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
-	buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_activitySubscription...)
-	{
-		var err error
-		buf, err = s.ActivitySubscription.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
+		buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_activitySubscription...)
+		{
+			var err error
+			buf, err = s.ActivitySubscription.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		buf = append(buf, cborKey_NotificationPutActivitySubscription_Input_activitySubscription...)
+		{
+			var err error
+			buf, err = s.ActivitySubscription.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

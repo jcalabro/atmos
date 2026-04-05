@@ -285,68 +285,122 @@ func (s *ConvoDefs_ConvoView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_ConvoDefs_ConvoView_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_ConvoView_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_ConvoView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
-	buf = append(buf, cborKey_ConvoDefs_ConvoView_muted...)
-	buf = cbor.AppendBool(buf, s.Muted)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_ConvoDefs_ConvoView_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "members", buf)
-	buf = append(buf, cborKey_ConvoDefs_ConvoView_members...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Members)))
-	for _, item := range s.Members {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastMessage", buf)
-	if s.LastMessage.HasVal() {
-		buf = append(buf, cborKey_ConvoDefs_ConvoView_lastMessage...)
-		{
-			v := s.LastMessage.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_muted...)
+		buf = cbor.AppendBool(buf, s.Muted)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "members", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_members...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Members)))
+		for _, item := range s.Members {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastMessage", buf)
+		if s.LastMessage.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_lastMessage...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.LastMessage.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "unreadCount", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_unreadCount...)
+		buf = cbor.AppendInt(buf, s.UnreadCount)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastReaction", buf)
+		if s.LastReaction.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_lastReaction...)
+			{
+				v := s.LastReaction.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_muted...)
+		buf = cbor.AppendBool(buf, s.Muted)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_members...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Members)))
+		for _, item := range s.Members {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LastMessage.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_lastMessage...)
+			{
+				v := s.LastMessage.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_ConvoView_unreadCount...)
+		buf = cbor.AppendInt(buf, s.UnreadCount)
+		if s.LastReaction.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_lastReaction...)
+			{
+				v := s.LastReaction.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "unreadCount", buf)
-	buf = append(buf, cborKey_ConvoDefs_ConvoView_unreadCount...)
-	buf = cbor.AppendInt(buf, s.UnreadCount)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastReaction", buf)
-	if s.LastReaction.HasVal() {
-		buf = append(buf, cborKey_ConvoDefs_ConvoView_lastReaction...)
-		{
-			v := s.LastReaction.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -802,31 +856,52 @@ func (s *ConvoDefs_DeletedMessageView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sender", buf)
-	buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_sender...)
-	{
-		var err error
-		buf, err = s.Sender.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sender", buf)
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_sender...)
+		{
+			var err error
+			buf, err = s.Sender.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sentAt", buf)
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_sentAt...)
+		buf = cbor.AppendText(buf, s.SentAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_sender...)
+		{
+			var err error
+			buf, err = s.Sender.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_sentAt...)
+		buf = cbor.AppendText(buf, s.SentAt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sentAt", buf)
-	buf = append(buf, cborKey_ConvoDefs_DeletedMessageView_sentAt...)
-	buf = cbor.AppendText(buf, s.SentAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1077,19 +1152,30 @@ func (s *ConvoDefs_LogAcceptConvo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogAcceptConvo_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1421,37 +1507,64 @@ func (s *ConvoDefs_LogAddReaction) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogAddReaction_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogAddReaction_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogAddReaction_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogAddReaction_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reaction", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_reaction...)
+		{
+			var err error
+			buf, err = s.Reaction.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogAddReaction_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_reaction...)
+		{
+			var err error
+			buf, err = s.Reaction.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reaction", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogAddReaction_reaction...)
-	{
-		var err error
-		buf, err = s.Reaction.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1708,19 +1821,30 @@ func (s *ConvoDefs_LogBeginConvo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogBeginConvo_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2050,28 +2174,47 @@ func (s *ConvoDefs_LogCreateMessage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2424,28 +2567,47 @@ func (s *ConvoDefs_LogDeleteMessage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogDeleteMessage_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2670,19 +2832,30 @@ func (s *ConvoDefs_LogLeaveConvo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogLeaveConvo_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2884,19 +3057,30 @@ func (s *ConvoDefs_LogMuteConvo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogMuteConvo_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3226,28 +3410,47 @@ func (s *ConvoDefs_LogReadMessage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogReadMessage_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogReadMessage_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogReadMessage_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogReadMessage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogReadMessage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogReadMessage_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3602,37 +3805,64 @@ func (s *ConvoDefs_LogRemoveReaction) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reaction", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_reaction...)
+		{
+			var err error
+			buf, err = s.Reaction.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_reaction...)
+		{
+			var err error
+			buf, err = s.Reaction.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reaction", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_reaction...)
-	{
-		var err error
-		buf, err = s.Reaction.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3889,19 +4119,30 @@ func (s *ConvoDefs_LogUnmuteConvo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_LogUnmuteConvo_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -4103,31 +4344,54 @@ func (s *ConvoDefs_MessageAndReactionView) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_message...)
-	{
-		var err error
-		buf, err = s.Message.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reaction", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_reaction...)
+		{
+			var err error
+			buf, err = s.Reaction.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_reaction...)
+		{
+			var err error
+			buf, err = s.Reaction.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reaction", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageAndReactionView_reaction...)
-	{
-		var err error
-		buf, err = s.Reaction.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -4448,42 +4712,75 @@ func (s *ConvoDefs_MessageInput) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageInput_text...)
-	buf = cbor.AppendText(buf, s.Text)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_MessageInput_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
-	if s.Embed.HasVal() {
-		buf = append(buf, cborKey_ConvoDefs_MessageInput_embed...)
-		{
-			v := s.Embed.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageInput_text...)
+		buf = cbor.AppendText(buf, s.Text)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_embed...)
 			{
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "facets", buf)
+		if len(s.Facets) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_facets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Facets)))
+			for _, item := range s.Facets {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_MessageInput_text...)
+		buf = cbor.AppendText(buf, s.Text)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_embed...)
+			{
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if len(s.Facets) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_facets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Facets)))
+			for _, item := range s.Facets {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "facets", buf)
-	if len(s.Facets) > 0 {
-		buf = append(buf, cborKey_ConvoDefs_MessageInput_facets...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Facets)))
-		for _, item := range s.Facets {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -4775,22 +5072,35 @@ func (s *ConvoDefs_MessageRef) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageRef_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_MessageRef_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageRef_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageId", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageRef_messageId...)
+		buf = cbor.AppendText(buf, s.MessageId)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_MessageRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_MessageRef_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_MessageRef_messageId...)
+		buf = cbor.AppendText(buf, s.MessageId)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageRef_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageId", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageRef_messageId...)
-	buf = cbor.AppendText(buf, s.MessageId)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5138,72 +5448,130 @@ func (s *ConvoDefs_MessageView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageView_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageView_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageView_text...)
-	buf = cbor.AppendText(buf, s.Text)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_MessageView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
-	if s.Embed.HasVal() {
-		buf = append(buf, cborKey_ConvoDefs_MessageView_embed...)
-		{
-			v := s.Embed.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_text...)
+		buf = cbor.AppendText(buf, s.Text)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_embed...)
 			{
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "facets", buf)
+		if len(s.Facets) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_facets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Facets)))
+			for _, item := range s.Facets {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sender", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_sender...)
+		{
+			var err error
+			buf, err = s.Sender.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sentAt", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_sentAt...)
+		buf = cbor.AppendText(buf, s.SentAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reactions", buf)
+		if len(s.Reactions) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_reactions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Reactions)))
+			for _, item := range s.Reactions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_MessageView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		buf = append(buf, cborKey_ConvoDefs_MessageView_text...)
+		buf = cbor.AppendText(buf, s.Text)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_embed...)
+			{
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if len(s.Facets) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_facets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Facets)))
+			for _, item := range s.Facets {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_MessageView_sender...)
+		{
+			var err error
+			buf, err = s.Sender.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_MessageView_sentAt...)
+		buf = cbor.AppendText(buf, s.SentAt)
+		if len(s.Reactions) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_reactions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Reactions)))
+			for _, item := range s.Reactions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "facets", buf)
-	if len(s.Facets) > 0 {
-		buf = append(buf, cborKey_ConvoDefs_MessageView_facets...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Facets)))
-		for _, item := range s.Facets {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sender", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageView_sender...)
-	{
-		var err error
-		buf, err = s.Sender.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sentAt", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageView_sentAt...)
-	buf = cbor.AppendText(buf, s.SentAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reactions", buf)
-	if len(s.Reactions) > 0 {
-		buf = append(buf, cborKey_ConvoDefs_MessageView_reactions...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Reactions)))
-		for _, item := range s.Reactions {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5654,16 +6022,25 @@ func (s *ConvoDefs_MessageViewSender) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ConvoDefs_MessageViewSender_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_MessageViewSender_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ConvoDefs_MessageViewSender_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageViewSender_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_MessageViewSender_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageViewSender_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5841,28 +6218,47 @@ func (s *ConvoDefs_ReactionView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_ReactionView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_ConvoDefs_ReactionView_value...)
-	buf = cbor.AppendText(buf, s.Value)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sender", buf)
-	buf = append(buf, cborKey_ConvoDefs_ReactionView_sender...)
-	{
-		var err error
-		buf, err = s.Sender.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ReactionView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_ConvoDefs_ReactionView_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sender", buf)
+		buf = append(buf, cborKey_ConvoDefs_ReactionView_sender...)
+		{
+			var err error
+			buf, err = s.Sender.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ConvoDefs_ReactionView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ReactionView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_ReactionView_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		buf = append(buf, cborKey_ConvoDefs_ReactionView_sender...)
+		{
+			var err error
+			buf, err = s.Sender.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_ReactionView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_ConvoDefs_ReactionView_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6085,16 +6481,25 @@ func (s *ConvoDefs_ReactionViewSender) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ConvoDefs_ReactionViewSender_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoDefs_ReactionViewSender_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ConvoDefs_ReactionViewSender_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ReactionViewSender_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_ReactionViewSender_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ReactionViewSender_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

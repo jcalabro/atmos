@@ -38,22 +38,36 @@ func (s *UnspeccedGetConfig_LiveNowConfig) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "domains", buf)
+		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_domains...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Domains)))
+		for _, item := range s.Domains {
+			buf = cbor.AppendText(buf, item)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_domains...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Domains)))
+		for _, item := range s.Domains {
+			buf = cbor.AppendText(buf, item)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "domains", buf)
-	buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_domains...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Domains)))
-	for _, item := range s.Domains {
-		buf = cbor.AppendText(buf, item)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -433,30 +447,52 @@ func (s *UnspeccedGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetConfig_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "liveNow", buf)
-	if len(s.LiveNow) > 0 {
-		buf = append(buf, cborKey_UnspeccedGetConfig_Output_liveNow...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.LiveNow)))
-		for _, item := range s.LiveNow {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetConfig_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "liveNow", buf)
+		if len(s.LiveNow) > 0 {
+			buf = append(buf, cborKey_UnspeccedGetConfig_Output_liveNow...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.LiveNow)))
+			for _, item := range s.LiveNow {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "checkEmailConfirmed", buf)
+		if s.CheckEmailConfirmed.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetConfig_Output_checkEmailConfirmed...)
+			buf = cbor.AppendBool(buf, s.CheckEmailConfirmed.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetConfig_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.LiveNow) > 0 {
+			buf = append(buf, cborKey_UnspeccedGetConfig_Output_liveNow...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.LiveNow)))
+			for _, item := range s.LiveNow {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.CheckEmailConfirmed.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetConfig_Output_checkEmailConfirmed...)
+			buf = cbor.AppendBool(buf, s.CheckEmailConfirmed.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "checkEmailConfirmed", buf)
-	if s.CheckEmailConfirmed.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetConfig_Output_checkEmailConfirmed...)
-		buf = cbor.AppendBool(buf, s.CheckEmailConfirmed.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

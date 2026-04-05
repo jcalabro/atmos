@@ -212,36 +212,62 @@ func (s *FeedGetRepostedBy_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	if s.CID.HasVal() {
-		buf = append(buf, cborKey_FeedGetRepostedBy_Output_cid...)
-		buf = cbor.AppendText(buf, s.CID.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_FeedGetRepostedBy_Output_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedGetRepostedBy_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_FeedGetRepostedBy_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostedBy", buf)
-	buf = append(buf, cborKey_FeedGetRepostedBy_Output_repostedBy...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.RepostedBy)))
-	for _, item := range s.RepostedBy {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_FeedGetRepostedBy_Output_cid...)
+			buf = cbor.AppendText(buf, s.CID.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_FeedGetRepostedBy_Output_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedGetRepostedBy_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_FeedGetRepostedBy_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostedBy", buf)
+		buf = append(buf, cborKey_FeedGetRepostedBy_Output_repostedBy...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RepostedBy)))
+		for _, item := range s.RepostedBy {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_FeedGetRepostedBy_Output_cid...)
+			buf = cbor.AppendText(buf, s.CID.Val())
+		}
+		buf = append(buf, cborKey_FeedGetRepostedBy_Output_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedGetRepostedBy_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_FeedGetRepostedBy_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		buf = append(buf, cborKey_FeedGetRepostedBy_Output_repostedBy...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RepostedBy)))
+		for _, item := range s.RepostedBy {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -172,28 +172,48 @@ func (s *SyncListRepos_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncListRepos_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repos", buf)
-	buf = append(buf, cborKey_SyncListRepos_Output_repos...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Repos)))
-	for _, item := range s.Repos {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncListRepos_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repos", buf)
+		buf = append(buf, cborKey_SyncListRepos_Output_repos...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Repos)))
+		for _, item := range s.Repos {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SyncListRepos_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncListRepos_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SyncListRepos_Output_repos...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Repos)))
+		for _, item := range s.Repos {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SyncListRepos_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_SyncListRepos_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -341,32 +361,53 @@ func (s *SyncListRepos_Repo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_SyncListRepos_Repo_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_SyncListRepos_Repo_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "head", buf)
-	buf = append(buf, cborKey_SyncListRepos_Repo_head...)
-	buf = cbor.AppendText(buf, s.Head)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncListRepos_Repo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_SyncListRepos_Repo_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_SyncListRepos_Repo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "head", buf)
+		buf = append(buf, cborKey_SyncListRepos_Repo_head...)
+		buf = cbor.AppendText(buf, s.Head)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncListRepos_Repo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
+		if s.Active.HasVal() {
+			buf = append(buf, cborKey_SyncListRepos_Repo_active...)
+			buf = cbor.AppendBool(buf, s.Active.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncListRepos_Repo_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncListRepos_Repo_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		buf = append(buf, cborKey_SyncListRepos_Repo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		buf = append(buf, cborKey_SyncListRepos_Repo_head...)
+		buf = cbor.AppendText(buf, s.Head)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncListRepos_Repo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Active.HasVal() {
+			buf = append(buf, cborKey_SyncListRepos_Repo_active...)
+			buf = cbor.AppendBool(buf, s.Active.Val())
+		}
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncListRepos_Repo_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
-	if s.Active.HasVal() {
-		buf = append(buf, cborKey_SyncListRepos_Repo_active...)
-		buf = cbor.AppendBool(buf, s.Active.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_SyncListRepos_Repo_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

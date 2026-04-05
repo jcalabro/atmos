@@ -172,28 +172,48 @@ func (s *RepoListMissingBlobs_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoListMissingBlobs_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobs", buf)
-	buf = append(buf, cborKey_RepoListMissingBlobs_Output_blobs...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
-	for _, item := range s.Blobs {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoListMissingBlobs_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobs", buf)
+		buf = append(buf, cborKey_RepoListMissingBlobs_Output_blobs...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
+		for _, item := range s.Blobs {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_RepoListMissingBlobs_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoListMissingBlobs_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoListMissingBlobs_Output_blobs...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
+		for _, item := range s.Blobs {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_RepoListMissingBlobs_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_RepoListMissingBlobs_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -329,19 +349,30 @@ func (s *RepoListMissingBlobs_RecordBlob) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recordUri", buf)
+		buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_recordUri...)
+		buf = cbor.AppendText(buf, s.RecordUri)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_recordUri...)
+		buf = cbor.AppendText(buf, s.RecordUri)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recordUri", buf)
-	buf = append(buf, cborKey_RepoListMissingBlobs_RecordBlob_recordUri...)
-	buf = cbor.AppendText(buf, s.RecordUri)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -143,28 +143,47 @@ func (s *FeedGetFeedGenerator_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "view", buf)
-	buf = append(buf, cborKey_FeedGetFeedGenerator_Output_view...)
-	{
-		var err error
-		buf, err = s.View.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "view", buf)
+		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_view...)
+		{
+			var err error
+			buf, err = s.View.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedGetFeedGenerator_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isValid", buf)
+		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_isValid...)
+		buf = cbor.AppendBool(buf, s.IsValid)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOnline", buf)
+		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_isOnline...)
+		buf = cbor.AppendBool(buf, s.IsOnline)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_view...)
+		{
+			var err error
+			buf, err = s.View.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedGetFeedGenerator_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_isValid...)
+		buf = cbor.AppendBool(buf, s.IsValid)
+		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_isOnline...)
+		buf = cbor.AppendBool(buf, s.IsOnline)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedGetFeedGenerator_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isValid", buf)
-	buf = append(buf, cborKey_FeedGetFeedGenerator_Output_isValid...)
-	buf = cbor.AppendBool(buf, s.IsValid)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOnline", buf)
-	buf = append(buf, cborKey_FeedGetFeedGenerator_Output_isOnline...)
-	buf = cbor.AppendBool(buf, s.IsOnline)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

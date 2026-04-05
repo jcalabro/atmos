@@ -161,36 +161,64 @@ func (s *FeedGetPostThread_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedGetPostThread_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thread", buf)
-	buf = append(buf, cborKey_FeedGetPostThread_Output_thread...)
-	{
-		var err error
-		buf, err = s.Thread.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedGetPostThread_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgate", buf)
-	if s.Threadgate.HasVal() {
-		buf = append(buf, cborKey_FeedGetPostThread_Output_threadgate...)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thread", buf)
+		buf = append(buf, cborKey_FeedGetPostThread_Output_thread...)
 		{
-			v := s.Threadgate.Val()
+			var err error
+			buf, err = s.Thread.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgate", buf)
+		if s.Threadgate.HasVal() {
+			buf = append(buf, cborKey_FeedGetPostThread_Output_threadgate...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Threadgate.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedGetPostThread_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_FeedGetPostThread_Output_thread...)
+		{
+			var err error
+			buf, err = s.Thread.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Threadgate.HasVal() {
+			buf = append(buf, cborKey_FeedGetPostThread_Output_threadgate...)
+			{
+				v := s.Threadgate.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -192,50 +192,91 @@ func (s *AdminGetSubjectStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminGetSubjectStatus_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_AdminGetSubjectStatus_Output_subject...)
-	{
-		var err error
-		buf, err = s.Subject.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminGetSubjectStatus_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "takedown", buf)
-	if s.Takedown.HasVal() {
-		buf = append(buf, cborKey_AdminGetSubjectStatus_Output_takedown...)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_AdminGetSubjectStatus_Output_subject...)
 		{
-			v := s.Takedown.Val()
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "takedown", buf)
+		if s.Takedown.HasVal() {
+			buf = append(buf, cborKey_AdminGetSubjectStatus_Output_takedown...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Takedown.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deactivated", buf)
+		if s.Deactivated.HasVal() {
+			buf = append(buf, cborKey_AdminGetSubjectStatus_Output_deactivated...)
+			{
+				v := s.Deactivated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminGetSubjectStatus_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AdminGetSubjectStatus_Output_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Takedown.HasVal() {
+			buf = append(buf, cborKey_AdminGetSubjectStatus_Output_takedown...)
+			{
+				v := s.Takedown.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Deactivated.HasVal() {
+			buf = append(buf, cborKey_AdminGetSubjectStatus_Output_deactivated...)
+			{
+				v := s.Deactivated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deactivated", buf)
-	if s.Deactivated.HasVal() {
-		buf = append(buf, cborKey_AdminGetSubjectStatus_Output_deactivated...)
-		{
-			v := s.Deactivated.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

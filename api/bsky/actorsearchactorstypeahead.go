@@ -144,23 +144,39 @@ func (s *ActorSearchActorsTypeahead_Output) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorSearchActorsTypeahead_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actors", buf)
-	buf = append(buf, cborKey_ActorSearchActorsTypeahead_Output_actors...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
-	for _, item := range s.Actors {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorSearchActorsTypeahead_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actors", buf)
+		buf = append(buf, cborKey_ActorSearchActorsTypeahead_Output_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorSearchActorsTypeahead_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorSearchActorsTypeahead_Output_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

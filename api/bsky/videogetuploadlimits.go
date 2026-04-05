@@ -220,36 +220,61 @@ func (s *VideoGetUploadLimits_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VideoGetUploadLimits_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		if s.Error.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_error...)
+			buf = cbor.AppendText(buf, s.Error.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "canUpload", buf)
+		buf = append(buf, cborKey_VideoGetUploadLimits_Output_canUpload...)
+		buf = cbor.AppendBool(buf, s.CanUpload)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "remainingDailyBytes", buf)
+		if s.RemainingDailyBytes.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyBytes...)
+			buf = cbor.AppendInt(buf, s.RemainingDailyBytes.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "remainingDailyVideos", buf)
+		if s.RemainingDailyVideos.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyVideos...)
+			buf = cbor.AppendInt(buf, s.RemainingDailyVideos.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Error.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_error...)
+			buf = cbor.AppendText(buf, s.Error.Val())
+		}
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
+		buf = append(buf, cborKey_VideoGetUploadLimits_Output_canUpload...)
+		buf = cbor.AppendBool(buf, s.CanUpload)
+		if s.RemainingDailyBytes.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyBytes...)
+			buf = cbor.AppendInt(buf, s.RemainingDailyBytes.Val())
+		}
+		if s.RemainingDailyVideos.HasVal() {
+			buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyVideos...)
+			buf = cbor.AppendInt(buf, s.RemainingDailyVideos.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
-	if s.Error.HasVal() {
-		buf = append(buf, cborKey_VideoGetUploadLimits_Output_error...)
-		buf = cbor.AppendText(buf, s.Error.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	if s.Message.HasVal() {
-		buf = append(buf, cborKey_VideoGetUploadLimits_Output_message...)
-		buf = cbor.AppendText(buf, s.Message.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "canUpload", buf)
-	buf = append(buf, cborKey_VideoGetUploadLimits_Output_canUpload...)
-	buf = cbor.AppendBool(buf, s.CanUpload)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "remainingDailyBytes", buf)
-	if s.RemainingDailyBytes.HasVal() {
-		buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyBytes...)
-		buf = cbor.AppendInt(buf, s.RemainingDailyBytes.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "remainingDailyVideos", buf)
-	if s.RemainingDailyVideos.HasVal() {
-		buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyVideos...)
-		buf = cbor.AppendInt(buf, s.RemainingDailyVideos.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -200,32 +200,53 @@ func (s *CommunicationCreateTemplate_Input) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
-	if s.Lang.HasVal() {
-		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_lang...)
-		buf = cbor.AppendText(buf, s.Lang.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		if s.Lang.HasVal() {
+			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_lang...)
+			buf = cbor.AppendText(buf, s.Lang.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		if s.CreatedBy.HasVal() {
+			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_createdBy...)
+			buf = cbor.AppendText(buf, s.CreatedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
+		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_contentMarkdown...)
+		buf = cbor.AppendText(buf, s.ContentMarkdown)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Lang.HasVal() {
+			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_lang...)
+			buf = cbor.AppendText(buf, s.Lang.Val())
+		}
+		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		if s.CreatedBy.HasVal() {
+			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_createdBy...)
+			buf = cbor.AppendText(buf, s.CreatedBy.Val())
+		}
+		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_contentMarkdown...)
+		buf = cbor.AppendText(buf, s.ContentMarkdown)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_CommunicationCreateTemplate_Input_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_CommunicationCreateTemplate_Input_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	if s.CreatedBy.HasVal() {
-		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_createdBy...)
-		buf = cbor.AppendText(buf, s.CreatedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
-	buf = append(buf, cborKey_CommunicationCreateTemplate_Input_contentMarkdown...)
-	buf = cbor.AppendText(buf, s.ContentMarkdown)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

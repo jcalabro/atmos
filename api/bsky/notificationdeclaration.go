@@ -36,14 +36,21 @@ func (s *NotificationDeclaration) MarshalCBOR() ([]byte, error) {
 
 func (s *NotificationDeclaration) AppendCBOR(buf []byte) ([]byte, error) {
 	buf = cbor.AppendMapHeader(buf, uint64(2+len(s.extraCBOR)))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_NotificationDeclaration_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowSubscriptions", buf)
-	buf = append(buf, cborKey_NotificationDeclaration_allowSubscriptions...)
-	buf = cbor.AppendText(buf, s.AllowSubscriptions)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_NotificationDeclaration_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowSubscriptions", buf)
+		buf = append(buf, cborKey_NotificationDeclaration_allowSubscriptions...)
+		buf = cbor.AppendText(buf, s.AllowSubscriptions)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationDeclaration_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_NotificationDeclaration_allowSubscriptions...)
+		buf = cbor.AppendText(buf, s.AllowSubscriptions)
+	}
 	return buf, nil
 }
 

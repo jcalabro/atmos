@@ -188,106 +188,196 @@ func (s *ActorProfile) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_ActorProfile_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_avatar...)
-		{
-			v := s.Avatar.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_ActorProfile_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_avatar...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Avatar.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "banner", buf)
+		if s.Banner.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_banner...)
+			{
+				v := s.Banner.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_labels...)
+			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "website", buf)
+		if s.Website.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_website...)
+			buf = cbor.AppendText(buf, s.Website.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinnedPost", buf)
+		if s.PinnedPost.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_pinnedPost...)
+			{
+				v := s.PinnedPost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedViaStarterPack", buf)
+		if s.JoinedViaStarterPack.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_joinedViaStarterPack...)
+			{
+				v := s.JoinedViaStarterPack.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorProfile_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_avatar...)
+			{
+				v := s.Avatar.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Banner.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_banner...)
+			{
+				v := s.Banner.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_labels...)
+			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Website.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_website...)
+			buf = cbor.AppendText(buf, s.Website.Val())
+		}
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		if s.PinnedPost.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_pinnedPost...)
+			{
+				v := s.PinnedPost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		if s.JoinedViaStarterPack.HasVal() {
+			buf = append(buf, cborKey_ActorProfile_joinedViaStarterPack...)
+			{
+				v := s.JoinedViaStarterPack.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "banner", buf)
-	if s.Banner.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_banner...)
-		{
-			v := s.Banner.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if s.Labels.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_labels...)
-		{
-			v := s.Labels.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "website", buf)
-	if s.Website.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_website...)
-		buf = cbor.AppendText(buf, s.Website.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
-	if s.Pronouns.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_pronouns...)
-		buf = cbor.AppendText(buf, s.Pronouns.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinnedPost", buf)
-	if s.PinnedPost.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_pinnedPost...)
-		{
-			v := s.PinnedPost.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	if s.DisplayName.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_displayName...)
-		buf = cbor.AppendText(buf, s.DisplayName.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedViaStarterPack", buf)
-	if s.JoinedViaStarterPack.HasVal() {
-		buf = append(buf, cborKey_ActorProfile_joinedViaStarterPack...)
-		{
-			v := s.JoinedViaStarterPack.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

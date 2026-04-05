@@ -152,36 +152,62 @@ func (s *ActorStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_ActorStatus_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
-	if s.Embed.HasVal() {
-		buf = append(buf, cborKey_ActorStatus_embed...)
-		{
-			v := s.Embed.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_ActorStatus_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ActorStatus_embed...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		buf = append(buf, cborKey_ActorStatus_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ActorStatus_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "durationMinutes", buf)
+		if s.DurationMinutes.HasVal() {
+			buf = append(buf, cborKey_ActorStatus_durationMinutes...)
+			buf = cbor.AppendInt(buf, s.DurationMinutes.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorStatus_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ActorStatus_embed...)
+			{
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ActorStatus_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		buf = append(buf, cborKey_ActorStatus_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.DurationMinutes.HasVal() {
+			buf = append(buf, cborKey_ActorStatus_durationMinutes...)
+			buf = cbor.AppendInt(buf, s.DurationMinutes.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	buf = append(buf, cborKey_ActorStatus_status...)
-	buf = cbor.AppendText(buf, s.Status)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_ActorStatus_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "durationMinutes", buf)
-	if s.DurationMinutes.HasVal() {
-		buf = append(buf, cborKey_ActorStatus_durationMinutes...)
-		buf = cbor.AppendInt(buf, s.DurationMinutes.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

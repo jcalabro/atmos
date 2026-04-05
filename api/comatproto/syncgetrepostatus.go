@@ -184,29 +184,48 @@ func (s *SyncGetRepoStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_SyncGetRepoStatus_Output_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	if s.Rev.HasVal() {
-		buf = append(buf, cborKey_SyncGetRepoStatus_Output_rev...)
-		buf = cbor.AppendText(buf, s.Rev.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_SyncGetRepoStatus_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		if s.Rev.HasVal() {
+			buf = append(buf, cborKey_SyncGetRepoStatus_Output_rev...)
+			buf = cbor.AppendText(buf, s.Rev.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncGetRepoStatus_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
+		buf = append(buf, cborKey_SyncGetRepoStatus_Output_active...)
+		buf = cbor.AppendBool(buf, s.Active)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncGetRepoStatus_Output_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncGetRepoStatus_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.Rev.HasVal() {
+			buf = append(buf, cborKey_SyncGetRepoStatus_Output_rev...)
+			buf = cbor.AppendText(buf, s.Rev.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncGetRepoStatus_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SyncGetRepoStatus_Output_active...)
+		buf = cbor.AppendBool(buf, s.Active)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncGetRepoStatus_Output_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncGetRepoStatus_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
-	buf = append(buf, cborKey_SyncGetRepoStatus_Output_active...)
-	buf = cbor.AppendBool(buf, s.Active)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_SyncGetRepoStatus_Output_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

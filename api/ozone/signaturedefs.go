@@ -35,19 +35,30 @@ func (s *SignatureDefs_SigDetail) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SignatureDefs_SigDetail_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SignatureDefs_SigDetail_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_SignatureDefs_SigDetail_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "property", buf)
+		buf = append(buf, cborKey_SignatureDefs_SigDetail_property...)
+		buf = cbor.AppendText(buf, s.Property)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SignatureDefs_SigDetail_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SignatureDefs_SigDetail_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		buf = append(buf, cborKey_SignatureDefs_SigDetail_property...)
+		buf = cbor.AppendText(buf, s.Property)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_SignatureDefs_SigDetail_value...)
-	buf = cbor.AppendText(buf, s.Value)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "property", buf)
-	buf = append(buf, cborKey_SignatureDefs_SigDetail_property...)
-	buf = cbor.AppendText(buf, s.Property)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

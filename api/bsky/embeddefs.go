@@ -37,19 +37,30 @@ func (s *EmbedDefs_AspectRatio) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedDefs_AspectRatio_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedDefs_AspectRatio_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "width", buf)
+		buf = append(buf, cborKey_EmbedDefs_AspectRatio_width...)
+		buf = cbor.AppendInt(buf, s.Width)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "height", buf)
+		buf = append(buf, cborKey_EmbedDefs_AspectRatio_height...)
+		buf = cbor.AppendInt(buf, s.Height)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedDefs_AspectRatio_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedDefs_AspectRatio_width...)
+		buf = cbor.AppendInt(buf, s.Width)
+		buf = append(buf, cborKey_EmbedDefs_AspectRatio_height...)
+		buf = cbor.AppendInt(buf, s.Height)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "width", buf)
-	buf = append(buf, cborKey_EmbedDefs_AspectRatio_width...)
-	buf = cbor.AppendInt(buf, s.Width)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "height", buf)
-	buf = append(buf, cborKey_EmbedDefs_AspectRatio_height...)
-	buf = cbor.AppendInt(buf, s.Height)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

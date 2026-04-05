@@ -47,23 +47,39 @@ func (s *AgeassuranceDefs_Config) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_Config_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regions", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_Config_regions...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Regions)))
-	for _, item := range s.Regions {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_Config_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regions", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_Config_regions...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Regions)))
+		for _, item := range s.Regions {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_Config_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_Config_regions...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Regions)))
+		for _, item := range s.Regions {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -552,34 +568,58 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rules", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_rules...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
-	for _, item := range s.Rules {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rules", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_rules...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
+		for _, item := range s.Rules {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
+		if s.RegionCode.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_regionCode...)
+			buf = cbor.AppendText(buf, s.RegionCode.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_countryCode...)
+		buf = cbor.AppendText(buf, s.CountryCode)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "minAccessAge", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
+		buf = cbor.AppendInt(buf, s.MinAccessAge)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_rules...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
+		for _, item := range s.Rules {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.RegionCode.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_regionCode...)
+			buf = cbor.AppendText(buf, s.RegionCode.Val())
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_countryCode...)
+		buf = cbor.AppendText(buf, s.CountryCode)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
+		buf = cbor.AppendInt(buf, s.MinAccessAge)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
-	if s.RegionCode.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_regionCode...)
-		buf = cbor.AppendText(buf, s.RegionCode.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_countryCode...)
-	buf = cbor.AppendText(buf, s.CountryCode)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "minAccessAge", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
-	buf = cbor.AppendInt(buf, s.MinAccessAge)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -884,16 +924,25 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) AppendCBOR(buf []byte) ([]byt
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1071,19 +1120,30 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) AppendCBOR(buf []b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "date", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_date...)
-	buf = cbor.AppendText(buf, s.Date)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "date", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_date...)
+		buf = cbor.AppendText(buf, s.Date)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_date...)
+		buf = cbor.AppendText(buf, s.Date)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1287,19 +1347,30 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) AppendCBOR(buf []b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "date", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_date...)
-	buf = cbor.AppendText(buf, s.Date)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "date", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_date...)
+		buf = cbor.AppendText(buf, s.Date)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_date...)
+		buf = cbor.AppendText(buf, s.Date)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1503,19 +1574,30 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) AppendCBOR(buf []byt
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_age...)
-	buf = cbor.AppendInt(buf, s.Age)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1719,19 +1801,30 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) AppendCBOR(buf []by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_age...)
-	buf = cbor.AppendInt(buf, s.Age)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1935,19 +2028,30 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) AppendCBOR(buf []by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_age...)
-	buf = cbor.AppendInt(buf, s.Age)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2151,19 +2255,30 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) AppendCBOR(buf []b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_age...)
-	buf = cbor.AppendInt(buf, s.Age)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_age...)
+		buf = cbor.AppendInt(buf, s.Age)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_access...)
+		buf = cbor.AppendText(buf, s.Access)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2403,58 +2518,99 @@ func (s *AgeassuranceDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initIp", buf)
+		if s.InitIp.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_initIp...)
+			buf = cbor.AppendText(buf, s.InitIp.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initUa", buf)
+		if s.InitUa.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_initUa...)
+			buf = cbor.AppendText(buf, s.InitUa.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "attemptId", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_attemptId...)
+		buf = cbor.AppendText(buf, s.AttemptId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeIp", buf)
+		if s.CompleteIp.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_completeIp...)
+			buf = cbor.AppendText(buf, s.CompleteIp.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeUa", buf)
+		if s.CompleteUa.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_completeUa...)
+			buf = cbor.AppendText(buf, s.CompleteUa.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
+		if s.RegionCode.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_regionCode...)
+			buf = cbor.AppendText(buf, s.RegionCode.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_countryCode...)
+		buf = cbor.AppendText(buf, s.CountryCode)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		if s.InitIp.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_initIp...)
+			buf = cbor.AppendText(buf, s.InitIp.Val())
+		}
+		if s.InitUa.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_initUa...)
+			buf = cbor.AppendText(buf, s.InitUa.Val())
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_attemptId...)
+		buf = cbor.AppendText(buf, s.AttemptId)
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.CompleteIp.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_completeIp...)
+			buf = cbor.AppendText(buf, s.CompleteIp.Val())
+		}
+		if s.CompleteUa.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_completeUa...)
+			buf = cbor.AppendText(buf, s.CompleteUa.Val())
+		}
+		if s.RegionCode.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_Event_regionCode...)
+			buf = cbor.AppendText(buf, s.RegionCode.Val())
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_Event_countryCode...)
+		buf = cbor.AppendText(buf, s.CountryCode)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_Event_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initIp", buf)
-	if s.InitIp.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_initIp...)
-		buf = cbor.AppendText(buf, s.InitIp.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initUa", buf)
-	if s.InitUa.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_initUa...)
-		buf = cbor.AppendText(buf, s.InitUa.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_Event_status...)
-	buf = cbor.AppendText(buf, s.Status)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "attemptId", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_Event_attemptId...)
-	buf = cbor.AppendText(buf, s.AttemptId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_Event_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeIp", buf)
-	if s.CompleteIp.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_completeIp...)
-		buf = cbor.AppendText(buf, s.CompleteIp.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeUa", buf)
-	if s.CompleteUa.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_completeUa...)
-		buf = cbor.AppendText(buf, s.CompleteUa.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
-	if s.RegionCode.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_Event_regionCode...)
-		buf = cbor.AppendText(buf, s.RegionCode.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_Event_countryCode...)
-	buf = cbor.AppendText(buf, s.CountryCode)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2936,24 +3092,39 @@ func (s *AgeassuranceDefs_State) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_State_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_State_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_State_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		buf = append(buf, cborKey_AgeassuranceDefs_State_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastInitiatedAt", buf)
+		if s.LastInitiatedAt.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_State_lastInitiatedAt...)
+			buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_State_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AgeassuranceDefs_State_access...)
+		buf = cbor.AppendText(buf, s.Access)
+		buf = append(buf, cborKey_AgeassuranceDefs_State_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		if s.LastInitiatedAt.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_State_lastInitiatedAt...)
+			buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_State_access...)
-	buf = cbor.AppendText(buf, s.Access)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	buf = append(buf, cborKey_AgeassuranceDefs_State_status...)
-	buf = cbor.AppendText(buf, s.Status)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastInitiatedAt", buf)
-	if s.LastInitiatedAt.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_State_lastInitiatedAt...)
-		buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3192,18 +3363,29 @@ func (s *AgeassuranceDefs_StateMetadata) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCreatedAt", buf)
+		if s.AccountCreatedAt.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_accountCreatedAt...)
+			buf = cbor.AppendText(buf, s.AccountCreatedAt.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.AccountCreatedAt.HasVal() {
+			buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_accountCreatedAt...)
+			buf = cbor.AppendText(buf, s.AccountCreatedAt.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCreatedAt", buf)
-	if s.AccountCreatedAt.HasVal() {
-		buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_accountCreatedAt...)
-		buf = cbor.AppendText(buf, s.AccountCreatedAt.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

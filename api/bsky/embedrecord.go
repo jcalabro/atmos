@@ -37,22 +37,37 @@ func (s *EmbedRecord) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecord_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_EmbedRecord_record...)
-	{
-		var err error
-		buf, err = s.Record.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_EmbedRecord_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecord_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -520,22 +535,37 @@ func (s *EmbedRecord_View) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecord_View_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_EmbedRecord_View_record...)
-	{
-		var err error
-		buf, err = s.Record.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_EmbedRecord_View_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecord_View_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -719,28 +749,47 @@ func (s *EmbedRecord_ViewBlocked) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewBlocked_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewBlocked_author...)
-	{
-		var err error
-		buf, err = s.Author.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewBlocked_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_author...)
+		{
+			var err error
+			buf, err = s.Author.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocked", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_blocked...)
+		buf = cbor.AppendBool(buf, s.Blocked)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewBlocked_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_author...)
+		{
+			var err error
+			buf, err = s.Author.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_blocked...)
+		buf = cbor.AppendBool(buf, s.Blocked)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocked", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewBlocked_blocked...)
-	buf = cbor.AppendBool(buf, s.Blocked)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -974,19 +1023,30 @@ func (s *EmbedRecord_ViewDetached) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewDetached_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecord_ViewDetached_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewDetached_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewDetached_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "detached", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewDetached_detached...)
+		buf = cbor.AppendBool(buf, s.Detached)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedRecord_ViewDetached_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewDetached_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecord_ViewDetached_detached...)
+		buf = cbor.AppendBool(buf, s.Detached)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "detached", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewDetached_detached...)
-	buf = cbor.AppendBool(buf, s.Detached)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1188,19 +1248,30 @@ func (s *EmbedRecord_ViewNotFound) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewNotFound_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecord_ViewNotFound_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewNotFound_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewNotFound_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notFound", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewNotFound_notFound...)
+		buf = cbor.AppendBool(buf, s.NotFound)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedRecord_ViewNotFound_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewNotFound_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecord_ViewNotFound_notFound...)
+		buf = cbor.AppendBool(buf, s.NotFound)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notFound", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewNotFound_notFound...)
-	buf = cbor.AppendBool(buf, s.NotFound)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1645,78 +1716,139 @@ func (s *EmbedRecord_ViewRecord) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewRecord_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewRecord_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewRecord_value...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewRecord_author...)
-	{
-		var err error
-		buf, err = s.Author.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embeds", buf)
-	if len(s.Embeds) > 0 {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_embeds...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Embeds)))
-		for _, item := range s.Embeds {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_value...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_author...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Author.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embeds", buf)
+		if len(s.Embeds) > 0 {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_embeds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Embeds)))
+			for _, item := range s.Embeds {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
+		if s.LikeCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_likeCount...)
+			buf = cbor.AppendInt(buf, s.LikeCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quoteCount", buf)
+		if s.QuoteCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_quoteCount...)
+			buf = cbor.AppendInt(buf, s.QuoteCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "replyCount", buf)
+		if s.ReplyCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_replyCount...)
+			buf = cbor.AppendInt(buf, s.ReplyCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostCount", buf)
+		if s.RepostCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_repostCount...)
+			buf = cbor.AppendInt(buf, s.RepostCount.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_value...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_author...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Author.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
+		if len(s.Embeds) > 0 {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_embeds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Embeds)))
+			for _, item := range s.Embeds {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_EmbedRecord_ViewRecord_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.LikeCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_likeCount...)
+			buf = cbor.AppendInt(buf, s.LikeCount.Val())
+		}
+		if s.QuoteCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_quoteCount...)
+			buf = cbor.AppendInt(buf, s.QuoteCount.Val())
+		}
+		if s.ReplyCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_replyCount...)
+			buf = cbor.AppendInt(buf, s.ReplyCount.Val())
+		}
+		if s.RepostCount.HasVal() {
+			buf = append(buf, cborKey_EmbedRecord_ViewRecord_repostCount...)
+			buf = cbor.AppendInt(buf, s.RepostCount.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_EmbedRecord_ViewRecord_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
-	if s.LikeCount.HasVal() {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_likeCount...)
-		buf = cbor.AppendInt(buf, s.LikeCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quoteCount", buf)
-	if s.QuoteCount.HasVal() {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_quoteCount...)
-		buf = cbor.AppendInt(buf, s.QuoteCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "replyCount", buf)
-	if s.ReplyCount.HasVal() {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_replyCount...)
-		buf = cbor.AppendInt(buf, s.ReplyCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostCount", buf)
-	if s.RepostCount.HasVal() {
-		buf = append(buf, cborKey_EmbedRecord_ViewRecord_repostCount...)
-		buf = cbor.AppendInt(buf, s.RepostCount.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

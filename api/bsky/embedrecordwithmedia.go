@@ -191,31 +191,54 @@ func (s *EmbedRecordWithMedia) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecordWithMedia_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "media", buf)
-	buf = append(buf, cborKey_EmbedRecordWithMedia_media...)
-	{
-		var err error
-		buf, err = s.Media.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecordWithMedia_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "media", buf)
+		buf = append(buf, cborKey_EmbedRecordWithMedia_media...)
+		{
+			var err error
+			buf, err = s.Media.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_EmbedRecordWithMedia_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecordWithMedia_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecordWithMedia_media...)
+		{
+			var err error
+			buf, err = s.Media.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_EmbedRecordWithMedia_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_EmbedRecordWithMedia_record...)
-	{
-		var err error
-		buf, err = s.Record.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -573,31 +596,54 @@ func (s *EmbedRecordWithMedia_View) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedRecordWithMedia_View_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "media", buf)
-	buf = append(buf, cborKey_EmbedRecordWithMedia_View_media...)
-	{
-		var err error
-		buf, err = s.Media.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecordWithMedia_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "media", buf)
+		buf = append(buf, cborKey_EmbedRecordWithMedia_View_media...)
+		{
+			var err error
+			buf, err = s.Media.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_EmbedRecordWithMedia_View_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedRecordWithMedia_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedRecordWithMedia_View_media...)
+		{
+			var err error
+			buf, err = s.Media.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_EmbedRecordWithMedia_View_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_EmbedRecordWithMedia_View_record...)
-	{
-		var err error
-		buf, err = s.Record.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

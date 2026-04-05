@@ -155,40 +155,71 @@ func (s *ModerationGetActorMetadata_Output) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "all", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Output_all...)
-	{
-		var err error
-		buf, err = s.All.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "all", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_all...)
+		{
+			var err error
+			buf, err = s.All.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "day", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_day...)
+		{
+			var err error
+			buf, err = s.Day.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetActorMetadata_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "month", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_month...)
+		{
+			var err error
+			buf, err = s.Month.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_all...)
+		{
+			var err error
+			buf, err = s.All.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_day...)
+		{
+			var err error
+			buf, err = s.Day.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetActorMetadata_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_month...)
+		{
+			var err error
+			buf, err = s.Month.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "day", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Output_day...)
-	{
-		var err error
-		buf, err = s.Day.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "month", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Output_month...)
-	{
-		var err error
-		buf, err = s.Month.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -311,25 +342,40 @@ func (s *ModerationGetActorMetadata_Metadata) AppendCBOR(buf []byte) ([]byte, er
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convos", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convos...)
+		buf = cbor.AppendInt(buf, s.Convos)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messagesSent", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesSent...)
+		buf = cbor.AppendInt(buf, s.MessagesSent)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convosStarted", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convosStarted...)
+		buf = cbor.AppendInt(buf, s.ConvosStarted)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messagesReceived", buf)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesReceived...)
+		buf = cbor.AppendInt(buf, s.MessagesReceived)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convos...)
+		buf = cbor.AppendInt(buf, s.Convos)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesSent...)
+		buf = cbor.AppendInt(buf, s.MessagesSent)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convosStarted...)
+		buf = cbor.AppendInt(buf, s.ConvosStarted)
+		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesReceived...)
+		buf = cbor.AppendInt(buf, s.MessagesReceived)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convos", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convos...)
-	buf = cbor.AppendInt(buf, s.Convos)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messagesSent", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesSent...)
-	buf = cbor.AppendInt(buf, s.MessagesSent)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convosStarted", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convosStarted...)
-	buf = cbor.AppendInt(buf, s.ConvosStarted)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messagesReceived", buf)
-	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesReceived...)
-	buf = cbor.AppendInt(buf, s.MessagesReceived)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

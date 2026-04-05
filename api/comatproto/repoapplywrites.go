@@ -47,24 +47,39 @@ func (s *RepoApplyWrites_Create) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
-	if s.Rkey.HasVal() {
-		buf = append(buf, cborKey_RepoApplyWrites_Create_rkey...)
-		buf = cbor.AppendText(buf, s.Rkey.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		if s.Rkey.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Create_rkey...)
+			buf = cbor.AppendText(buf, s.Rkey.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Create_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Create_value...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Create_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Rkey.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Create_rkey...)
+			buf = cbor.AppendText(buf, s.Rkey.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Create_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoApplyWrites_Create_value...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Create_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_Create_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Create_value...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Create_collection...)
-	buf = cbor.AppendText(buf, s.Collection)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -309,24 +324,39 @@ func (s *RepoApplyWrites_CreateResult) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_CreateResult_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_CreateResult_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_CreateResult_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validationStatus", buf)
+		if s.ValidationStatus.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_CreateResult_validationStatus...)
+			buf = cbor.AppendText(buf, s.ValidationStatus.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_CreateResult_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.ValidationStatus.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_CreateResult_validationStatus...)
+			buf = cbor.AppendText(buf, s.ValidationStatus.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validationStatus", buf)
-	if s.ValidationStatus.HasVal() {
-		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_validationStatus...)
-		buf = cbor.AppendText(buf, s.ValidationStatus.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -564,19 +594,30 @@ func (s *RepoApplyWrites_Delete) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Delete_rkey...)
-	buf = cbor.AppendText(buf, s.Rkey)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_Delete_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Delete_rkey...)
+		buf = cbor.AppendText(buf, s.Rkey)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Delete_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Delete_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoApplyWrites_Delete_rkey...)
+		buf = cbor.AppendText(buf, s.Rkey)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Delete_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoApplyWrites_Delete_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Delete_collection...)
-	buf = cbor.AppendText(buf, s.Collection)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -774,13 +815,20 @@ func (s *RepoApplyWrites_DeleteResult) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_DeleteResult_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_DeleteResult_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_DeleteResult_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1083,39 +1131,70 @@ func (s *RepoApplyWrites_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
-	if s.Commit.HasVal() {
-		buf = append(buf, cborKey_RepoApplyWrites_Output_commit...)
-		{
-			v := s.Commit.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
+		if s.Commit.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Output_commit...)
 			{
+				v := s.Commit.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "results", buf)
+		if len(s.Results) > 0 {
+			buf = append(buf, cborKey_RepoApplyWrites_Output_results...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Results)))
+			for _, item := range s.Results {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Commit.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Output_commit...)
+			{
+				v := s.Commit.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if len(s.Results) > 0 {
+			buf = append(buf, cborKey_RepoApplyWrites_Output_results...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Results)))
+			for _, item := range s.Results {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "results", buf)
-	if len(s.Results) > 0 {
-		buf = append(buf, cborKey_RepoApplyWrites_Output_results...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Results)))
-		for _, item := range s.Results {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1556,36 +1635,62 @@ func (s *RepoApplyWrites_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Input_repo...)
-	buf = cbor.AppendText(buf, s.Repo)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "writes", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Input_writes...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Writes)))
-	for _, item := range s.Writes {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Input_repo...)
+		buf = cbor.AppendText(buf, s.Repo)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "writes", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Input_writes...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Writes)))
+		for _, item := range s.Writes {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validate", buf)
+		if s.Validate.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Input_validate...)
+			buf = cbor.AppendBool(buf, s.Validate.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapCommit", buf)
+		if s.SwapCommit.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Input_swapCommit...)
+			buf = cbor.AppendText(buf, s.SwapCommit.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoApplyWrites_Input_repo...)
+		buf = cbor.AppendText(buf, s.Repo)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoApplyWrites_Input_writes...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Writes)))
+		for _, item := range s.Writes {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Validate.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Input_validate...)
+			buf = cbor.AppendBool(buf, s.Validate.Val())
+		}
+		if s.SwapCommit.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_Input_swapCommit...)
+			buf = cbor.AppendText(buf, s.SwapCommit.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validate", buf)
-	if s.Validate.HasVal() {
-		buf = append(buf, cborKey_RepoApplyWrites_Input_validate...)
-		buf = cbor.AppendBool(buf, s.Validate.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapCommit", buf)
-	if s.SwapCommit.HasVal() {
-		buf = append(buf, cborKey_RepoApplyWrites_Input_swapCommit...)
-		buf = cbor.AppendText(buf, s.SwapCommit.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1900,22 +2005,35 @@ func (s *RepoApplyWrites_Update) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Update_rkey...)
-	buf = cbor.AppendText(buf, s.Rkey)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_Update_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Update_rkey...)
+		buf = cbor.AppendText(buf, s.Rkey)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Update_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Update_value...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Update_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoApplyWrites_Update_rkey...)
+		buf = cbor.AppendText(buf, s.Rkey)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_Update_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoApplyWrites_Update_value...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_RepoApplyWrites_Update_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Update_value...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_Update_collection...)
-	buf = cbor.AppendText(buf, s.Collection)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2143,24 +2261,39 @@ func (s *RepoApplyWrites_UpdateResult) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validationStatus", buf)
+		if s.ValidationStatus.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_validationStatus...)
+			buf = cbor.AppendText(buf, s.ValidationStatus.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.ValidationStatus.HasVal() {
+			buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_validationStatus...)
+			buf = cbor.AppendText(buf, s.ValidationStatus.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validationStatus", buf)
-	if s.ValidationStatus.HasVal() {
-		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_validationStatus...)
-		buf = cbor.AppendText(buf, s.ValidationStatus.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

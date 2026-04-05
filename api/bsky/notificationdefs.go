@@ -35,19 +35,30 @@ func (s *NotificationDefs_ActivitySubscription) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
-	buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_post...)
-	buf = cbor.AppendBool(buf, s.Post)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
+		buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_post...)
+		buf = cbor.AppendBool(buf, s.Post)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reply", buf)
+		buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_reply...)
+		buf = cbor.AppendBool(buf, s.Reply)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_post...)
+		buf = cbor.AppendBool(buf, s.Post)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_reply...)
+		buf = cbor.AppendBool(buf, s.Reply)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reply", buf)
-	buf = append(buf, cborKey_NotificationDefs_ActivitySubscription_reply...)
-	buf = cbor.AppendBool(buf, s.Reply)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -240,19 +251,30 @@ func (s *NotificationDefs_ChatPreference) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "push", buf)
-	buf = append(buf, cborKey_NotificationDefs_ChatPreference_push...)
-	buf = cbor.AppendBool(buf, s.Push)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_ChatPreference_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "push", buf)
+		buf = append(buf, cborKey_NotificationDefs_ChatPreference_push...)
+		buf = cbor.AppendBool(buf, s.Push)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_ChatPreference_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "include", buf)
+		buf = append(buf, cborKey_NotificationDefs_ChatPreference_include...)
+		buf = cbor.AppendText(buf, s.Include)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationDefs_ChatPreference_push...)
+		buf = cbor.AppendBool(buf, s.Push)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_ChatPreference_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationDefs_ChatPreference_include...)
+		buf = cbor.AppendText(buf, s.Include)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "include", buf)
-	buf = append(buf, cborKey_NotificationDefs_ChatPreference_include...)
-	buf = cbor.AppendText(buf, s.Include)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -456,22 +478,35 @@ func (s *NotificationDefs_FilterablePreference) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
-	buf = append(buf, cborKey_NotificationDefs_FilterablePreference_list...)
-	buf = cbor.AppendBool(buf, s.List)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "push", buf)
-	buf = append(buf, cborKey_NotificationDefs_FilterablePreference_push...)
-	buf = cbor.AppendBool(buf, s.Push)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
+		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_list...)
+		buf = cbor.AppendBool(buf, s.List)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "push", buf)
+		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_push...)
+		buf = cbor.AppendBool(buf, s.Push)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_FilterablePreference_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "include", buf)
+		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_include...)
+		buf = cbor.AppendText(buf, s.Include)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_list...)
+		buf = cbor.AppendBool(buf, s.List)
+		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_push...)
+		buf = cbor.AppendBool(buf, s.Push)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_FilterablePreference_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationDefs_FilterablePreference_include...)
+		buf = cbor.AppendText(buf, s.Include)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "include", buf)
-	buf = append(buf, cborKey_NotificationDefs_FilterablePreference_include...)
-	buf = cbor.AppendText(buf, s.Include)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -690,19 +725,30 @@ func (s *NotificationDefs_Preference) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preference_list...)
-	buf = cbor.AppendBool(buf, s.List)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "push", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preference_push...)
-	buf = cbor.AppendBool(buf, s.Push)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_Preference_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preference_list...)
+		buf = cbor.AppendBool(buf, s.List)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "push", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preference_push...)
+		buf = cbor.AppendBool(buf, s.Push)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_Preference_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationDefs_Preference_list...)
+		buf = cbor.AppendBool(buf, s.List)
+		buf = append(buf, cborKey_NotificationDefs_Preference_push...)
+		buf = cbor.AppendBool(buf, s.Push)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_Preference_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -917,130 +963,241 @@ func (s *NotificationDefs_Preferences) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_chat...)
-	{
-		var err error
-		buf, err = s.Chat.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_chat...)
+		{
+			var err error
+			buf, err = s.Chat.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "like", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_like...)
+		{
+			var err error
+			buf, err = s.Like.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_Preferences_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quote", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_quote...)
+		{
+			var err error
+			buf, err = s.Quote.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reply", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_reply...)
+		{
+			var err error
+			buf, err = s.Reply.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "follow", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_follow...)
+		{
+			var err error
+			buf, err = s.Follow.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repost", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_repost...)
+		{
+			var err error
+			buf, err = s.Repost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mention", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_mention...)
+		{
+			var err error
+			buf, err = s.Mention.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verified", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_verified...)
+		{
+			var err error
+			buf, err = s.Verified.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "unverified", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_unverified...)
+		{
+			var err error
+			buf, err = s.Unverified.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeViaRepost", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_likeViaRepost...)
+		{
+			var err error
+			buf, err = s.LikeViaRepost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subscribedPost", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_subscribedPost...)
+		{
+			var err error
+			buf, err = s.SubscribedPost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostViaRepost", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_repostViaRepost...)
+		{
+			var err error
+			buf, err = s.RepostViaRepost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterpackJoined", buf)
+		buf = append(buf, cborKey_NotificationDefs_Preferences_starterpackJoined...)
+		{
+			var err error
+			buf, err = s.StarterpackJoined.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationDefs_Preferences_chat...)
+		{
+			var err error
+			buf, err = s.Chat.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_like...)
+		{
+			var err error
+			buf, err = s.Like.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_Preferences_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_quote...)
+		{
+			var err error
+			buf, err = s.Quote.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_reply...)
+		{
+			var err error
+			buf, err = s.Reply.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_follow...)
+		{
+			var err error
+			buf, err = s.Follow.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_repost...)
+		{
+			var err error
+			buf, err = s.Repost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_mention...)
+		{
+			var err error
+			buf, err = s.Mention.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_verified...)
+		{
+			var err error
+			buf, err = s.Verified.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_unverified...)
+		{
+			var err error
+			buf, err = s.Unverified.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_likeViaRepost...)
+		{
+			var err error
+			buf, err = s.LikeViaRepost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_subscribedPost...)
+		{
+			var err error
+			buf, err = s.SubscribedPost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_repostViaRepost...)
+		{
+			var err error
+			buf, err = s.RepostViaRepost.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationDefs_Preferences_starterpackJoined...)
+		{
+			var err error
+			buf, err = s.StarterpackJoined.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "like", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_like...)
-	{
-		var err error
-		buf, err = s.Like.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_Preferences_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quote", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_quote...)
-	{
-		var err error
-		buf, err = s.Quote.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reply", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_reply...)
-	{
-		var err error
-		buf, err = s.Reply.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "follow", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_follow...)
-	{
-		var err error
-		buf, err = s.Follow.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repost", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_repost...)
-	{
-		var err error
-		buf, err = s.Repost.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mention", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_mention...)
-	{
-		var err error
-		buf, err = s.Mention.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verified", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_verified...)
-	{
-		var err error
-		buf, err = s.Verified.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "unverified", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_unverified...)
-	{
-		var err error
-		buf, err = s.Unverified.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeViaRepost", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_likeViaRepost...)
-	{
-		var err error
-		buf, err = s.LikeViaRepost.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subscribedPost", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_subscribedPost...)
-	{
-		var err error
-		buf, err = s.SubscribedPost.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostViaRepost", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_repostViaRepost...)
-	{
-		var err error
-		buf, err = s.RepostViaRepost.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterpackJoined", buf)
-	buf = append(buf, cborKey_NotificationDefs_Preferences_starterpackJoined...)
-	{
-		var err error
-		buf, err = s.StarterpackJoined.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1566,13 +1723,20 @@ func (s *NotificationDefs_RecordDeleted) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_RecordDeleted_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_RecordDeleted_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_RecordDeleted_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1724,25 +1888,42 @@ func (s *NotificationDefs_SubjectActivitySubscription) AppendCBOR(buf []byte) ([
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
-	buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_activitySubscription...)
-	{
-		var err error
-		buf, err = s.ActivitySubscription.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
+		buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_activitySubscription...)
+		{
+			var err error
+			buf, err = s.ActivitySubscription.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		buf = append(buf, cborKey_NotificationDefs_SubjectActivitySubscription_activitySubscription...)
+		{
+			var err error
+			buf, err = s.ActivitySubscription.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

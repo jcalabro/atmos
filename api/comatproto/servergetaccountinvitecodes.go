@@ -149,23 +149,39 @@ func (s *ServerGetAccountInviteCodes_Output) AppendCBOR(buf []byte) ([]byte, err
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerGetAccountInviteCodes_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "codes", buf)
-	buf = append(buf, cborKey_ServerGetAccountInviteCodes_Output_codes...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Codes)))
-	for _, item := range s.Codes {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetAccountInviteCodes_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "codes", buf)
+		buf = append(buf, cborKey_ServerGetAccountInviteCodes_Output_codes...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Codes)))
+		for _, item := range s.Codes {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetAccountInviteCodes_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ServerGetAccountInviteCodes_Output_codes...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Codes)))
+		for _, item := range s.Codes {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

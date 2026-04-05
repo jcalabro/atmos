@@ -172,28 +172,48 @@ func (s *GraphGetStarterPacksWithMembership_Output) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPacksWithMembership", buf)
-	buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_starterPacksWithMembership...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.StarterPacksWithMembership)))
-	for _, item := range s.StarterPacksWithMembership {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPacksWithMembership", buf)
+		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_starterPacksWithMembership...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.StarterPacksWithMembership)))
+		for _, item := range s.StarterPacksWithMembership {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_starterPacksWithMembership...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.StarterPacksWithMembership)))
+		for _, item := range s.StarterPacksWithMembership {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -344,36 +364,64 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) AppendCBO
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItem", buf)
-	if s.ListItem.HasVal() {
-		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_listItem...)
-		{
-			v := s.ListItem.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItem", buf)
+		if s.ListItem.HasVal() {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_listItem...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.ListItem.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPack", buf)
-	buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_starterPack...)
-	{
-		var err error
-		buf, err = s.StarterPack.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPack", buf)
+		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_starterPack...)
+		{
+			var err error
+			buf, err = s.StarterPack.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.ListItem.HasVal() {
+			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_listItem...)
+			{
+				v := s.ListItem.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_starterPack...)
+		{
+			var err error
+			buf, err = s.StarterPack.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

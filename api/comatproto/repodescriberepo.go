@@ -197,31 +197,51 @@ func (s *RepoDescribeRepo_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_RepoDescribeRepo_Output_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoDescribeRepo_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoDescribeRepo_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_didDoc...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collections", buf)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_collections...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Collections)))
+		for _, item := range s.Collections {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handleIsCorrect", buf)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_handleIsCorrect...)
+		buf = cbor.AppendBool(buf, s.HandleIsCorrect)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoDescribeRepo_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_didDoc...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_collections...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Collections)))
+		for _, item := range s.Collections {
+			buf = cbor.AppendText(buf, item)
+		}
+		buf = append(buf, cborKey_RepoDescribeRepo_Output_handleIsCorrect...)
+		buf = cbor.AppendBool(buf, s.HandleIsCorrect)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
-	buf = append(buf, cborKey_RepoDescribeRepo_Output_didDoc...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_RepoDescribeRepo_Output_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collections", buf)
-	buf = append(buf, cborKey_RepoDescribeRepo_Output_collections...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Collections)))
-	for _, item := range s.Collections {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handleIsCorrect", buf)
-	buf = append(buf, cborKey_RepoDescribeRepo_Output_handleIsCorrect...)
-	buf = cbor.AppendBool(buf, s.HandleIsCorrect)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -41,21 +41,34 @@ func (s *LabelSubscribeLabels_Info) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_LabelSubscribeLabels_Info_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelSubscribeLabels_Info_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_LabelSubscribeLabels_Info_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelSubscribeLabels_Info_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_LabelSubscribeLabels_Info_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelSubscribeLabels_Info_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelSubscribeLabels_Info_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_LabelSubscribeLabels_Info_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	if s.Message.HasVal() {
-		buf = append(buf, cborKey_LabelSubscribeLabels_Info_message...)
-		buf = cbor.AppendText(buf, s.Message.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -274,26 +287,44 @@ func (s *LabelSubscribeLabels_Labels) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
-	buf = append(buf, cborKey_LabelSubscribeLabels_Labels_seq...)
-	buf = cbor.AppendInt(buf, s.Seq)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelSubscribeLabels_Labels_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	buf = append(buf, cborKey_LabelSubscribeLabels_Labels_labels...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-	for _, item := range s.Labels {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		buf = append(buf, cborKey_LabelSubscribeLabels_Labels_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelSubscribeLabels_Labels_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		buf = append(buf, cborKey_LabelSubscribeLabels_Labels_labels...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+		for _, item := range s.Labels {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelSubscribeLabels_Labels_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelSubscribeLabels_Labels_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_LabelSubscribeLabels_Labels_labels...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+		for _, item := range s.Labels {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

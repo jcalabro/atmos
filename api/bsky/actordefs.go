@@ -37,16 +37,25 @@ func (s *ActorDefs_AdultContentPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_AdultContentPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_AdultContentPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "enabled", buf)
+		buf = append(buf, cborKey_ActorDefs_AdultContentPref_enabled...)
+		buf = cbor.AppendBool(buf, s.Enabled)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_AdultContentPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_AdultContentPref_enabled...)
+		buf = cbor.AppendBool(buf, s.Enabled)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "enabled", buf)
-	buf = append(buf, cborKey_ActorDefs_AdultContentPref_enabled...)
-	buf = cbor.AppendBool(buf, s.Enabled)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -222,16 +231,25 @@ func (s *ActorDefs_BskyAppProgressGuide) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "guide", buf)
+		buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_guide...)
+		buf = cbor.AppendText(buf, s.Guide)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_guide...)
+		buf = cbor.AppendText(buf, s.Guide)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "guide", buf)
-	buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_guide...)
-	buf = cbor.AppendText(buf, s.Guide)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -411,47 +429,85 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "nuxs", buf)
-	if len(s.Nuxs) > 0 {
-		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_nuxs...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Nuxs)))
-		for _, item := range s.Nuxs {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "queuedNudges", buf)
-	if len(s.QueuedNudges) > 0 {
-		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_queuedNudges...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.QueuedNudges)))
-		for _, item := range s.QueuedNudges {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activeProgressGuide", buf)
-	if s.ActiveProgressGuide.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_activeProgressGuide...)
-		{
-			v := s.ActiveProgressGuide.Val()
-			{
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "nuxs", buf)
+		if len(s.Nuxs) > 0 {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_nuxs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Nuxs)))
+			for _, item := range s.Nuxs {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "queuedNudges", buf)
+		if len(s.QueuedNudges) > 0 {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_queuedNudges...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.QueuedNudges)))
+			for _, item := range s.QueuedNudges {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activeProgressGuide", buf)
+		if s.ActiveProgressGuide.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_activeProgressGuide...)
+			{
+				v := s.ActiveProgressGuide.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if len(s.Nuxs) > 0 {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_nuxs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Nuxs)))
+			for _, item := range s.Nuxs {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.QueuedNudges) > 0 {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_queuedNudges...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.QueuedNudges)))
+			for _, item := range s.QueuedNudges {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if s.ActiveProgressGuide.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_activeProgressGuide...)
+			{
+				v := s.ActiveProgressGuide.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -796,24 +852,39 @@ func (s *ActorDefs_ContentLabelPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ContentLabelPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "label", buf)
+		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_label...)
+		buf = cbor.AppendText(buf, s.Label)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelerDid", buf)
+		if s.LabelerDid.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ContentLabelPref_labelerDid...)
+			buf = cbor.AppendText(buf, s.LabelerDid.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "visibility", buf)
+		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_visibility...)
+		buf = cbor.AppendText(buf, s.Visibility)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ContentLabelPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_label...)
+		buf = cbor.AppendText(buf, s.Label)
+		if s.LabelerDid.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ContentLabelPref_labelerDid...)
+			buf = cbor.AppendText(buf, s.LabelerDid.Val())
+		}
+		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_visibility...)
+		buf = cbor.AppendText(buf, s.Visibility)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "label", buf)
-	buf = append(buf, cborKey_ActorDefs_ContentLabelPref_label...)
-	buf = cbor.AppendText(buf, s.Label)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelerDid", buf)
-	if s.LabelerDid.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_labelerDid...)
-		buf = cbor.AppendText(buf, s.LabelerDid.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "visibility", buf)
-	buf = append(buf, cborKey_ActorDefs_ContentLabelPref_visibility...)
-	buf = cbor.AppendText(buf, s.Visibility)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1053,28 +1124,47 @@ func (s *ActorDefs_DeclaredAgePref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge13", buf)
+		if s.IsOverAge13.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge13...)
+			buf = cbor.AppendBool(buf, s.IsOverAge13.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge16", buf)
+		if s.IsOverAge16.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge16...)
+			buf = cbor.AppendBool(buf, s.IsOverAge16.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge18", buf)
+		if s.IsOverAge18.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge18...)
+			buf = cbor.AppendBool(buf, s.IsOverAge18.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.IsOverAge13.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge13...)
+			buf = cbor.AppendBool(buf, s.IsOverAge13.Val())
+		}
+		if s.IsOverAge16.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge16...)
+			buf = cbor.AppendBool(buf, s.IsOverAge16.Val())
+		}
+		if s.IsOverAge18.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge18...)
+			buf = cbor.AppendBool(buf, s.IsOverAge18.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge13", buf)
-	if s.IsOverAge13.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge13...)
-		buf = cbor.AppendBool(buf, s.IsOverAge13.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge16", buf)
-	if s.IsOverAge16.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge16...)
-		buf = cbor.AppendBool(buf, s.IsOverAge16.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge18", buf)
-	if s.IsOverAge18.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge18...)
-		buf = cbor.AppendBool(buf, s.IsOverAge18.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1358,41 +1448,70 @@ func (s *ActorDefs_FeedViewPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feed", buf)
-	buf = append(buf, cborKey_ActorDefs_FeedViewPref_feed...)
-	buf = cbor.AppendText(buf, s.Feed)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_FeedViewPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feed", buf)
+		buf = append(buf, cborKey_ActorDefs_FeedViewPref_feed...)
+		buf = cbor.AppendText(buf, s.Feed)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideReplies", buf)
+		if s.HideReplies.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReplies...)
+			buf = cbor.AppendBool(buf, s.HideReplies.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideReposts", buf)
+		if s.HideReposts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReposts...)
+			buf = cbor.AppendBool(buf, s.HideReposts.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideQuotePosts", buf)
+		if s.HideQuotePosts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideQuotePosts...)
+			buf = cbor.AppendBool(buf, s.HideQuotePosts.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideRepliesByLikeCount", buf)
+		if s.HideRepliesByLikeCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByLikeCount...)
+			buf = cbor.AppendInt(buf, s.HideRepliesByLikeCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideRepliesByUnfollowed", buf)
+		if s.HideRepliesByUnfollowed.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByUnfollowed...)
+			buf = cbor.AppendBool(buf, s.HideRepliesByUnfollowed.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_FeedViewPref_feed...)
+		buf = cbor.AppendText(buf, s.Feed)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.HideReplies.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReplies...)
+			buf = cbor.AppendBool(buf, s.HideReplies.Val())
+		}
+		if s.HideReposts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReposts...)
+			buf = cbor.AppendBool(buf, s.HideReposts.Val())
+		}
+		if s.HideQuotePosts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideQuotePosts...)
+			buf = cbor.AppendBool(buf, s.HideQuotePosts.Val())
+		}
+		if s.HideRepliesByLikeCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByLikeCount...)
+			buf = cbor.AppendInt(buf, s.HideRepliesByLikeCount.Val())
+		}
+		if s.HideRepliesByUnfollowed.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByUnfollowed...)
+			buf = cbor.AppendBool(buf, s.HideRepliesByUnfollowed.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideReplies", buf)
-	if s.HideReplies.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReplies...)
-		buf = cbor.AppendBool(buf, s.HideReplies.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideReposts", buf)
-	if s.HideReposts.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReposts...)
-		buf = cbor.AppendBool(buf, s.HideReposts.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideQuotePosts", buf)
-	if s.HideQuotePosts.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideQuotePosts...)
-		buf = cbor.AppendBool(buf, s.HideQuotePosts.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideRepliesByLikeCount", buf)
-	if s.HideRepliesByLikeCount.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByLikeCount...)
-		buf = cbor.AppendInt(buf, s.HideRepliesByLikeCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideRepliesByUnfollowed", buf)
-	if s.HideRepliesByUnfollowed.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByUnfollowed...)
-		buf = cbor.AppendBool(buf, s.HideRepliesByUnfollowed.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1772,19 +1891,31 @@ func (s *ActorDefs_HiddenPostsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
+		buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for _, item := range s.Items {
+			buf = cbor.AppendText(buf, item)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for _, item := range s.Items {
+			buf = cbor.AppendText(buf, item)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
-	buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_items...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
-	for _, item := range s.Items {
-		buf = cbor.AppendText(buf, item)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1988,19 +2119,31 @@ func (s *ActorDefs_InterestsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tags", buf)
-	buf = append(buf, cborKey_ActorDefs_InterestsPref_tags...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Tags)))
-	for _, item := range s.Tags {
-		buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tags", buf)
+		buf = append(buf, cborKey_ActorDefs_InterestsPref_tags...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Tags)))
+		for _, item := range s.Tags {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_InterestsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_InterestsPref_tags...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Tags)))
+		for _, item := range s.Tags {
+			buf = cbor.AppendText(buf, item)
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_InterestsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_InterestsPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2217,26 +2360,44 @@ func (s *ActorDefs_KnownFollowers) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_KnownFollowers_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "count", buf)
-	buf = append(buf, cborKey_ActorDefs_KnownFollowers_count...)
-	buf = cbor.AppendInt(buf, s.Count)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followers", buf)
-	buf = append(buf, cborKey_ActorDefs_KnownFollowers_followers...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Followers)))
-	for _, item := range s.Followers {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_KnownFollowers_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "count", buf)
+		buf = append(buf, cborKey_ActorDefs_KnownFollowers_count...)
+		buf = cbor.AppendInt(buf, s.Count)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followers", buf)
+		buf = append(buf, cborKey_ActorDefs_KnownFollowers_followers...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Followers)))
+		for _, item := range s.Followers {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_KnownFollowers_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_KnownFollowers_count...)
+		buf = cbor.AppendInt(buf, s.Count)
+		buf = append(buf, cborKey_ActorDefs_KnownFollowers_followers...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Followers)))
+		for _, item := range s.Followers {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2470,16 +2631,25 @@ func (s *ActorDefs_LabelerPrefItem) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2653,23 +2823,39 @@ func (s *ActorDefs_LabelersPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_LabelersPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelers", buf)
-	buf = append(buf, cborKey_ActorDefs_LabelersPref_labelers...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labelers)))
-	for _, item := range s.Labelers {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_LabelersPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelers", buf)
+		buf = append(buf, cborKey_ActorDefs_LabelersPref_labelers...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labelers)))
+		for _, item := range s.Labelers {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_LabelersPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_LabelersPref_labelers...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labelers)))
+		for _, item := range s.Labelers {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2896,26 +3082,44 @@ func (s *ActorDefs_LiveEventPreferences) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideAllFeeds", buf)
-	if s.HideAllFeeds.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hideAllFeeds...)
-		buf = cbor.AppendBool(buf, s.HideAllFeeds.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenFeedIds", buf)
-	if len(s.HiddenFeedIds) > 0 {
-		buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hiddenFeedIds...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenFeedIds)))
-		for _, item := range s.HiddenFeedIds {
-			buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideAllFeeds", buf)
+		if s.HideAllFeeds.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hideAllFeeds...)
+			buf = cbor.AppendBool(buf, s.HideAllFeeds.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenFeedIds", buf)
+		if len(s.HiddenFeedIds) > 0 {
+			buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hiddenFeedIds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenFeedIds)))
+			for _, item := range s.HiddenFeedIds {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.HideAllFeeds.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hideAllFeeds...)
+			buf = cbor.AppendBool(buf, s.HideAllFeeds.Val())
+		}
+		if len(s.HiddenFeedIds) > 0 {
+			buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hiddenFeedIds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenFeedIds)))
+			for _, item := range s.HiddenFeedIds {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3192,37 +3396,63 @@ func (s *ActorDefs_MutedWord) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	if s.Id.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_MutedWord_id...)
-		buf = cbor.AppendText(buf, s.Id.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		if s.Id.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_id...)
+			buf = cbor.AppendText(buf, s.Id.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_ActorDefs_MutedWord_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "targets", buf)
+		buf = append(buf, cborKey_ActorDefs_MutedWord_targets...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Targets)))
+		for _, item := range s.Targets {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
+		if s.ExpiresAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_expiresAt...)
+			buf = cbor.AppendText(buf, s.ExpiresAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actorTarget", buf)
+		if s.ActorTarget.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_actorTarget...)
+			buf = cbor.AppendText(buf, s.ActorTarget.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Id.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_id...)
+			buf = cbor.AppendText(buf, s.Id.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_MutedWord_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		buf = append(buf, cborKey_ActorDefs_MutedWord_targets...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Targets)))
+		for _, item := range s.Targets {
+			buf = cbor.AppendText(buf, item)
+		}
+		if s.ExpiresAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_expiresAt...)
+			buf = cbor.AppendText(buf, s.ExpiresAt.Val())
+		}
+		if s.ActorTarget.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_MutedWord_actorTarget...)
+			buf = cbor.AppendText(buf, s.ActorTarget.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_MutedWord_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_ActorDefs_MutedWord_value...)
-	buf = cbor.AppendText(buf, s.Value)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "targets", buf)
-	buf = append(buf, cborKey_ActorDefs_MutedWord_targets...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Targets)))
-	for _, item := range s.Targets {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
-	if s.ExpiresAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_MutedWord_expiresAt...)
-		buf = cbor.AppendText(buf, s.ExpiresAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actorTarget", buf)
-	if s.ActorTarget.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_MutedWord_actorTarget...)
-		buf = cbor.AppendText(buf, s.ActorTarget.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3590,23 +3820,39 @@ func (s *ActorDefs_MutedWordsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_MutedWordsPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
-	buf = append(buf, cborKey_ActorDefs_MutedWordsPref_items...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
-	for _, item := range s.Items {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_MutedWordsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
+		buf = append(buf, cborKey_ActorDefs_MutedWordsPref_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for _, item := range s.Items {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_MutedWordsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_MutedWordsPref_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for _, item := range s.Items {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3828,29 +4074,48 @@ func (s *ActorDefs_Nux) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_ActorDefs_Nux_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "data", buf)
-	if s.Data.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_Nux_data...)
-		buf = cbor.AppendText(buf, s.Data.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_ActorDefs_Nux_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "data", buf)
+		if s.Data.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_Nux_data...)
+			buf = cbor.AppendText(buf, s.Data.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_Nux_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completed", buf)
+		buf = append(buf, cborKey_ActorDefs_Nux_completed...)
+		buf = cbor.AppendBool(buf, s.Completed)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
+		if s.ExpiresAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_Nux_expiresAt...)
+			buf = cbor.AppendText(buf, s.ExpiresAt.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_Nux_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		if s.Data.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_Nux_data...)
+			buf = cbor.AppendText(buf, s.Data.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_Nux_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_Nux_completed...)
+		buf = cbor.AppendBool(buf, s.Completed)
+		if s.ExpiresAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_Nux_expiresAt...)
+			buf = cbor.AppendText(buf, s.ExpiresAt.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_Nux_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completed", buf)
-	buf = append(buf, cborKey_ActorDefs_Nux_completed...)
-	buf = cbor.AppendBool(buf, s.Completed)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
-	if s.ExpiresAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_Nux_expiresAt...)
-		buf = cbor.AppendText(buf, s.ExpiresAt.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -4130,18 +4395,29 @@ func (s *ActorDefs_PersonalDetailsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "birthDate", buf)
+		if s.BirthDate.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_birthDate...)
+			buf = cbor.AppendText(buf, s.BirthDate.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.BirthDate.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_birthDate...)
+			buf = cbor.AppendText(buf, s.BirthDate.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "birthDate", buf)
-	if s.BirthDate.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_birthDate...)
-		buf = cbor.AppendText(buf, s.BirthDate.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -4621,37 +4897,66 @@ func (s *ActorDefs_PostInteractionSettingsPref) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgateAllowRules", buf)
-	if len(s.ThreadgateAllowRules) > 0 {
-		buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_threadgateAllowRules...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllowRules)))
-		for _, item := range s.ThreadgateAllowRules {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgateAllowRules", buf)
+		if len(s.ThreadgateAllowRules) > 0 {
+			buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_threadgateAllowRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllowRules)))
+			for _, item := range s.ThreadgateAllowRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postgateEmbeddingRules", buf)
+		if len(s.PostgateEmbeddingRules) > 0 {
+			buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_postgateEmbeddingRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
+			for _, item := range s.PostgateEmbeddingRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.ThreadgateAllowRules) > 0 {
+			buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_threadgateAllowRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllowRules)))
+			for _, item := range s.ThreadgateAllowRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.PostgateEmbeddingRules) > 0 {
+			buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_postgateEmbeddingRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
+			for _, item := range s.PostgateEmbeddingRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postgateEmbeddingRules", buf)
-	if len(s.PostgateEmbeddingRules) > 0 {
-		buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_postgateEmbeddingRules...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
-		for _, item := range s.PostgateEmbeddingRules {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5481,75 +5786,137 @@ func (s *ActorDefs_ProfileAssociated) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
-	if s.Chat.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_chat...)
-		{
-			v := s.Chat.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
+		if s.Chat.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_chat...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Chat.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "germ", buf)
+		if s.Germ.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_germ...)
+			{
+				v := s.Germ.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lists", buf)
+		if s.Lists.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_lists...)
+			buf = cbor.AppendInt(buf, s.Lists.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labeler", buf)
+		if s.Labeler.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_labeler...)
+			buf = cbor.AppendBool(buf, s.Labeler.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feedgens", buf)
+		if s.Feedgens.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_feedgens...)
+			buf = cbor.AppendInt(buf, s.Feedgens.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPacks", buf)
+		if s.StarterPacks.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_starterPacks...)
+			buf = cbor.AppendInt(buf, s.StarterPacks.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
+		if s.ActivitySubscription.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_activitySubscription...)
+			{
+				v := s.ActivitySubscription.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Chat.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_chat...)
+			{
+				v := s.Chat.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Germ.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_germ...)
+			{
+				v := s.Germ.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Lists.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_lists...)
+			buf = cbor.AppendInt(buf, s.Lists.Val())
+		}
+		if s.Labeler.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_labeler...)
+			buf = cbor.AppendBool(buf, s.Labeler.Val())
+		}
+		if s.Feedgens.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_feedgens...)
+			buf = cbor.AppendInt(buf, s.Feedgens.Val())
+		}
+		if s.StarterPacks.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_starterPacks...)
+			buf = cbor.AppendInt(buf, s.StarterPacks.Val())
+		}
+		if s.ActivitySubscription.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociated_activitySubscription...)
+			{
+				v := s.ActivitySubscription.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "germ", buf)
-	if s.Germ.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_germ...)
-		{
-			v := s.Germ.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lists", buf)
-	if s.Lists.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_lists...)
-		buf = cbor.AppendInt(buf, s.Lists.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labeler", buf)
-	if s.Labeler.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_labeler...)
-		buf = cbor.AppendBool(buf, s.Labeler.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feedgens", buf)
-	if s.Feedgens.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_feedgens...)
-		buf = cbor.AppendInt(buf, s.Feedgens.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPacks", buf)
-	if s.StarterPacks.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_starterPacks...)
-		buf = cbor.AppendInt(buf, s.StarterPacks.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
-	if s.ActivitySubscription.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_activitySubscription...)
-		{
-			v := s.ActivitySubscription.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6007,16 +6374,25 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) AppendCBOR(buf []byte)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowSubscriptions", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_allowSubscriptions...)
+		buf = cbor.AppendText(buf, s.AllowSubscriptions)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_allowSubscriptions...)
+		buf = cbor.AppendText(buf, s.AllowSubscriptions)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowSubscriptions", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_allowSubscriptions...)
-	buf = cbor.AppendText(buf, s.AllowSubscriptions)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6190,16 +6566,25 @@ func (s *ActorDefs_ProfileAssociatedChat) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowIncoming", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
+		buf = cbor.AppendText(buf, s.AllowIncoming)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
+		buf = cbor.AppendText(buf, s.AllowIncoming)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowIncoming", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
-	buf = cbor.AppendText(buf, s.AllowIncoming)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6375,19 +6760,30 @@ func (s *ActorDefs_ProfileAssociatedGerm) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageMeUrl", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_messageMeUrl...)
+		buf = cbor.AppendText(buf, s.MessageMeUrl)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "showButtonTo", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_showButtonTo...)
+		buf = cbor.AppendText(buf, s.ShowButtonTo)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_messageMeUrl...)
+		buf = cbor.AppendText(buf, s.MessageMeUrl)
+		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_showButtonTo...)
+		buf = cbor.AppendText(buf, s.ShowButtonTo)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageMeUrl", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_messageMeUrl...)
-	buf = cbor.AppendText(buf, s.MessageMeUrl)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "showButtonTo", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_showButtonTo...)
-	buf = cbor.AppendText(buf, s.ShowButtonTo)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6640,122 +7036,224 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileView_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
-	if true {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_debug...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_avatar...)
-		buf = cbor.AppendText(buf, s.Avatar.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileView_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_status...)
-		{
-			v := s.Status.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
+		if true {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_debug...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileView_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_viewer...)
-		{
-			v := s.Viewer.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_status...)
 			{
+				v := s.Status.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		if s.IndexedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_indexedAt...)
+			buf = cbor.AppendText(buf, s.IndexedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_ProfileView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if true {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_debug...)
+			buf = cbor.AppendNull(buf)
+		}
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileView_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
-	if s.Pronouns.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_pronouns...)
-		buf = cbor.AppendText(buf, s.Pronouns.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	if s.IndexedAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_indexedAt...)
-		buf = cbor.AppendText(buf, s.IndexedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
-	if s.Associated.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_associated...)
-		{
-			v := s.Associated.Val()
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_status...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Status.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		if s.IndexedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_indexedAt...)
+			buf = cbor.AppendText(buf, s.IndexedAt.Val())
+		}
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileView_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	if s.DisplayName.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_displayName...)
-		buf = cbor.AppendText(buf, s.DisplayName.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
-	if s.Verification.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileView_verification...)
-		{
-			v := s.Verification.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -7513,112 +8011,206 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
-	if true {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_debug...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
-		buf = cbor.AppendText(buf, s.Avatar.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_status...)
-		{
-			v := s.Status.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
+		if true {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_debug...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
-		{
-			v := s.Viewer.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_status...)
 			{
+				v := s.Status.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if true {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_debug...)
+			buf = cbor.AppendNull(buf)
+		}
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
-	if s.Pronouns.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_pronouns...)
-		buf = cbor.AppendText(buf, s.Pronouns.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
-	if s.Associated.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
-		{
-			v := s.Associated.Val()
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_status...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Status.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	if s.DisplayName.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
-		buf = cbor.AppendText(buf, s.DisplayName.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
-	if s.Verification.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
-		{
-			v := s.Verification.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -8353,175 +8945,323 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
-	if true {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_debug...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_avatar...)
-		buf = cbor.AppendText(buf, s.Avatar.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "banner", buf)
-	if s.Banner.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_banner...)
-		buf = cbor.AppendText(buf, s.Banner.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_status...)
-		{
-			v := s.Status.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
+		if true {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_debug...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "banner", buf)
+		if s.Banner.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_banner...)
+			buf = cbor.AppendText(buf, s.Banner.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_viewer...)
-		{
-			v := s.Viewer.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_status...)
 			{
+				v := s.Status.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "website", buf)
+		if s.Website.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_website...)
+			buf = cbor.AppendText(buf, s.Website.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		if s.IndexedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_indexedAt...)
+			buf = cbor.AppendText(buf, s.IndexedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinnedPost", buf)
+		if s.PinnedPost.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pinnedPost...)
+			{
+				v := s.PinnedPost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postsCount", buf)
+		if s.PostsCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_postsCount...)
+			buf = cbor.AppendInt(buf, s.PostsCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followsCount", buf)
+		if s.FollowsCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followsCount...)
+			buf = cbor.AppendInt(buf, s.FollowsCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followersCount", buf)
+		if s.FollowersCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followersCount...)
+			buf = cbor.AppendInt(buf, s.FollowersCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedViaStarterPack", buf)
+		if s.JoinedViaStarterPack.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_joinedViaStarterPack...)
+			{
+				v := s.JoinedViaStarterPack.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if true {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_debug...)
+			buf = cbor.AppendNull(buf)
+		}
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		if s.Banner.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_banner...)
+			buf = cbor.AppendText(buf, s.Banner.Val())
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "website", buf)
-	if s.Website.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_website...)
-		buf = cbor.AppendText(buf, s.Website.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
-	if s.Pronouns.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pronouns...)
-		buf = cbor.AppendText(buf, s.Pronouns.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	if s.IndexedAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_indexedAt...)
-		buf = cbor.AppendText(buf, s.IndexedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
-	if s.Associated.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_associated...)
-		{
-			v := s.Associated.Val()
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_status...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Status.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Website.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_website...)
+			buf = cbor.AppendText(buf, s.Website.Val())
+		}
+		if s.Pronouns.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pronouns...)
+			buf = cbor.AppendText(buf, s.Pronouns.Val())
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		if s.IndexedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_indexedAt...)
+			buf = cbor.AppendText(buf, s.IndexedAt.Val())
+		}
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.PinnedPost.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pinnedPost...)
+			{
+				v := s.PinnedPost.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.PostsCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_postsCount...)
+			buf = cbor.AppendInt(buf, s.PostsCount.Val())
+		}
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		if s.FollowsCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followsCount...)
+			buf = cbor.AppendInt(buf, s.FollowsCount.Val())
+		}
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.FollowersCount.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followersCount...)
+			buf = cbor.AppendInt(buf, s.FollowersCount.Val())
+		}
+		if s.JoinedViaStarterPack.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_joinedViaStarterPack...)
+			{
+				v := s.JoinedViaStarterPack.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinnedPost", buf)
-	if s.PinnedPost.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pinnedPost...)
-		{
-			v := s.PinnedPost.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postsCount", buf)
-	if s.PostsCount.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_postsCount...)
-		buf = cbor.AppendInt(buf, s.PostsCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	if s.DisplayName.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_displayName...)
-		buf = cbor.AppendText(buf, s.DisplayName.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followsCount", buf)
-	if s.FollowsCount.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followsCount...)
-		buf = cbor.AppendInt(buf, s.FollowsCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
-	if s.Verification.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_verification...)
-		{
-			v := s.Verification.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followersCount", buf)
-	if s.FollowersCount.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followersCount...)
-		buf = cbor.AppendInt(buf, s.FollowersCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedViaStarterPack", buf)
-	if s.JoinedViaStarterPack.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_joinedViaStarterPack...)
-		{
-			v := s.JoinedViaStarterPack.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -9516,25 +10256,40 @@ func (s *ActorDefs_SavedFeed) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeed_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "type", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeed_type...)
-	buf = cbor.AppendText(buf, s.Type)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_SavedFeed_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "type", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_type...)
+		buf = cbor.AppendText(buf, s.Type)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_SavedFeed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinned", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_pinned...)
+		buf = cbor.AppendBool(buf, s.Pinned)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_type...)
+		buf = cbor.AppendText(buf, s.Type)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_SavedFeed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		buf = append(buf, cborKey_ActorDefs_SavedFeed_pinned...)
+		buf = cbor.AppendBool(buf, s.Pinned)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeed_value...)
-	buf = cbor.AppendText(buf, s.Value)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinned", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeed_pinned...)
-	buf = cbor.AppendBool(buf, s.Pinned)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -9784,30 +10539,51 @@ func (s *ActorDefs_SavedFeedsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "saved", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_saved...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Saved)))
+		for _, item := range s.Saved {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinned", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_pinned...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Pinned)))
+		for _, item := range s.Pinned {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "timelineIndex", buf)
+		if s.TimelineIndex.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_timelineIndex...)
+			buf = cbor.AppendInt(buf, s.TimelineIndex.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_saved...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Saved)))
+		for _, item := range s.Saved {
+			buf = cbor.AppendText(buf, item)
+		}
+		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_pinned...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Pinned)))
+		for _, item := range s.Pinned {
+			buf = cbor.AppendText(buf, item)
+		}
+		if s.TimelineIndex.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_timelineIndex...)
+			buf = cbor.AppendInt(buf, s.TimelineIndex.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "saved", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_saved...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Saved)))
-	for _, item := range s.Saved {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinned", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_pinned...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Pinned)))
-	for _, item := range s.Pinned {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "timelineIndex", buf)
-	if s.TimelineIndex.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_timelineIndex...)
-		buf = cbor.AppendInt(buf, s.TimelineIndex.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10119,23 +10895,39 @@ func (s *ActorDefs_SavedFeedsPrefV2) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
-	buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_items...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
-	for _, item := range s.Items {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
+		buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for _, item := range s.Items {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for _, item := range s.Items {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10474,58 +11266,102 @@ func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	if s.CID.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_StatusView_cid...)
-		buf = cbor.AppendText(buf, s.CID.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	if s.URI.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_StatusView_uri...)
-		buf = cbor.AppendText(buf, s.URI.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_StatusView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
-	if s.Embed.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_StatusView_embed...)
-		{
-			v := s.Embed.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_cid...)
+			buf = cbor.AppendText(buf, s.CID.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		if s.URI.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_uri...)
+			buf = cbor.AppendText(buf, s.URI.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_StatusView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_embed...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_ActorDefs_StatusView_record...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		buf = append(buf, cborKey_ActorDefs_StatusView_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isActive", buf)
+		if s.IsActive.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_isActive...)
+			buf = cbor.AppendBool(buf, s.IsActive.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
+		if s.ExpiresAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_expiresAt...)
+			buf = cbor.AppendText(buf, s.ExpiresAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isDisabled", buf)
+		if s.IsDisabled.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_isDisabled...)
+			buf = cbor.AppendBool(buf, s.IsDisabled.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_cid...)
+			buf = cbor.AppendText(buf, s.CID.Val())
+		}
+		if s.URI.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_uri...)
+			buf = cbor.AppendText(buf, s.URI.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_StatusView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Embed.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_embed...)
+			{
+				v := s.Embed.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ActorDefs_StatusView_record...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_ActorDefs_StatusView_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		if s.IsActive.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_isActive...)
+			buf = cbor.AppendBool(buf, s.IsActive.Val())
+		}
+		if s.ExpiresAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_expiresAt...)
+			buf = cbor.AppendText(buf, s.ExpiresAt.Val())
+		}
+		if s.IsDisabled.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_StatusView_isDisabled...)
+			buf = cbor.AppendBool(buf, s.IsDisabled.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_ActorDefs_StatusView_record...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	buf = append(buf, cborKey_ActorDefs_StatusView_status...)
-	buf = cbor.AppendText(buf, s.Status)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isActive", buf)
-	if s.IsActive.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_StatusView_isActive...)
-		buf = cbor.AppendBool(buf, s.IsActive.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
-	if s.ExpiresAt.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_StatusView_expiresAt...)
-		buf = cbor.AppendText(buf, s.ExpiresAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isDisabled", buf)
-	if s.IsDisabled.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_StatusView_isDisabled...)
-		buf = cbor.AppendBool(buf, s.IsDisabled.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10972,18 +11808,29 @@ func (s *ActorDefs_ThreadViewPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sort", buf)
-	if s.Sort.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ThreadViewPref_sort...)
-		buf = cbor.AppendText(buf, s.Sort.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sort", buf)
+		if s.Sort.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ThreadViewPref_sort...)
+			buf = cbor.AppendText(buf, s.Sort.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ThreadViewPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Sort.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ThreadViewPref_sort...)
+			buf = cbor.AppendText(buf, s.Sort.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ThreadViewPref_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ThreadViewPref_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -11179,18 +12026,29 @@ func (s *ActorDefs_VerificationPrefs) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_VerificationPrefs_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_VerificationPrefs_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideBadges", buf)
+		if s.HideBadges.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_VerificationPrefs_hideBadges...)
+			buf = cbor.AppendBool(buf, s.HideBadges.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_VerificationPrefs_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.HideBadges.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_VerificationPrefs_hideBadges...)
+			buf = cbor.AppendBool(buf, s.HideBadges.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideBadges", buf)
-	if s.HideBadges.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_VerificationPrefs_hideBadges...)
-		buf = cbor.AppendBool(buf, s.HideBadges.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -11387,29 +12245,49 @@ func (s *ActorDefs_VerificationState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_VerificationState_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationState_verifications...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
-	for _, item := range s.Verifications {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_VerificationState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationState_verifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
+		for _, item := range s.Verifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifiedStatus", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationState_verifiedStatus...)
+		buf = cbor.AppendText(buf, s.VerifiedStatus)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "trustedVerifierStatus", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationState_trustedVerifierStatus...)
+		buf = cbor.AppendText(buf, s.TrustedVerifierStatus)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_VerificationState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_VerificationState_verifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
+		for _, item := range s.Verifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ActorDefs_VerificationState_verifiedStatus...)
+		buf = cbor.AppendText(buf, s.VerifiedStatus)
+		buf = append(buf, cborKey_ActorDefs_VerificationState_trustedVerifierStatus...)
+		buf = cbor.AppendText(buf, s.TrustedVerifierStatus)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifiedStatus", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationState_verifiedStatus...)
-	buf = cbor.AppendText(buf, s.VerifiedStatus)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "trustedVerifierStatus", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationState_trustedVerifierStatus...)
-	buf = cbor.AppendText(buf, s.TrustedVerifierStatus)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -11686,25 +12564,40 @@ func (s *ActorDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationView_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_VerificationView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_VerificationView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuer", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationView_issuer...)
+		buf = cbor.AppendText(buf, s.Issuer)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isValid", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationView_isValid...)
+		buf = cbor.AppendBool(buf, s.IsValid)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ActorDefs_VerificationView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_VerificationView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_VerificationView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ActorDefs_VerificationView_issuer...)
+		buf = cbor.AppendText(buf, s.Issuer)
+		buf = append(buf, cborKey_ActorDefs_VerificationView_isValid...)
+		buf = cbor.AppendBool(buf, s.IsValid)
+		buf = append(buf, cborKey_ActorDefs_VerificationView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuer", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationView_issuer...)
-	buf = cbor.AppendText(buf, s.Issuer)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isValid", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationView_isValid...)
-	buf = cbor.AppendBool(buf, s.IsValid)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_ActorDefs_VerificationView_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -12001,94 +12894,173 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
-	if s.Muted.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_muted...)
-		buf = cbor.AppendBool(buf, s.Muted.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocking", buf)
-	if s.Blocking.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_blocking...)
-		buf = cbor.AppendText(buf, s.Blocking.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedBy", buf)
-	if s.BlockedBy.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_blockedBy...)
-		buf = cbor.AppendBool(buf, s.BlockedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "following", buf)
-	if s.Following.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_following...)
-		buf = cbor.AppendText(buf, s.Following.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followedBy", buf)
-	if s.FollowedBy.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_followedBy...)
-		buf = cbor.AppendText(buf, s.FollowedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mutedByList", buf)
-	if s.MutedByList.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_mutedByList...)
-		{
-			v := s.MutedByList.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
+		if s.Muted.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_muted...)
+			buf = cbor.AppendBool(buf, s.Muted.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocking", buf)
+		if s.Blocking.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_blocking...)
+			buf = cbor.AppendText(buf, s.Blocking.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedBy", buf)
+		if s.BlockedBy.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_blockedBy...)
+			buf = cbor.AppendBool(buf, s.BlockedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "following", buf)
+		if s.Following.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_following...)
+			buf = cbor.AppendText(buf, s.Following.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followedBy", buf)
+		if s.FollowedBy.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_followedBy...)
+			buf = cbor.AppendText(buf, s.FollowedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mutedByList", buf)
+		if s.MutedByList.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_mutedByList...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.MutedByList.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockingByList", buf)
+		if s.BlockingByList.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_blockingByList...)
+			{
+				v := s.BlockingByList.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "knownFollowers", buf)
+		if s.KnownFollowers.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_knownFollowers...)
+			{
+				v := s.KnownFollowers.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
+		if s.ActivitySubscription.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_activitySubscription...)
+			{
+				v := s.ActivitySubscription.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Muted.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_muted...)
+			buf = cbor.AppendBool(buf, s.Muted.Val())
+		}
+		if s.Blocking.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_blocking...)
+			buf = cbor.AppendText(buf, s.Blocking.Val())
+		}
+		if s.BlockedBy.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_blockedBy...)
+			buf = cbor.AppendBool(buf, s.BlockedBy.Val())
+		}
+		if s.Following.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_following...)
+			buf = cbor.AppendText(buf, s.Following.Val())
+		}
+		if s.FollowedBy.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_followedBy...)
+			buf = cbor.AppendText(buf, s.FollowedBy.Val())
+		}
+		if s.MutedByList.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_mutedByList...)
+			{
+				v := s.MutedByList.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.BlockingByList.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_blockingByList...)
+			{
+				v := s.BlockingByList.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.KnownFollowers.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_knownFollowers...)
+			{
+				v := s.KnownFollowers.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.ActivitySubscription.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_activitySubscription...)
+			{
+				v := s.ActivitySubscription.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockingByList", buf)
-	if s.BlockingByList.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_blockingByList...)
-		{
-			v := s.BlockingByList.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "knownFollowers", buf)
-	if s.KnownFollowers.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_knownFollowers...)
-		{
-			v := s.KnownFollowers.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
-	if s.ActivitySubscription.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ViewerState_activitySubscription...)
-		{
-			v := s.ActivitySubscription.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

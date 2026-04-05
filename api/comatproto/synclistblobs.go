@@ -176,24 +176,40 @@ func (s *SyncListBlobs_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cids", buf)
-	buf = append(buf, cborKey_SyncListBlobs_Output_cids...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Cids)))
-	for _, item := range s.Cids {
-		buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cids", buf)
+		buf = append(buf, cborKey_SyncListBlobs_Output_cids...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Cids)))
+		for _, item := range s.Cids {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncListBlobs_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SyncListBlobs_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncListBlobs_Output_cids...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Cids)))
+		for _, item := range s.Cids {
+			buf = cbor.AppendText(buf, item)
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncListBlobs_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SyncListBlobs_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncListBlobs_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_SyncListBlobs_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

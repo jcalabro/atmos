@@ -173,26 +173,43 @@ func (s *ServerUpdateEmail_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerUpdateEmail_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerUpdateEmail_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		buf = append(buf, cborKey_ServerUpdateEmail_Input_email...)
+		buf = cbor.AppendText(buf, s.Email)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
+		if s.Token.HasVal() {
+			buf = append(buf, cborKey_ServerUpdateEmail_Input_token...)
+			buf = cbor.AppendText(buf, s.Token.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailAuthFactor", buf)
+		if s.EmailAuthFactor.HasVal() {
+			buf = append(buf, cborKey_ServerUpdateEmail_Input_emailAuthFactor...)
+			buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerUpdateEmail_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ServerUpdateEmail_Input_email...)
+		buf = cbor.AppendText(buf, s.Email)
+		if s.Token.HasVal() {
+			buf = append(buf, cborKey_ServerUpdateEmail_Input_token...)
+			buf = cbor.AppendText(buf, s.Token.Val())
+		}
+		if s.EmailAuthFactor.HasVal() {
+			buf = append(buf, cborKey_ServerUpdateEmail_Input_emailAuthFactor...)
+			buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	buf = append(buf, cborKey_ServerUpdateEmail_Input_email...)
-	buf = cbor.AppendText(buf, s.Email)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
-	if s.Token.HasVal() {
-		buf = append(buf, cborKey_ServerUpdateEmail_Input_token...)
-		buf = cbor.AppendText(buf, s.Token.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailAuthFactor", buf)
-	if s.EmailAuthFactor.HasVal() {
-		buf = append(buf, cborKey_ServerUpdateEmail_Input_emailAuthFactor...)
-		buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

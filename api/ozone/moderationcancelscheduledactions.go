@@ -38,29 +38,50 @@ func (s *ModerationCancelScheduledActions_CancellationResults) AppendCBOR(buf []
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failed", buf)
-	buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_failed...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Failed)))
-	for _, item := range s.Failed {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failed", buf)
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_failed...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Failed)))
+		for _, item := range s.Failed {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "succeeded", buf)
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_succeeded...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Succeeded)))
+		for _, item := range s.Succeeded {
+			buf = cbor.AppendText(buf, item)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_failed...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Failed)))
+		for _, item := range s.Failed {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_succeeded...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Succeeded)))
+		for _, item := range s.Succeeded {
+			buf = cbor.AppendText(buf, item)
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "succeeded", buf)
-	buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_succeeded...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Succeeded)))
-	for _, item := range s.Succeeded {
-		buf = cbor.AppendText(buf, item)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -349,24 +370,39 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) AppendCBOR(buf []b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_error...)
+		buf = cbor.AppendText(buf, s.Error)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "errorCode", buf)
+		if s.ErrorCode.HasVal() {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_errorCode...)
+			buf = cbor.AppendText(buf, s.ErrorCode.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_error...)
+		buf = cbor.AppendText(buf, s.Error)
+		if s.ErrorCode.HasVal() {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_errorCode...)
+			buf = cbor.AppendText(buf, s.ErrorCode.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
-	buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_error...)
-	buf = cbor.AppendText(buf, s.Error)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "errorCode", buf)
-	if s.ErrorCode.HasVal() {
-		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_errorCode...)
-		buf = cbor.AppendText(buf, s.ErrorCode.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -735,24 +771,40 @@ func (s *ModerationCancelScheduledActions_Input) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjects", buf)
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_subjects...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
+		for _, item := range s.Subjects {
+			buf = cbor.AppendText(buf, item)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_subjects...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
+		for _, item := range s.Subjects {
+			buf = cbor.AppendText(buf, item)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
-	if s.Comment.HasVal() {
-		buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_comment...)
-		buf = cbor.AppendText(buf, s.Comment.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjects", buf)
-	buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_subjects...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
-	for _, item := range s.Subjects {
-		buf = cbor.AppendText(buf, item)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -119,22 +119,37 @@ func (s *SettingUpsertOption_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SettingUpsertOption_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "option", buf)
-	buf = append(buf, cborKey_SettingUpsertOption_Output_option...)
-	{
-		var err error
-		buf, err = s.Option.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SettingUpsertOption_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "option", buf)
+		buf = append(buf, cborKey_SettingUpsertOption_Output_option...)
+		{
+			var err error
+			buf, err = s.Option.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SettingUpsertOption_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SettingUpsertOption_Output_option...)
+		{
+			var err error
+			buf, err = s.Option.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -391,32 +406,53 @@ func (s *SettingUpsertOption_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "key", buf)
-	buf = append(buf, cborKey_SettingUpsertOption_Input_key...)
-	buf = cbor.AppendText(buf, s.Key)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SettingUpsertOption_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "key", buf)
+		buf = append(buf, cborKey_SettingUpsertOption_Input_key...)
+		buf = cbor.AppendText(buf, s.Key)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SettingUpsertOption_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scope", buf)
+		buf = append(buf, cborKey_SettingUpsertOption_Input_scope...)
+		buf = cbor.AppendText(buf, s.Scope)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_SettingUpsertOption_Input_value...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_SettingUpsertOption_Input_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "managerRole", buf)
+		if s.ManagerRole.HasVal() {
+			buf = append(buf, cborKey_SettingUpsertOption_Input_managerRole...)
+			buf = cbor.AppendText(buf, s.ManagerRole.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SettingUpsertOption_Input_key...)
+		buf = cbor.AppendText(buf, s.Key)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SettingUpsertOption_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SettingUpsertOption_Input_scope...)
+		buf = cbor.AppendText(buf, s.Scope)
+		buf = append(buf, cborKey_SettingUpsertOption_Input_value...)
+		buf = cbor.AppendNull(buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_SettingUpsertOption_Input_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.ManagerRole.HasVal() {
+			buf = append(buf, cborKey_SettingUpsertOption_Input_managerRole...)
+			buf = cbor.AppendText(buf, s.ManagerRole.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scope", buf)
-	buf = append(buf, cborKey_SettingUpsertOption_Input_scope...)
-	buf = cbor.AppendText(buf, s.Scope)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_SettingUpsertOption_Input_value...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_SettingUpsertOption_Input_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "managerRole", buf)
-	if s.ManagerRole.HasVal() {
-		buf = append(buf, cborKey_SettingUpsertOption_Input_managerRole...)
-		buf = cbor.AppendText(buf, s.ManagerRole.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

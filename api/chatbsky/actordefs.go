@@ -73,88 +73,161 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
-		buf = cbor.AppendText(buf, s.Avatar.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
-		{
-			v := s.Viewer.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
-	if s.Associated.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
-		{
-			v := s.Associated.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
 			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chatDisabled", buf)
+		if s.ChatDisabled.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_chatDisabled...)
+			buf = cbor.AppendBool(buf, s.ChatDisabled.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
+			buf = cbor.AppendText(buf, s.Avatar.Val())
+		}
+		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	if s.DisplayName.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
-		buf = cbor.AppendText(buf, s.DisplayName.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chatDisabled", buf)
-	if s.ChatDisabled.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_chatDisabled...)
-		buf = cbor.AppendBool(buf, s.ChatDisabled.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
-	if s.Verification.HasVal() {
-		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
-		{
-			v := s.Verification.Val()
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Associated.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
+			{
+				v := s.Associated.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		if s.ChatDisabled.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_chatDisabled...)
+			buf = cbor.AppendBool(buf, s.ChatDisabled.Val())
+		}
+		if s.Verification.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
+			{
+				v := s.Verification.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

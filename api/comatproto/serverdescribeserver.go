@@ -39,18 +39,29 @@ func (s *ServerDescribeServer_Contact) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerDescribeServer_Contact_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDescribeServer_Contact_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Contact_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDescribeServer_Contact_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Contact_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Contact_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -240,23 +251,38 @@ func (s *ServerDescribeServer_Links) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerDescribeServer_Links_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDescribeServer_Links_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privacyPolicy", buf)
+		if s.PrivacyPolicy.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Links_privacyPolicy...)
+			buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "termsOfService", buf)
+		if s.TermsOfService.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Links_termsOfService...)
+			buf = cbor.AppendText(buf, s.TermsOfService.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDescribeServer_Links_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PrivacyPolicy.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Links_privacyPolicy...)
+			buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
+		}
+		if s.TermsOfService.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Links_termsOfService...)
+			buf = cbor.AppendText(buf, s.TermsOfService.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privacyPolicy", buf)
-	if s.PrivacyPolicy.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Links_privacyPolicy...)
-		buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "termsOfService", buf)
-	if s.TermsOfService.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Links_termsOfService...)
-		buf = cbor.AppendText(buf, s.TermsOfService.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -734,60 +760,108 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ServerDescribeServer_Output_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerDescribeServer_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "links", buf)
-	if s.Links.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Output_links...)
-		{
-			v := s.Links.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ServerDescribeServer_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "links", buf)
+		if s.Links.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_links...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Links.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contact", buf)
-	if s.Contact.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Output_contact...)
-		{
-			v := s.Contact.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contact", buf)
+		if s.Contact.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_contact...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Contact.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteCodeRequired", buf)
+		if s.InviteCodeRequired.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_inviteCodeRequired...)
+			buf = cbor.AppendBool(buf, s.InviteCodeRequired.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "availableUserDomains", buf)
+		buf = append(buf, cborKey_ServerDescribeServer_Output_availableUserDomains...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.AvailableUserDomains)))
+		for _, item := range s.AvailableUserDomains {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "phoneVerificationRequired", buf)
+		if s.PhoneVerificationRequired.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_phoneVerificationRequired...)
+			buf = cbor.AppendBool(buf, s.PhoneVerificationRequired.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ServerDescribeServer_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Links.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_links...)
+			{
+				v := s.Links.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Contact.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_contact...)
+			{
+				v := s.Contact.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.InviteCodeRequired.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_inviteCodeRequired...)
+			buf = cbor.AppendBool(buf, s.InviteCodeRequired.Val())
+		}
+		buf = append(buf, cborKey_ServerDescribeServer_Output_availableUserDomains...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.AvailableUserDomains)))
+		for _, item := range s.AvailableUserDomains {
+			buf = cbor.AppendText(buf, item)
+		}
+		if s.PhoneVerificationRequired.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_phoneVerificationRequired...)
+			buf = cbor.AppendBool(buf, s.PhoneVerificationRequired.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteCodeRequired", buf)
-	if s.InviteCodeRequired.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Output_inviteCodeRequired...)
-		buf = cbor.AppendBool(buf, s.InviteCodeRequired.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "availableUserDomains", buf)
-	buf = append(buf, cborKey_ServerDescribeServer_Output_availableUserDomains...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.AvailableUserDomains)))
-	for _, item := range s.AvailableUserDomains {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "phoneVerificationRequired", buf)
-	if s.PhoneVerificationRequired.HasVal() {
-		buf = append(buf, cborKey_ServerDescribeServer_Output_phoneVerificationRequired...)
-		buf = cbor.AppendBool(buf, s.PhoneVerificationRequired.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

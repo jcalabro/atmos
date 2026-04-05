@@ -118,22 +118,37 @@ func (s *ConvoUpdateRead_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoUpdateRead_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convo", buf)
-	buf = append(buf, cborKey_ConvoUpdateRead_Output_convo...)
-	{
-		var err error
-		buf, err = s.Convo.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoUpdateRead_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convo", buf)
+		buf = append(buf, cborKey_ConvoUpdateRead_Output_convo...)
+		{
+			var err error
+			buf, err = s.Convo.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoUpdateRead_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoUpdateRead_Output_convo...)
+		{
+			var err error
+			buf, err = s.Convo.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -324,21 +339,34 @@ func (s *ConvoUpdateRead_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoUpdateRead_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoUpdateRead_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoUpdateRead_Input_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageId", buf)
+		if s.MessageId.HasVal() {
+			buf = append(buf, cborKey_ConvoUpdateRead_Input_messageId...)
+			buf = cbor.AppendText(buf, s.MessageId.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoUpdateRead_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoUpdateRead_Input_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		if s.MessageId.HasVal() {
+			buf = append(buf, cborKey_ConvoUpdateRead_Input_messageId...)
+			buf = cbor.AppendText(buf, s.MessageId.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
-	buf = append(buf, cborKey_ConvoUpdateRead_Input_convoId...)
-	buf = cbor.AppendText(buf, s.ConvoId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageId", buf)
-	if s.MessageId.HasVal() {
-		buf = append(buf, cborKey_ConvoUpdateRead_Input_messageId...)
-		buf = cbor.AppendText(buf, s.MessageId.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

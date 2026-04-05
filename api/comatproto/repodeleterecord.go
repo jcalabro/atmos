@@ -140,27 +140,47 @@ func (s *RepoDeleteRecord_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoDeleteRecord_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
-	if s.Commit.HasVal() {
-		buf = append(buf, cborKey_RepoDeleteRecord_Output_commit...)
-		{
-			v := s.Commit.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoDeleteRecord_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
+		if s.Commit.HasVal() {
+			buf = append(buf, cborKey_RepoDeleteRecord_Output_commit...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Commit.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoDeleteRecord_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Commit.HasVal() {
+			buf = append(buf, cborKey_RepoDeleteRecord_Output_commit...)
+			{
+				v := s.Commit.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -419,32 +439,53 @@ func (s *RepoDeleteRecord_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
-	buf = append(buf, cborKey_RepoDeleteRecord_Input_repo...)
-	buf = cbor.AppendText(buf, s.Repo)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
-	buf = append(buf, cborKey_RepoDeleteRecord_Input_rkey...)
-	buf = cbor.AppendText(buf, s.Rkey)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_RepoDeleteRecord_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
+		buf = append(buf, cborKey_RepoDeleteRecord_Input_repo...)
+		buf = cbor.AppendText(buf, s.Repo)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		buf = append(buf, cborKey_RepoDeleteRecord_Input_rkey...)
+		buf = cbor.AppendText(buf, s.Rkey)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoDeleteRecord_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		buf = append(buf, cborKey_RepoDeleteRecord_Input_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapCommit", buf)
+		if s.SwapCommit.HasVal() {
+			buf = append(buf, cborKey_RepoDeleteRecord_Input_swapCommit...)
+			buf = cbor.AppendText(buf, s.SwapCommit.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapRecord", buf)
+		if s.SwapRecord.HasVal() {
+			buf = append(buf, cborKey_RepoDeleteRecord_Input_swapRecord...)
+			buf = cbor.AppendText(buf, s.SwapRecord.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_RepoDeleteRecord_Input_repo...)
+		buf = cbor.AppendText(buf, s.Repo)
+		buf = append(buf, cborKey_RepoDeleteRecord_Input_rkey...)
+		buf = cbor.AppendText(buf, s.Rkey)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_RepoDeleteRecord_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_RepoDeleteRecord_Input_collection...)
+		buf = cbor.AppendText(buf, s.Collection)
+		if s.SwapCommit.HasVal() {
+			buf = append(buf, cborKey_RepoDeleteRecord_Input_swapCommit...)
+			buf = cbor.AppendText(buf, s.SwapCommit.Val())
+		}
+		if s.SwapRecord.HasVal() {
+			buf = append(buf, cborKey_RepoDeleteRecord_Input_swapRecord...)
+			buf = cbor.AppendText(buf, s.SwapRecord.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
-	buf = append(buf, cborKey_RepoDeleteRecord_Input_collection...)
-	buf = cbor.AppendText(buf, s.Collection)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapCommit", buf)
-	if s.SwapCommit.HasVal() {
-		buf = append(buf, cborKey_RepoDeleteRecord_Input_swapCommit...)
-		buf = cbor.AppendText(buf, s.SwapCommit.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapRecord", buf)
-	if s.SwapRecord.HasVal() {
-		buf = append(buf, cborKey_RepoDeleteRecord_Input_swapRecord...)
-		buf = cbor.AppendText(buf, s.SwapRecord.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

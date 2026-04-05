@@ -117,16 +117,25 @@ func (s *IdentitySignPlcOperation_Output) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "operation", buf)
+		buf = append(buf, cborKey_IdentitySignPlcOperation_Output_operation...)
+		buf = cbor.AppendNull(buf)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_IdentitySignPlcOperation_Output_operation...)
+		buf = cbor.AppendNull(buf)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "operation", buf)
-	buf = append(buf, cborKey_IdentitySignPlcOperation_Output_operation...)
-	buf = cbor.AppendNull(buf)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -451,44 +460,77 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
-	if s.Token.HasVal() {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_token...)
-		buf = cbor.AppendText(buf, s.Token.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "services", buf)
-	if true {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_services...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alsoKnownAs", buf)
-	if len(s.AlsoKnownAs) > 0 {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_alsoKnownAs...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.AlsoKnownAs)))
-		for _, item := range s.AlsoKnownAs {
-			buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
+		if s.Token.HasVal() {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_token...)
+			buf = cbor.AppendText(buf, s.Token.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "services", buf)
+		if true {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_services...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alsoKnownAs", buf)
+		if len(s.AlsoKnownAs) > 0 {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_alsoKnownAs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AlsoKnownAs)))
+			for _, item := range s.AlsoKnownAs {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rotationKeys", buf)
+		if len(s.RotationKeys) > 0 {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_rotationKeys...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RotationKeys)))
+			for _, item := range s.RotationKeys {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationMethods", buf)
+		if true {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_verificationMethods...)
+			buf = cbor.AppendNull(buf)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Token.HasVal() {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_token...)
+			buf = cbor.AppendText(buf, s.Token.Val())
+		}
+		if true {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_services...)
+			buf = cbor.AppendNull(buf)
+		}
+		if len(s.AlsoKnownAs) > 0 {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_alsoKnownAs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AlsoKnownAs)))
+			for _, item := range s.AlsoKnownAs {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.RotationKeys) > 0 {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_rotationKeys...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RotationKeys)))
+			for _, item := range s.RotationKeys {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if true {
+			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_verificationMethods...)
+			buf = cbor.AppendNull(buf)
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rotationKeys", buf)
-	if len(s.RotationKeys) > 0 {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_rotationKeys...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RotationKeys)))
-		for _, item := range s.RotationKeys {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationMethods", buf)
-	if true {
-		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_verificationMethods...)
-		buf = cbor.AppendNull(buf)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -40,19 +40,30 @@ func (s *VerificationGrantVerifications_GrantError) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_error...)
+		buf = cbor.AppendText(buf, s.Error)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_error...)
+		buf = cbor.AppendText(buf, s.Error)
+		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_error...)
-	buf = cbor.AppendText(buf, s.Error)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -398,33 +409,58 @@ func (s *VerificationGrantVerifications_Output) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationGrantVerifications_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_Output_verifications...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
-	for _, item := range s.Verifications {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_Output_verifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
+		for _, item := range s.Verifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failedVerifications", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_Output_failedVerifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedVerifications)))
+		for _, item := range s.FailedVerifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationGrantVerifications_Output_verifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
+		for _, item := range s.Verifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_VerificationGrantVerifications_Output_failedVerifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedVerifications)))
+		for _, item := range s.FailedVerifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failedVerifications", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_Output_failedVerifications...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedVerifications)))
-	for _, item := range s.FailedVerifications {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -665,23 +701,39 @@ func (s *VerificationGrantVerifications_Input) AppendCBOR(buf []byte) ([]byte, e
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationGrantVerifications_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_Input_verifications...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
-	for _, item := range s.Verifications {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_Input_verifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
+		for _, item := range s.Verifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationGrantVerifications_Input_verifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
+		for _, item := range s.Verifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -805,27 +857,44 @@ func (s *VerificationGrantVerifications_VerificationInput) AppendCBOR(buf []byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_displayName...)
-	buf = cbor.AppendText(buf, s.DisplayName)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

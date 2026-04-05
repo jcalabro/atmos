@@ -36,16 +36,25 @@ func (s *FeedDescribeFeedGenerator_Feed) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_FeedDescribeFeedGenerator_Feed_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Feed_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Feed_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Feed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Feed_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Feed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -227,23 +236,38 @@ func (s *FeedDescribeFeedGenerator_Links) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privacyPolicy", buf)
+		if s.PrivacyPolicy.HasVal() {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_privacyPolicy...)
+			buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "termsOfService", buf)
+		if s.TermsOfService.HasVal() {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_termsOfService...)
+			buf = cbor.AppendText(buf, s.TermsOfService.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PrivacyPolicy.HasVal() {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_privacyPolicy...)
+			buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
+		}
+		if s.TermsOfService.HasVal() {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_termsOfService...)
+			buf = cbor.AppendText(buf, s.TermsOfService.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privacyPolicy", buf)
-	if s.PrivacyPolicy.HasVal() {
-		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_privacyPolicy...)
-		buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "termsOfService", buf)
-	if s.TermsOfService.HasVal() {
-		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Links_termsOfService...)
-		buf = cbor.AppendText(buf, s.TermsOfService.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -635,40 +659,71 @@ func (s *FeedDescribeFeedGenerator_Output) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
-	buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_feeds...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
-	for _, item := range s.Feeds {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "links", buf)
-	if s.Links.HasVal() {
-		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_links...)
-		{
-			v := s.Links.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
+		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_feeds...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+		for _, item := range s.Feeds {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "links", buf)
+		if s.Links.HasVal() {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_links...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Links.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_feeds...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+		for _, item := range s.Feeds {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Links.HasVal() {
+			buf = append(buf, cborKey_FeedDescribeFeedGenerator_Output_links...)
+			{
+				v := s.Links.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

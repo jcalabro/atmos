@@ -148,30 +148,52 @@ func (s *ConvoGetConvoAvailability_Output) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convo", buf)
-	if s.Convo.HasVal() {
-		buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_convo...)
-		{
-			v := s.Convo.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convo", buf)
+		if s.Convo.HasVal() {
+			buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_convo...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Convo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "canChat", buf)
+		buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_canChat...)
+		buf = cbor.AppendBool(buf, s.CanChat)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Convo.HasVal() {
+			buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_convo...)
+			{
+				v := s.Convo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_canChat...)
+		buf = cbor.AppendBool(buf, s.CanChat)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "canChat", buf)
-	buf = append(buf, cborKey_ConvoGetConvoAvailability_Output_canChat...)
-	buf = cbor.AppendBool(buf, s.CanChat)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

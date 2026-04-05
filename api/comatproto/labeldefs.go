@@ -68,50 +68,85 @@ func (s *LabelDefs_Label) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	if s.CID.HasVal() {
-		buf = append(buf, cborKey_LabelDefs_Label_cid...)
-		buf = cbor.AppendText(buf, s.CID.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_cid...)
+			buf = cbor.AppendText(buf, s.CID.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cts", buf)
+		buf = append(buf, cborKey_LabelDefs_Label_cts...)
+		buf = cbor.AppendText(buf, s.Cts)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "exp", buf)
+		if s.Exp.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_exp...)
+			buf = cbor.AppendText(buf, s.Exp.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "neg", buf)
+		if s.Neg.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_neg...)
+			buf = cbor.AppendBool(buf, s.Neg.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sig", buf)
+		if s.Sig != nil {
+			buf = append(buf, cborKey_LabelDefs_Label_sig...)
+			buf = cbor.AppendBytes(buf, s.Sig)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "src", buf)
+		buf = append(buf, cborKey_LabelDefs_Label_src...)
+		buf = cbor.AppendText(buf, s.Src)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_LabelDefs_Label_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "val", buf)
+		buf = append(buf, cborKey_LabelDefs_Label_val...)
+		buf = cbor.AppendText(buf, s.Val)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ver", buf)
+		if s.Ver.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_ver...)
+			buf = cbor.AppendInt(buf, s.Ver.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_Label_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_cid...)
+			buf = cbor.AppendText(buf, s.CID.Val())
+		}
+		buf = append(buf, cborKey_LabelDefs_Label_cts...)
+		buf = cbor.AppendText(buf, s.Cts)
+		if s.Exp.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_exp...)
+			buf = cbor.AppendText(buf, s.Exp.Val())
+		}
+		if s.Neg.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_neg...)
+			buf = cbor.AppendBool(buf, s.Neg.Val())
+		}
+		if s.Sig != nil {
+			buf = append(buf, cborKey_LabelDefs_Label_sig...)
+			buf = cbor.AppendBytes(buf, s.Sig)
+		}
+		buf = append(buf, cborKey_LabelDefs_Label_src...)
+		buf = cbor.AppendText(buf, s.Src)
+		buf = append(buf, cborKey_LabelDefs_Label_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		buf = append(buf, cborKey_LabelDefs_Label_val...)
+		buf = cbor.AppendText(buf, s.Val)
+		if s.Ver.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_Label_ver...)
+			buf = cbor.AppendInt(buf, s.Ver.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_Label_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cts", buf)
-	buf = append(buf, cborKey_LabelDefs_Label_cts...)
-	buf = cbor.AppendText(buf, s.Cts)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "exp", buf)
-	if s.Exp.HasVal() {
-		buf = append(buf, cborKey_LabelDefs_Label_exp...)
-		buf = cbor.AppendText(buf, s.Exp.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "neg", buf)
-	if s.Neg.HasVal() {
-		buf = append(buf, cborKey_LabelDefs_Label_neg...)
-		buf = cbor.AppendBool(buf, s.Neg.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sig", buf)
-	if s.Sig != nil {
-		buf = append(buf, cborKey_LabelDefs_Label_sig...)
-		buf = cbor.AppendBytes(buf, s.Sig)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "src", buf)
-	buf = append(buf, cborKey_LabelDefs_Label_src...)
-	buf = cbor.AppendText(buf, s.Src)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_LabelDefs_Label_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "val", buf)
-	buf = append(buf, cborKey_LabelDefs_Label_val...)
-	buf = cbor.AppendText(buf, s.Val)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ver", buf)
-	if s.Ver.HasVal() {
-		buf = append(buf, cborKey_LabelDefs_Label_ver...)
-		buf = cbor.AppendInt(buf, s.Ver.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelDefs_Label_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -534,42 +569,72 @@ func (s *LabelDefs_LabelValueDefinition) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blurs", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_blurs...)
-	buf = cbor.AppendText(buf, s.Blurs)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "locales", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_locales...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Locales)))
-	for _, item := range s.Locales {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blurs", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_blurs...)
+		buf = cbor.AppendText(buf, s.Blurs)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "locales", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_locales...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Locales)))
+		for _, item := range s.Locales {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "severity", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_severity...)
+		buf = cbor.AppendText(buf, s.Severity)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "adultOnly", buf)
+		if s.AdultOnly.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_adultOnly...)
+			buf = cbor.AppendBool(buf, s.AdultOnly.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "identifier", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_identifier...)
+		buf = cbor.AppendText(buf, s.Identifier)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "defaultSetting", buf)
+		if s.DefaultSetting.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_defaultSetting...)
+			buf = cbor.AppendText(buf, s.DefaultSetting.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_blurs...)
+		buf = cbor.AppendText(buf, s.Blurs)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_locales...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Locales)))
+		for _, item := range s.Locales {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_severity...)
+		buf = cbor.AppendText(buf, s.Severity)
+		if s.AdultOnly.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_adultOnly...)
+			buf = cbor.AppendBool(buf, s.AdultOnly.Val())
+		}
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_identifier...)
+		buf = cbor.AppendText(buf, s.Identifier)
+		if s.DefaultSetting.HasVal() {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_defaultSetting...)
+			buf = cbor.AppendText(buf, s.DefaultSetting.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "severity", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_severity...)
-	buf = cbor.AppendText(buf, s.Severity)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "adultOnly", buf)
-	if s.AdultOnly.HasVal() {
-		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_adultOnly...)
-		buf = cbor.AppendBool(buf, s.AdultOnly.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "identifier", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_identifier...)
-	buf = cbor.AppendText(buf, s.Identifier)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "defaultSetting", buf)
-	if s.DefaultSetting.HasVal() {
-		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_defaultSetting...)
-		buf = cbor.AppendText(buf, s.DefaultSetting.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -947,22 +1012,35 @@ func (s *LabelDefs_LabelValueDefinitionStrings) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_lang...)
-	buf = cbor.AppendText(buf, s.Lang)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_lang...)
+		buf = cbor.AppendText(buf, s.Lang)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_description...)
+		buf = cbor.AppendText(buf, s.Description)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_lang...)
+		buf = cbor.AppendText(buf, s.Lang)
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_description...)
+		buf = cbor.AppendText(buf, s.Description)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_description...)
-	buf = cbor.AppendText(buf, s.Description)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1181,16 +1259,25 @@ func (s *LabelDefs_SelfLabel) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "val", buf)
-	buf = append(buf, cborKey_LabelDefs_SelfLabel_val...)
-	buf = cbor.AppendText(buf, s.Val)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelDefs_SelfLabel_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "val", buf)
+		buf = append(buf, cborKey_LabelDefs_SelfLabel_val...)
+		buf = cbor.AppendText(buf, s.Val)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_SelfLabel_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelDefs_SelfLabel_val...)
+		buf = cbor.AppendText(buf, s.Val)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_SelfLabel_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1366,23 +1453,39 @@ func (s *LabelDefs_SelfLabels) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelDefs_SelfLabels_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "values", buf)
-	buf = append(buf, cborKey_LabelDefs_SelfLabels_values...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Values)))
-	for _, item := range s.Values {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_SelfLabels_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "values", buf)
+		buf = append(buf, cborKey_LabelDefs_SelfLabels_values...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Values)))
+		for _, item := range s.Values {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelDefs_SelfLabels_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_LabelDefs_SelfLabels_values...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Values)))
+		for _, item := range s.Values {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

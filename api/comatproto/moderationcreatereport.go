@@ -199,39 +199,66 @@ func (s *ModerationCreateReport_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Output_id...)
-	buf = cbor.AppendInt(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationCreateReport_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	if s.Reason.HasVal() {
-		buf = append(buf, cborKey_ModerationCreateReport_Output_reason...)
-		buf = cbor.AppendText(buf, s.Reason.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Output_subject...)
-	{
-		var err error
-		buf, err = s.Subject.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCreateReport_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		if s.Reason.HasVal() {
+			buf = append(buf, cborKey_ModerationCreateReport_Output_reason...)
+			buf = cbor.AppendText(buf, s.Reason.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonType", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_reasonType...)
+		buf = cbor.AppendText(buf, s.ReasonType)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reportedBy", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_reportedBy...)
+		buf = cbor.AppendText(buf, s.ReportedBy)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ModerationCreateReport_Output_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCreateReport_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Reason.HasVal() {
+			buf = append(buf, cborKey_ModerationCreateReport_Output_reason...)
+			buf = cbor.AppendText(buf, s.Reason.Val())
+		}
+		buf = append(buf, cborKey_ModerationCreateReport_Output_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ModerationCreateReport_Output_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_reasonType...)
+		buf = cbor.AppendText(buf, s.ReasonType)
+		buf = append(buf, cborKey_ModerationCreateReport_Output_reportedBy...)
+		buf = cbor.AppendText(buf, s.ReportedBy)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Output_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonType", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Output_reasonType...)
-	buf = cbor.AppendText(buf, s.ReasonType)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reportedBy", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Output_reportedBy...)
-	buf = cbor.AppendText(buf, s.ReportedBy)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -684,44 +711,78 @@ func (s *ModerationCreateReport_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationCreateReport_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	if s.Reason.HasVal() {
-		buf = append(buf, cborKey_ModerationCreateReport_Input_reason...)
-		buf = cbor.AppendText(buf, s.Reason.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "modTool", buf)
-	if s.ModTool.HasVal() {
-		buf = append(buf, cborKey_ModerationCreateReport_Input_modTool...)
-		{
-			v := s.ModTool.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCreateReport_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		if s.Reason.HasVal() {
+			buf = append(buf, cborKey_ModerationCreateReport_Input_reason...)
+			buf = cbor.AppendText(buf, s.Reason.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "modTool", buf)
+		if s.ModTool.HasVal() {
+			buf = append(buf, cborKey_ModerationCreateReport_Input_modTool...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.ModTool.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Input_subject...)
-	{
-		var err error
-		buf, err = s.Subject.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Input_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonType", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_Input_reasonType...)
+		buf = cbor.AppendText(buf, s.ReasonType)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCreateReport_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Reason.HasVal() {
+			buf = append(buf, cborKey_ModerationCreateReport_Input_reason...)
+			buf = cbor.AppendText(buf, s.Reason.Val())
+		}
+		if s.ModTool.HasVal() {
+			buf = append(buf, cborKey_ModerationCreateReport_Input_modTool...)
+			{
+				v := s.ModTool.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ModerationCreateReport_Input_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ModerationCreateReport_Input_reasonType...)
+		buf = cbor.AppendText(buf, s.ReasonType)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonType", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_Input_reasonType...)
-	buf = cbor.AppendText(buf, s.ReasonType)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1007,21 +1068,34 @@ func (s *ModerationCreateReport_ModTool) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "meta", buf)
-	if true {
-		buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
-		buf = cbor.AppendNull(buf)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "meta", buf)
+		if true {
+			buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_ModerationCreateReport_ModTool_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCreateReport_ModTool_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if true {
+			buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
+			buf = cbor.AppendNull(buf)
+		}
+		buf = append(buf, cborKey_ModerationCreateReport_ModTool_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationCreateReport_ModTool_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_ModerationCreateReport_ModTool_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationCreateReport_ModTool_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

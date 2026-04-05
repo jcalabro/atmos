@@ -149,23 +149,39 @@ func (s *ModerationGetAccountTimeline_Output) AppendCBOR(buf []byte) ([]byte, er
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "timeline", buf)
-	buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_timeline...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Timeline)))
-	for _, item := range s.Timeline {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "timeline", buf)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_timeline...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Timeline)))
+		for _, item := range s.Timeline {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_timeline...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Timeline)))
+		for _, item := range s.Timeline {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -284,26 +300,44 @@ func (s *ModerationGetAccountTimeline_TimelineItem) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "day", buf)
-	buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_day...)
-	buf = cbor.AppendText(buf, s.Day)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "summary", buf)
-	buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_summary...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Summary)))
-	for _, item := range s.Summary {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "day", buf)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_day...)
+		buf = cbor.AppendText(buf, s.Day)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "summary", buf)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_summary...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Summary)))
+		for _, item := range s.Summary {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_day...)
+		buf = cbor.AppendText(buf, s.Day)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_summary...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Summary)))
+		for _, item := range s.Summary {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -550,22 +584,35 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) AppendCBOR(buf []byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "count", buf)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_count...)
+		buf = cbor.AppendInt(buf, s.Count)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventType", buf)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventType...)
+		buf = cbor.AppendText(buf, s.EventType)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventSubjectType", buf)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventSubjectType...)
+		buf = cbor.AppendText(buf, s.EventSubjectType)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_count...)
+		buf = cbor.AppendInt(buf, s.Count)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventType...)
+		buf = cbor.AppendText(buf, s.EventType)
+		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventSubjectType...)
+		buf = cbor.AppendText(buf, s.EventSubjectType)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "count", buf)
-	buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_count...)
-	buf = cbor.AppendInt(buf, s.Count)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventType", buf)
-	buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventType...)
-	buf = cbor.AppendText(buf, s.EventType)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventSubjectType", buf)
-	buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventSubjectType...)
-	buf = cbor.AppendText(buf, s.EventSubjectType)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

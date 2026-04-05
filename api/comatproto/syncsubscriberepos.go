@@ -50,30 +50,49 @@ func (s *SyncSubscribeRepos_Account) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Account_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Account_seq...)
-	buf = cbor.AppendInt(buf, s.Seq)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Account_time...)
-	buf = cbor.AppendText(buf, s.Time)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Account_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Account_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_active...)
+		buf = cbor.AppendBool(buf, s.Active)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Account_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Account_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Account_active...)
+		buf = cbor.AppendBool(buf, s.Active)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Account_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Account_active...)
-	buf = cbor.AppendBool(buf, s.Active)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Account_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -380,82 +399,146 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ops", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_ops...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ops)))
-	for _, item := range s.Ops {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ops", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_ops...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ops)))
+		for _, item := range s.Ops {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_seq...)
-	buf = cbor.AppendInt(buf, s.Seq)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_repo...)
-	buf = cbor.AppendText(buf, s.Repo)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_time...)
-	buf = cbor.AppendText(buf, s.Time)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobs", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blobs...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
-	for _, item := range s.Blobs {
-		_ = item // TODO: unsupported array element CBOR encode
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "since", buf)
-	if s.Since.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
-		if !s.Since.HasVal() {
-			buf = cbor.AppendNull(buf)
-		} else {
-			buf = cbor.AppendText(buf, s.Since.Val())
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_repo...)
+		buf = cbor.AppendText(buf, s.Repo)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocks", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blocks...)
-	buf = cbor.AppendBytes(buf, s.Blocks)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_commit...)
-	{
-		var err error
-		buf, err = s.Commit.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobs", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blobs...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
+		for _, item := range s.Blobs {
+			_ = item // TODO: unsupported array element CBOR encode
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rebase", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rebase...)
-	buf = cbor.AppendBool(buf, s.Rebase)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tooBig", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Commit_tooBig...)
-	buf = cbor.AppendBool(buf, s.TooBig)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "prevData", buf)
-	if s.PrevData.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_prevData...)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "since", buf)
+		if s.Since.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
+			if !s.Since.HasVal() {
+				buf = cbor.AppendNull(buf)
+			} else {
+				buf = cbor.AppendText(buf, s.Since.Val())
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocks", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blocks...)
+		buf = cbor.AppendBytes(buf, s.Blocks)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_commit...)
 		{
-			v := s.PrevData.Val()
+			var err error
+			buf, err = s.Commit.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rebase", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rebase...)
+		buf = cbor.AppendBool(buf, s.Rebase)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tooBig", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_tooBig...)
+		buf = cbor.AppendBool(buf, s.TooBig)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "prevData", buf)
+		if s.PrevData.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_prevData...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.PrevData.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_ops...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ops)))
+		for _, item := range s.Ops {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_repo...)
+		buf = cbor.AppendText(buf, s.Repo)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blobs...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
+		for _, item := range s.Blobs {
+			_ = item // TODO: unsupported array element CBOR encode
+		}
+		if s.Since.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
+			if !s.Since.HasVal() {
+				buf = cbor.AppendNull(buf)
+			} else {
+				buf = cbor.AppendText(buf, s.Since.Val())
+			}
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blocks...)
+		buf = cbor.AppendBytes(buf, s.Blocks)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_commit...)
+		{
+			var err error
+			buf, err = s.Commit.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rebase...)
+		buf = cbor.AppendBool(buf, s.Rebase)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_tooBig...)
+		buf = cbor.AppendBool(buf, s.TooBig)
+		if s.PrevData.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_prevData...)
+			{
+				v := s.PrevData.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -995,27 +1078,44 @@ func (s *SyncSubscribeRepos_Identity) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Identity_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Identity_seq...)
-	buf = cbor.AppendInt(buf, s.Seq)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Identity_time...)
-	buf = cbor.AppendText(buf, s.Time)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Identity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		if s.Handle.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Identity_handle...)
+			buf = cbor.AppendText(buf, s.Handle.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Identity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Handle.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Identity_handle...)
+			buf = cbor.AppendText(buf, s.Handle.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	if s.Handle.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_handle...)
-		buf = cbor.AppendText(buf, s.Handle.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1280,21 +1380,34 @@ func (s *SyncSubscribeRepos_Info) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Info_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Info_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Info_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Info_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Info_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncSubscribeRepos_Info_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Info_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Message.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Info_message...)
+			buf = cbor.AppendText(buf, s.Message.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
-	if s.Message.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Info_message...)
-		buf = cbor.AppendText(buf, s.Message.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1732,15 +1845,34 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	if s.CID.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
-		{
-			v := s.CID.Val()
-			if !s.CID.HasVal() {
-				buf = cbor.AppendNull(buf)
-			} else {
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
+			{
+				v := s.CID.Val()
+				if !s.CID.HasVal() {
+					buf = cbor.AppendNull(buf)
+				} else {
+					{
+						var err error
+						buf, err = v.AppendCBOR(buf)
+						if err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "path", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_path...)
+		buf = cbor.AppendText(buf, s.Path)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "prev", buf)
+		if s.Prev.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_prev...)
+			{
+				v := s.Prev.Val()
 				{
 					var err error
 					buf, err = v.AppendCBOR(buf)
@@ -1750,33 +1882,55 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "path", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_path...)
-	buf = cbor.AppendText(buf, s.Path)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "prev", buf)
-	if s.Prev.HasVal() {
-		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_prev...)
-		{
-			v := s.Prev.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.CID.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.CID.Val()
+				if !s.CID.HasVal() {
+					buf = cbor.AppendNull(buf)
+				} else {
+					{
+						var err error
+						buf, err = v.AppendCBOR(buf)
+						if err != nil {
+							return nil, err
+						}
+					}
 				}
 			}
 		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_path...)
+		buf = cbor.AppendText(buf, s.Path)
+		if s.Prev.HasVal() {
+			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_prev...)
+			{
+				v := s.Prev.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_action...)
+		buf = cbor.AppendText(buf, s.Action)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_action...)
-	buf = cbor.AppendText(buf, s.Action)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2085,28 +2239,45 @@ func (s *SyncSubscribeRepos_Sync) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Sync_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Sync_rev...)
-	buf = cbor.AppendText(buf, s.Rev)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Sync_seq...)
-	buf = cbor.AppendInt(buf, s.Seq)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Sync_time...)
-	buf = cbor.AppendText(buf, s.Time)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Sync_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocks", buf)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_blocks...)
+		buf = cbor.AppendBytes(buf, s.Blocks)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_seq...)
+		buf = cbor.AppendInt(buf, s.Seq)
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_time...)
+		buf = cbor.AppendText(buf, s.Time)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncSubscribeRepos_Sync_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_blocks...)
+		buf = cbor.AppendBytes(buf, s.Blocks)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocks", buf)
-	buf = append(buf, cborKey_SyncSubscribeRepos_Sync_blocks...)
-	buf = cbor.AppendBytes(buf, s.Blocks)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

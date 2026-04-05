@@ -38,17 +38,26 @@ func (s *GraphListblock) MarshalCBOR() ([]byte, error) {
 
 func (s *GraphListblock) AppendCBOR(buf []byte) ([]byte, error) {
 	buf = cbor.AppendMapHeader(buf, uint64(3+len(s.extraCBOR)))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_GraphListblock_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_GraphListblock_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_GraphListblock_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_GraphListblock_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_GraphListblock_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_GraphListblock_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphListblock_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_GraphListblock_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		buf = append(buf, cborKey_GraphListblock_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+	}
 	return buf, nil
 }
 

@@ -41,39 +41,69 @@ func (s *EmbedImages_Image) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
-	buf = append(buf, cborKey_EmbedImages_Image_alt...)
-	buf = cbor.AppendText(buf, s.Alt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedImages_Image_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "image", buf)
-	buf = append(buf, cborKey_EmbedImages_Image_image...)
-	{
-		var err error
-		buf, err = s.Image.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		buf = append(buf, cborKey_EmbedImages_Image_alt...)
+		buf = cbor.AppendText(buf, s.Alt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_Image_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
-	if s.AspectRatio.HasVal() {
-		buf = append(buf, cborKey_EmbedImages_Image_aspectRatio...)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "image", buf)
+		buf = append(buf, cborKey_EmbedImages_Image_image...)
 		{
-			v := s.AspectRatio.Val()
+			var err error
+			buf, err = s.Image.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedImages_Image_aspectRatio...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedImages_Image_alt...)
+		buf = cbor.AppendText(buf, s.Alt)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_Image_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedImages_Image_image...)
+		{
+			var err error
+			buf, err = s.Image.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedImages_Image_aspectRatio...)
+			{
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -322,23 +352,39 @@ func (s *EmbedImages) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedImages_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "images", buf)
-	buf = append(buf, cborKey_EmbedImages_images...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
-	for _, item := range s.Images {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "images", buf)
+		buf = append(buf, cborKey_EmbedImages_images...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
+		for _, item := range s.Images {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedImages_images...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
+		for _, item := range s.Images {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -555,23 +601,39 @@ func (s *EmbedImages_View) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedImages_View_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "images", buf)
-	buf = append(buf, cborKey_EmbedImages_View_images...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
-	for _, item := range s.Images {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "images", buf)
+		buf = append(buf, cborKey_EmbedImages_View_images...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
+		for _, item := range s.Images {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedImages_View_images...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
+		for _, item := range s.Images {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -797,36 +859,62 @@ func (s *EmbedImages_ViewImage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
-	buf = append(buf, cborKey_EmbedImages_ViewImage_alt...)
-	buf = cbor.AppendText(buf, s.Alt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedImages_ViewImage_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thumb", buf)
-	buf = append(buf, cborKey_EmbedImages_ViewImage_thumb...)
-	buf = cbor.AppendText(buf, s.Thumb)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "fullsize", buf)
-	buf = append(buf, cborKey_EmbedImages_ViewImage_fullsize...)
-	buf = cbor.AppendText(buf, s.Fullsize)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
-	if s.AspectRatio.HasVal() {
-		buf = append(buf, cborKey_EmbedImages_ViewImage_aspectRatio...)
-		{
-			v := s.AspectRatio.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		buf = append(buf, cborKey_EmbedImages_ViewImage_alt...)
+		buf = cbor.AppendText(buf, s.Alt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_ViewImage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thumb", buf)
+		buf = append(buf, cborKey_EmbedImages_ViewImage_thumb...)
+		buf = cbor.AppendText(buf, s.Thumb)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "fullsize", buf)
+		buf = append(buf, cborKey_EmbedImages_ViewImage_fullsize...)
+		buf = cbor.AppendText(buf, s.Fullsize)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedImages_ViewImage_aspectRatio...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedImages_ViewImage_alt...)
+		buf = cbor.AppendText(buf, s.Alt)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedImages_ViewImage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedImages_ViewImage_thumb...)
+		buf = cbor.AppendText(buf, s.Thumb)
+		buf = append(buf, cborKey_EmbedImages_ViewImage_fullsize...)
+		buf = cbor.AppendText(buf, s.Fullsize)
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedImages_ViewImage_aspectRatio...)
+			{
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

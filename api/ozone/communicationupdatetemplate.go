@@ -282,46 +282,79 @@ func (s *CommunicationUpdateTemplate_Input) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
-	if s.Lang.HasVal() {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_lang...)
-		buf = cbor.AppendText(buf, s.Lang.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		if s.Lang.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_lang...)
+			buf = cbor.AppendText(buf, s.Lang.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		if s.Name.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_name...)
+			buf = cbor.AppendText(buf, s.Name.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		if s.Subject.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_subject...)
+			buf = cbor.AppendText(buf, s.Subject.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
+		if s.Disabled.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_disabled...)
+			buf = cbor.AppendBool(buf, s.Disabled.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedBy", buf)
+		if s.UpdatedBy.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_updatedBy...)
+			buf = cbor.AppendText(buf, s.UpdatedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
+		if s.ContentMarkdown.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_contentMarkdown...)
+			buf = cbor.AppendText(buf, s.ContentMarkdown.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		if s.Lang.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_lang...)
+			buf = cbor.AppendText(buf, s.Lang.Val())
+		}
+		if s.Name.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_name...)
+			buf = cbor.AppendText(buf, s.Name.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Subject.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_subject...)
+			buf = cbor.AppendText(buf, s.Subject.Val())
+		}
+		if s.Disabled.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_disabled...)
+			buf = cbor.AppendBool(buf, s.Disabled.Val())
+		}
+		if s.UpdatedBy.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_updatedBy...)
+			buf = cbor.AppendText(buf, s.UpdatedBy.Val())
+		}
+		if s.ContentMarkdown.HasVal() {
+			buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_contentMarkdown...)
+			buf = cbor.AppendText(buf, s.ContentMarkdown.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	if s.Name.HasVal() {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_name...)
-		buf = cbor.AppendText(buf, s.Name.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	if s.Subject.HasVal() {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_subject...)
-		buf = cbor.AppendText(buf, s.Subject.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
-	if s.Disabled.HasVal() {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_disabled...)
-		buf = cbor.AppendBool(buf, s.Disabled.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedBy", buf)
-	if s.UpdatedBy.HasVal() {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_updatedBy...)
-		buf = cbor.AppendText(buf, s.UpdatedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
-	if s.ContentMarkdown.HasVal() {
-		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_contentMarkdown...)
-		buf = cbor.AppendText(buf, s.ContentMarkdown.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -172,28 +172,48 @@ func (s *UnspeccedGetPopularFeedGenerators_Output) AppendCBOR(buf []byte) ([]byt
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
-	buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_feeds...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
-	for _, item := range s.Feeds {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feeds", buf)
+		buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_feeds...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+		for _, item := range s.Feeds {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_feeds...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
+		for _, item := range s.Feeds {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetPopularFeedGenerators_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

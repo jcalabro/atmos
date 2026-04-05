@@ -84,93 +84,168 @@ func (s *AdminDefs_AccountView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_AdminDefs_AccountView_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminDefs_AccountView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_AccountView_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_AdminDefs_AccountView_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "invites", buf)
-	if len(s.Invites) > 0 {
-		buf = append(buf, cborKey_AdminDefs_AccountView_invites...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Invites)))
-		for _, item := range s.Invites {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_AdminDefs_AccountView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_AccountView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_AdminDefs_AccountView_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "invites", buf)
+		if len(s.Invites) > 0 {
+			buf = append(buf, cborKey_AdminDefs_AccountView_invites...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Invites)))
+			for _, item := range s.Invites {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_AdminDefs_AccountView_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "invitedBy", buf)
-	if s.InvitedBy.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_AccountView_invitedBy...)
-		{
-			v := s.InvitedBy.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_AdminDefs_AccountView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "invitedBy", buf)
+		if s.InvitedBy.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_invitedBy...)
 			{
+				v := s.InvitedBy.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteNote", buf)
+		if s.InviteNote.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_inviteNote...)
+			buf = cbor.AppendText(buf, s.InviteNote.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deactivatedAt", buf)
+		if s.DeactivatedAt.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_deactivatedAt...)
+			buf = cbor.AppendText(buf, s.DeactivatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "relatedRecords", buf)
+		if len(s.RelatedRecords) > 0 {
+			buf = append(buf, cborKey_AdminDefs_AccountView_relatedRecords...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedRecords)))
+			for _, item := range s.RelatedRecords {
+				_ = item // TODO: unsupported array element CBOR encode
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "invitesDisabled", buf)
+		if s.InvitesDisabled.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_invitesDisabled...)
+			buf = cbor.AppendBool(buf, s.InvitesDisabled.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailConfirmedAt", buf)
+		if s.EmailConfirmedAt.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_emailConfirmedAt...)
+			buf = cbor.AppendText(buf, s.EmailConfirmedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threatSignatures", buf)
+		if len(s.ThreatSignatures) > 0 {
+			buf = append(buf, cborKey_AdminDefs_AccountView_threatSignatures...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreatSignatures)))
+			for _, item := range s.ThreatSignatures {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AdminDefs_AccountView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_AccountView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		buf = append(buf, cborKey_AdminDefs_AccountView_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if len(s.Invites) > 0 {
+			buf = append(buf, cborKey_AdminDefs_AccountView_invites...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Invites)))
+			for _, item := range s.Invites {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_AdminDefs_AccountView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.InvitedBy.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_invitedBy...)
+			{
+				v := s.InvitedBy.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.InviteNote.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_inviteNote...)
+			buf = cbor.AppendText(buf, s.InviteNote.Val())
+		}
+		if s.DeactivatedAt.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_deactivatedAt...)
+			buf = cbor.AppendText(buf, s.DeactivatedAt.Val())
+		}
+		if len(s.RelatedRecords) > 0 {
+			buf = append(buf, cborKey_AdminDefs_AccountView_relatedRecords...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedRecords)))
+			for _, item := range s.RelatedRecords {
+				_ = item // TODO: unsupported array element CBOR encode
+			}
+		}
+		if s.InvitesDisabled.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_invitesDisabled...)
+			buf = cbor.AppendBool(buf, s.InvitesDisabled.Val())
+		}
+		if s.EmailConfirmedAt.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_AccountView_emailConfirmedAt...)
+			buf = cbor.AppendText(buf, s.EmailConfirmedAt.Val())
+		}
+		if len(s.ThreatSignatures) > 0 {
+			buf = append(buf, cborKey_AdminDefs_AccountView_threatSignatures...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreatSignatures)))
+			for _, item := range s.ThreatSignatures {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteNote", buf)
-	if s.InviteNote.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_AccountView_inviteNote...)
-		buf = cbor.AppendText(buf, s.InviteNote.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deactivatedAt", buf)
-	if s.DeactivatedAt.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_AccountView_deactivatedAt...)
-		buf = cbor.AppendText(buf, s.DeactivatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "relatedRecords", buf)
-	if len(s.RelatedRecords) > 0 {
-		buf = append(buf, cborKey_AdminDefs_AccountView_relatedRecords...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedRecords)))
-		for _, item := range s.RelatedRecords {
-			_ = item // TODO: unsupported array element CBOR encode
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "invitesDisabled", buf)
-	if s.InvitesDisabled.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_AccountView_invitesDisabled...)
-		buf = cbor.AppendBool(buf, s.InvitesDisabled.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailConfirmedAt", buf)
-	if s.EmailConfirmedAt.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_AccountView_emailConfirmedAt...)
-		buf = cbor.AppendText(buf, s.EmailConfirmedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threatSignatures", buf)
-	if len(s.ThreatSignatures) > 0 {
-		buf = append(buf, cborKey_AdminDefs_AccountView_threatSignatures...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreatSignatures)))
-		for _, item := range s.ThreatSignatures {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -851,24 +926,39 @@ func (s *AdminDefs_RepoBlobRef) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_AdminDefs_RepoBlobRef_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_AdminDefs_RepoBlobRef_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminDefs_RepoBlobRef_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_AdminDefs_RepoBlobRef_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_AdminDefs_RepoBlobRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_RepoBlobRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recordUri", buf)
+		if s.RecordUri.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_RepoBlobRef_recordUri...)
+			buf = cbor.AppendText(buf, s.RecordUri.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AdminDefs_RepoBlobRef_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_AdminDefs_RepoBlobRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_RepoBlobRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.RecordUri.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_RepoBlobRef_recordUri...)
+			buf = cbor.AppendText(buf, s.RecordUri.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recordUri", buf)
-	if s.RecordUri.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_RepoBlobRef_recordUri...)
-		buf = cbor.AppendText(buf, s.RecordUri.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1102,16 +1192,25 @@ func (s *AdminDefs_RepoRef) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_AdminDefs_RepoRef_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminDefs_RepoRef_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_AdminDefs_RepoRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_RepoRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AdminDefs_RepoRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_RepoRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1290,21 +1389,34 @@ func (s *AdminDefs_StatusAttr) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ref", buf)
-	if s.Ref.HasVal() {
-		buf = append(buf, cborKey_AdminDefs_StatusAttr_ref...)
-		buf = cbor.AppendText(buf, s.Ref.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ref", buf)
+		if s.Ref.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_StatusAttr_ref...)
+			buf = cbor.AppendText(buf, s.Ref.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_StatusAttr_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "applied", buf)
+		buf = append(buf, cborKey_AdminDefs_StatusAttr_applied...)
+		buf = cbor.AppendBool(buf, s.Applied)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Ref.HasVal() {
+			buf = append(buf, cborKey_AdminDefs_StatusAttr_ref...)
+			buf = cbor.AppendText(buf, s.Ref.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_StatusAttr_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AdminDefs_StatusAttr_applied...)
+		buf = cbor.AppendBool(buf, s.Applied)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminDefs_StatusAttr_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "applied", buf)
-	buf = append(buf, cborKey_AdminDefs_StatusAttr_applied...)
-	buf = cbor.AppendBool(buf, s.Applied)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1523,19 +1635,30 @@ func (s *AdminDefs_ThreatSignature) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminDefs_ThreatSignature_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_ThreatSignature_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_AdminDefs_ThreatSignature_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "property", buf)
+		buf = append(buf, cborKey_AdminDefs_ThreatSignature_property...)
+		buf = cbor.AppendText(buf, s.Property)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminDefs_ThreatSignature_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_AdminDefs_ThreatSignature_value...)
+		buf = cbor.AppendText(buf, s.Value)
+		buf = append(buf, cborKey_AdminDefs_ThreatSignature_property...)
+		buf = cbor.AppendText(buf, s.Property)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_AdminDefs_ThreatSignature_value...)
-	buf = cbor.AppendText(buf, s.Value)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "property", buf)
-	buf = append(buf, cborKey_AdminDefs_ThreatSignature_property...)
-	buf = cbor.AppendText(buf, s.Property)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

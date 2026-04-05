@@ -214,35 +214,58 @@ func (s *SafelinkAddRule_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
-	buf = append(buf, cborKey_SafelinkAddRule_Input_url...)
-	buf = cbor.AppendText(buf, s.URL)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SafelinkAddRule_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
+		buf = append(buf, cborKey_SafelinkAddRule_Input_url...)
+		buf = cbor.AppendText(buf, s.URL)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkAddRule_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
+		buf = append(buf, cborKey_SafelinkAddRule_Input_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		buf = append(buf, cborKey_SafelinkAddRule_Input_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_SafelinkAddRule_Input_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
+		buf = append(buf, cborKey_SafelinkAddRule_Input_pattern...)
+		buf = cbor.AppendText(buf, s.Pattern)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		if s.CreatedBy.HasVal() {
+			buf = append(buf, cborKey_SafelinkAddRule_Input_createdBy...)
+			buf = cbor.AppendText(buf, s.CreatedBy.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SafelinkAddRule_Input_url...)
+		buf = cbor.AppendText(buf, s.URL)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkAddRule_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SafelinkAddRule_Input_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		buf = append(buf, cborKey_SafelinkAddRule_Input_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_SafelinkAddRule_Input_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		buf = append(buf, cborKey_SafelinkAddRule_Input_pattern...)
+		buf = cbor.AppendText(buf, s.Pattern)
+		if s.CreatedBy.HasVal() {
+			buf = append(buf, cborKey_SafelinkAddRule_Input_createdBy...)
+			buf = cbor.AppendText(buf, s.CreatedBy.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
-	buf = append(buf, cborKey_SafelinkAddRule_Input_action...)
-	buf = cbor.AppendText(buf, s.Action)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	buf = append(buf, cborKey_SafelinkAddRule_Input_reason...)
-	buf = cbor.AppendText(buf, s.Reason)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
-	if s.Comment.HasVal() {
-		buf = append(buf, cborKey_SafelinkAddRule_Input_comment...)
-		buf = cbor.AppendText(buf, s.Comment.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
-	buf = append(buf, cborKey_SafelinkAddRule_Input_pattern...)
-	buf = cbor.AppendText(buf, s.Pattern)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	if s.CreatedBy.HasVal() {
-		buf = append(buf, cborKey_SafelinkAddRule_Input_createdBy...)
-		buf = cbor.AppendText(buf, s.CreatedBy.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

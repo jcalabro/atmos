@@ -272,61 +272,110 @@ func (s *ModerationEmitEvent_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationEmitEvent_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "event", buf)
-	buf = append(buf, cborKey_ModerationEmitEvent_Input_event...)
-	{
-		var err error
-		buf, err = s.Event.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "modTool", buf)
-	if s.ModTool.HasVal() {
-		buf = append(buf, cborKey_ModerationEmitEvent_Input_modTool...)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "event", buf)
+		buf = append(buf, cborKey_ModerationEmitEvent_Input_event...)
 		{
-			v := s.ModTool.Val()
+			var err error
+			buf, err = s.Event.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "modTool", buf)
+		if s.ModTool.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_modTool...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.ModTool.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_ModerationEmitEvent_Input_subject...)
-	{
-		var err error
-		buf, err = s.Subject.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_ModerationEmitEvent_Input_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		buf = append(buf, cborKey_ModerationEmitEvent_Input_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "externalId", buf)
+		if s.ExternalId.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_externalId...)
+			buf = cbor.AppendText(buf, s.ExternalId.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectBlobCids", buf)
+		if len(s.SubjectBlobCids) > 0 {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_subjectBlobCids...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectBlobCids)))
+			for _, item := range s.SubjectBlobCids {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationEmitEvent_Input_event...)
+		{
+			var err error
+			buf, err = s.Event.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.ModTool.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_modTool...)
+			{
+				v := s.ModTool.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ModerationEmitEvent_Input_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ModerationEmitEvent_Input_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		if s.ExternalId.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_externalId...)
+			buf = cbor.AppendText(buf, s.ExternalId.Val())
+		}
+		if len(s.SubjectBlobCids) > 0 {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_subjectBlobCids...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectBlobCids)))
+			for _, item := range s.SubjectBlobCids {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	buf = append(buf, cborKey_ModerationEmitEvent_Input_createdBy...)
-	buf = cbor.AppendText(buf, s.CreatedBy)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "externalId", buf)
-	if s.ExternalId.HasVal() {
-		buf = append(buf, cborKey_ModerationEmitEvent_Input_externalId...)
-		buf = cbor.AppendText(buf, s.ExternalId.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectBlobCids", buf)
-	if len(s.SubjectBlobCids) > 0 {
-		buf = append(buf, cborKey_ModerationEmitEvent_Input_subjectBlobCids...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectBlobCids)))
-		for _, item := range s.SubjectBlobCids {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

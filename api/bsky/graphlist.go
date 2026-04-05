@@ -164,65 +164,117 @@ func (s *GraphList) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_GraphList_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_GraphList_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
-	if s.Avatar.HasVal() {
-		buf = append(buf, cborKey_GraphList_avatar...)
-		{
-			v := s.Avatar.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_GraphList_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_GraphList_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_GraphList_avatar...)
 			{
+				v := s.Avatar.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_GraphList_labels...)
+			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "purpose", buf)
+		buf = append(buf, cborKey_GraphList_purpose...)
+		buf = cbor.AppendText(buf, s.Purpose)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_GraphList_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_GraphList_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
+		if len(s.DescriptionFacets) > 0 {
+			buf = append(buf, cborKey_GraphList_descriptionFacets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
+			for _, item := range s.DescriptionFacets {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphList_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		buf = append(buf, cborKey_GraphList_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		if s.Avatar.HasVal() {
+			buf = append(buf, cborKey_GraphList_avatar...)
+			{
+				v := s.Avatar.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_GraphList_labels...)
+			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_GraphList_purpose...)
+		buf = cbor.AppendText(buf, s.Purpose)
+		buf = append(buf, cborKey_GraphList_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_GraphList_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if len(s.DescriptionFacets) > 0 {
+			buf = append(buf, cborKey_GraphList_descriptionFacets...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
+			for _, item := range s.DescriptionFacets {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if s.Labels.HasVal() {
-		buf = append(buf, cborKey_GraphList_labels...)
-		{
-			v := s.Labels.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "purpose", buf)
-	buf = append(buf, cborKey_GraphList_purpose...)
-	buf = cbor.AppendText(buf, s.Purpose)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_GraphList_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_GraphList_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
-	if len(s.DescriptionFacets) > 0 {
-		buf = append(buf, cborKey_GraphList_descriptionFacets...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
-		for _, item := range s.DescriptionFacets {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

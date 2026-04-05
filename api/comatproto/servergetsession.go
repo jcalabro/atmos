@@ -283,49 +283,84 @@ func (s *ServerGetSession_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ServerGetSession_Output_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerGetSession_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ServerGetSession_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetSession_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
+		if s.Active.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_active...)
+			buf = cbor.AppendBool(buf, s.Active.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
+		if true {
+			buf = append(buf, cborKey_ServerGetSession_Output_didDoc...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ServerGetSession_Output_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailConfirmed", buf)
+		if s.EmailConfirmed.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_emailConfirmed...)
+			buf = cbor.AppendBool(buf, s.EmailConfirmed.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailAuthFactor", buf)
+		if s.EmailAuthFactor.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_emailAuthFactor...)
+			buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ServerGetSession_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetSession_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		if s.Active.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_active...)
+			buf = cbor.AppendBool(buf, s.Active.Val())
+		}
+		if true {
+			buf = append(buf, cborKey_ServerGetSession_Output_didDoc...)
+			buf = cbor.AppendNull(buf)
+		}
+		buf = append(buf, cborKey_ServerGetSession_Output_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		if s.EmailConfirmed.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_emailConfirmed...)
+			buf = cbor.AppendBool(buf, s.EmailConfirmed.Val())
+		}
+		if s.EmailAuthFactor.HasVal() {
+			buf = append(buf, cborKey_ServerGetSession_Output_emailAuthFactor...)
+			buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_ServerGetSession_Output_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
-	if s.Active.HasVal() {
-		buf = append(buf, cborKey_ServerGetSession_Output_active...)
-		buf = cbor.AppendBool(buf, s.Active.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
-	if true {
-		buf = append(buf, cborKey_ServerGetSession_Output_didDoc...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ServerGetSession_Output_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_ServerGetSession_Output_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailConfirmed", buf)
-	if s.EmailConfirmed.HasVal() {
-		buf = append(buf, cborKey_ServerGetSession_Output_emailConfirmed...)
-		buf = cbor.AppendBool(buf, s.EmailConfirmed.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailAuthFactor", buf)
-	if s.EmailAuthFactor.HasVal() {
-		buf = append(buf, cborKey_ServerGetSession_Output_emailAuthFactor...)
-		buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -172,28 +172,48 @@ func (s *ModerationListScheduledActions_Output) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actions", buf)
-	buf = append(buf, cborKey_ModerationListScheduledActions_Output_actions...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
-	for _, item := range s.Actions {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actions", buf)
+		buf = append(buf, cborKey_ModerationListScheduledActions_Output_actions...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
+		for _, item := range s.Actions {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		buf = append(buf, cborKey_ModerationListScheduledActions_Output_actions...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
+		for _, item := range s.Actions {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -581,47 +601,82 @@ func (s *ModerationListScheduledActions_Input) AppendCBOR(buf []byte) ([]byte, e
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "limit", buf)
-	if s.Limit.HasVal() {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Input_limit...)
-		buf = cbor.AppendInt(buf, s.Limit.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Input_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "statuses", buf)
-	buf = append(buf, cborKey_ModerationListScheduledActions_Input_statuses...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Statuses)))
-	for _, item := range s.Statuses {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjects", buf)
-	if len(s.Subjects) > 0 {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Input_subjects...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
-		for _, item := range s.Subjects {
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "limit", buf)
+		if s.Limit.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_limit...)
+			buf = cbor.AppendInt(buf, s.Limit.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "statuses", buf)
+		buf = append(buf, cborKey_ModerationListScheduledActions_Input_statuses...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Statuses)))
+		for _, item := range s.Statuses {
 			buf = cbor.AppendText(buf, item)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjects", buf)
+		if len(s.Subjects) > 0 {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_subjects...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
+			for _, item := range s.Subjects {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "endsBefore", buf)
+		if s.EndsBefore.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_endsBefore...)
+			buf = cbor.AppendText(buf, s.EndsBefore.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "startsAfter", buf)
+		if s.StartsAfter.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_startsAfter...)
+			buf = cbor.AppendText(buf, s.StartsAfter.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Limit.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_limit...)
+			buf = cbor.AppendInt(buf, s.Limit.Val())
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		buf = append(buf, cborKey_ModerationListScheduledActions_Input_statuses...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Statuses)))
+		for _, item := range s.Statuses {
+			buf = cbor.AppendText(buf, item)
+		}
+		if len(s.Subjects) > 0 {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_subjects...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
+			for _, item := range s.Subjects {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if s.EndsBefore.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_endsBefore...)
+			buf = cbor.AppendText(buf, s.EndsBefore.Val())
+		}
+		if s.StartsAfter.HasVal() {
+			buf = append(buf, cborKey_ModerationListScheduledActions_Input_startsAfter...)
+			buf = cbor.AppendText(buf, s.StartsAfter.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "endsBefore", buf)
-	if s.EndsBefore.HasVal() {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Input_endsBefore...)
-		buf = cbor.AppendText(buf, s.EndsBefore.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "startsAfter", buf)
-	if s.StartsAfter.HasVal() {
-		buf = append(buf, cborKey_ModerationListScheduledActions_Input_startsAfter...)
-		buf = cbor.AppendText(buf, s.StartsAfter.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

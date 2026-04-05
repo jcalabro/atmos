@@ -42,23 +42,36 @@ func (s *GraphVerification) MarshalCBOR() ([]byte, error) {
 
 func (s *GraphVerification) AppendCBOR(buf []byte) ([]byte, error) {
 	buf = cbor.AppendMapHeader(buf, uint64(5+len(s.extraCBOR)))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_GraphVerification_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_GraphVerification_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_GraphVerification_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_GraphVerification_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	buf = append(buf, cborKey_GraphVerification_displayName...)
-	buf = cbor.AppendText(buf, s.DisplayName)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_GraphVerification_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_GraphVerification_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_GraphVerification_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_GraphVerification_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		buf = append(buf, cborKey_GraphVerification_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphVerification_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_GraphVerification_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		buf = append(buf, cborKey_GraphVerification_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		buf = append(buf, cborKey_GraphVerification_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_GraphVerification_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+	}
 	return buf, nil
 }
 

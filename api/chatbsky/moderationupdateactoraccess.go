@@ -152,24 +152,39 @@ func (s *ModerationUpdateActorAccess_Input) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ref", buf)
-	if s.Ref.HasVal() {
-		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_ref...)
-		buf = cbor.AppendText(buf, s.Ref.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ref", buf)
+		if s.Ref.HasVal() {
+			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_ref...)
+			buf = cbor.AppendText(buf, s.Ref.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actor", buf)
+		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_actor...)
+		buf = cbor.AppendText(buf, s.Actor)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowAccess", buf)
+		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_allowAccess...)
+		buf = cbor.AppendBool(buf, s.AllowAccess)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Ref.HasVal() {
+			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_ref...)
+			buf = cbor.AppendText(buf, s.Ref.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_actor...)
+		buf = cbor.AppendText(buf, s.Actor)
+		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_allowAccess...)
+		buf = cbor.AppendBool(buf, s.AllowAccess)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actor", buf)
-	buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_actor...)
-	buf = cbor.AppendText(buf, s.Actor)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowAccess", buf)
-	buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_allowAccess...)
-	buf = cbor.AppendBool(buf, s.AllowAccess)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

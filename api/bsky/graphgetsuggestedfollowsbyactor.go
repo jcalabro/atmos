@@ -226,38 +226,66 @@ func (s *GraphGetSuggestedFollowsByActor_Output) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recId", buf)
-	if s.RecId.HasVal() {
-		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recId...)
-		buf = cbor.AppendInt(buf, s.RecId.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recIdStr", buf)
-	if s.RecIdStr.HasVal() {
-		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recIdStr...)
-		buf = cbor.AppendText(buf, s.RecIdStr.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isFallback", buf)
-	if s.IsFallback.HasVal() {
-		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_isFallback...)
-		buf = cbor.AppendBool(buf, s.IsFallback.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "suggestions", buf)
-	buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_suggestions...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggestions)))
-	for _, item := range s.Suggestions {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recId", buf)
+		if s.RecId.HasVal() {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recId...)
+			buf = cbor.AppendInt(buf, s.RecId.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recIdStr", buf)
+		if s.RecIdStr.HasVal() {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recIdStr...)
+			buf = cbor.AppendText(buf, s.RecIdStr.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isFallback", buf)
+		if s.IsFallback.HasVal() {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_isFallback...)
+			buf = cbor.AppendBool(buf, s.IsFallback.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "suggestions", buf)
+		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_suggestions...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggestions)))
+		for _, item := range s.Suggestions {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.RecId.HasVal() {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recId...)
+			buf = cbor.AppendInt(buf, s.RecId.Val())
+		}
+		if s.RecIdStr.HasVal() {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recIdStr...)
+			buf = cbor.AppendText(buf, s.RecIdStr.Val())
+		}
+		if s.IsFallback.HasVal() {
+			buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_isFallback...)
+			buf = cbor.AppendBool(buf, s.IsFallback.Val())
+		}
+		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_suggestions...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggestions)))
+		for _, item := range s.Suggestions {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

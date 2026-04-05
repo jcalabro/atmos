@@ -228,38 +228,66 @@ func (s *NotificationListNotifications_Output) AppendCBOR(buf []byte) ([]byte, e
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationListNotifications_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_NotificationListNotifications_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seenAt", buf)
-	if s.SeenAt.HasVal() {
-		buf = append(buf, cborKey_NotificationListNotifications_Output_seenAt...)
-		buf = cbor.AppendText(buf, s.SeenAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "priority", buf)
-	if s.Priority.HasVal() {
-		buf = append(buf, cborKey_NotificationListNotifications_Output_priority...)
-		buf = cbor.AppendBool(buf, s.Priority.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notifications", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Output_notifications...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Notifications)))
-	for _, item := range s.Notifications {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seenAt", buf)
+		if s.SeenAt.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_seenAt...)
+			buf = cbor.AppendText(buf, s.SeenAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "priority", buf)
+		if s.Priority.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_priority...)
+			buf = cbor.AppendBool(buf, s.Priority.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notifications", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Output_notifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Notifications)))
+		for _, item := range s.Notifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		if s.SeenAt.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_seenAt...)
+			buf = cbor.AppendText(buf, s.SeenAt.Val())
+		}
+		if s.Priority.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Output_priority...)
+			buf = cbor.AppendBool(buf, s.Priority.Val())
+		}
+		buf = append(buf, cborKey_NotificationListNotifications_Output_notifications...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Notifications)))
+		for _, item := range s.Notifications {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -466,57 +494,99 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_NotificationListNotifications_Notification_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_author...)
-	{
-		var err error
-		buf, err = s.Author.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isRead", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_isRead...)
-	buf = cbor.AppendBool(buf, s.IsRead)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_NotificationListNotifications_Notification_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_author...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Author.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isRead", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_isRead...)
+		buf = cbor.AppendBool(buf, s.IsRead)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_record...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonSubject", buf)
+		if s.ReasonSubject.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_reasonSubject...)
+			buf = cbor.AppendText(buf, s.ReasonSubject.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_author...)
+		{
+			var err error
+			buf, err = s.Author.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_isRead...)
+		buf = cbor.AppendBool(buf, s.IsRead)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_record...)
+		buf = cbor.AppendNull(buf)
+		buf = append(buf, cborKey_NotificationListNotifications_Notification_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.ReasonSubject.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_reasonSubject...)
+			buf = cbor.AppendText(buf, s.ReasonSubject.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_reason...)
-	buf = cbor.AppendText(buf, s.Reason)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_record...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_NotificationListNotifications_Notification_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonSubject", buf)
-	if s.ReasonSubject.HasVal() {
-		buf = append(buf, cborKey_NotificationListNotifications_Notification_reasonSubject...)
-		buf = cbor.AppendText(buf, s.ReasonSubject.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

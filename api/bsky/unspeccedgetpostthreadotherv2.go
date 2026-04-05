@@ -147,23 +147,39 @@ func (s *UnspeccedGetPostThreadOtherV2_Output) AppendCBOR(buf []byte) ([]byte, e
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thread", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_Output_thread...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Thread)))
-	for _, item := range s.Thread {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thread", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_Output_thread...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Thread)))
+		for _, item := range s.Thread {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_Output_thread...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Thread)))
+		for _, item := range s.Thread {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -383,28 +399,47 @@ func (s *UnspeccedGetPostThreadOtherV2_ThreadItem) AppendCBOR(buf []byte) ([]byt
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "depth", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_depth...)
-	buf = cbor.AppendInt(buf, s.Depth)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_value...)
-	{
-		var err error
-		buf, err = s.Value.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "depth", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_depth...)
+		buf = cbor.AppendInt(buf, s.Depth)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_value...)
+		{
+			var err error
+			buf, err = s.Value.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_depth...)
+		buf = cbor.AppendInt(buf, s.Depth)
+		buf = append(buf, cborKey_UnspeccedGetPostThreadOtherV2_ThreadItem_value...)
+		{
+			var err error
+			buf, err = s.Value.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

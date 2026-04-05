@@ -70,53 +70,93 @@ func (s *TeamDefs_Member) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_TeamDefs_Member_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
-	buf = append(buf, cborKey_TeamDefs_Member_role...)
-	buf = cbor.AppendText(buf, s.Role)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_TeamDefs_Member_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "profile", buf)
-	if s.Profile.HasVal() {
-		buf = append(buf, cborKey_TeamDefs_Member_profile...)
-		{
-			v := s.Profile.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_TeamDefs_Member_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
+		buf = append(buf, cborKey_TeamDefs_Member_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_TeamDefs_Member_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "profile", buf)
+		if s.Profile.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_profile...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Profile.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
+		if s.Disabled.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_disabled...)
+			buf = cbor.AppendBool(buf, s.Disabled.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastUpdatedBy", buf)
+		if s.LastUpdatedBy.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_lastUpdatedBy...)
+			buf = cbor.AppendText(buf, s.LastUpdatedBy.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_TeamDefs_Member_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		buf = append(buf, cborKey_TeamDefs_Member_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_TeamDefs_Member_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Profile.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_profile...)
+			{
+				v := s.Profile.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Disabled.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_disabled...)
+			buf = cbor.AppendBool(buf, s.Disabled.Val())
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
+		if s.LastUpdatedBy.HasVal() {
+			buf = append(buf, cborKey_TeamDefs_Member_lastUpdatedBy...)
+			buf = cbor.AppendText(buf, s.LastUpdatedBy.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
-	if s.Disabled.HasVal() {
-		buf = append(buf, cborKey_TeamDefs_Member_disabled...)
-		buf = cbor.AppendBool(buf, s.Disabled.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_TeamDefs_Member_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
-	if s.UpdatedAt.HasVal() {
-		buf = append(buf, cborKey_TeamDefs_Member_updatedAt...)
-		buf = cbor.AppendText(buf, s.UpdatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastUpdatedBy", buf)
-	if s.LastUpdatedBy.HasVal() {
-		buf = append(buf, cborKey_TeamDefs_Member_lastUpdatedBy...)
-		buf = cbor.AppendText(buf, s.LastUpdatedBy.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

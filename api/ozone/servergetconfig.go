@@ -306,88 +306,164 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pds", buf)
-	if s.Pds.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_Output_pds...)
-		{
-			v := s.Pds.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pds", buf)
+		if s.Pds.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_pds...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Pds.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
-	if s.Chat.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_Output_chat...)
-		{
-			v := s.Chat.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
+		if s.Chat.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_chat...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Chat.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerGetConfig_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_Output_viewer...)
-		{
-			v := s.Viewer.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetConfig_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_viewer...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "appview", buf)
-	if s.Appview.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_Output_appview...)
-		{
-			v := s.Appview.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "appview", buf)
+		if s.Appview.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_appview...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Appview.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobDivert", buf)
-	if s.BlobDivert.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_Output_blobDivert...)
-		{
-			v := s.BlobDivert.Val()
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobDivert", buf)
+		if s.BlobDivert.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_blobDivert...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.BlobDivert.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifierDid", buf)
+		if s.VerifierDid.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_verifierDid...)
+			buf = cbor.AppendText(buf, s.VerifierDid.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Pds.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_pds...)
+			{
+				v := s.Pds.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Chat.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_chat...)
+			{
+				v := s.Chat.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetConfig_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Appview.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_appview...)
+			{
+				v := s.Appview.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.BlobDivert.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_blobDivert...)
+			{
+				v := s.BlobDivert.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.VerifierDid.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_Output_verifierDid...)
+			buf = cbor.AppendText(buf, s.VerifierDid.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifierDid", buf)
-	if s.VerifierDid.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_Output_verifierDid...)
-		buf = cbor.AppendText(buf, s.VerifierDid.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -606,18 +682,29 @@ func (s *ServerGetConfig_ServiceConfig) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
-	if s.URL.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_url...)
-		buf = cbor.AppendText(buf, s.URL.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
+		if s.URL.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_url...)
+			buf = cbor.AppendText(buf, s.URL.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.URL.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_url...)
+			buf = cbor.AppendText(buf, s.URL.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -811,18 +898,29 @@ func (s *ServerGetConfig_ViewerConfig) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
-	if s.Role.HasVal() {
-		buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_role...)
-		buf = cbor.AppendText(buf, s.Role.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
+		if s.Role.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_role...)
+			buf = cbor.AppendText(buf, s.Role.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Role.HasVal() {
+			buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_role...)
+			buf = cbor.AppendText(buf, s.Role.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

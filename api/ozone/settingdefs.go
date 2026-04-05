@@ -65,51 +65,86 @@ func (s *SettingDefs_Option) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_SettingDefs_Option_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "key", buf)
-	buf = append(buf, cborKey_SettingDefs_Option_key...)
-	buf = cbor.AppendText(buf, s.Key)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SettingDefs_Option_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_SettingDefs_Option_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "key", buf)
+		buf = append(buf, cborKey_SettingDefs_Option_key...)
+		buf = cbor.AppendText(buf, s.Key)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SettingDefs_Option_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scope", buf)
+		buf = append(buf, cborKey_SettingDefs_Option_scope...)
+		buf = cbor.AppendText(buf, s.Scope)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		buf = append(buf, cborKey_SettingDefs_Option_value...)
+		buf = cbor.AppendNull(buf)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		buf = append(buf, cborKey_SettingDefs_Option_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "managerRole", buf)
+		if s.ManagerRole.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_managerRole...)
+			buf = cbor.AppendText(buf, s.ManagerRole.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastUpdatedBy", buf)
+		buf = append(buf, cborKey_SettingDefs_Option_lastUpdatedBy...)
+		buf = cbor.AppendText(buf, s.LastUpdatedBy)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SettingDefs_Option_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		buf = append(buf, cborKey_SettingDefs_Option_key...)
+		buf = cbor.AppendText(buf, s.Key)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SettingDefs_Option_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SettingDefs_Option_scope...)
+		buf = cbor.AppendText(buf, s.Scope)
+		buf = append(buf, cborKey_SettingDefs_Option_value...)
+		buf = cbor.AppendNull(buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		buf = append(buf, cborKey_SettingDefs_Option_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.ManagerRole.HasVal() {
+			buf = append(buf, cborKey_SettingDefs_Option_managerRole...)
+			buf = cbor.AppendText(buf, s.ManagerRole.Val())
+		}
+		buf = append(buf, cborKey_SettingDefs_Option_lastUpdatedBy...)
+		buf = cbor.AppendText(buf, s.LastUpdatedBy)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scope", buf)
-	buf = append(buf, cborKey_SettingDefs_Option_scope...)
-	buf = cbor.AppendText(buf, s.Scope)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
-	buf = append(buf, cborKey_SettingDefs_Option_value...)
-	buf = cbor.AppendNull(buf)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	if s.CreatedAt.HasVal() {
-		buf = append(buf, cborKey_SettingDefs_Option_createdAt...)
-		buf = cbor.AppendText(buf, s.CreatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	buf = append(buf, cborKey_SettingDefs_Option_createdBy...)
-	buf = cbor.AppendText(buf, s.CreatedBy)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
-	if s.UpdatedAt.HasVal() {
-		buf = append(buf, cborKey_SettingDefs_Option_updatedAt...)
-		buf = cbor.AppendText(buf, s.UpdatedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_SettingDefs_Option_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "managerRole", buf)
-	if s.ManagerRole.HasVal() {
-		buf = append(buf, cborKey_SettingDefs_Option_managerRole...)
-		buf = cbor.AppendText(buf, s.ManagerRole.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastUpdatedBy", buf)
-	buf = append(buf, cborKey_SettingDefs_Option_lastUpdatedBy...)
-	buf = cbor.AppendText(buf, s.LastUpdatedBy)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

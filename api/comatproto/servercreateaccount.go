@@ -185,30 +185,49 @@ func (s *ServerCreateAccount_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_ServerCreateAccount_Output_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerCreateAccount_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_ServerCreateAccount_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAccount_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
+		if true {
+			buf = append(buf, cborKey_ServerCreateAccount_Output_didDoc...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ServerCreateAccount_Output_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accessJwt", buf)
+		buf = append(buf, cborKey_ServerCreateAccount_Output_accessJwt...)
+		buf = cbor.AppendText(buf, s.AccessJwt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "refreshJwt", buf)
+		buf = append(buf, cborKey_ServerCreateAccount_Output_refreshJwt...)
+		buf = cbor.AppendText(buf, s.RefreshJwt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ServerCreateAccount_Output_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAccount_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if true {
+			buf = append(buf, cborKey_ServerCreateAccount_Output_didDoc...)
+			buf = cbor.AppendNull(buf)
+		}
+		buf = append(buf, cborKey_ServerCreateAccount_Output_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		buf = append(buf, cborKey_ServerCreateAccount_Output_accessJwt...)
+		buf = cbor.AppendText(buf, s.AccessJwt)
+		buf = append(buf, cborKey_ServerCreateAccount_Output_refreshJwt...)
+		buf = cbor.AppendText(buf, s.RefreshJwt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
-	if true {
-		buf = append(buf, cborKey_ServerCreateAccount_Output_didDoc...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ServerCreateAccount_Output_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accessJwt", buf)
-	buf = append(buf, cborKey_ServerCreateAccount_Output_accessJwt...)
-	buf = cbor.AppendText(buf, s.AccessJwt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "refreshJwt", buf)
-	buf = append(buf, cborKey_ServerCreateAccount_Output_refreshJwt...)
-	buf = cbor.AppendText(buf, s.RefreshJwt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -643,56 +662,97 @@ func (s *ServerCreateAccount_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	if s.DID.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_did...)
-		buf = cbor.AppendText(buf, s.DID.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		if s.DID.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_did...)
+			buf = cbor.AppendText(buf, s.DID.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "plcOp", buf)
+		if true {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_plcOp...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_ServerCreateAccount_Input_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "password", buf)
+		if s.Password.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_password...)
+			buf = cbor.AppendText(buf, s.Password.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteCode", buf)
+		if s.InviteCode.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_inviteCode...)
+			buf = cbor.AppendText(buf, s.InviteCode.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recoveryKey", buf)
+		if s.RecoveryKey.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_recoveryKey...)
+			buf = cbor.AppendText(buf, s.RecoveryKey.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationCode", buf)
+		if s.VerificationCode.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_verificationCode...)
+			buf = cbor.AppendText(buf, s.VerificationCode.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationPhone", buf)
+		if s.VerificationPhone.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_verificationPhone...)
+			buf = cbor.AppendText(buf, s.VerificationPhone.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.DID.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_did...)
+			buf = cbor.AppendText(buf, s.DID.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		if true {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_plcOp...)
+			buf = cbor.AppendNull(buf)
+		}
+		buf = append(buf, cborKey_ServerCreateAccount_Input_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		if s.Password.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_password...)
+			buf = cbor.AppendText(buf, s.Password.Val())
+		}
+		if s.InviteCode.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_inviteCode...)
+			buf = cbor.AppendText(buf, s.InviteCode.Val())
+		}
+		if s.RecoveryKey.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_recoveryKey...)
+			buf = cbor.AppendText(buf, s.RecoveryKey.Val())
+		}
+		if s.VerificationCode.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_verificationCode...)
+			buf = cbor.AppendText(buf, s.VerificationCode.Val())
+		}
+		if s.VerificationPhone.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAccount_Input_verificationPhone...)
+			buf = cbor.AppendText(buf, s.VerificationPhone.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "plcOp", buf)
-	if true {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_plcOp...)
-		buf = cbor.AppendNull(buf)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_ServerCreateAccount_Input_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "password", buf)
-	if s.Password.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_password...)
-		buf = cbor.AppendText(buf, s.Password.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteCode", buf)
-	if s.InviteCode.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_inviteCode...)
-		buf = cbor.AppendText(buf, s.InviteCode.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recoveryKey", buf)
-	if s.RecoveryKey.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_recoveryKey...)
-		buf = cbor.AppendText(buf, s.RecoveryKey.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationCode", buf)
-	if s.VerificationCode.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_verificationCode...)
-		buf = cbor.AppendText(buf, s.VerificationCode.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationPhone", buf)
-	if s.VerificationPhone.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAccount_Input_verificationPhone...)
-		buf = cbor.AppendText(buf, s.VerificationPhone.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

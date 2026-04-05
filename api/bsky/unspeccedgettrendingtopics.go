@@ -190,33 +190,58 @@ func (s *UnspeccedGetTrendingTopics_Output) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topics", buf)
-	buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_topics...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Topics)))
-	for _, item := range s.Topics {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topics", buf)
+		buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_topics...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Topics)))
+		for _, item := range s.Topics {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "suggested", buf)
+		buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_suggested...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggested)))
+		for _, item := range s.Suggested {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_topics...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Topics)))
+		for _, item := range s.Topics {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_suggested...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggested)))
+		for _, item := range s.Suggested {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "suggested", buf)
-	buf = append(buf, cborKey_UnspeccedGetTrendingTopics_Output_suggested...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggested)))
-	for _, item := range s.Suggested {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

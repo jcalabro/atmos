@@ -40,20 +40,31 @@ func (s *GraphListitem) MarshalCBOR() ([]byte, error) {
 
 func (s *GraphListitem) AppendCBOR(buf []byte) ([]byte, error) {
 	buf = cbor.AppendMapHeader(buf, uint64(4+len(s.extraCBOR)))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
-	buf = append(buf, cborKey_GraphListitem_list...)
-	buf = cbor.AppendText(buf, s.List)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_GraphListitem_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_GraphListitem_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_GraphListitem_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
+		buf = append(buf, cborKey_GraphListitem_list...)
+		buf = cbor.AppendText(buf, s.List)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_GraphListitem_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_GraphListitem_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_GraphListitem_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GraphListitem_list...)
+		buf = cbor.AppendText(buf, s.List)
+		buf = append(buf, cborKey_GraphListitem_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_GraphListitem_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		buf = append(buf, cborKey_GraphListitem_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+	}
 	return buf, nil
 }
 

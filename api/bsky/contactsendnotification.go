@@ -98,13 +98,20 @@ func (s *ContactSendNotification_Output) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactSendNotification_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactSendNotification_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactSendNotification_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -275,19 +282,30 @@ func (s *ContactSendNotification_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "to", buf)
-	buf = append(buf, cborKey_ContactSendNotification_Input_to...)
-	buf = cbor.AppendText(buf, s.To)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "from", buf)
-	buf = append(buf, cborKey_ContactSendNotification_Input_from...)
-	buf = cbor.AppendText(buf, s.From)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactSendNotification_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "to", buf)
+		buf = append(buf, cborKey_ContactSendNotification_Input_to...)
+		buf = cbor.AppendText(buf, s.To)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "from", buf)
+		buf = append(buf, cborKey_ContactSendNotification_Input_from...)
+		buf = cbor.AppendText(buf, s.From)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactSendNotification_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ContactSendNotification_Input_to...)
+		buf = cbor.AppendText(buf, s.To)
+		buf = append(buf, cborKey_ContactSendNotification_Input_from...)
+		buf = cbor.AppendText(buf, s.From)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactSendNotification_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

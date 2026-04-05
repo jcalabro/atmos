@@ -479,102 +479,185 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_VerificationDefs_VerificationView_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
-	buf = append(buf, cborKey_VerificationDefs_VerificationView_handle...)
-	buf = cbor.AppendText(buf, s.Handle)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuer", buf)
-	buf = append(buf, cborKey_VerificationDefs_VerificationView_issuer...)
-	buf = cbor.AppendText(buf, s.Issuer)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	buf = append(buf, cborKey_VerificationDefs_VerificationView_subject...)
-	buf = cbor.AppendText(buf, s.Subject)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_VerificationDefs_VerificationView_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedAt", buf)
-	if s.RevokedAt.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedAt...)
-		buf = cbor.AppendText(buf, s.RevokedAt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedBy", buf)
-	if s.RevokedBy.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedBy...)
-		buf = cbor.AppendText(buf, s.RevokedBy.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuerRepo", buf)
-	if s.IssuerRepo.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerRepo...)
-		{
-			v := s.IssuerRepo.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuer", buf)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_issuer...)
+		buf = cbor.AppendText(buf, s.Issuer)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedAt", buf)
+		if s.RevokedAt.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedAt...)
+			buf = cbor.AppendText(buf, s.RevokedAt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedBy", buf)
+		if s.RevokedBy.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedBy...)
+			buf = cbor.AppendText(buf, s.RevokedBy.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuerRepo", buf)
+		if s.IssuerRepo.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerRepo...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.IssuerRepo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectRepo", buf)
+		if s.SubjectRepo.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectRepo...)
+			{
+				v := s.SubjectRepo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokeReason", buf)
+		if s.RevokeReason.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokeReason...)
+			buf = cbor.AppendText(buf, s.RevokeReason.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuerProfile", buf)
+		if s.IssuerProfile.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerProfile...)
+			{
+				v := s.IssuerProfile.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectProfile", buf)
+		if s.SubjectProfile.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectProfile...)
+			{
+				v := s.SubjectProfile.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_handle...)
+		buf = cbor.AppendText(buf, s.Handle)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_issuer...)
+		buf = cbor.AppendText(buf, s.Issuer)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_subject...)
+		buf = cbor.AppendText(buf, s.Subject)
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.RevokedAt.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedAt...)
+			buf = cbor.AppendText(buf, s.RevokedAt.Val())
+		}
+		if s.RevokedBy.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedBy...)
+			buf = cbor.AppendText(buf, s.RevokedBy.Val())
+		}
+		if s.IssuerRepo.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerRepo...)
+			{
+				v := s.IssuerRepo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_VerificationDefs_VerificationView_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+		if s.SubjectRepo.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectRepo...)
+			{
+				v := s.SubjectRepo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.RevokeReason.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokeReason...)
+			buf = cbor.AppendText(buf, s.RevokeReason.Val())
+		}
+		if s.IssuerProfile.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerProfile...)
+			{
+				v := s.IssuerProfile.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.SubjectProfile.HasVal() {
+			buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectProfile...)
+			{
+				v := s.SubjectProfile.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	buf = append(buf, cborKey_VerificationDefs_VerificationView_displayName...)
-	buf = cbor.AppendText(buf, s.DisplayName)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectRepo", buf)
-	if s.SubjectRepo.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectRepo...)
-		{
-			v := s.SubjectRepo.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokeReason", buf)
-	if s.RevokeReason.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_revokeReason...)
-		buf = cbor.AppendText(buf, s.RevokeReason.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuerProfile", buf)
-	if s.IssuerProfile.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerProfile...)
-		{
-			v := s.IssuerProfile.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectProfile", buf)
-	if s.SubjectProfile.HasVal() {
-		buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectProfile...)
-		{
-			v := s.SubjectProfile.Val()
-			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

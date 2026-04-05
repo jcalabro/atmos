@@ -36,25 +36,42 @@ func (s *EmbedVideo_Caption) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "file", buf)
-	buf = append(buf, cborKey_EmbedVideo_Caption_file...)
-	{
-		var err error
-		buf, err = s.File.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "file", buf)
+		buf = append(buf, cborKey_EmbedVideo_Caption_file...)
+		{
+			var err error
+			buf, err = s.File.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		buf = append(buf, cborKey_EmbedVideo_Caption_lang...)
+		buf = cbor.AppendText(buf, s.Lang)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedVideo_Caption_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedVideo_Caption_file...)
+		{
+			var err error
+			buf, err = s.File.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_EmbedVideo_Caption_lang...)
+		buf = cbor.AppendText(buf, s.Lang)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedVideo_Caption_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
-	buf = append(buf, cborKey_EmbedVideo_Caption_lang...)
-	buf = cbor.AppendText(buf, s.Lang)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedVideo_Caption_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -271,58 +288,105 @@ func (s *EmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
-	if s.Alt.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_alt...)
-		buf = cbor.AppendText(buf, s.Alt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedVideo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "video", buf)
-	buf = append(buf, cborKey_EmbedVideo_video...)
-	{
-		var err error
-		buf, err = s.Video.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "captions", buf)
-	if len(s.Captions) > 0 {
-		buf = append(buf, cborKey_EmbedVideo_captions...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
-		for _, item := range s.Captions {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedVideo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "video", buf)
+		buf = append(buf, cborKey_EmbedVideo_video...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Video.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
-	if s.AspectRatio.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_aspectRatio...)
-		{
-			v := s.AspectRatio.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "captions", buf)
+		if len(s.Captions) > 0 {
+			buf = append(buf, cborKey_EmbedVideo_captions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
+			for _, item := range s.Captions {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_aspectRatio...)
+			{
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "presentation", buf)
+		if s.Presentation.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_presentation...)
+			buf = cbor.AppendText(buf, s.Presentation.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedVideo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedVideo_video...)
+		{
+			var err error
+			buf, err = s.Video.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if len(s.Captions) > 0 {
+			buf = append(buf, cborKey_EmbedVideo_captions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
+			for _, item := range s.Captions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_aspectRatio...)
+			{
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Presentation.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_presentation...)
+			buf = cbor.AppendText(buf, s.Presentation.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "presentation", buf)
-	if s.Presentation.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_presentation...)
-		buf = cbor.AppendText(buf, s.Presentation.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -724,48 +788,84 @@ func (s *EmbedVideo_View) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
-	if s.Alt.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_View_alt...)
-		buf = cbor.AppendText(buf, s.Alt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_EmbedVideo_View_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_EmbedVideo_View_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "playlist", buf)
-	buf = append(buf, cborKey_EmbedVideo_View_playlist...)
-	buf = cbor.AppendText(buf, s.Playlist)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thumbnail", buf)
-	if s.Thumbnail.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_View_thumbnail...)
-		buf = cbor.AppendText(buf, s.Thumbnail.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
-	if s.AspectRatio.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_View_aspectRatio...)
-		{
-			v := s.AspectRatio.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_EmbedVideo_View_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedVideo_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "playlist", buf)
+		buf = append(buf, cborKey_EmbedVideo_View_playlist...)
+		buf = cbor.AppendText(buf, s.Playlist)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thumbnail", buf)
+		if s.Thumbnail.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_thumbnail...)
+			buf = cbor.AppendText(buf, s.Thumbnail.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_aspectRatio...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "presentation", buf)
+		if s.Presentation.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_presentation...)
+			buf = cbor.AppendText(buf, s.Presentation.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		buf = append(buf, cborKey_EmbedVideo_View_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedVideo_View_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_EmbedVideo_View_playlist...)
+		buf = cbor.AppendText(buf, s.Playlist)
+		if s.Thumbnail.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_thumbnail...)
+			buf = cbor.AppendText(buf, s.Thumbnail.Val())
+		}
+		if s.AspectRatio.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_aspectRatio...)
+			{
+				v := s.AspectRatio.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.Presentation.HasVal() {
+			buf = append(buf, cborKey_EmbedVideo_View_presentation...)
+			buf = cbor.AppendText(buf, s.Presentation.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "presentation", buf)
-	if s.Presentation.HasVal() {
-		buf = append(buf, cborKey_EmbedVideo_View_presentation...)
-		buf = cbor.AppendText(buf, s.Presentation.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

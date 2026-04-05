@@ -40,31 +40,54 @@ func (s *LabelerDefs_LabelerPolicies) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelValues", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_labelValues...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.LabelValues)))
-	for _, item := range s.LabelValues {
-		buf = cbor.AppendText(buf, item)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelValueDefinitions", buf)
-	if len(s.LabelValueDefinitions) > 0 {
-		buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_labelValueDefinitions...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.LabelValueDefinitions)))
-		for _, item := range s.LabelValueDefinitions {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelValues", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_labelValues...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.LabelValues)))
+		for _, item := range s.LabelValues {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelValueDefinitions", buf)
+		if len(s.LabelValueDefinitions) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_labelValueDefinitions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.LabelValueDefinitions)))
+			for _, item := range s.LabelValueDefinitions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_labelValues...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.LabelValues)))
+		for _, item := range s.LabelValues {
+			buf = cbor.AppendText(buf, item)
+		}
+		if len(s.LabelValueDefinitions) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerPolicies_labelValueDefinitions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.LabelValueDefinitions)))
+			for _, item := range s.LabelValueDefinitions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -369,62 +392,111 @@ func (s *LabelerDefs_LabelerView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerView_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerView_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelerDefs_LabelerView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_LabelerDefs_LabelerView_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_LabelerDefs_LabelerView_viewer...)
-		{
-			v := s.Viewer.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerView_creator...)
-	{
-		var err error
-		buf, err = s.Creator.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_creator...)
+		{
+			var err error
+			buf, err = s.Creator.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
+		if s.LikeCount.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_likeCount...)
+			buf = cbor.AppendInt(buf, s.LikeCount.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_creator...)
+		{
+			var err error
+			buf, err = s.Creator.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_LabelerDefs_LabelerView_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.LikeCount.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerView_likeCount...)
+			buf = cbor.AppendInt(buf, s.LikeCount.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerView_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
-	if s.LikeCount.HasVal() {
-		buf = append(buf, cborKey_LabelerDefs_LabelerView_likeCount...)
-		buf = cbor.AppendInt(buf, s.LikeCount.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -859,95 +931,173 @@ func (s *LabelerDefs_LabelerViewDetailed) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_cid...)
-	buf = cbor.AppendText(buf, s.CID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if len(s.Labels) > 0 {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_labels...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
-		for _, item := range s.Labels {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
-	if s.Viewer.HasVal() {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_viewer...)
-		{
-			v := s.Viewer.Val()
-			{
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_creator...)
-	{
-		var err error
-		buf, err = s.Creator.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "creator", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_creator...)
+		{
+			var err error
+			buf, err = s.Creator.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "policies", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_policies...)
+		{
+			var err error
+			buf, err = s.Policies.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
+		if s.LikeCount.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_likeCount...)
+			buf = cbor.AppendInt(buf, s.LikeCount.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonTypes", buf)
+		if len(s.ReasonTypes) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_reasonTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
+			for _, item := range s.ReasonTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectTypes", buf)
+		if len(s.SubjectTypes) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_subjectTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
+			for _, item := range s.SubjectTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectCollections", buf)
+		if len(s.SubjectCollections) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_subjectCollections...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
+			for _, item := range s.SubjectCollections {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_cid...)
+		buf = cbor.AppendText(buf, s.CID)
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.Viewer.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_viewer...)
+			{
+				v := s.Viewer.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_creator...)
+		{
+			var err error
+			buf, err = s.Creator.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_policies...)
+		{
+			var err error
+			buf, err = s.Policies.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_indexedAt...)
+		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.LikeCount.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_likeCount...)
+			buf = cbor.AppendInt(buf, s.LikeCount.Val())
+		}
+		if len(s.ReasonTypes) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_reasonTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
+			for _, item := range s.ReasonTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.SubjectTypes) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_subjectTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
+			for _, item := range s.SubjectTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.SubjectCollections) > 0 {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_subjectCollections...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
+			for _, item := range s.SubjectCollections {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "policies", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_policies...)
-	{
-		var err error
-		buf, err = s.Policies.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
-	buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_indexedAt...)
-	buf = cbor.AppendText(buf, s.IndexedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
-	if s.LikeCount.HasVal() {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_likeCount...)
-		buf = cbor.AppendInt(buf, s.LikeCount.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonTypes", buf)
-	if len(s.ReasonTypes) > 0 {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_reasonTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
-		for _, item := range s.ReasonTypes {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectTypes", buf)
-	if len(s.SubjectTypes) > 0 {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_subjectTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
-		for _, item := range s.SubjectTypes {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectCollections", buf)
-	if len(s.SubjectCollections) > 0 {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewDetailed_subjectCollections...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
-		for _, item := range s.SubjectCollections {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1580,18 +1730,29 @@ func (s *LabelerDefs_LabelerViewerState) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "like", buf)
-	if s.Like.HasVal() {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewerState_like...)
-		buf = cbor.AppendText(buf, s.Like.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "like", buf)
+		if s.Like.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewerState_like...)
+			buf = cbor.AppendText(buf, s.Like.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewerState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Like.HasVal() {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewerState_like...)
+			buf = cbor.AppendText(buf, s.Like.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_LabelerDefs_LabelerViewerState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_LabelerDefs_LabelerViewerState_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

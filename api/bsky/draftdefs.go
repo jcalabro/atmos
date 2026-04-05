@@ -343,65 +343,118 @@ func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_Draft_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "langs", buf)
-	if len(s.Langs) > 0 {
-		buf = append(buf, cborKey_DraftDefs_Draft_langs...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Langs)))
-		for _, item := range s.Langs {
-			buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_Draft_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "posts", buf)
-	buf = append(buf, cborKey_DraftDefs_Draft_posts...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Posts)))
-	for _, item := range s.Posts {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "langs", buf)
+		if len(s.Langs) > 0 {
+			buf = append(buf, cborKey_DraftDefs_Draft_langs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Langs)))
+			for _, item := range s.Langs {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deviceId", buf)
-	if s.DeviceId.HasVal() {
-		buf = append(buf, cborKey_DraftDefs_Draft_deviceId...)
-		buf = cbor.AppendText(buf, s.DeviceId.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deviceName", buf)
-	if s.DeviceName.HasVal() {
-		buf = append(buf, cborKey_DraftDefs_Draft_deviceName...)
-		buf = cbor.AppendText(buf, s.DeviceName.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgateAllow", buf)
-	if len(s.ThreadgateAllow) > 0 {
-		buf = append(buf, cborKey_DraftDefs_Draft_threadgateAllow...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllow)))
-		for _, item := range s.ThreadgateAllow {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "posts", buf)
+		buf = append(buf, cborKey_DraftDefs_Draft_posts...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Posts)))
+		for _, item := range s.Posts {
 			var err error
 			buf, err = item.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postgateEmbeddingRules", buf)
-	if len(s.PostgateEmbeddingRules) > 0 {
-		buf = append(buf, cborKey_DraftDefs_Draft_postgateEmbeddingRules...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
-		for _, item := range s.PostgateEmbeddingRules {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deviceId", buf)
+		if s.DeviceId.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_Draft_deviceId...)
+			buf = cbor.AppendText(buf, s.DeviceId.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deviceName", buf)
+		if s.DeviceName.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_Draft_deviceName...)
+			buf = cbor.AppendText(buf, s.DeviceName.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgateAllow", buf)
+		if len(s.ThreadgateAllow) > 0 {
+			buf = append(buf, cborKey_DraftDefs_Draft_threadgateAllow...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllow)))
+			for _, item := range s.ThreadgateAllow {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postgateEmbeddingRules", buf)
+		if len(s.PostgateEmbeddingRules) > 0 {
+			buf = append(buf, cborKey_DraftDefs_Draft_postgateEmbeddingRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
+			for _, item := range s.PostgateEmbeddingRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_Draft_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Langs) > 0 {
+			buf = append(buf, cborKey_DraftDefs_Draft_langs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Langs)))
+			for _, item := range s.Langs {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		buf = append(buf, cborKey_DraftDefs_Draft_posts...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Posts)))
+		for _, item := range s.Posts {
 			var err error
 			buf, err = item.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
+		if s.DeviceId.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_Draft_deviceId...)
+			buf = cbor.AppendText(buf, s.DeviceId.Val())
+		}
+		if s.DeviceName.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_Draft_deviceName...)
+			buf = cbor.AppendText(buf, s.DeviceName.Val())
+		}
+		if len(s.ThreadgateAllow) > 0 {
+			buf = append(buf, cborKey_DraftDefs_Draft_threadgateAllow...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllow)))
+			for _, item := range s.ThreadgateAllow {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.PostgateEmbeddingRules) > 0 {
+			buf = append(buf, cborKey_DraftDefs_Draft_postgateEmbeddingRules...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
+			for _, item := range s.PostgateEmbeddingRules {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -897,19 +950,30 @@ func (s *DraftDefs_DraftEmbedCaption) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_lang...)
-	buf = cbor.AppendText(buf, s.Lang)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_lang...)
+		buf = cbor.AppendText(buf, s.Lang)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "content", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_content...)
+		buf = cbor.AppendText(buf, s.Content)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_lang...)
+		buf = cbor.AppendText(buf, s.Lang)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_content...)
+		buf = cbor.AppendText(buf, s.Content)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "content", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_content...)
-	buf = cbor.AppendText(buf, s.Content)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1109,16 +1173,25 @@ func (s *DraftDefs_DraftEmbedExternal) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1297,27 +1370,46 @@ func (s *DraftDefs_DraftEmbedImage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
-	if s.Alt.HasVal() {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_alt...)
-		buf = cbor.AppendText(buf, s.Alt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "localRef", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_localRef...)
-	{
-		var err error
-		buf, err = s.LocalRef.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "localRef", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_localRef...)
+		{
+			var err error
+			buf, err = s.LocalRef.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_localRef...)
+		{
+			var err error
+			buf, err = s.LocalRef.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1540,16 +1632,25 @@ func (s *DraftDefs_DraftEmbedLocalRef) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "path", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_path...)
-	buf = cbor.AppendText(buf, s.Path)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "path", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_path...)
+		buf = cbor.AppendText(buf, s.Path)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_path...)
+		buf = cbor.AppendText(buf, s.Path)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1723,22 +1824,37 @@ func (s *DraftDefs_DraftEmbedRecord) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_record...)
-	{
-		var err error
-		buf, err = s.Record.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_record...)
+		{
+			var err error
+			buf, err = s.Record.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1928,39 +2044,69 @@ func (s *DraftDefs_DraftEmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
-	if s.Alt.HasVal() {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_alt...)
-		buf = cbor.AppendText(buf, s.Alt.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "captions", buf)
-	if len(s.Captions) > 0 {
-		buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_captions...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
-		for _, item := range s.Captions {
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "captions", buf)
+		if len(s.Captions) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_captions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
+			for _, item := range s.Captions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "localRef", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_localRef...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.LocalRef.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Alt.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_alt...)
+			buf = cbor.AppendText(buf, s.Alt.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Captions) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_captions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
+			for _, item := range s.Captions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_localRef...)
+		{
+			var err error
+			buf, err = s.LocalRef.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "localRef", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_localRef...)
-	{
-		var err error
-		buf, err = s.LocalRef.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2371,78 +2517,144 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftPost_text...)
-	buf = cbor.AppendText(buf, s.Text)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftPost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if s.Labels.HasVal() {
-		buf = append(buf, cborKey_DraftDefs_DraftPost_labels...)
-		{
-			v := s.Labels.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftPost_text...)
+		buf = cbor.AppendText(buf, s.Text)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_labels...)
 			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedImages", buf)
+		if len(s.EmbedImages) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedImages...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedImages)))
+			for _, item := range s.EmbedImages {
 				var err error
-				buf, err = v.AppendCBOR(buf)
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedVideos", buf)
+		if len(s.EmbedVideos) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedVideos...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedVideos)))
+			for _, item := range s.EmbedVideos {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedRecords", buf)
+		if len(s.EmbedRecords) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedRecords...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedRecords)))
+			for _, item := range s.EmbedRecords {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedExternals", buf)
+		if len(s.EmbedExternals) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedExternals...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedExternals)))
+			for _, item := range s.EmbedExternals {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_DraftDefs_DraftPost_text...)
+		buf = cbor.AppendText(buf, s.Text)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_labels...)
+			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if len(s.EmbedImages) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedImages...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedImages)))
+			for _, item := range s.EmbedImages {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.EmbedVideos) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedVideos...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedVideos)))
+			for _, item := range s.EmbedVideos {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.EmbedRecords) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedRecords...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedRecords)))
+			for _, item := range s.EmbedRecords {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.EmbedExternals) > 0 {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedExternals...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedExternals)))
+			for _, item := range s.EmbedExternals {
+				var err error
+				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedImages", buf)
-	if len(s.EmbedImages) > 0 {
-		buf = append(buf, cborKey_DraftDefs_DraftPost_embedImages...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedImages)))
-		for _, item := range s.EmbedImages {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedVideos", buf)
-	if len(s.EmbedVideos) > 0 {
-		buf = append(buf, cborKey_DraftDefs_DraftPost_embedVideos...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedVideos)))
-		for _, item := range s.EmbedVideos {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedRecords", buf)
-	if len(s.EmbedRecords) > 0 {
-		buf = append(buf, cborKey_DraftDefs_DraftPost_embedRecords...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedRecords)))
-		for _, item := range s.EmbedRecords {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedExternals", buf)
-	if len(s.EmbedExternals) > 0 {
-		buf = append(buf, cborKey_DraftDefs_DraftPost_embedExternals...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedExternals)))
-		for _, item := range s.EmbedExternals {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2951,31 +3163,52 @@ func (s *DraftDefs_DraftView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftView_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "draft", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftView_draft...)
-	{
-		var err error
-		buf, err = s.Draft.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "draft", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftView_draft...)
+		{
+			var err error
+			buf, err = s.Draft.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftView_updatedAt...)
+		buf = cbor.AppendText(buf, s.UpdatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_DraftDefs_DraftView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftView_draft...)
+		{
+			var err error
+			buf, err = s.Draft.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_DraftDefs_DraftView_updatedAt...)
+		buf = cbor.AppendText(buf, s.UpdatedAt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftView_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftView_updatedAt...)
-	buf = cbor.AppendText(buf, s.UpdatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3219,25 +3452,42 @@ func (s *DraftDefs_DraftWithId) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftWithId_id...)
-	buf = cbor.AppendText(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_DraftDefs_DraftWithId_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "draft", buf)
-	buf = append(buf, cborKey_DraftDefs_DraftWithId_draft...)
-	{
-		var err error
-		buf, err = s.Draft.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftWithId_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftWithId_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "draft", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftWithId_draft...)
+		{
+			var err error
+			buf, err = s.Draft.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_DraftDefs_DraftWithId_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftWithId_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftWithId_draft...)
+		{
+			var err error
+			buf, err = s.Draft.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

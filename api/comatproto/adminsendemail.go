@@ -112,16 +112,25 @@ func (s *AdminSendEmail_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sent", buf)
-	buf = append(buf, cborKey_AdminSendEmail_Output_sent...)
-	buf = cbor.AppendBool(buf, s.Sent)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminSendEmail_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sent", buf)
+		buf = append(buf, cborKey_AdminSendEmail_Output_sent...)
+		buf = cbor.AppendBool(buf, s.Sent)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminSendEmail_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_AdminSendEmail_Output_sent...)
+		buf = cbor.AppendBool(buf, s.Sent)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminSendEmail_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -374,32 +383,53 @@ func (s *AdminSendEmail_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_AdminSendEmail_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminSendEmail_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_AdminSendEmail_Input_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "content", buf)
+		buf = append(buf, cborKey_AdminSendEmail_Input_content...)
+		buf = cbor.AppendText(buf, s.Content)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		if s.Subject.HasVal() {
+			buf = append(buf, cborKey_AdminSendEmail_Input_subject...)
+			buf = cbor.AppendText(buf, s.Subject.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "senderDid", buf)
+		buf = append(buf, cborKey_AdminSendEmail_Input_senderDid...)
+		buf = cbor.AppendText(buf, s.SenderDid)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recipientDid", buf)
+		buf = append(buf, cborKey_AdminSendEmail_Input_recipientDid...)
+		buf = cbor.AppendText(buf, s.RecipientDid)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_AdminSendEmail_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_AdminSendEmail_Input_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		buf = append(buf, cborKey_AdminSendEmail_Input_content...)
+		buf = cbor.AppendText(buf, s.Content)
+		if s.Subject.HasVal() {
+			buf = append(buf, cborKey_AdminSendEmail_Input_subject...)
+			buf = cbor.AppendText(buf, s.Subject.Val())
+		}
+		buf = append(buf, cborKey_AdminSendEmail_Input_senderDid...)
+		buf = cbor.AppendText(buf, s.SenderDid)
+		buf = append(buf, cborKey_AdminSendEmail_Input_recipientDid...)
+		buf = cbor.AppendText(buf, s.RecipientDid)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
-	if s.Comment.HasVal() {
-		buf = append(buf, cborKey_AdminSendEmail_Input_comment...)
-		buf = cbor.AppendText(buf, s.Comment.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "content", buf)
-	buf = append(buf, cborKey_AdminSendEmail_Input_content...)
-	buf = cbor.AppendText(buf, s.Content)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
-	if s.Subject.HasVal() {
-		buf = append(buf, cborKey_AdminSendEmail_Input_subject...)
-		buf = cbor.AppendText(buf, s.Subject.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "senderDid", buf)
-	buf = append(buf, cborKey_AdminSendEmail_Input_senderDid...)
-	buf = cbor.AppendText(buf, s.SenderDid)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recipientDid", buf)
-	buf = append(buf, cborKey_AdminSendEmail_Input_recipientDid...)
-	buf = cbor.AppendText(buf, s.RecipientDid)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

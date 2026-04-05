@@ -153,23 +153,39 @@ func (s *ContactImportContacts_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactImportContacts_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "matchesAndContactIndexes", buf)
-	buf = append(buf, cborKey_ContactImportContacts_Output_matchesAndContactIndexes...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.MatchesAndContactIndexes)))
-	for _, item := range s.MatchesAndContactIndexes {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactImportContacts_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "matchesAndContactIndexes", buf)
+		buf = append(buf, cborKey_ContactImportContacts_Output_matchesAndContactIndexes...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.MatchesAndContactIndexes)))
+		for _, item := range s.MatchesAndContactIndexes {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactImportContacts_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ContactImportContacts_Output_matchesAndContactIndexes...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.MatchesAndContactIndexes)))
+		for _, item := range s.MatchesAndContactIndexes {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -394,22 +410,36 @@ func (s *ContactImportContacts_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactImportContacts_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactImportContacts_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
+		buf = append(buf, cborKey_ContactImportContacts_Input_token...)
+		buf = cbor.AppendText(buf, s.Token)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contacts", buf)
+		buf = append(buf, cborKey_ContactImportContacts_Input_contacts...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Contacts)))
+		for _, item := range s.Contacts {
+			buf = cbor.AppendText(buf, item)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactImportContacts_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ContactImportContacts_Input_token...)
+		buf = cbor.AppendText(buf, s.Token)
+		buf = append(buf, cborKey_ContactImportContacts_Input_contacts...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Contacts)))
+		for _, item := range s.Contacts {
+			buf = cbor.AppendText(buf, item)
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
-	buf = append(buf, cborKey_ContactImportContacts_Input_token...)
-	buf = cbor.AppendText(buf, s.Token)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contacts", buf)
-	buf = append(buf, cborKey_ContactImportContacts_Input_contacts...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Contacts)))
-	for _, item := range s.Contacts {
-		buf = cbor.AppendText(buf, item)
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -65,42 +65,69 @@ func (s *SafelinkDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_id...)
-	buf = cbor.AppendInt(buf, s.Id)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_url...)
-	buf = cbor.AppendText(buf, s.URL)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SafelinkDefs_Event_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_url...)
+		buf = cbor.AppendText(buf, s.URL)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkDefs_Event_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_SafelinkDefs_Event_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_pattern...)
+		buf = cbor.AppendText(buf, s.Pattern)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventType", buf)
+		buf = append(buf, cborKey_SafelinkDefs_Event_eventType...)
+		buf = cbor.AppendText(buf, s.EventType)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SafelinkDefs_Event_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		buf = append(buf, cborKey_SafelinkDefs_Event_url...)
+		buf = cbor.AppendText(buf, s.URL)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkDefs_Event_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SafelinkDefs_Event_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		buf = append(buf, cborKey_SafelinkDefs_Event_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_SafelinkDefs_Event_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		buf = append(buf, cborKey_SafelinkDefs_Event_pattern...)
+		buf = cbor.AppendText(buf, s.Pattern)
+		buf = append(buf, cborKey_SafelinkDefs_Event_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_SafelinkDefs_Event_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		buf = append(buf, cborKey_SafelinkDefs_Event_eventType...)
+		buf = cbor.AppendText(buf, s.EventType)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_action...)
-	buf = cbor.AppendText(buf, s.Action)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_reason...)
-	buf = cbor.AppendText(buf, s.Reason)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
-	if s.Comment.HasVal() {
-		buf = append(buf, cborKey_SafelinkDefs_Event_comment...)
-		buf = cbor.AppendText(buf, s.Comment.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_pattern...)
-	buf = cbor.AppendText(buf, s.Pattern)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_createdBy...)
-	buf = cbor.AppendText(buf, s.CreatedBy)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventType", buf)
-	buf = append(buf, cborKey_SafelinkDefs_Event_eventType...)
-	buf = cbor.AppendText(buf, s.EventType)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -512,39 +539,64 @@ func (s *SafelinkDefs_UrlRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_url...)
-	buf = cbor.AppendText(buf, s.URL)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SafelinkDefs_UrlRule_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_url...)
+		buf = cbor.AppendText(buf, s.URL)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkDefs_UrlRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_SafelinkDefs_UrlRule_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_pattern...)
+		buf = cbor.AppendText(buf, s.Pattern)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_updatedAt...)
+		buf = cbor.AppendText(buf, s.UpdatedAt)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_url...)
+		buf = cbor.AppendText(buf, s.URL)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SafelinkDefs_UrlRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_action...)
+		buf = cbor.AppendText(buf, s.Action)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_reason...)
+		buf = cbor.AppendText(buf, s.Reason)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_SafelinkDefs_UrlRule_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_pattern...)
+		buf = cbor.AppendText(buf, s.Pattern)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		buf = append(buf, cborKey_SafelinkDefs_UrlRule_updatedAt...)
+		buf = cbor.AppendText(buf, s.UpdatedAt)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_action...)
-	buf = cbor.AppendText(buf, s.Action)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_reason...)
-	buf = cbor.AppendText(buf, s.Reason)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
-	if s.Comment.HasVal() {
-		buf = append(buf, cborKey_SafelinkDefs_UrlRule_comment...)
-		buf = cbor.AppendText(buf, s.Comment.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_pattern...)
-	buf = cbor.AppendText(buf, s.Pattern)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdBy...)
-	buf = cbor.AppendText(buf, s.CreatedBy)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
-	buf = append(buf, cborKey_SafelinkDefs_UrlRule_updatedAt...)
-	buf = cbor.AppendText(buf, s.UpdatedAt)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -173,28 +173,48 @@ func (s *SignatureFindRelatedAccounts_Output) AppendCBOR(buf []byte) ([]byte, er
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accounts", buf)
-	buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_accounts...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Accounts)))
-	for _, item := range s.Accounts {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accounts", buf)
+		buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_accounts...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Accounts)))
+		for _, item := range s.Accounts {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		buf = append(buf, cborKey_SignatureFindRelatedAccounts_Output_accounts...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Accounts)))
+		for _, item := range s.Accounts {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -343,34 +363,60 @@ func (s *SignatureFindRelatedAccounts_RelatedAccount) AppendCBOR(buf []byte) ([]
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "account", buf)
-	buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_account...)
-	{
-		var err error
-		buf, err = s.Account.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "similarities", buf)
-	if len(s.Similarities) > 0 {
-		buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_similarities...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Similarities)))
-		for _, item := range s.Similarities {
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "account", buf)
+		buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_account...)
+		{
 			var err error
-			buf, err = item.AppendCBOR(buf)
+			buf, err = s.Account.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
 			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "similarities", buf)
+		if len(s.Similarities) > 0 {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_similarities...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Similarities)))
+			for _, item := range s.Similarities {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_account...)
+		{
+			var err error
+			buf, err = s.Account.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if len(s.Similarities) > 0 {
+			buf = append(buf, cborKey_SignatureFindRelatedAccounts_RelatedAccount_similarities...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Similarities)))
+			for _, item := range s.Similarities {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -120,16 +120,25 @@ func (s *ContactVerifyPhone_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactVerifyPhone_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactVerifyPhone_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
+		buf = append(buf, cborKey_ContactVerifyPhone_Output_token...)
+		buf = cbor.AppendText(buf, s.Token)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactVerifyPhone_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ContactVerifyPhone_Output_token...)
+		buf = cbor.AppendText(buf, s.Token)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
-	buf = append(buf, cborKey_ContactVerifyPhone_Output_token...)
-	buf = cbor.AppendText(buf, s.Token)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -306,19 +315,30 @@ func (s *ContactVerifyPhone_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "code", buf)
-	buf = append(buf, cborKey_ContactVerifyPhone_Input_code...)
-	buf = cbor.AppendText(buf, s.Code)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactVerifyPhone_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "code", buf)
+		buf = append(buf, cborKey_ContactVerifyPhone_Input_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactVerifyPhone_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "phone", buf)
+		buf = append(buf, cborKey_ContactVerifyPhone_Input_phone...)
+		buf = cbor.AppendText(buf, s.Phone)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ContactVerifyPhone_Input_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactVerifyPhone_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ContactVerifyPhone_Input_phone...)
+		buf = cbor.AppendText(buf, s.Phone)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "phone", buf)
-	buf = append(buf, cborKey_ContactVerifyPhone_Input_phone...)
-	buf = cbor.AppendText(buf, s.Phone)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -41,13 +41,20 @@ func (s *FeedThreadgate_FollowerRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedThreadgate_FollowerRule_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_FollowerRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_FollowerRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -195,13 +202,20 @@ func (s *FeedThreadgate_FollowingRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedThreadgate_FollowingRule_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_FollowingRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_FollowingRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -351,16 +365,25 @@ func (s *FeedThreadgate_ListRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
-	buf = append(buf, cborKey_FeedThreadgate_ListRule_list...)
-	buf = cbor.AppendText(buf, s.List)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedThreadgate_ListRule_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "list", buf)
+		buf = append(buf, cborKey_FeedThreadgate_ListRule_list...)
+		buf = cbor.AppendText(buf, s.List)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_ListRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_FeedThreadgate_ListRule_list...)
+		buf = cbor.AppendText(buf, s.List)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_ListRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -725,37 +748,64 @@ func (s *FeedThreadgate) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
-	buf = append(buf, cborKey_FeedThreadgate_post...)
-	buf = cbor.AppendText(buf, s.Post)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_FeedThreadgate_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allow", buf)
-	if len(s.Allow) > 0 {
-		buf = append(buf, cborKey_FeedThreadgate_allow...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Allow)))
-		for _, item := range s.Allow {
-			var err error
-			buf, err = item.AppendCBOR(buf)
-			if err != nil {
-				return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
+		buf = append(buf, cborKey_FeedThreadgate_post...)
+		buf = cbor.AppendText(buf, s.Post)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_FeedThreadgate_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allow", buf)
+		if len(s.Allow) > 0 {
+			buf = append(buf, cborKey_FeedThreadgate_allow...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Allow)))
+			for _, item := range s.Allow {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_FeedThreadgate_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenReplies", buf)
+		if len(s.HiddenReplies) > 0 {
+			buf = append(buf, cborKey_FeedThreadgate_hiddenReplies...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenReplies)))
+			for _, item := range s.HiddenReplies {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_FeedThreadgate_post...)
+		buf = cbor.AppendText(buf, s.Post)
+		buf = append(buf, cborKey_FeedThreadgate_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		if len(s.Allow) > 0 {
+			buf = append(buf, cborKey_FeedThreadgate_allow...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Allow)))
+			for _, item := range s.Allow {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		buf = append(buf, cborKey_FeedThreadgate_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if len(s.HiddenReplies) > 0 {
+			buf = append(buf, cborKey_FeedThreadgate_hiddenReplies...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenReplies)))
+			for _, item := range s.HiddenReplies {
+				buf = cbor.AppendText(buf, item)
 			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_FeedThreadgate_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenReplies", buf)
-	if len(s.HiddenReplies) > 0 {
-		buf = append(buf, cborKey_FeedThreadgate_hiddenReplies...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenReplies)))
-		for _, item := range s.HiddenReplies {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1084,13 +1134,20 @@ func (s *FeedThreadgate_MentionRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_FeedThreadgate_MentionRule_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_MentionRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedThreadgate_MentionRule_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

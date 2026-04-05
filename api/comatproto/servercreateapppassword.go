@@ -45,27 +45,44 @@ func (s *ServerCreateAppPassword_AppPassword) AppendCBOR(buf []byte) ([]byte, er
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "password", buf)
+		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_password...)
+		buf = cbor.AppendText(buf, s.Password)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privileged", buf)
+		if s.Privileged.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_privileged...)
+			buf = cbor.AppendBool(buf, s.Privileged.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_password...)
+		buf = cbor.AppendText(buf, s.Password)
+		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.Privileged.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_privileged...)
+			buf = cbor.AppendBool(buf, s.Privileged.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "password", buf)
-	buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_password...)
-	buf = cbor.AppendText(buf, s.Password)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privileged", buf)
-	if s.Privileged.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAppPassword_AppPassword_privileged...)
-		buf = cbor.AppendBool(buf, s.Privileged.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -445,21 +462,34 @@ func (s *ServerCreateAppPassword_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
-	buf = append(buf, cborKey_ServerCreateAppPassword_Input_name...)
-	buf = cbor.AppendText(buf, s.Name)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ServerCreateAppPassword_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		buf = append(buf, cborKey_ServerCreateAppPassword_Input_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAppPassword_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privileged", buf)
+		if s.Privileged.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAppPassword_Input_privileged...)
+			buf = cbor.AppendBool(buf, s.Privileged.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ServerCreateAppPassword_Input_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ServerCreateAppPassword_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Privileged.HasVal() {
+			buf = append(buf, cborKey_ServerCreateAppPassword_Input_privileged...)
+			buf = cbor.AppendBool(buf, s.Privileged.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privileged", buf)
-	if s.Privileged.HasVal() {
-		buf = append(buf, cborKey_ServerCreateAppPassword_Input_privileged...)
-		buf = cbor.AppendBool(buf, s.Privileged.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

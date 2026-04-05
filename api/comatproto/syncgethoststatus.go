@@ -198,31 +198,52 @@ func (s *SyncGetHostStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
-	if s.Seq.HasVal() {
-		buf = append(buf, cborKey_SyncGetHostStatus_Output_seq...)
-		buf = cbor.AppendInt(buf, s.Seq.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		if s.Seq.HasVal() {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_seq...)
+			buf = cbor.AppendInt(buf, s.Seq.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hostname", buf)
+		buf = append(buf, cborKey_SyncGetHostStatus_Output_hostname...)
+		buf = cbor.AppendText(buf, s.Hostname)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCount", buf)
+		if s.AccountCount.HasVal() {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_accountCount...)
+			buf = cbor.AppendInt(buf, s.AccountCount.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.Seq.HasVal() {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_seq...)
+			buf = cbor.AppendInt(buf, s.Seq.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		buf = append(buf, cborKey_SyncGetHostStatus_Output_hostname...)
+		buf = cbor.AppendText(buf, s.Hostname)
+		if s.AccountCount.HasVal() {
+			buf = append(buf, cborKey_SyncGetHostStatus_Output_accountCount...)
+			buf = cbor.AppendInt(buf, s.AccountCount.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_SyncGetHostStatus_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_SyncGetHostStatus_Output_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hostname", buf)
-	buf = append(buf, cborKey_SyncGetHostStatus_Output_hostname...)
-	buf = cbor.AppendText(buf, s.Hostname)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCount", buf)
-	if s.AccountCount.HasVal() {
-		buf = append(buf, cborKey_SyncGetHostStatus_Output_accountCount...)
-		buf = cbor.AppendInt(buf, s.AccountCount.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

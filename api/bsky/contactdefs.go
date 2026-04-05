@@ -37,25 +37,42 @@ func (s *ContactDefs_MatchAndContactIndex) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "match", buf)
-	buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_match...)
-	{
-		var err error
-		buf, err = s.Match.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "match", buf)
+		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_match...)
+		{
+			var err error
+			buf, err = s.Match.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contactIndex", buf)
+		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_contactIndex...)
+		buf = cbor.AppendInt(buf, s.ContactIndex)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_match...)
+		{
+			var err error
+			buf, err = s.Match.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_contactIndex...)
+		buf = cbor.AppendInt(buf, s.ContactIndex)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contactIndex", buf)
-	buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_contactIndex...)
-	buf = cbor.AppendInt(buf, s.ContactIndex)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -256,19 +273,30 @@ func (s *ContactDefs_Notification) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "to", buf)
-	buf = append(buf, cborKey_ContactDefs_Notification_to...)
-	buf = cbor.AppendText(buf, s.To)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "from", buf)
-	buf = append(buf, cborKey_ContactDefs_Notification_from...)
-	buf = cbor.AppendText(buf, s.From)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactDefs_Notification_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "to", buf)
+		buf = append(buf, cborKey_ContactDefs_Notification_to...)
+		buf = cbor.AppendText(buf, s.To)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "from", buf)
+		buf = append(buf, cborKey_ContactDefs_Notification_from...)
+		buf = cbor.AppendText(buf, s.From)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactDefs_Notification_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ContactDefs_Notification_to...)
+		buf = cbor.AppendText(buf, s.To)
+		buf = append(buf, cborKey_ContactDefs_Notification_from...)
+		buf = cbor.AppendText(buf, s.From)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactDefs_Notification_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -470,19 +498,30 @@ func (s *ContactDefs_SyncStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_ContactDefs_SyncStatus_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactDefs_SyncStatus_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "syncedAt", buf)
+		buf = append(buf, cborKey_ContactDefs_SyncStatus_syncedAt...)
+		buf = cbor.AppendText(buf, s.SyncedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "matchesCount", buf)
+		buf = append(buf, cborKey_ContactDefs_SyncStatus_matchesCount...)
+		buf = cbor.AppendInt(buf, s.MatchesCount)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ContactDefs_SyncStatus_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ContactDefs_SyncStatus_syncedAt...)
+		buf = cbor.AppendText(buf, s.SyncedAt)
+		buf = append(buf, cborKey_ContactDefs_SyncStatus_matchesCount...)
+		buf = cbor.AppendInt(buf, s.MatchesCount)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "syncedAt", buf)
-	buf = append(buf, cborKey_ContactDefs_SyncStatus_syncedAt...)
-	buf = cbor.AppendText(buf, s.SyncedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "matchesCount", buf)
-	buf = append(buf, cborKey_ContactDefs_SyncStatus_matchesCount...)
-	buf = cbor.AppendInt(buf, s.MatchesCount)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

@@ -36,14 +36,21 @@ func (s *ActorDeclaration) MarshalCBOR() ([]byte, error) {
 
 func (s *ActorDeclaration) AppendCBOR(buf []byte) ([]byte, error) {
 	buf = cbor.AppendMapHeader(buf, uint64(2+len(s.extraCBOR)))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_ActorDeclaration_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowIncoming", buf)
-	buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
-	buf = cbor.AppendText(buf, s.AllowIncoming)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_ActorDeclaration_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowIncoming", buf)
+		buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
+		buf = cbor.AppendText(buf, s.AllowIncoming)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDeclaration_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
+		buf = cbor.AppendText(buf, s.AllowIncoming)
+	}
 	return buf, nil
 }
 

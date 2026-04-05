@@ -174,26 +174,43 @@ func (s *TeamUpdateMember_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_TeamUpdateMember_Input_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
-	if s.Role.HasVal() {
-		buf = append(buf, cborKey_TeamUpdateMember_Input_role...)
-		buf = cbor.AppendText(buf, s.Role.Val())
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_TeamUpdateMember_Input_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
+		if s.Role.HasVal() {
+			buf = append(buf, cborKey_TeamUpdateMember_Input_role...)
+			buf = cbor.AppendText(buf, s.Role.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_TeamUpdateMember_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
+		if s.Disabled.HasVal() {
+			buf = append(buf, cborKey_TeamUpdateMember_Input_disabled...)
+			buf = cbor.AppendBool(buf, s.Disabled.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_TeamUpdateMember_Input_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.Role.HasVal() {
+			buf = append(buf, cborKey_TeamUpdateMember_Input_role...)
+			buf = cbor.AppendText(buf, s.Role.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_TeamUpdateMember_Input_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Disabled.HasVal() {
+			buf = append(buf, cborKey_TeamUpdateMember_Input_disabled...)
+			buf = cbor.AppendBool(buf, s.Disabled.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_TeamUpdateMember_Input_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
-	if s.Disabled.HasVal() {
-		buf = append(buf, cborKey_TeamUpdateMember_Input_disabled...)
-		buf = cbor.AppendBool(buf, s.Disabled.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

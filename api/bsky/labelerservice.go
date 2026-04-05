@@ -162,61 +162,110 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_LabelerService_dollar_type...)
-	buf = cbor.AppendText(buf, s.LexiconTypeID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
-	if s.Labels.HasVal() {
-		buf = append(buf, cborKey_LabelerService_labels...)
-		{
-			v := s.Labels.Val()
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		buf = append(buf, cborKey_LabelerService_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_LabelerService_labels...)
 			{
-				var err error
-				buf, err = v.AppendCBOR(buf)
-				if err != nil {
-					return nil, err
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "policies", buf)
-	buf = append(buf, cborKey_LabelerService_policies...)
-	{
-		var err error
-		buf, err = s.Policies.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "policies", buf)
+		buf = append(buf, cborKey_LabelerService_policies...)
+		{
+			var err error
+			buf, err = s.Policies.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_LabelerService_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonTypes", buf)
+		if len(s.ReasonTypes) > 0 {
+			buf = append(buf, cborKey_LabelerService_reasonTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
+			for _, item := range s.ReasonTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectTypes", buf)
+		if len(s.SubjectTypes) > 0 {
+			buf = append(buf, cborKey_LabelerService_subjectTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
+			for _, item := range s.SubjectTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectCollections", buf)
+		if len(s.SubjectCollections) > 0 {
+			buf = append(buf, cborKey_LabelerService_subjectCollections...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
+			for _, item := range s.SubjectCollections {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LabelerService_dollar_type...)
+		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		if s.Labels.HasVal() {
+			buf = append(buf, cborKey_LabelerService_labels...)
+			{
+				v := s.Labels.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_LabelerService_policies...)
+		{
+			var err error
+			buf, err = s.Policies.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_LabelerService_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if len(s.ReasonTypes) > 0 {
+			buf = append(buf, cborKey_LabelerService_reasonTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
+			for _, item := range s.ReasonTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.SubjectTypes) > 0 {
+			buf = append(buf, cborKey_LabelerService_subjectTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
+			for _, item := range s.SubjectTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.SubjectCollections) > 0 {
+			buf = append(buf, cborKey_LabelerService_subjectCollections...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
+			for _, item := range s.SubjectCollections {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_LabelerService_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonTypes", buf)
-	if len(s.ReasonTypes) > 0 {
-		buf = append(buf, cborKey_LabelerService_reasonTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
-		for _, item := range s.ReasonTypes {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectTypes", buf)
-	if len(s.SubjectTypes) > 0 {
-		buf = append(buf, cborKey_LabelerService_subjectTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
-		for _, item := range s.SubjectTypes {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectCollections", buf)
-	if len(s.SubjectCollections) > 0 {
-		buf = append(buf, cborKey_LabelerService_subjectCollections...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
-		for _, item := range s.SubjectCollections {
-			buf = cbor.AppendText(buf, item)
-		}
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

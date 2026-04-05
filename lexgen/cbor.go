@@ -119,30 +119,48 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 
 	appendExtras := g.sharedType("AppendCBORExtrasBefore")
 
-	// Encode fields in DAG-CBOR key order. Unknown fields from extraCBOR are
-	// interleaved at their correct sort position via AppendCBORExtrasBefore,
-	// which emits all extras whose keys sort before the next known key.
-	buf.WriteString("\tei := 0\n")
+	// Encode fields in DAG-CBOR key order. When extraCBOR is non-empty, unknown
+	// fields are interleaved at their correct DAG-CBOR sort position via
+	// AppendCBORExtrasBefore. The common case (no extras) skips the interleave
+	// calls entirely to avoid per-field function call overhead.
+	buf.WriteString("\tif len(s.extraCBOR) > 0 {\n")
+	buf.WriteString("\t\tei := 0\n")
 	for _, f := range fields {
 		keyVar := fmt.Sprintf("cborKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
 		optional := !f.required || f.nullable
 
-		// Emit any extras that sort before this known field.
-		fmt.Fprintf(buf, "\tei, buf = %s(s.extraCBOR, ei, %q, buf)\n", appendExtras, f.jsonName)
+		fmt.Fprintf(buf, "\t\tei, buf = %s(s.extraCBOR, ei, %q, buf)\n", appendExtras, f.jsonName)
 
 		if optional {
-			fmt.Fprintf(buf, "\tif %s {\n", g.cborHasValue(f))
+			fmt.Fprintf(buf, "\t\tif %s {\n", g.cborHasValue(f))
+			fmt.Fprintf(buf, "\t\t\tbuf = append(buf, %s...)\n", keyVar)
+			g.genCBOREncodeField(buf, f, "\t\t\t")
+			buf.WriteString("\t\t}\n")
+		} else {
 			fmt.Fprintf(buf, "\t\tbuf = append(buf, %s...)\n", keyVar)
 			g.genCBOREncodeField(buf, f, "\t\t")
-			buf.WriteString("\t}\n")
-		} else {
-			fmt.Fprintf(buf, "\tbuf = append(buf, %s...)\n", keyVar)
-			g.genCBOREncodeField(buf, f, "\t")
 		}
 	}
+	fmt.Fprintf(buf, "\t\t_, buf = %s(s.extraCBOR, ei, \"\", buf)\n", appendExtras)
+	buf.WriteString("\t} else {\n")
 
-	// Emit any remaining extras that sort after all known fields.
-	fmt.Fprintf(buf, "\t_, buf = %s(s.extraCBOR, ei, \"\", buf)\n", appendExtras)
+	// Fast path: no extras, emit known fields directly.
+	for _, f := range fields {
+		keyVar := fmt.Sprintf("cborKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
+		optional := !f.required || f.nullable
+
+		if optional {
+			fmt.Fprintf(buf, "\t\tif %s {\n", g.cborHasValue(f))
+			fmt.Fprintf(buf, "\t\t\tbuf = append(buf, %s...)\n", keyVar)
+			g.genCBOREncodeField(buf, f, "\t\t\t")
+			buf.WriteString("\t\t}\n")
+		} else {
+			fmt.Fprintf(buf, "\t\tbuf = append(buf, %s...)\n", keyVar)
+			g.genCBOREncodeField(buf, f, "\t\t")
+		}
+	}
+	buf.WriteString("\t}\n")
+
 	buf.WriteString("\treturn buf, nil\n")
 	buf.WriteString("}")
 }

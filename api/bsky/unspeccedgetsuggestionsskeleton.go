@@ -253,43 +253,75 @@ func (s *UnspeccedGetSuggestionsSkeleton_Output) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recId", buf)
-	if s.RecId.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_recId...)
-		buf = cbor.AppendInt(buf, s.RecId.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actors", buf)
-	buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_actors...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
-	for _, item := range s.Actors {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recId", buf)
+		if s.RecId.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_recId...)
+			buf = cbor.AppendInt(buf, s.RecId.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actors", buf)
+		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recIdStr", buf)
+		if s.RecIdStr.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_recIdStr...)
+			buf = cbor.AppendText(buf, s.RecIdStr.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "relativeToDid", buf)
+		if s.RelativeToDid.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_relativeToDid...)
+			buf = cbor.AppendText(buf, s.RelativeToDid.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.RecId.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_recId...)
+			buf = cbor.AppendInt(buf, s.RecId.Val())
+		}
+		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Cursor.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_cursor...)
+			buf = cbor.AppendText(buf, s.Cursor.Val())
+		}
+		if s.RecIdStr.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_recIdStr...)
+			buf = cbor.AppendText(buf, s.RecIdStr.Val())
+		}
+		if s.RelativeToDid.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_relativeToDid...)
+			buf = cbor.AppendText(buf, s.RelativeToDid.Val())
 		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
-	if s.Cursor.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_cursor...)
-		buf = cbor.AppendText(buf, s.Cursor.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recIdStr", buf)
-	if s.RecIdStr.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_recIdStr...)
-		buf = cbor.AppendText(buf, s.RecIdStr.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "relativeToDid", buf)
-	if s.RelativeToDid.HasVal() {
-		buf = append(buf, cborKey_UnspeccedGetSuggestionsSkeleton_Output_relativeToDid...)
-		buf = cbor.AppendText(buf, s.RelativeToDid.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

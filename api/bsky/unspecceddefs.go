@@ -65,47 +65,80 @@ func (s *UnspeccedDefs_AgeAssuranceEvent) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initIp", buf)
+		if s.InitIp.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_initIp...)
+			buf = cbor.AppendText(buf, s.InitIp.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initUa", buf)
+		if s.InitUa.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_initUa...)
+			buf = cbor.AppendText(buf, s.InitUa.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "attemptId", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_attemptId...)
+		buf = cbor.AppendText(buf, s.AttemptId)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeIp", buf)
+		if s.CompleteIp.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_completeIp...)
+			buf = cbor.AppendText(buf, s.CompleteIp.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeUa", buf)
+		if s.CompleteUa.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_completeUa...)
+			buf = cbor.AppendText(buf, s.CompleteUa.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Email.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_email...)
+			buf = cbor.AppendText(buf, s.Email.Val())
+		}
+		if s.InitIp.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_initIp...)
+			buf = cbor.AppendText(buf, s.InitIp.Val())
+		}
+		if s.InitUa.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_initUa...)
+			buf = cbor.AppendText(buf, s.InitUa.Val())
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_attemptId...)
+		buf = cbor.AppendText(buf, s.AttemptId)
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.CompleteIp.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_completeIp...)
+			buf = cbor.AppendText(buf, s.CompleteIp.Val())
+		}
+		if s.CompleteUa.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_completeUa...)
+			buf = cbor.AppendText(buf, s.CompleteUa.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
-	if s.Email.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_email...)
-		buf = cbor.AppendText(buf, s.Email.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initIp", buf)
-	if s.InitIp.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_initIp...)
-		buf = cbor.AppendText(buf, s.InitIp.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initUa", buf)
-	if s.InitUa.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_initUa...)
-		buf = cbor.AppendText(buf, s.InitUa.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_status...)
-	buf = cbor.AppendText(buf, s.Status)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "attemptId", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_attemptId...)
-	buf = cbor.AppendText(buf, s.AttemptId)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_createdAt...)
-	buf = cbor.AppendText(buf, s.CreatedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeIp", buf)
-	if s.CompleteIp.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_completeIp...)
-		buf = cbor.AppendText(buf, s.CompleteIp.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeUa", buf)
-	if s.CompleteUa.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceEvent_completeUa...)
-		buf = cbor.AppendText(buf, s.CompleteUa.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -508,21 +541,34 @@ func (s *UnspeccedDefs_AgeAssuranceState) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastInitiatedAt", buf)
+		if s.LastInitiatedAt.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_lastInitiatedAt...)
+			buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		if s.LastInitiatedAt.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_lastInitiatedAt...)
+			buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_status...)
-	buf = cbor.AppendText(buf, s.Status)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastInitiatedAt", buf)
-	if s.LastInitiatedAt.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_AgeAssuranceState_lastInitiatedAt...)
-		buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -739,16 +785,25 @@ func (s *UnspeccedDefs_SkeletonSearchActor) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchActor_did...)
-	buf = cbor.AppendText(buf, s.DID)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchActor_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchActor_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchActor_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchActor_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchActor_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -922,16 +977,25 @@ func (s *UnspeccedDefs_SkeletonSearchPost) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchPost_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchPost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchPost_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchPost_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchPost_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchPost_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1105,16 +1169,25 @@ func (s *UnspeccedDefs_SkeletonSearchStarterPack) AppendCBOR(buf []byte) ([]byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchStarterPack_uri...)
-	buf = cbor.AppendText(buf, s.URI)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchStarterPack_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchStarterPack_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchStarterPack_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchStarterPack_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonSearchStarterPack_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1308,44 +1381,74 @@ func (s *UnspeccedDefs_SkeletonTrend) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "dids", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_dids...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Dids)))
-	for _, item := range s.Dids {
-		buf = cbor.AppendText(buf, item)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "dids", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_dids...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Dids)))
+		for _, item := range s.Dids {
+			buf = cbor.AppendText(buf, item)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "link", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_link...)
+		buf = cbor.AppendText(buf, s.Link)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topic", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_topic...)
+		buf = cbor.AppendText(buf, s.Topic)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "category", buf)
+		if s.Category.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_category...)
+			buf = cbor.AppendText(buf, s.Category.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postCount", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_postCount...)
+		buf = cbor.AppendInt(buf, s.PostCount)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "startedAt", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_startedAt...)
+		buf = cbor.AppendText(buf, s.StartedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_dids...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Dids)))
+		for _, item := range s.Dids {
+			buf = cbor.AppendText(buf, item)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_link...)
+		buf = cbor.AppendText(buf, s.Link)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_topic...)
+		buf = cbor.AppendText(buf, s.Topic)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		if s.Category.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_category...)
+			buf = cbor.AppendText(buf, s.Category.Val())
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_postCount...)
+		buf = cbor.AppendInt(buf, s.PostCount)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_startedAt...)
+		buf = cbor.AppendText(buf, s.StartedAt)
+		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "link", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_link...)
-	buf = cbor.AppendText(buf, s.Link)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topic", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_topic...)
-	buf = cbor.AppendText(buf, s.Topic)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "category", buf)
-	if s.Category.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_category...)
-		buf = cbor.AppendText(buf, s.Category.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postCount", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_postCount...)
-	buf = cbor.AppendInt(buf, s.PostCount)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "startedAt", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_startedAt...)
-	buf = cbor.AppendText(buf, s.StartedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_displayName...)
-	buf = cbor.AppendText(buf, s.DisplayName)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1747,22 +1850,37 @@ func (s *UnspeccedDefs_ThreadItemBlocked) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemBlocked_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemBlocked_author...)
-	{
-		var err error
-		buf, err = s.Author.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemBlocked_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemBlocked_author...)
+		{
+			var err error
+			buf, err = s.Author.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemBlocked_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemBlocked_author...)
+		{
+			var err error
+			buf, err = s.Author.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1940,13 +2058,20 @@ func (s *UnspeccedDefs_ThreadItemNoUnauthenticated) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemNoUnauthenticated_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemNoUnauthenticated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemNoUnauthenticated_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2092,13 +2217,20 @@ func (s *UnspeccedDefs_ThreadItemNotFound) AppendCBOR(buf []byte) ([]byte, error
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemNotFound_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemNotFound_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemNotFound_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
 	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2256,37 +2388,62 @@ func (s *UnspeccedDefs_ThreadItemPost) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_post...)
-	{
-		var err error
-		buf, err = s.Post.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_post...)
+		{
+			var err error
+			buf, err = s.Post.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "opThread", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThread...)
+		buf = cbor.AppendBool(buf, s.OpThread)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "moreParents", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_moreParents...)
+		buf = cbor.AppendBool(buf, s.MoreParents)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "moreReplies", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_moreReplies...)
+		buf = cbor.AppendInt(buf, s.MoreReplies)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mutedByViewer", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_mutedByViewer...)
+		buf = cbor.AppendBool(buf, s.MutedByViewer)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenByThreadgate", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_hiddenByThreadgate...)
+		buf = cbor.AppendBool(buf, s.HiddenByThreadgate)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_post...)
+		{
+			var err error
+			buf, err = s.Post.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThread...)
+		buf = cbor.AppendBool(buf, s.OpThread)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_moreParents...)
+		buf = cbor.AppendBool(buf, s.MoreParents)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_moreReplies...)
+		buf = cbor.AppendInt(buf, s.MoreReplies)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_mutedByViewer...)
+		buf = cbor.AppendBool(buf, s.MutedByViewer)
+		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_hiddenByThreadgate...)
+		buf = cbor.AppendBool(buf, s.HiddenByThreadgate)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "opThread", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThread...)
-	buf = cbor.AppendBool(buf, s.OpThread)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "moreParents", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_moreParents...)
-	buf = cbor.AppendBool(buf, s.MoreParents)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "moreReplies", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_moreReplies...)
-	buf = cbor.AppendInt(buf, s.MoreReplies)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mutedByViewer", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_mutedByViewer...)
-	buf = cbor.AppendBool(buf, s.MutedByViewer)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenByThreadgate", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_hiddenByThreadgate...)
-	buf = cbor.AppendBool(buf, s.HiddenByThreadgate)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2607,48 +2764,82 @@ func (s *UnspeccedDefs_TrendView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "link", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendView_link...)
-	buf = cbor.AppendText(buf, s.Link)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_TrendView_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topic", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendView_topic...)
-	buf = cbor.AppendText(buf, s.Topic)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actors", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendView_actors...)
-	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
-	for _, item := range s.Actors {
-		var err error
-		buf, err = item.AppendCBOR(buf)
-		if err != nil {
-			return nil, err
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "link", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_link...)
+		buf = cbor.AppendText(buf, s.Link)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topic", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_topic...)
+		buf = cbor.AppendText(buf, s.Topic)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actors", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "category", buf)
+		if s.Category.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_category...)
+			buf = cbor.AppendText(buf, s.Category.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postCount", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_postCount...)
+		buf = cbor.AppendInt(buf, s.PostCount)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "startedAt", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_startedAt...)
+		buf = cbor.AppendText(buf, s.StartedAt)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_link...)
+		buf = cbor.AppendText(buf, s.Link)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_topic...)
+		buf = cbor.AppendText(buf, s.Topic)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.Status.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_status...)
+			buf = cbor.AppendText(buf, s.Status.Val())
+		}
+		if s.Category.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_category...)
+			buf = cbor.AppendText(buf, s.Category.Val())
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_postCount...)
+		buf = cbor.AppendInt(buf, s.PostCount)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_startedAt...)
+		buf = cbor.AppendText(buf, s.StartedAt)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendView_displayName...)
+		buf = cbor.AppendText(buf, s.DisplayName)
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
-	if s.Status.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_TrendView_status...)
-		buf = cbor.AppendText(buf, s.Status.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "category", buf)
-	if s.Category.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_TrendView_category...)
-		buf = cbor.AppendText(buf, s.Category.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postCount", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendView_postCount...)
-	buf = cbor.AppendInt(buf, s.PostCount)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "startedAt", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendView_startedAt...)
-	buf = cbor.AppendText(buf, s.StartedAt)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendView_displayName...)
-	buf = cbor.AppendText(buf, s.DisplayName)
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3066,29 +3257,48 @@ func (s *UnspeccedDefs_TrendingTopic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "link", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_link...)
-	buf = cbor.AppendText(buf, s.Link)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "link", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_link...)
+		buf = cbor.AppendText(buf, s.Link)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topic", buf)
+		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_topic...)
+		buf = cbor.AppendText(buf, s.Topic)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_link...)
+		buf = cbor.AppendText(buf, s.Link)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_topic...)
+		buf = cbor.AppendText(buf, s.Topic)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if s.DisplayName.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_displayName...)
+			buf = cbor.AppendText(buf, s.DisplayName.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "topic", buf)
-	buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_topic...)
-	buf = cbor.AppendText(buf, s.Topic)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
-	if s.Description.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_description...)
-		buf = cbor.AppendText(buf, s.Description.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
-	if s.DisplayName.HasVal() {
-		buf = append(buf, cborKey_UnspeccedDefs_TrendingTopic_displayName...)
-		buf = cbor.AppendText(buf, s.DisplayName.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 

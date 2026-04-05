@@ -166,26 +166,43 @@ func (s *TempCheckSignupQueue_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	ei := 0
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
-	if s.LexiconTypeID != "" {
-		buf = append(buf, cborKey_TempCheckSignupQueue_Output_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+	if len(s.extraCBOR) > 0 {
+		ei := 0
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_TempCheckSignupQueue_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activated", buf)
+		buf = append(buf, cborKey_TempCheckSignupQueue_Output_activated...)
+		buf = cbor.AppendBool(buf, s.Activated)
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "placeInQueue", buf)
+		if s.PlaceInQueue.HasVal() {
+			buf = append(buf, cborKey_TempCheckSignupQueue_Output_placeInQueue...)
+			buf = cbor.AppendInt(buf, s.PlaceInQueue.Val())
+		}
+		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "estimatedTimeMs", buf)
+		if s.EstimatedTimeMs.HasVal() {
+			buf = append(buf, cborKey_TempCheckSignupQueue_Output_estimatedTimeMs...)
+			buf = cbor.AppendInt(buf, s.EstimatedTimeMs.Val())
+		}
+		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_TempCheckSignupQueue_Output_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_TempCheckSignupQueue_Output_activated...)
+		buf = cbor.AppendBool(buf, s.Activated)
+		if s.PlaceInQueue.HasVal() {
+			buf = append(buf, cborKey_TempCheckSignupQueue_Output_placeInQueue...)
+			buf = cbor.AppendInt(buf, s.PlaceInQueue.Val())
+		}
+		if s.EstimatedTimeMs.HasVal() {
+			buf = append(buf, cborKey_TempCheckSignupQueue_Output_estimatedTimeMs...)
+			buf = cbor.AppendInt(buf, s.EstimatedTimeMs.Val())
+		}
 	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activated", buf)
-	buf = append(buf, cborKey_TempCheckSignupQueue_Output_activated...)
-	buf = cbor.AppendBool(buf, s.Activated)
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "placeInQueue", buf)
-	if s.PlaceInQueue.HasVal() {
-		buf = append(buf, cborKey_TempCheckSignupQueue_Output_placeInQueue...)
-		buf = cbor.AppendInt(buf, s.PlaceInQueue.Val())
-	}
-	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "estimatedTimeMs", buf)
-	if s.EstimatedTimeMs.HasVal() {
-		buf = append(buf, cborKey_TempCheckSignupQueue_Output_estimatedTimeMs...)
-		buf = cbor.AppendInt(buf, s.EstimatedTimeMs.Val())
-	}
-	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
