@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -21,9 +20,8 @@ type RepoApplyWrites_Create struct {
 	Rkey          gt.Option[string] `json:"rkey,omitzero"` // NOTE: maxLength is redundant with record-key format. Keeping it temporarily to ensure backwards c...
 	Value         json.RawMessage   `json:"value"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RepoApplyWrites_Create.
@@ -39,7 +37,7 @@ func (s *RepoApplyWrites_Create) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Create) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Rkey.HasVal() {
 		n++
 	}
@@ -47,25 +45,25 @@ func (s *RepoApplyWrites_Create) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rkey", buf)
 		if s.Rkey.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_Create_rkey...)
 			buf = cbor.AppendText(buf, s.Rkey.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_Create_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "value", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Create_value...)
 		buf = cbor.AppendNull(buf)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "collection", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Create_collection...)
 		buf = cbor.AppendText(buf, s.Collection)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Rkey.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_Create_rkey...)
@@ -89,7 +87,7 @@ func (s *RepoApplyWrites_Create) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -119,7 +117,7 @@ func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -138,7 +136,7 @@ func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "collection" {
@@ -152,7 +150,7 @@ func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -160,7 +158,7 @@ func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -209,7 +207,10 @@ func (s *RepoApplyWrites_Create) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RepoApplyWrites_Create_value...)
 	buf = append(buf, s.Value...)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -228,7 +229,7 @@ func (s *RepoApplyWrites_Create) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Create) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -285,7 +286,7 @@ func (s *RepoApplyWrites_Create) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -298,9 +299,8 @@ type RepoApplyWrites_CreateResult struct {
 	URI              string            `json:"uri"`
 	ValidationStatus gt.Option[string] `json:"validationStatus,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RepoApplyWrites_CreateResult.
@@ -316,7 +316,7 @@ func (s *RepoApplyWrites_CreateResult) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_CreateResult) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -324,25 +324,25 @@ func (s *RepoApplyWrites_CreateResult) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cid", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_cid...)
 		buf = cbor.AppendText(buf, s.CID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_CreateResult_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validationStatus", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "validationStatus", buf)
 		if s.ValidationStatus.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_CreateResult_validationStatus...)
 			buf = cbor.AppendText(buf, s.ValidationStatus.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RepoApplyWrites_CreateResult_cid...)
 		buf = cbor.AppendText(buf, s.CID)
@@ -366,7 +366,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -395,7 +395,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -409,7 +409,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 16:
 			if string(data[keyStart:keyEnd]) == "validationStatus" {
@@ -429,7 +429,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -437,7 +437,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -486,7 +486,10 @@ func (s *RepoApplyWrites_CreateResult) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.ValidationStatus.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -505,7 +508,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_CreateResult) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -558,7 +561,7 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -572,9 +575,8 @@ type RepoApplyWrites_Delete struct {
 	Collection    string `json:"collection"`
 	Rkey          string `json:"rkey"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RepoApplyWrites_Delete.
@@ -589,25 +591,25 @@ func (s *RepoApplyWrites_Delete) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Delete) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rkey", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Delete_rkey...)
 		buf = cbor.AppendText(buf, s.Rkey)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_Delete_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "collection", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Delete_collection...)
 		buf = cbor.AppendText(buf, s.Collection)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RepoApplyWrites_Delete_rkey...)
 		buf = cbor.AppendText(buf, s.Rkey)
@@ -627,7 +629,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -651,7 +653,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -665,7 +667,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "collection" {
@@ -679,7 +681,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -687,7 +689,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -727,7 +729,10 @@ func (s *RepoApplyWrites_Delete) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RepoApplyWrites_Delete_rkey...)
 	buf = cbor.AppendJSONString(buf, s.Rkey)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -746,7 +751,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Delete) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -785,7 +790,7 @@ func (s *RepoApplyWrites_Delete) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -795,9 +800,8 @@ func (s *RepoApplyWrites_Delete) UnmarshalJSONAt(data []byte, pos int) (int, err
 type RepoApplyWrites_DeleteResult struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RepoApplyWrites_DeleteResult.
@@ -810,19 +814,19 @@ func (s *RepoApplyWrites_DeleteResult) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_DeleteResult) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_DeleteResult_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_DeleteResult_dollar_type...)
@@ -838,7 +842,7 @@ func (s *RepoApplyWrites_DeleteResult) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_DeleteResult) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -862,7 +866,7 @@ func (s *RepoApplyWrites_DeleteResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -870,7 +874,7 @@ func (s *RepoApplyWrites_DeleteResult) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -896,7 +900,10 @@ func (s *RepoApplyWrites_DeleteResult) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -915,7 +922,7 @@ func (s *RepoApplyWrites_DeleteResult) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_DeleteResult) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -944,7 +951,7 @@ func (s *RepoApplyWrites_DeleteResult) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1013,7 +1020,10 @@ func (s *RepoApplyWrites_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1032,7 +1042,7 @@ func (s *RepoApplyWrites_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1102,7 +1112,7 @@ func (s *RepoApplyWrites_Output) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1120,7 +1130,7 @@ func (s *RepoApplyWrites_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1131,14 +1141,14 @@ func (s *RepoApplyWrites_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "commit", buf)
 		if s.Commit.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_Output_commit...)
 			{
@@ -1152,7 +1162,7 @@ func (s *RepoApplyWrites_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "results", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "results", buf)
 		if len(s.Results) > 0 {
 			buf = append(buf, cborKey_RepoApplyWrites_Output_results...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Results)))
@@ -1164,7 +1174,7 @@ func (s *RepoApplyWrites_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_Output_dollar_type...)
@@ -1204,7 +1214,7 @@ func (s *RepoApplyWrites_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1228,7 +1238,7 @@ func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "commit" {
@@ -1248,7 +1258,7 @@ func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "results" {
@@ -1272,7 +1282,7 @@ func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1280,7 +1290,7 @@ func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1428,9 +1438,8 @@ type RepoApplyWrites_Output struct {
 	Commit        gt.Option[RepoDefs_CommitMeta]   `json:"commit,omitzero"`
 	Results       []RepoApplyWrites_Output_Results `json:"results,omitempty"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed JSON key tokens for RepoApplyWrites_Input.
@@ -1496,7 +1505,10 @@ func (s *RepoApplyWrites_Input) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1515,7 +1527,7 @@ func (s *RepoApplyWrites_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1604,7 +1616,7 @@ func (s *RepoApplyWrites_Input) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1624,7 +1636,7 @@ func (s *RepoApplyWrites_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1635,17 +1647,17 @@ func (s *RepoApplyWrites_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "repo", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Input_repo...)
 		buf = cbor.AppendText(buf, s.Repo)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "writes", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "writes", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Input_writes...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Writes)))
 		for _, item := range s.Writes {
@@ -1655,17 +1667,17 @@ func (s *RepoApplyWrites_Input) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validate", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "validate", buf)
 		if s.Validate.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_Input_validate...)
 			buf = cbor.AppendBool(buf, s.Validate.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "swapCommit", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "swapCommit", buf)
 		if s.SwapCommit.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_Input_swapCommit...)
 			buf = cbor.AppendText(buf, s.SwapCommit.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RepoApplyWrites_Input_repo...)
 		buf = cbor.AppendText(buf, s.Repo)
@@ -1700,7 +1712,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1724,7 +1736,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1738,7 +1750,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "writes" {
@@ -1762,7 +1774,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "validate" {
@@ -1782,7 +1794,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "swapCommit" {
@@ -1802,7 +1814,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1810,7 +1822,7 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1960,9 +1972,8 @@ type RepoApplyWrites_Input struct {
 	Validate      gt.Option[bool]                `json:"validate,omitzero"`   // Can be set to 'false' to skip Lexicon schema validation of record data across all operations, 'tr...
 	Writes        []RepoApplyWrites_Input_Writes `json:"writes"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // RepoApplyWrites calls the XRPC procedure "com.atproto.repo.applyWrites".
@@ -1982,9 +1993,8 @@ type RepoApplyWrites_Update struct {
 	Rkey          string          `json:"rkey"`
 	Value         json.RawMessage `json:"value"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RepoApplyWrites_Update.
@@ -2000,28 +2010,28 @@ func (s *RepoApplyWrites_Update) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Update) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rkey", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rkey", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Update_rkey...)
 		buf = cbor.AppendText(buf, s.Rkey)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_Update_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "value", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Update_value...)
 		buf = cbor.AppendNull(buf)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collection", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "collection", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_Update_collection...)
 		buf = cbor.AppendText(buf, s.Collection)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RepoApplyWrites_Update_rkey...)
 		buf = cbor.AppendText(buf, s.Rkey)
@@ -2043,7 +2053,7 @@ func (s *RepoApplyWrites_Update) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2067,7 +2077,7 @@ func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2086,7 +2096,7 @@ func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "collection" {
@@ -2100,7 +2110,7 @@ func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -2108,7 +2118,7 @@ func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -2155,7 +2165,10 @@ func (s *RepoApplyWrites_Update) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RepoApplyWrites_Update_value...)
 	buf = append(buf, s.Value...)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -2174,7 +2187,7 @@ func (s *RepoApplyWrites_Update) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_Update) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2222,7 +2235,7 @@ func (s *RepoApplyWrites_Update) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2235,9 +2248,8 @@ type RepoApplyWrites_UpdateResult struct {
 	URI              string            `json:"uri"`
 	ValidationStatus gt.Option[string] `json:"validationStatus,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RepoApplyWrites_UpdateResult.
@@ -2253,7 +2265,7 @@ func (s *RepoApplyWrites_UpdateResult) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_UpdateResult) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -2261,25 +2273,25 @@ func (s *RepoApplyWrites_UpdateResult) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cid", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_cid...)
 		buf = cbor.AppendText(buf, s.CID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validationStatus", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "validationStatus", buf)
 		if s.ValidationStatus.HasVal() {
 			buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_validationStatus...)
 			buf = cbor.AppendText(buf, s.ValidationStatus.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RepoApplyWrites_UpdateResult_cid...)
 		buf = cbor.AppendText(buf, s.CID)
@@ -2303,7 +2315,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2332,7 +2344,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2346,7 +2358,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 16:
 			if string(data[keyStart:keyEnd]) == "validationStatus" {
@@ -2366,7 +2378,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -2374,7 +2386,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -2423,7 +2435,10 @@ func (s *RepoApplyWrites_UpdateResult) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.ValidationStatus.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -2442,7 +2457,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoApplyWrites_UpdateResult) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2495,7 +2510,7 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

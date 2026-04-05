@@ -3,7 +3,6 @@
 package ozone
 
 import (
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 )
 
@@ -13,9 +12,8 @@ type SignatureDefs_SigDetail struct {
 	Property      string `json:"property"`
 	Value         string `json:"value"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SignatureDefs_SigDetail.
@@ -30,25 +28,25 @@ func (s *SignatureDefs_SigDetail) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SignatureDefs_SigDetail) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SignatureDefs_SigDetail_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "value", buf)
 		buf = append(buf, cborKey_SignatureDefs_SigDetail_value...)
 		buf = cbor.AppendText(buf, s.Value)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "property", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "property", buf)
 		buf = append(buf, cborKey_SignatureDefs_SigDetail_property...)
 		buf = cbor.AppendText(buf, s.Property)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SignatureDefs_SigDetail_dollar_type...)
@@ -68,7 +66,7 @@ func (s *SignatureDefs_SigDetail) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SignatureDefs_SigDetail) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -97,7 +95,7 @@ func (s *SignatureDefs_SigDetail) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "property" {
@@ -111,7 +109,7 @@ func (s *SignatureDefs_SigDetail) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -119,7 +117,7 @@ func (s *SignatureDefs_SigDetail) UnmarshalCBORAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -159,7 +157,10 @@ func (s *SignatureDefs_SigDetail) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SignatureDefs_SigDetail_value...)
 	buf = cbor.AppendJSONString(buf, s.Value)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -178,7 +179,7 @@ func (s *SignatureDefs_SigDetail) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SignatureDefs_SigDetail) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -217,7 +218,7 @@ func (s *SignatureDefs_SigDetail) UnmarshalJSONAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -22,9 +22,8 @@ type SyncSubscribeRepos_Account struct {
 	Status        gt.Option[string] `json:"status,omitzero"` // If active=false, this optional field indicates a reason for why the account is not active.
 	Time          string            `json:"time"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncSubscribeRepos_Account.
@@ -42,7 +41,7 @@ func (s *SyncSubscribeRepos_Account) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_Account) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4 + len(s.extraCBOR)
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -50,31 +49,31 @@ func (s *SyncSubscribeRepos_Account) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Account_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seq", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Account_seq...)
 		buf = cbor.AppendInt(buf, s.Seq)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "time", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Account_time...)
 		buf = cbor.AppendText(buf, s.Time)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Account_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "active", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Account_active...)
 		buf = cbor.AppendBool(buf, s.Active)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "status", buf)
 		if s.Status.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Account_status...)
 			buf = cbor.AppendText(buf, s.Status.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_SyncSubscribeRepos_Account_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -102,7 +101,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Account) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -131,7 +130,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "time" {
@@ -145,7 +144,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -159,7 +158,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "active" {
@@ -184,7 +183,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -192,7 +191,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalCBORAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -255,7 +254,10 @@ func (s *SyncSubscribeRepos_Account) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_Account_time...)
 	buf = cbor.AppendJSONString(buf, s.Time)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -274,7 +276,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Account) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -337,7 +339,7 @@ func (s *SyncSubscribeRepos_Account) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -361,9 +363,8 @@ type SyncSubscribeRepos_Commit struct {
 	Time          string                         `json:"time"`              // Timestamp of when this message was originally broadcast.
 	TooBig        bool                           `json:"tooBig"`            // DEPRECATED -- replaced by #sync event and data limits. Indicates that this commit contained too m...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncSubscribeRepos_Commit.
@@ -388,7 +389,7 @@ func (s *SyncSubscribeRepos_Commit) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 10 + len(s.extraCBOR)
+	n := 10 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -399,9 +400,9 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ops", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "ops", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_ops...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ops)))
 		for _, item := range s.Ops {
@@ -411,30 +412,30 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rev...)
 		buf = cbor.AppendText(buf, s.Rev)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seq", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_seq...)
 		buf = cbor.AppendInt(buf, s.Seq)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repo", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "repo", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_repo...)
 		buf = cbor.AppendText(buf, s.Repo)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "time", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_time...)
 		buf = cbor.AppendText(buf, s.Time)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobs", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "blobs", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blobs...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Blobs)))
 		for _, item := range s.Blobs {
 			_ = item // TODO: unsupported array element CBOR encode
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "since", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "since", buf)
 		if s.Since.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
 			if !s.Since.HasVal() {
@@ -443,10 +444,10 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 				buf = cbor.AppendText(buf, s.Since.Val())
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocks", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "blocks", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blocks...)
 		buf = cbor.AppendBytes(buf, s.Blocks)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "commit", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "commit", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_commit...)
 		{
 			var err error
@@ -455,13 +456,13 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rebase", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rebase", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_rebase...)
 		buf = cbor.AppendBool(buf, s.Rebase)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tooBig", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "tooBig", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_tooBig...)
 		buf = cbor.AppendBool(buf, s.TooBig)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "prevData", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "prevData", buf)
 		if s.PrevData.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_prevData...)
 			{
@@ -475,7 +476,7 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_ops...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ops)))
@@ -548,7 +549,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -592,7 +593,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "repo" {
@@ -611,7 +612,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -652,7 +653,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "blocks" {
@@ -681,7 +682,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "prevData" {
@@ -701,7 +702,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -709,7 +710,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -860,7 +861,10 @@ func (s *SyncSubscribeRepos_Commit) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_Commit_tooBig...)
 	buf = cbor.AppendJSONBool(buf, s.TooBig)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -879,7 +883,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Commit) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1035,7 +1039,7 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalJSONAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1051,9 +1055,8 @@ type SyncSubscribeRepos_Identity struct {
 	Seq           int64             `json:"seq"`
 	Time          string            `json:"time"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncSubscribeRepos_Identity.
@@ -1070,7 +1073,7 @@ func (s *SyncSubscribeRepos_Identity) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_Identity) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1078,28 +1081,28 @@ func (s *SyncSubscribeRepos_Identity) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seq", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_seq...)
 		buf = cbor.AppendInt(buf, s.Seq)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "time", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_time...)
 		buf = cbor.AppendText(buf, s.Time)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Identity_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "handle", buf)
 		if s.Handle.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Identity_handle...)
 			buf = cbor.AppendText(buf, s.Handle.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_SyncSubscribeRepos_Identity_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -1125,7 +1128,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Identity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1154,7 +1157,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "time" {
@@ -1168,7 +1171,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1182,7 +1185,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "handle" {
@@ -1202,7 +1205,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1210,7 +1213,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalCBORAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1266,7 +1269,10 @@ func (s *SyncSubscribeRepos_Identity) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_Identity_time...)
 	buf = cbor.AppendJSONString(buf, s.Time)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1285,7 +1291,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Identity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1343,7 +1349,7 @@ func (s *SyncSubscribeRepos_Identity) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1355,9 +1361,8 @@ type SyncSubscribeRepos_Info struct {
 	Message       gt.Option[string] `json:"message,omitzero"`
 	Name          string            `json:"name"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncSubscribeRepos_Info.
@@ -1372,7 +1377,7 @@ func (s *SyncSubscribeRepos_Info) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_Info) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1380,22 +1385,22 @@ func (s *SyncSubscribeRepos_Info) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "name", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Info_name...)
 		buf = cbor.AppendText(buf, s.Name)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Info_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
 		if s.Message.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Info_message...)
 			buf = cbor.AppendText(buf, s.Message.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_SyncSubscribeRepos_Info_name...)
 		buf = cbor.AppendText(buf, s.Name)
@@ -1417,7 +1422,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Info) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1441,7 +1446,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1455,7 +1460,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "message" {
@@ -1475,7 +1480,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1483,7 +1488,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalCBORAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1525,7 +1530,10 @@ func (s *SyncSubscribeRepos_Info) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_Info_name...)
 	buf = cbor.AppendJSONString(buf, s.Name)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1544,7 +1552,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Info) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1592,7 +1600,7 @@ func (s *SyncSubscribeRepos_Info) UnmarshalJSONAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1815,9 +1823,8 @@ type SyncSubscribeRepos_RepoOp struct {
 	Path          string                         `json:"path"`
 	Prev          gt.Option[lextypes.LexCIDLink] `json:"prev,omitzero"` // For updates and deletes, the previous record CID (required for inductive firehose). For creations...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncSubscribeRepos_RepoOp.
@@ -1834,7 +1841,7 @@ func (s *SyncSubscribeRepos_RepoOp) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.CID.HasVal() {
 		n++
 	}
@@ -1845,9 +1852,9 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cid", buf)
 		if s.CID.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
 			{
@@ -1865,10 +1872,10 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "path", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "path", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_path...)
 		buf = cbor.AppendText(buf, s.Path)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "prev", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "prev", buf)
 		if s.Prev.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_prev...)
 			{
@@ -1882,15 +1889,15 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "action", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_action...)
 		buf = cbor.AppendText(buf, s.Action)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.CID.HasVal() {
 			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
@@ -1940,7 +1947,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1970,7 +1977,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "path" {
@@ -1995,7 +2002,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2009,7 +2016,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "action" {
@@ -2023,7 +2030,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -2031,7 +2038,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalCBORAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -2111,7 +2118,10 @@ func (s *SyncSubscribeRepos_RepoOp) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -2130,7 +2140,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_RepoOp) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2197,7 +2207,7 @@ func (s *SyncSubscribeRepos_RepoOp) UnmarshalJSONAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2214,9 +2224,8 @@ type SyncSubscribeRepos_Sync struct {
 	Seq           int64  `json:"seq"`    // The stream sequence number of this message.
 	Time          string `json:"time"`   // Timestamp of when this message was originally broadcast.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncSubscribeRepos_Sync.
@@ -2234,34 +2243,34 @@ func (s *SyncSubscribeRepos_Sync) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_Sync) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 5 + len(s.extraCBOR)
+	n := 5 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_rev...)
 		buf = cbor.AppendText(buf, s.Rev)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seq", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_seq...)
 		buf = cbor.AppendInt(buf, s.Seq)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "time", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "time", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_time...)
 		buf = cbor.AppendText(buf, s.Time)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncSubscribeRepos_Sync_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocks", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "blocks", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_blocks...)
 		buf = cbor.AppendBytes(buf, s.Blocks)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_SyncSubscribeRepos_Sync_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -2287,7 +2296,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Sync) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2321,7 +2330,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "time" {
@@ -2335,7 +2344,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2349,7 +2358,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "blocks" {
@@ -2363,7 +2372,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -2371,7 +2380,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalCBORAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -2432,7 +2441,10 @@ func (s *SyncSubscribeRepos_Sync) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_Sync_time...)
 	buf = cbor.AppendJSONString(buf, s.Time)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -2451,7 +2463,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncSubscribeRepos_Sync) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2512,7 +2524,7 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalJSONAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

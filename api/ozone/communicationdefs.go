@@ -3,7 +3,6 @@
 package ozone
 
 import (
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -21,9 +20,8 @@ type CommunicationDefs_TemplateView struct {
 	Subject         gt.Option[string] `json:"subject,omitzero"` // Content of the template, can contain markdown and variable placeholders.
 	UpdatedAt       string            `json:"updatedAt"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for CommunicationDefs_TemplateView.
@@ -45,7 +43,7 @@ func (s *CommunicationDefs_TemplateView) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *CommunicationDefs_TemplateView) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 7 + len(s.extraCBOR)
+	n := 7 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Lang.HasVal() {
 		n++
 	}
@@ -56,45 +54,45 @@ func (s *CommunicationDefs_TemplateView) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_id...)
 		buf = cbor.AppendText(buf, s.Id)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lang", buf)
 		if s.Lang.HasVal() {
 			buf = append(buf, cborKey_CommunicationDefs_TemplateView_lang...)
 			buf = cbor.AppendText(buf, s.Lang.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "name", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_name...)
 		buf = cbor.AppendText(buf, s.Name)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_CommunicationDefs_TemplateView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		if s.Subject.HasVal() {
 			buf = append(buf, cborKey_CommunicationDefs_TemplateView_subject...)
 			buf = cbor.AppendText(buf, s.Subject.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "disabled", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_disabled...)
 		buf = cbor.AppendBool(buf, s.Disabled)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "updatedAt", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_updatedAt...)
 		buf = cbor.AppendText(buf, s.UpdatedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastUpdatedBy", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lastUpdatedBy", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_lastUpdatedBy...)
 		buf = cbor.AppendText(buf, s.LastUpdatedBy)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "contentMarkdown", buf)
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_contentMarkdown...)
 		buf = cbor.AppendText(buf, s.ContentMarkdown)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_CommunicationDefs_TemplateView_id...)
 		buf = cbor.AppendText(buf, s.Id)
@@ -132,7 +130,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -156,7 +154,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "lang" {
@@ -181,7 +179,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -195,7 +193,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -215,7 +213,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "disabled" {
@@ -229,7 +227,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -248,7 +246,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "lastUpdatedBy" {
@@ -262,7 +260,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "contentMarkdown" {
@@ -276,7 +274,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -284,7 +282,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalCBORAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -377,7 +375,10 @@ func (s *CommunicationDefs_TemplateView) AppendJSON(buf []byte) ([]byte, error) 
 	buf = append(buf, jsonKey_CommunicationDefs_TemplateView_updatedAt...)
 	buf = cbor.AppendJSONString(buf, s.UpdatedAt)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -396,7 +397,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalJSON(data []byte) error {
 }
 
 func (s *CommunicationDefs_TemplateView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -488,7 +489,7 @@ func (s *CommunicationDefs_TemplateView) UnmarshalJSONAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

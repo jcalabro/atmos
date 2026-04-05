@@ -3,7 +3,6 @@
 package bsky
 
 import (
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 )
 
@@ -15,9 +14,8 @@ type ContactDefs_MatchAndContactIndex struct {
 	ContactIndex  int64                 `json:"contactIndex"` // The index of this match in the import contact input.
 	Match         ActorDefs_ProfileView `json:"match"`        // Profile of the matched user.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ContactDefs_MatchAndContactIndex.
@@ -32,19 +30,19 @@ func (s *ContactDefs_MatchAndContactIndex) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactDefs_MatchAndContactIndex) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "match", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "match", buf)
 		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_match...)
 		{
 			var err error
@@ -53,10 +51,10 @@ func (s *ContactDefs_MatchAndContactIndex) AppendCBOR(buf []byte) ([]byte, error
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contactIndex", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "contactIndex", buf)
 		buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_contactIndex...)
 		buf = cbor.AppendInt(buf, s.ContactIndex)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ContactDefs_MatchAndContactIndex_dollar_type...)
@@ -82,7 +80,7 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactDefs_MatchAndContactIndex) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -111,7 +109,7 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalCBORAt(data []byte, pos int)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "contactIndex" {
@@ -125,7 +123,7 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalCBORAt(data []byte, pos int)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -133,7 +131,7 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalCBORAt(data []byte, pos int)
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -179,7 +177,10 @@ func (s *ContactDefs_MatchAndContactIndex) AppendJSON(buf []byte) ([]byte, error
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -198,7 +199,7 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactDefs_MatchAndContactIndex) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -237,7 +238,7 @@ func (s *ContactDefs_MatchAndContactIndex) UnmarshalJSONAt(data []byte, pos int)
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -251,9 +252,8 @@ type ContactDefs_Notification struct {
 	From          string `json:"from"` // The DID of who this notification comes from.
 	To            string `json:"to"`   // The DID of who this notification should go to.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ContactDefs_Notification.
@@ -268,25 +268,25 @@ func (s *ContactDefs_Notification) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactDefs_Notification) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "to", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "to", buf)
 		buf = append(buf, cborKey_ContactDefs_Notification_to...)
 		buf = cbor.AppendText(buf, s.To)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "from", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "from", buf)
 		buf = append(buf, cborKey_ContactDefs_Notification_from...)
 		buf = cbor.AppendText(buf, s.From)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ContactDefs_Notification_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ContactDefs_Notification_to...)
 		buf = cbor.AppendText(buf, s.To)
@@ -306,7 +306,7 @@ func (s *ContactDefs_Notification) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactDefs_Notification) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -330,7 +330,7 @@ func (s *ContactDefs_Notification) UnmarshalCBORAt(data []byte, pos int) (int, e
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "from" {
@@ -344,7 +344,7 @@ func (s *ContactDefs_Notification) UnmarshalCBORAt(data []byte, pos int) (int, e
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -358,7 +358,7 @@ func (s *ContactDefs_Notification) UnmarshalCBORAt(data []byte, pos int) (int, e
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -366,7 +366,7 @@ func (s *ContactDefs_Notification) UnmarshalCBORAt(data []byte, pos int) (int, e
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -406,7 +406,10 @@ func (s *ContactDefs_Notification) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ContactDefs_Notification_to...)
 	buf = cbor.AppendJSONString(buf, s.To)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -425,7 +428,7 @@ func (s *ContactDefs_Notification) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactDefs_Notification) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -464,7 +467,7 @@ func (s *ContactDefs_Notification) UnmarshalJSONAt(data []byte, pos int) (int, e
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -476,9 +479,8 @@ type ContactDefs_SyncStatus struct {
 	MatchesCount  int64  `json:"matchesCount"` // Number of existing contact matches resulting of the user imports and of their imported contacts h...
 	SyncedAt      string `json:"syncedAt"`     // Last date when contacts where imported.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ContactDefs_SyncStatus.
@@ -493,25 +495,25 @@ func (s *ContactDefs_SyncStatus) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactDefs_SyncStatus) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ContactDefs_SyncStatus_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "syncedAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "syncedAt", buf)
 		buf = append(buf, cborKey_ContactDefs_SyncStatus_syncedAt...)
 		buf = cbor.AppendText(buf, s.SyncedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "matchesCount", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "matchesCount", buf)
 		buf = append(buf, cborKey_ContactDefs_SyncStatus_matchesCount...)
 		buf = cbor.AppendInt(buf, s.MatchesCount)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ContactDefs_SyncStatus_dollar_type...)
@@ -531,7 +533,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactDefs_SyncStatus) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -555,7 +557,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "syncedAt" {
@@ -569,7 +571,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "matchesCount" {
@@ -583,7 +585,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -591,7 +593,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalCBORAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -631,7 +633,10 @@ func (s *ContactDefs_SyncStatus) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ContactDefs_SyncStatus_syncedAt...)
 	buf = cbor.AppendJSONString(buf, s.SyncedAt)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -650,7 +655,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactDefs_SyncStatus) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -689,7 +694,7 @@ func (s *ContactDefs_SyncStatus) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

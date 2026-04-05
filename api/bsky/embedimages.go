@@ -15,9 +15,8 @@ type EmbedImages_Image struct {
 	AspectRatio   gt.Option[EmbedDefs_AspectRatio] `json:"aspectRatio,omitzero"`
 	Image         lextypes.LexBlob                 `json:"image"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for EmbedImages_Image.
@@ -33,7 +32,7 @@ func (s *EmbedImages_Image) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedImages_Image) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -41,17 +40,17 @@ func (s *EmbedImages_Image) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "alt", buf)
 		buf = append(buf, cborKey_EmbedImages_Image_alt...)
 		buf = cbor.AppendText(buf, s.Alt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedImages_Image_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "image", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "image", buf)
 		buf = append(buf, cborKey_EmbedImages_Image_image...)
 		{
 			var err error
@@ -60,7 +59,7 @@ func (s *EmbedImages_Image) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "aspectRatio", buf)
 		if s.AspectRatio.HasVal() {
 			buf = append(buf, cborKey_EmbedImages_Image_aspectRatio...)
 			{
@@ -74,7 +73,7 @@ func (s *EmbedImages_Image) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_EmbedImages_Image_alt...)
 		buf = cbor.AppendText(buf, s.Alt)
@@ -113,7 +112,7 @@ func (s *EmbedImages_Image) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedImages_Image) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -137,7 +136,7 @@ func (s *EmbedImages_Image) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -156,7 +155,7 @@ func (s *EmbedImages_Image) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "aspectRatio" {
@@ -176,7 +175,7 @@ func (s *EmbedImages_Image) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -184,7 +183,7 @@ func (s *EmbedImages_Image) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -248,7 +247,10 @@ func (s *EmbedImages_Image) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -267,7 +269,7 @@ func (s *EmbedImages_Image) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedImages_Image) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -320,7 +322,7 @@ func (s *EmbedImages_Image) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -331,9 +333,8 @@ type EmbedImages struct {
 	LexiconTypeID string              `json:"$type,omitempty"`
 	Images        []EmbedImages_Image `json:"images"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for EmbedImages.
@@ -347,19 +348,19 @@ func (s *EmbedImages) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedImages) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedImages_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "images", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "images", buf)
 		buf = append(buf, cborKey_EmbedImages_images...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
 		for _, item := range s.Images {
@@ -369,7 +370,7 @@ func (s *EmbedImages) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedImages_dollar_type...)
@@ -394,7 +395,7 @@ func (s *EmbedImages) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedImages) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -418,7 +419,7 @@ func (s *EmbedImages) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "images" {
@@ -442,7 +443,7 @@ func (s *EmbedImages) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -450,7 +451,7 @@ func (s *EmbedImages) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -494,7 +495,10 @@ func (s *EmbedImages) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -513,7 +517,7 @@ func (s *EmbedImages) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedImages) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -569,7 +573,7 @@ func (s *EmbedImages) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -580,9 +584,8 @@ type EmbedImages_View struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Images        []EmbedImages_ViewImage `json:"images"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for EmbedImages_View.
@@ -596,19 +599,19 @@ func (s *EmbedImages_View) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedImages_View) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedImages_View_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "images", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "images", buf)
 		buf = append(buf, cborKey_EmbedImages_View_images...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Images)))
 		for _, item := range s.Images {
@@ -618,7 +621,7 @@ func (s *EmbedImages_View) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedImages_View_dollar_type...)
@@ -643,7 +646,7 @@ func (s *EmbedImages_View) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedImages_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -667,7 +670,7 @@ func (s *EmbedImages_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "images" {
@@ -691,7 +694,7 @@ func (s *EmbedImages_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -699,7 +702,7 @@ func (s *EmbedImages_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -743,7 +746,10 @@ func (s *EmbedImages_View) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -762,7 +768,7 @@ func (s *EmbedImages_View) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedImages_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -818,7 +824,7 @@ func (s *EmbedImages_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -832,9 +838,8 @@ type EmbedImages_ViewImage struct {
 	Fullsize      string                           `json:"fullsize"` // Fully-qualified URL where a large version of the image can be fetched. May or may not be the exac...
 	Thumb         string                           `json:"thumb"`    // Fully-qualified URL where a thumbnail of the image can be fetched. For example, CDN location prov...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for EmbedImages_ViewImage.
@@ -851,7 +856,7 @@ func (s *EmbedImages_ViewImage) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedImages_ViewImage) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -859,23 +864,23 @@ func (s *EmbedImages_ViewImage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "alt", buf)
 		buf = append(buf, cborKey_EmbedImages_ViewImage_alt...)
 		buf = cbor.AppendText(buf, s.Alt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedImages_ViewImage_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thumb", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "thumb", buf)
 		buf = append(buf, cborKey_EmbedImages_ViewImage_thumb...)
 		buf = cbor.AppendText(buf, s.Thumb)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "fullsize", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "fullsize", buf)
 		buf = append(buf, cborKey_EmbedImages_ViewImage_fullsize...)
 		buf = cbor.AppendText(buf, s.Fullsize)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "aspectRatio", buf)
 		if s.AspectRatio.HasVal() {
 			buf = append(buf, cborKey_EmbedImages_ViewImage_aspectRatio...)
 			{
@@ -889,7 +894,7 @@ func (s *EmbedImages_ViewImage) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_EmbedImages_ViewImage_alt...)
 		buf = cbor.AppendText(buf, s.Alt)
@@ -924,7 +929,7 @@ func (s *EmbedImages_ViewImage) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedImages_ViewImage) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -948,7 +953,7 @@ func (s *EmbedImages_ViewImage) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -967,7 +972,7 @@ func (s *EmbedImages_ViewImage) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "fullsize" {
@@ -981,7 +986,7 @@ func (s *EmbedImages_ViewImage) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "aspectRatio" {
@@ -1001,7 +1006,7 @@ func (s *EmbedImages_ViewImage) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1009,7 +1014,7 @@ func (s *EmbedImages_ViewImage) UnmarshalCBORAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1074,7 +1079,10 @@ func (s *EmbedImages_ViewImage) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedImages_ViewImage_thumb...)
 	buf = cbor.AppendJSONString(buf, s.Thumb)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1093,7 +1101,7 @@ func (s *EmbedImages_ViewImage) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedImages_ViewImage) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1151,7 +1159,7 @@ func (s *EmbedImages_ViewImage) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

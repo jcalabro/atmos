@@ -18,9 +18,8 @@ type RichtextFacet_ByteSlice struct {
 	ByteEnd       int64  `json:"byteEnd"`
 	ByteStart     int64  `json:"byteStart"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RichtextFacet_ByteSlice.
@@ -35,25 +34,25 @@ func (s *RichtextFacet_ByteSlice) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RichtextFacet_ByteSlice) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_ByteSlice_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "byteEnd", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "byteEnd", buf)
 		buf = append(buf, cborKey_RichtextFacet_ByteSlice_byteEnd...)
 		buf = cbor.AppendInt(buf, s.ByteEnd)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "byteStart", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "byteStart", buf)
 		buf = append(buf, cborKey_RichtextFacet_ByteSlice_byteStart...)
 		buf = cbor.AppendInt(buf, s.ByteStart)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_ByteSlice_dollar_type...)
@@ -73,7 +72,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RichtextFacet_ByteSlice) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -97,7 +96,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "byteEnd" {
@@ -111,7 +110,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "byteStart" {
@@ -125,7 +124,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -133,7 +132,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalCBORAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -173,7 +172,10 @@ func (s *RichtextFacet_ByteSlice) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RichtextFacet_ByteSlice_byteStart...)
 	buf = cbor.AppendJSONInt(buf, s.ByteStart)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -192,7 +194,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RichtextFacet_ByteSlice) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -231,7 +233,7 @@ func (s *RichtextFacet_ByteSlice) UnmarshalJSONAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -244,9 +246,8 @@ type RichtextFacet_Link struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	URI           string `json:"uri"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RichtextFacet_Link.
@@ -260,22 +261,22 @@ func (s *RichtextFacet_Link) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RichtextFacet_Link) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_RichtextFacet_Link_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_Link_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RichtextFacet_Link_uri...)
 		buf = cbor.AppendText(buf, s.URI)
@@ -293,7 +294,7 @@ func (s *RichtextFacet_Link) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RichtextFacet_Link) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -317,7 +318,7 @@ func (s *RichtextFacet_Link) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -331,7 +332,7 @@ func (s *RichtextFacet_Link) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -339,7 +340,7 @@ func (s *RichtextFacet_Link) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -372,7 +373,10 @@ func (s *RichtextFacet_Link) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RichtextFacet_Link_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -391,7 +395,7 @@ func (s *RichtextFacet_Link) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RichtextFacet_Link) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -425,7 +429,7 @@ func (s *RichtextFacet_Link) UnmarshalJSONAt(data []byte, pos int) (int, error) 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -439,9 +443,8 @@ type RichtextFacet struct {
 	Features      []RichtextFacet_Features `json:"features"`
 	Index         RichtextFacet_ByteSlice  `json:"index"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // RichtextFacet_Features is a union type.
@@ -609,19 +612,19 @@ func (s *RichtextFacet) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RichtextFacet) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "index", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "index", buf)
 		buf = append(buf, cborKey_RichtextFacet_index...)
 		{
 			var err error
@@ -630,7 +633,7 @@ func (s *RichtextFacet) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "features", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "features", buf)
 		buf = append(buf, cborKey_RichtextFacet_features...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Features)))
 		for _, item := range s.Features {
@@ -640,7 +643,7 @@ func (s *RichtextFacet) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_dollar_type...)
@@ -673,7 +676,7 @@ func (s *RichtextFacet) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RichtextFacet) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -702,7 +705,7 @@ func (s *RichtextFacet) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "features" {
@@ -726,7 +729,7 @@ func (s *RichtextFacet) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -734,7 +737,7 @@ func (s *RichtextFacet) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -791,7 +794,10 @@ func (s *RichtextFacet) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -810,7 +816,7 @@ func (s *RichtextFacet) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RichtextFacet) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -871,7 +877,7 @@ func (s *RichtextFacet) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -884,9 +890,8 @@ type RichtextFacet_Mention struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	DID           string `json:"did"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RichtextFacet_Mention.
@@ -900,22 +905,22 @@ func (s *RichtextFacet_Mention) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RichtextFacet_Mention) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_RichtextFacet_Mention_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_Mention_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RichtextFacet_Mention_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -933,7 +938,7 @@ func (s *RichtextFacet_Mention) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RichtextFacet_Mention) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -957,7 +962,7 @@ func (s *RichtextFacet_Mention) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -971,7 +976,7 @@ func (s *RichtextFacet_Mention) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -979,7 +984,7 @@ func (s *RichtextFacet_Mention) UnmarshalCBORAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1012,7 +1017,10 @@ func (s *RichtextFacet_Mention) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RichtextFacet_Mention_did...)
 	buf = cbor.AppendJSONString(buf, s.DID)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1031,7 +1039,7 @@ func (s *RichtextFacet_Mention) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RichtextFacet_Mention) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1065,7 +1073,7 @@ func (s *RichtextFacet_Mention) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1078,9 +1086,8 @@ type RichtextFacet_Tag struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Tag           string `json:"tag"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for RichtextFacet_Tag.
@@ -1094,22 +1101,22 @@ func (s *RichtextFacet_Tag) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RichtextFacet_Tag) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tag", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "tag", buf)
 		buf = append(buf, cborKey_RichtextFacet_Tag_tag...)
 		buf = cbor.AppendText(buf, s.Tag)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_RichtextFacet_Tag_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_RichtextFacet_Tag_tag...)
 		buf = cbor.AppendText(buf, s.Tag)
@@ -1127,7 +1134,7 @@ func (s *RichtextFacet_Tag) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RichtextFacet_Tag) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1151,7 +1158,7 @@ func (s *RichtextFacet_Tag) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1165,7 +1172,7 @@ func (s *RichtextFacet_Tag) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1173,7 +1180,7 @@ func (s *RichtextFacet_Tag) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1206,7 +1213,10 @@ func (s *RichtextFacet_Tag) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RichtextFacet_Tag_tag...)
 	buf = cbor.AppendJSONString(buf, s.Tag)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1225,7 +1235,7 @@ func (s *RichtextFacet_Tag) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RichtextFacet_Tag) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1259,7 +1269,7 @@ func (s *RichtextFacet_Tag) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -62,7 +61,10 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) AppendJSON(buf []b
 		buf = cbor.AppendJSONString(buf, s.RecIdStr.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -81,7 +83,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalJSON(data
 }
 
 func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -165,7 +167,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalJSONAt(da
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -184,7 +186,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) MarshalCBOR() ([]b
 }
 
 func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -195,30 +197,30 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) AppendCBOR(buf []b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "dids", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "dids", buf)
 		buf = append(buf, cborKey_UnspeccedGetOnboardingSuggestedUsersSkeleton_Output_dids...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Dids)))
 		for _, item := range s.Dids {
 			buf = cbor.AppendText(buf, item)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_UnspeccedGetOnboardingSuggestedUsersSkeleton_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recId", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "recId", buf)
 		if s.RecId.HasVal() {
 			buf = append(buf, cborKey_UnspeccedGetOnboardingSuggestedUsersSkeleton_Output_recId...)
 			buf = cbor.AppendText(buf, s.RecId.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recIdStr", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "recIdStr", buf)
 		if s.RecIdStr.HasVal() {
 			buf = append(buf, cborKey_UnspeccedGetOnboardingSuggestedUsersSkeleton_Output_recIdStr...)
 			buf = cbor.AppendText(buf, s.RecIdStr.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_UnspeccedGetOnboardingSuggestedUsersSkeleton_Output_dids...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Dids)))
@@ -247,7 +249,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBOR(data
 }
 
 func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -281,7 +283,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBORAt(da
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -306,7 +308,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBORAt(da
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "recIdStr" {
@@ -326,7 +328,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBORAt(da
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -334,7 +336,7 @@ func (s *UnspeccedGetOnboardingSuggestedUsersSkeleton_Output) UnmarshalCBORAt(da
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -346,9 +348,8 @@ type UnspeccedGetOnboardingSuggestedUsersSkeleton_Output struct {
 	RecId         gt.Option[string] `json:"recId,omitzero"`    // DEPRECATED: use recIdStr instead.
 	RecIdStr      gt.Option[string] `json:"recIdStr,omitzero"` // Snowflake for this recommendation, use when submitting recommendation events.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // UnspeccedGetOnboardingSuggestedUsersSkeleton calls the XRPC query "app.bsky.unspecced.getOnboardingSuggestedUsersSkeleton".

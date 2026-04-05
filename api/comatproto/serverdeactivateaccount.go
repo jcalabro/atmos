@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -39,7 +38,10 @@ func (s *ServerDeactivateAccount_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.DeleteAfter.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -58,7 +60,7 @@ func (s *ServerDeactivateAccount_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerDeactivateAccount_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -101,7 +103,7 @@ func (s *ServerDeactivateAccount_Input) UnmarshalJSONAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -118,7 +120,7 @@ func (s *ServerDeactivateAccount_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerDeactivateAccount_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -126,19 +128,19 @@ func (s *ServerDeactivateAccount_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDeactivateAccount_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deleteAfter", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "deleteAfter", buf)
 		if s.DeleteAfter.HasVal() {
 			buf = append(buf, cborKey_ServerDeactivateAccount_Input_deleteAfter...)
 			buf = cbor.AppendText(buf, s.DeleteAfter.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDeactivateAccount_Input_dollar_type...)
@@ -158,7 +160,7 @@ func (s *ServerDeactivateAccount_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerDeactivateAccount_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -182,7 +184,7 @@ func (s *ServerDeactivateAccount_Input) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "deleteAfter" {
@@ -202,7 +204,7 @@ func (s *ServerDeactivateAccount_Input) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -210,7 +212,7 @@ func (s *ServerDeactivateAccount_Input) UnmarshalCBORAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -220,9 +222,8 @@ type ServerDeactivateAccount_Input struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	DeleteAfter   gt.Option[string] `json:"deleteAfter,omitzero"` // A recommendation to server as to how long they should hold onto the deactivated account before de...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ServerDeactivateAccount calls the XRPC procedure "com.atproto.server.deactivateAccount".

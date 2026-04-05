@@ -4,7 +4,6 @@ package ozone
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -77,7 +76,10 @@ func (s *CommunicationCreateTemplate_Input) AppendJSON(buf []byte) ([]byte, erro
 	buf = append(buf, jsonKey_CommunicationCreateTemplate_Input_subject...)
 	buf = cbor.AppendJSONString(buf, s.Subject)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -96,7 +98,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *CommunicationCreateTemplate_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -168,7 +170,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalJSONAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -189,7 +191,7 @@ func (s *CommunicationCreateTemplate_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *CommunicationCreateTemplate_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Lang.HasVal() {
 		n++
 	}
@@ -200,33 +202,33 @@ func (s *CommunicationCreateTemplate_Input) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lang", buf)
 		if s.Lang.HasVal() {
 			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_lang...)
 			buf = cbor.AppendText(buf, s.Lang.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "name", buf)
 		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_name...)
 		buf = cbor.AppendText(buf, s.Name)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdBy", buf)
 		if s.CreatedBy.HasVal() {
 			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_createdBy...)
 			buf = cbor.AppendText(buf, s.CreatedBy.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "contentMarkdown", buf)
 		buf = append(buf, cborKey_CommunicationCreateTemplate_Input_contentMarkdown...)
 		buf = cbor.AppendText(buf, s.ContentMarkdown)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Lang.HasVal() {
 			buf = append(buf, cborKey_CommunicationCreateTemplate_Input_lang...)
@@ -256,7 +258,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -291,7 +293,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -305,7 +307,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -319,7 +321,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdBy" {
@@ -339,7 +341,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "contentMarkdown" {
@@ -353,7 +355,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -361,7 +363,7 @@ func (s *CommunicationCreateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -375,9 +377,8 @@ type CommunicationCreateTemplate_Input struct {
 	Name            string            `json:"name"`               // Name of the template.
 	Subject         string            `json:"subject"`            // Subject of the message, used in emails.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // CommunicationCreateTemplate calls the XRPC procedure "tools.ozone.communication.createTemplate".

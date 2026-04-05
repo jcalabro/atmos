@@ -29,9 +29,8 @@ type VerificationDefs_VerificationView struct {
 	SubjectRepo    gt.Option[VerificationDefs_VerificationView_SubjectRepo]    `json:"subjectRepo,omitzero"`
 	URI            string                                                      `json:"uri"` // The AT-URI of the verification record.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // VerificationDefs_VerificationView_IssuerProfile is a union type.
@@ -453,7 +452,7 @@ func (s *VerificationDefs_VerificationView) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 6 + len(s.extraCBOR)
+	n := 6 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -479,39 +478,39 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "handle", buf)
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_handle...)
 		buf = cbor.AppendText(buf, s.Handle)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuer", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "issuer", buf)
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_issuer...)
 		buf = cbor.AppendText(buf, s.Issuer)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "revokedAt", buf)
 		if s.RevokedAt.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedAt...)
 			buf = cbor.AppendText(buf, s.RevokedAt.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedBy", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "revokedBy", buf)
 		if s.RevokedBy.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokedBy...)
 			buf = cbor.AppendText(buf, s.RevokedBy.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuerRepo", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "issuerRepo", buf)
 		if s.IssuerRepo.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerRepo...)
 			{
@@ -525,10 +524,10 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "displayName", buf)
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectRepo", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectRepo", buf)
 		if s.SubjectRepo.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectRepo...)
 			{
@@ -542,12 +541,12 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokeReason", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "revokeReason", buf)
 		if s.RevokeReason.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_revokeReason...)
 			buf = cbor.AppendText(buf, s.RevokeReason.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuerProfile", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "issuerProfile", buf)
 		if s.IssuerProfile.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_issuerProfile...)
 			{
@@ -561,7 +560,7 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectProfile", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectProfile", buf)
 		if s.SubjectProfile.HasVal() {
 			buf = append(buf, cborKey_VerificationDefs_VerificationView_subjectProfile...)
 			{
@@ -575,7 +574,7 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_VerificationDefs_VerificationView_uri...)
 		buf = cbor.AppendText(buf, s.URI)
@@ -667,7 +666,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -691,7 +690,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -705,7 +704,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "handle" {
@@ -724,7 +723,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -738,7 +737,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -774,7 +773,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "issuerRepo" {
@@ -794,7 +793,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "displayName" {
@@ -819,7 +818,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "revokeReason" {
@@ -839,7 +838,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "issuerProfile" {
@@ -859,7 +858,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "subjectProfile" {
@@ -879,7 +878,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -887,7 +886,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1054,7 +1053,10 @@ func (s *VerificationDefs_VerificationView) AppendJSON(buf []byte) ([]byte, erro
 	buf = append(buf, jsonKey_VerificationDefs_VerificationView_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1073,7 +1075,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalJSON(data []byte) error {
 }
 
 func (s *VerificationDefs_VerificationView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1230,7 +1232,7 @@ func (s *VerificationDefs_VerificationView) UnmarshalJSONAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -15,9 +14,8 @@ type ServerDescribeServer_Contact struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Email         gt.Option[string] `json:"email,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ServerDescribeServer_Contact.
@@ -31,7 +29,7 @@ func (s *ServerDescribeServer_Contact) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerDescribeServer_Contact) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -39,19 +37,19 @@ func (s *ServerDescribeServer_Contact) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDescribeServer_Contact_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "email", buf)
 		if s.Email.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Contact_email...)
 			buf = cbor.AppendText(buf, s.Email.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDescribeServer_Contact_dollar_type...)
@@ -71,7 +69,7 @@ func (s *ServerDescribeServer_Contact) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerDescribeServer_Contact) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -106,7 +104,7 @@ func (s *ServerDescribeServer_Contact) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -114,7 +112,7 @@ func (s *ServerDescribeServer_Contact) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -149,7 +147,10 @@ func (s *ServerDescribeServer_Contact) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Email.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -168,7 +169,7 @@ func (s *ServerDescribeServer_Contact) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerDescribeServer_Contact) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -211,7 +212,7 @@ func (s *ServerDescribeServer_Contact) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -223,9 +224,8 @@ type ServerDescribeServer_Links struct {
 	PrivacyPolicy  gt.Option[string] `json:"privacyPolicy,omitzero"`
 	TermsOfService gt.Option[string] `json:"termsOfService,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ServerDescribeServer_Links.
@@ -240,7 +240,7 @@ func (s *ServerDescribeServer_Links) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerDescribeServer_Links) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -251,24 +251,24 @@ func (s *ServerDescribeServer_Links) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDescribeServer_Links_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privacyPolicy", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "privacyPolicy", buf)
 		if s.PrivacyPolicy.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Links_privacyPolicy...)
 			buf = cbor.AppendText(buf, s.PrivacyPolicy.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "termsOfService", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "termsOfService", buf)
 		if s.TermsOfService.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Links_termsOfService...)
 			buf = cbor.AppendText(buf, s.TermsOfService.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDescribeServer_Links_dollar_type...)
@@ -292,7 +292,7 @@ func (s *ServerDescribeServer_Links) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerDescribeServer_Links) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -316,7 +316,7 @@ func (s *ServerDescribeServer_Links) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "privacyPolicy" {
@@ -336,7 +336,7 @@ func (s *ServerDescribeServer_Links) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "termsOfService" {
@@ -356,7 +356,7 @@ func (s *ServerDescribeServer_Links) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -364,7 +364,7 @@ func (s *ServerDescribeServer_Links) UnmarshalCBORAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -408,7 +408,10 @@ func (s *ServerDescribeServer_Links) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.TermsOfService.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -427,7 +430,7 @@ func (s *ServerDescribeServer_Links) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerDescribeServer_Links) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -484,7 +487,7 @@ func (s *ServerDescribeServer_Links) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -585,7 +588,10 @@ func (s *ServerDescribeServer_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONBool(buf, s.PhoneVerificationRequired.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -604,7 +610,7 @@ func (s *ServerDescribeServer_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerDescribeServer_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -721,7 +727,7 @@ func (s *ServerDescribeServer_Output) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -743,7 +749,7 @@ func (s *ServerDescribeServer_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -760,17 +766,17 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_ServerDescribeServer_Output_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ServerDescribeServer_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "links", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "links", buf)
 		if s.Links.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Output_links...)
 			{
@@ -784,7 +790,7 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contact", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "contact", buf)
 		if s.Contact.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Output_contact...)
 			{
@@ -798,23 +804,23 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "inviteCodeRequired", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "inviteCodeRequired", buf)
 		if s.InviteCodeRequired.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Output_inviteCodeRequired...)
 			buf = cbor.AppendBool(buf, s.InviteCodeRequired.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "availableUserDomains", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "availableUserDomains", buf)
 		buf = append(buf, cborKey_ServerDescribeServer_Output_availableUserDomains...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.AvailableUserDomains)))
 		for _, item := range s.AvailableUserDomains {
 			buf = cbor.AppendText(buf, item)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "phoneVerificationRequired", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "phoneVerificationRequired", buf)
 		if s.PhoneVerificationRequired.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Output_phoneVerificationRequired...)
 			buf = cbor.AppendBool(buf, s.PhoneVerificationRequired.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ServerDescribeServer_Output_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -871,7 +877,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -895,7 +901,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -920,7 +926,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "contact" {
@@ -940,7 +946,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 18:
 			if string(data[keyStart:keyEnd]) == "inviteCodeRequired" {
@@ -960,7 +966,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "availableUserDomains" {
@@ -984,7 +990,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 25:
 			if string(data[keyStart:keyEnd]) == "phoneVerificationRequired" {
@@ -1004,7 +1010,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1012,7 +1018,7 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1027,9 +1033,8 @@ type ServerDescribeServer_Output struct {
 	Links                     gt.Option[ServerDescribeServer_Links]   `json:"links,omitzero"`                     // URLs of service policy documents.
 	PhoneVerificationRequired gt.Option[bool]                         `json:"phoneVerificationRequired,omitzero"` // If true, a phone verification token must be supplied to create an account on this instance.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ServerDescribeServer calls the XRPC query "com.atproto.server.describeServer".

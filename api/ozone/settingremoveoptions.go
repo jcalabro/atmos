@@ -4,7 +4,6 @@ package ozone
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -29,7 +28,10 @@ func (s *SettingRemoveOptions_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -48,7 +50,7 @@ func (s *SettingRemoveOptions_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SettingRemoveOptions_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -77,7 +79,7 @@ func (s *SettingRemoveOptions_Output) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -93,19 +95,19 @@ func (s *SettingRemoveOptions_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SettingRemoveOptions_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SettingRemoveOptions_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SettingRemoveOptions_Output_dollar_type...)
@@ -121,7 +123,7 @@ func (s *SettingRemoveOptions_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SettingRemoveOptions_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -145,7 +147,7 @@ func (s *SettingRemoveOptions_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -153,7 +155,7 @@ func (s *SettingRemoveOptions_Output) UnmarshalCBORAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -162,9 +164,8 @@ func (s *SettingRemoveOptions_Output) UnmarshalCBORAt(data []byte, pos int) (int
 type SettingRemoveOptions_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed JSON key tokens for SettingRemoveOptions_Input.
@@ -208,7 +209,10 @@ func (s *SettingRemoveOptions_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SettingRemoveOptions_Input_scope...)
 	buf = cbor.AppendJSONString(buf, s.Scope)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -227,7 +231,7 @@ func (s *SettingRemoveOptions_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SettingRemoveOptions_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -288,7 +292,7 @@ func (s *SettingRemoveOptions_Input) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -306,28 +310,28 @@ func (s *SettingRemoveOptions_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SettingRemoveOptions_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "keys", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "keys", buf)
 		buf = append(buf, cborKey_SettingRemoveOptions_Input_keys...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Keys)))
 		for _, item := range s.Keys {
 			buf = cbor.AppendText(buf, item)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SettingRemoveOptions_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scope", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "scope", buf)
 		buf = append(buf, cborKey_SettingRemoveOptions_Input_scope...)
 		buf = cbor.AppendText(buf, s.Scope)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_SettingRemoveOptions_Input_keys...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Keys)))
@@ -350,7 +354,7 @@ func (s *SettingRemoveOptions_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SettingRemoveOptions_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -384,7 +388,7 @@ func (s *SettingRemoveOptions_Input) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -403,7 +407,7 @@ func (s *SettingRemoveOptions_Input) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -411,7 +415,7 @@ func (s *SettingRemoveOptions_Input) UnmarshalCBORAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -422,9 +426,8 @@ type SettingRemoveOptions_Input struct {
 	Keys          []string `json:"keys"`
 	Scope         string   `json:"scope"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // SettingRemoveOptions calls the XRPC procedure "tools.ozone.setting.removeOptions".

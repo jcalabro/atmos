@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -36,7 +35,10 @@ func (s *NotificationUpdateSeen_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_NotificationUpdateSeen_Input_seenAt...)
 	buf = cbor.AppendJSONString(buf, s.SeenAt)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -55,7 +57,7 @@ func (s *NotificationUpdateSeen_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *NotificationUpdateSeen_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -89,7 +91,7 @@ func (s *NotificationUpdateSeen_Input) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -106,22 +108,22 @@ func (s *NotificationUpdateSeen_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *NotificationUpdateSeen_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationUpdateSeen_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seenAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seenAt", buf)
 		buf = append(buf, cborKey_NotificationUpdateSeen_Input_seenAt...)
 		buf = cbor.AppendText(buf, s.SeenAt)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationUpdateSeen_Input_dollar_type...)
@@ -139,7 +141,7 @@ func (s *NotificationUpdateSeen_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *NotificationUpdateSeen_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -163,7 +165,7 @@ func (s *NotificationUpdateSeen_Input) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "seenAt" {
@@ -177,7 +179,7 @@ func (s *NotificationUpdateSeen_Input) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -185,7 +187,7 @@ func (s *NotificationUpdateSeen_Input) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -195,9 +197,8 @@ type NotificationUpdateSeen_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	SeenAt        string `json:"seenAt"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // NotificationUpdateSeen calls the XRPC procedure "app.bsky.notification.updateSeen".

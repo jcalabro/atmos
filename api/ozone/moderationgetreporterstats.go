@@ -4,7 +4,6 @@ package ozone
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -47,7 +46,10 @@ func (s *ModerationGetReporterStats_Output) AppendJSON(buf []byte) ([]byte, erro
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -66,7 +68,7 @@ func (s *ModerationGetReporterStats_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationGetReporterStats_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -122,7 +124,7 @@ func (s *ModerationGetReporterStats_Output) UnmarshalJSONAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -139,19 +141,19 @@ func (s *ModerationGetReporterStats_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationGetReporterStats_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetReporterStats_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "stats", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "stats", buf)
 		buf = append(buf, cborKey_ModerationGetReporterStats_Output_stats...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Stats)))
 		for _, item := range s.Stats {
@@ -161,7 +163,7 @@ func (s *ModerationGetReporterStats_Output) AppendCBOR(buf []byte) ([]byte, erro
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetReporterStats_Output_dollar_type...)
@@ -186,7 +188,7 @@ func (s *ModerationGetReporterStats_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationGetReporterStats_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -225,7 +227,7 @@ func (s *ModerationGetReporterStats_Output) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -233,7 +235,7 @@ func (s *ModerationGetReporterStats_Output) UnmarshalCBORAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -243,9 +245,8 @@ type ModerationGetReporterStats_Output struct {
 	LexiconTypeID string                         `json:"$type,omitempty"`
 	Stats         []ModerationDefs_ReporterStats `json:"stats"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ModerationGetReporterStats calls the XRPC query "tools.ozone.moderation.getReporterStats".

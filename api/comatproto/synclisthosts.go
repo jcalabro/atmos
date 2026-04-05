@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -18,9 +17,8 @@ type SyncListHosts_Host struct {
 	Seq           gt.Option[int64]               `json:"seq,omitzero"` // Recent repo stream event sequence number. May be delayed from actual stream processing (eg, persi...
 	Status        gt.Option[SyncDefs_HostStatus] `json:"status,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for SyncListHosts_Host.
@@ -37,7 +35,7 @@ func (s *SyncListHosts_Host) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncListHosts_Host) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Seq.HasVal() {
 		n++
 	}
@@ -51,32 +49,32 @@ func (s *SyncListHosts_Host) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seq", buf)
 		if s.Seq.HasVal() {
 			buf = append(buf, cborKey_SyncListHosts_Host_seq...)
 			buf = cbor.AppendInt(buf, s.Seq.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncListHosts_Host_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "status", buf)
 		if s.Status.HasVal() {
 			buf = append(buf, cborKey_SyncListHosts_Host_status...)
 			buf = cbor.AppendText(buf, s.Status.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hostname", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "hostname", buf)
 		buf = append(buf, cborKey_SyncListHosts_Host_hostname...)
 		buf = cbor.AppendText(buf, s.Hostname)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCount", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "accountCount", buf)
 		if s.AccountCount.HasVal() {
 			buf = append(buf, cborKey_SyncListHosts_Host_accountCount...)
 			buf = cbor.AppendInt(buf, s.AccountCount.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Seq.HasVal() {
 			buf = append(buf, cborKey_SyncListHosts_Host_seq...)
@@ -106,7 +104,7 @@ func (s *SyncListHosts_Host) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -136,7 +134,7 @@ func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -150,7 +148,7 @@ func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "status" {
@@ -170,7 +168,7 @@ func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "hostname" {
@@ -184,7 +182,7 @@ func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "accountCount" {
@@ -204,7 +202,7 @@ func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -212,7 +210,7 @@ func (s *SyncListHosts_Host) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -272,7 +270,10 @@ func (s *SyncListHosts_Host) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Status.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -291,7 +292,7 @@ func (s *SyncListHosts_Host) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncListHosts_Host) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -367,7 +368,7 @@ func (s *SyncListHosts_Host) UnmarshalJSONAt(data []byte, pos int) (int, error) 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -420,7 +421,10 @@ func (s *SyncListHosts_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -439,7 +443,7 @@ func (s *SyncListHosts_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncListHosts_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -509,7 +513,7 @@ func (s *SyncListHosts_Output) UnmarshalJSONAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -527,7 +531,7 @@ func (s *SyncListHosts_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncListHosts_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -535,14 +539,14 @@ func (s *SyncListHosts_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncListHosts_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hosts", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "hosts", buf)
 		buf = append(buf, cborKey_SyncListHosts_Output_hosts...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Hosts)))
 		for _, item := range s.Hosts {
@@ -552,12 +556,12 @@ func (s *SyncListHosts_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cursor", buf)
 		if s.Cursor.HasVal() {
 			buf = append(buf, cborKey_SyncListHosts_Output_cursor...)
 			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_SyncListHosts_Output_dollar_type...)
@@ -586,7 +590,7 @@ func (s *SyncListHosts_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncListHosts_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -625,7 +629,7 @@ func (s *SyncListHosts_Output) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -645,7 +649,7 @@ func (s *SyncListHosts_Output) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -653,7 +657,7 @@ func (s *SyncListHosts_Output) UnmarshalCBORAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -664,9 +668,8 @@ type SyncListHosts_Output struct {
 	Cursor        gt.Option[string]    `json:"cursor,omitzero"`
 	Hosts         []SyncListHosts_Host `json:"hosts"` // Sort order is not formally specified. Recommended order is by time host was first seen by the ser...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // SyncListHosts calls the XRPC query "com.atproto.sync.listHosts".

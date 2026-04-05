@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -47,7 +46,10 @@ func (s *TempFetchLabels_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -66,7 +68,7 @@ func (s *TempFetchLabels_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *TempFetchLabels_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -122,7 +124,7 @@ func (s *TempFetchLabels_Output) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -139,19 +141,19 @@ func (s *TempFetchLabels_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *TempFetchLabels_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_TempFetchLabels_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
 		buf = append(buf, cborKey_TempFetchLabels_Output_labels...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
 		for _, item := range s.Labels {
@@ -161,7 +163,7 @@ func (s *TempFetchLabels_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_TempFetchLabels_Output_dollar_type...)
@@ -186,7 +188,7 @@ func (s *TempFetchLabels_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *TempFetchLabels_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -210,7 +212,7 @@ func (s *TempFetchLabels_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "labels" {
@@ -234,7 +236,7 @@ func (s *TempFetchLabels_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -242,7 +244,7 @@ func (s *TempFetchLabels_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -252,9 +254,8 @@ type TempFetchLabels_Output struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Labels        []LabelDefs_Label `json:"labels"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // TempFetchLabels calls the XRPC query "com.atproto.temp.fetchLabels".

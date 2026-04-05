@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -57,7 +56,10 @@ func (s *GraphGetStarterPacksWithMembership_Output) AppendJSON(buf []byte) ([]by
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -76,7 +78,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalJSON(data []byte) e
 }
 
 func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -146,7 +148,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalJSONAt(data []byte,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -164,7 +166,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) MarshalCBOR() ([]byte, error
 }
 
 func (s *GraphGetStarterPacksWithMembership_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -172,19 +174,19 @@ func (s *GraphGetStarterPacksWithMembership_Output) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cursor", buf)
 		if s.Cursor.HasVal() {
 			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_cursor...)
 			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPacksWithMembership", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "starterPacksWithMembership", buf)
 		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_starterPacksWithMembership...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.StarterPacksWithMembership)))
 		for _, item := range s.StarterPacksWithMembership {
@@ -194,7 +196,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) AppendCBOR(buf []byte) ([]by
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_Output_dollar_type...)
@@ -223,7 +225,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalCBOR(data []byte) e
 }
 
 func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -247,7 +249,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -267,7 +269,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 26:
 			if string(data[keyStart:keyEnd]) == "starterPacksWithMembership" {
@@ -291,7 +293,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -299,7 +301,7 @@ func (s *GraphGetStarterPacksWithMembership_Output) UnmarshalCBORAt(data []byte,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -310,9 +312,8 @@ type GraphGetStarterPacksWithMembership_Output struct {
 	Cursor                     gt.Option[string]                                              `json:"cursor,omitzero"`
 	StarterPacksWithMembership []GraphGetStarterPacksWithMembership_StarterPackWithMembership `json:"starterPacksWithMembership"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // GraphGetStarterPacksWithMembership calls the XRPC query "app.bsky.graph.getStarterPacksWithMembership".
@@ -339,9 +340,8 @@ type GraphGetStarterPacksWithMembership_StarterPackWithMembership struct {
 	ListItem      gt.Option[GraphDefs_ListItemView] `json:"listItem,omitzero"`
 	StarterPack   GraphDefs_StarterPackView         `json:"starterPack"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for GraphGetStarterPacksWithMembership_StarterPackWithMembership.
@@ -356,7 +356,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) MarshalCB
 }
 
 func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -364,14 +364,14 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) AppendCBO
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "listItem", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "listItem", buf)
 		if s.ListItem.HasVal() {
 			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_listItem...)
 			{
@@ -385,7 +385,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) AppendCBO
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPack", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "starterPack", buf)
 		buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_starterPack...)
 		{
 			var err error
@@ -394,7 +394,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) AppendCBO
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_GraphGetStarterPacksWithMembership_StarterPackWithMembership_dollar_type...)
@@ -431,7 +431,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 }
 
 func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -455,7 +455,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "listItem" {
@@ -475,7 +475,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "starterPack" {
@@ -489,7 +489,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -497,7 +497,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -554,7 +554,10 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) AppendJSO
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -573,7 +576,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 }
 
 func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -621,7 +624,7 @@ func (s *GraphGetStarterPacksWithMembership_StarterPackWithMembership) Unmarshal
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

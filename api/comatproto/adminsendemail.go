@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -37,7 +36,10 @@ func (s *AdminSendEmail_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_AdminSendEmail_Output_sent...)
 	buf = cbor.AppendJSONBool(buf, s.Sent)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -56,7 +58,7 @@ func (s *AdminSendEmail_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminSendEmail_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -90,7 +92,7 @@ func (s *AdminSendEmail_Output) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -107,22 +109,22 @@ func (s *AdminSendEmail_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminSendEmail_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sent", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "sent", buf)
 		buf = append(buf, cborKey_AdminSendEmail_Output_sent...)
 		buf = cbor.AppendBool(buf, s.Sent)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminSendEmail_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_AdminSendEmail_Output_sent...)
 		buf = cbor.AppendBool(buf, s.Sent)
@@ -140,7 +142,7 @@ func (s *AdminSendEmail_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminSendEmail_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -164,7 +166,7 @@ func (s *AdminSendEmail_Output) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -178,7 +180,7 @@ func (s *AdminSendEmail_Output) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -186,7 +188,7 @@ func (s *AdminSendEmail_Output) UnmarshalCBORAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -196,9 +198,8 @@ type AdminSendEmail_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Sent          bool   `json:"sent"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed JSON key tokens for AdminSendEmail_Input.
@@ -260,7 +261,10 @@ func (s *AdminSendEmail_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Subject.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -279,7 +283,7 @@ func (s *AdminSendEmail_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminSendEmail_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -351,7 +355,7 @@ func (s *AdminSendEmail_Input) UnmarshalJSONAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -372,7 +376,7 @@ func (s *AdminSendEmail_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminSendEmail_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -383,33 +387,33 @@ func (s *AdminSendEmail_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminSendEmail_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "comment", buf)
 		if s.Comment.HasVal() {
 			buf = append(buf, cborKey_AdminSendEmail_Input_comment...)
 			buf = cbor.AppendText(buf, s.Comment.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "content", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "content", buf)
 		buf = append(buf, cborKey_AdminSendEmail_Input_content...)
 		buf = cbor.AppendText(buf, s.Content)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		if s.Subject.HasVal() {
 			buf = append(buf, cborKey_AdminSendEmail_Input_subject...)
 			buf = cbor.AppendText(buf, s.Subject.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "senderDid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "senderDid", buf)
 		buf = append(buf, cborKey_AdminSendEmail_Input_senderDid...)
 		buf = cbor.AppendText(buf, s.SenderDid)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recipientDid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "recipientDid", buf)
 		buf = append(buf, cborKey_AdminSendEmail_Input_recipientDid...)
 		buf = cbor.AppendText(buf, s.RecipientDid)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminSendEmail_Input_dollar_type...)
@@ -439,7 +443,7 @@ func (s *AdminSendEmail_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminSendEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -463,7 +467,7 @@ func (s *AdminSendEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "comment" {
@@ -499,7 +503,7 @@ func (s *AdminSendEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "senderDid" {
@@ -513,7 +517,7 @@ func (s *AdminSendEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "recipientDid" {
@@ -527,7 +531,7 @@ func (s *AdminSendEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -535,7 +539,7 @@ func (s *AdminSendEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -549,9 +553,8 @@ type AdminSendEmail_Input struct {
 	SenderDid     string            `json:"senderDid"`
 	Subject       gt.Option[string] `json:"subject,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // AdminSendEmail calls the XRPC procedure "com.atproto.admin.sendEmail".

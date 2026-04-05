@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -16,9 +15,8 @@ type UnspeccedGetConfig_LiveNowConfig struct {
 	DID           string   `json:"did"`
 	Domains       []string `json:"domains"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for UnspeccedGetConfig_LiveNowConfig.
@@ -33,28 +31,28 @@ func (s *UnspeccedGetConfig_LiveNowConfig) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *UnspeccedGetConfig_LiveNowConfig) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "domains", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "domains", buf)
 		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_domains...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Domains)))
 		for _, item := range s.Domains {
 			buf = cbor.AppendText(buf, item)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_UnspeccedGetConfig_LiveNowConfig_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -77,7 +75,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -101,7 +99,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBORAt(data []byte, pos int)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -115,7 +113,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBORAt(data []byte, pos int)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "domains" {
@@ -139,7 +137,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBORAt(data []byte, pos int)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -147,7 +145,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBORAt(data []byte, pos int)
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -194,7 +192,10 @@ func (s *UnspeccedGetConfig_LiveNowConfig) AppendJSON(buf []byte) ([]byte, error
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -213,7 +214,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalJSON(data []byte) error {
 }
 
 func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -274,7 +275,7 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalJSONAt(data []byte, pos int)
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -329,7 +330,10 @@ func (s *UnspeccedGetConfig_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -348,7 +352,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *UnspeccedGetConfig_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -418,7 +422,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalJSONAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -436,7 +440,7 @@ func (s *UnspeccedGetConfig_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *UnspeccedGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0 + len(s.extraCBOR)
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -447,14 +451,14 @@ func (s *UnspeccedGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_UnspeccedGetConfig_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "liveNow", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "liveNow", buf)
 		if len(s.LiveNow) > 0 {
 			buf = append(buf, cborKey_UnspeccedGetConfig_Output_liveNow...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.LiveNow)))
@@ -466,12 +470,12 @@ func (s *UnspeccedGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "checkEmailConfirmed", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "checkEmailConfirmed", buf)
 		if s.CheckEmailConfirmed.HasVal() {
 			buf = append(buf, cborKey_UnspeccedGetConfig_Output_checkEmailConfirmed...)
 			buf = cbor.AppendBool(buf, s.CheckEmailConfirmed.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_UnspeccedGetConfig_Output_dollar_type...)
@@ -502,7 +506,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *UnspeccedGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -526,7 +530,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "liveNow" {
@@ -550,7 +554,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "checkEmailConfirmed" {
@@ -570,7 +574,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -578,7 +582,7 @@ func (s *UnspeccedGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -589,9 +593,8 @@ type UnspeccedGetConfig_Output struct {
 	CheckEmailConfirmed gt.Option[bool]                    `json:"checkEmailConfirmed,omitzero"`
 	LiveNow             []UnspeccedGetConfig_LiveNowConfig `json:"liveNow,omitempty"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // UnspeccedGetConfig calls the XRPC query "app.bsky.unspecced.getConfig".

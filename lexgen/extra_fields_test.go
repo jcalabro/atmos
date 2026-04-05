@@ -22,10 +22,7 @@ func TestGenerate_ExtraFieldsOnStruct(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-
-	// Struct has extra field slices.
-	assert.Contains(t, code, "extraJSON []lextypes.ExtraField")
-	assert.Contains(t, code, "extraCBOR []lextypes.ExtraField")
+	assert.Contains(t, code, "extra []extraField")
 }
 
 func TestGenerate_ExtraFieldsOnRecord(t *testing.T) {
@@ -46,8 +43,7 @@ func TestGenerate_ExtraFieldsOnRecord(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-	assert.Contains(t, code, "extraJSON []lextypes.ExtraField")
-	assert.Contains(t, code, "extraCBOR []lextypes.ExtraField")
+	assert.Contains(t, code, "extra []extraField")
 }
 
 func TestGenerate_JSONUnmarshalCapturesExtras(t *testing.T) {
@@ -65,10 +61,8 @@ func TestGenerate_JSONUnmarshalCapturesExtras(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-
-	// JSON unmarshal default case captures extras instead of just skipping.
-	assert.Contains(t, code, "s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key")
-	assert.Contains(t, code, "data[valueStart:pos]")
+	assert.Contains(t, code, "s.extra = append(s.extra, extraField{Key: key")
+	assert.Contains(t, code, "Encoding: extraEncodingJSON")
 }
 
 func TestGenerate_JSONMarshalEmitsExtras(t *testing.T) {
@@ -86,11 +80,9 @@ func TestGenerate_JSONMarshalEmitsExtras(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-
-	// JSON marshal emits extras after known fields.
-	assert.Contains(t, code, "for _, ef := range s.extraJSON")
+	assert.Contains(t, code, "for _, ef := range s.extra")
+	assert.Contains(t, code, "ef.Encoding != extraEncodingJSON")
 	assert.Contains(t, code, "cbor.AppendJSONString(buf, ef.Key)")
-	assert.Contains(t, code, "append(buf, ef.Value...)")
 }
 
 func TestGenerate_CBORUnmarshalCapturesExtras(t *testing.T) {
@@ -108,9 +100,8 @@ func TestGenerate_CBORUnmarshalCapturesExtras(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-
-	// CBOR unmarshal captures extras in both the else branch and default case.
-	assert.Contains(t, code, "s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd])")
+	assert.Contains(t, code, "s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd])")
+	assert.Contains(t, code, "Encoding: extraEncodingCBOR")
 }
 
 func TestGenerate_CBORMarshalEmitsExtras(t *testing.T) {
@@ -128,11 +119,8 @@ func TestGenerate_CBORMarshalEmitsExtras(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-
-	// CBOR marshal includes extras in map header count.
-	assert.Contains(t, code, "len(s.extraCBOR)")
-	// Uses AppendCBORExtrasBefore for DAG-CBOR ordered interleaving.
-	assert.Contains(t, code, "lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei,")
+	assert.Contains(t, code, "countExtra(s.extra, extraEncodingCBOR)")
+	assert.Contains(t, code, "appendCBORExtrasBefore(s.extra, ei,")
 }
 
 func TestGenerate_NestedObjectHasExtraFields(t *testing.T) {
@@ -156,16 +144,11 @@ func TestGenerate_NestedObjectHasExtraFields(t *testing.T) {
 	})
 
 	code := string(files["api/bsky/feedpost.go"])
-
-	// Both the parent and the nested type should have extra fields.
-	// Count occurrences — should be at least 2 for each (parent + nested).
-	jsonCount := countOccurrences(code, "extraJSON []lextypes.ExtraField")
-	cborCount := countOccurrences(code, "extraCBOR []lextypes.ExtraField")
-	assert.GreaterOrEqual(t, jsonCount, 2, "both parent and nested types should have extraJSON")
-	assert.GreaterOrEqual(t, cborCount, 2, "both parent and nested types should have extraCBOR")
+	count := countOccurrences(code, "extra []extraField")
+	assert.GreaterOrEqual(t, count, 2, "both parent and nested types should have extra")
 }
 
-func TestGenerate_SharedTypesHaveExtraField(t *testing.T) {
+func TestGenerate_PerPackageExtraTypes(t *testing.T) {
 	t.Parallel()
 	files := genOne(t, &lexicon.Schema{
 		Lexicon: 1, ID: "app.bsky.feed.post",
@@ -179,19 +162,19 @@ func TestGenerate_SharedTypesHaveExtraField(t *testing.T) {
 		},
 	})
 
-	code := string(files["api/lextypes/types.go"])
+	// Per-package extra.go has unexported types and helpers.
+	code := string(files["api/bsky/extra.go"])
+	assert.Contains(t, code, "type extraField struct")
+	assert.Contains(t, code, "type extraEncoding int8")
+	assert.Contains(t, code, "extraEncodingJSON")
+	assert.Contains(t, code, "extraEncodingCBOR")
+	assert.Contains(t, code, "func countExtra(")
+	assert.Contains(t, code, "func clearExtra(")
+	assert.Contains(t, code, "func appendCBORExtrasBefore(")
 
-	// ExtraField type is defined.
-	assert.Contains(t, code, "type ExtraField struct")
-	assert.Contains(t, code, "Key   string")
-	assert.Contains(t, code, "Value []byte")
-
-	// AppendCBORExtrasBefore helper is defined.
-	assert.Contains(t, code, "func AppendCBORExtrasBefore(")
-
-	// LexBlob has extra fields.
-	assert.Contains(t, code, "extraJSON []ExtraField")
-	assert.Contains(t, code, "extraCBOR []ExtraField")
+	// Shared types still have LexBlob with extra field.
+	typesCode := string(files["api/lextypes/types.go"])
+	assert.Contains(t, typesCode, "extra []extraField")
 }
 
 func countOccurrences(s, substr string) int {

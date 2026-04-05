@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"encoding/base64"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -24,9 +23,8 @@ type LabelDefs_Label struct {
 	Val           string            `json:"val"`           // The short string name of the value or type of this label.
 	Ver           gt.Option[int64]  `json:"ver,omitzero"`  // The AT Protocol version of the label object.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for LabelDefs_Label.
@@ -48,7 +46,7 @@ func (s *LabelDefs_Label) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LabelDefs_Label) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4 + len(s.extraCBOR)
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.CID.HasVal() {
 		n++
 	}
@@ -68,51 +66,51 @@ func (s *LabelDefs_Label) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cid", buf)
 		if s.CID.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_Label_cid...)
 			buf = cbor.AppendText(buf, s.CID.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cts", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cts", buf)
 		buf = append(buf, cborKey_LabelDefs_Label_cts...)
 		buf = cbor.AppendText(buf, s.Cts)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "exp", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "exp", buf)
 		if s.Exp.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_Label_exp...)
 			buf = cbor.AppendText(buf, s.Exp.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "neg", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "neg", buf)
 		if s.Neg.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_Label_neg...)
 			buf = cbor.AppendBool(buf, s.Neg.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sig", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "sig", buf)
 		if s.Sig != nil {
 			buf = append(buf, cborKey_LabelDefs_Label_sig...)
 			buf = cbor.AppendBytes(buf, s.Sig)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "src", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "src", buf)
 		buf = append(buf, cborKey_LabelDefs_Label_src...)
 		buf = cbor.AppendText(buf, s.Src)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_LabelDefs_Label_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "val", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "val", buf)
 		buf = append(buf, cborKey_LabelDefs_Label_val...)
 		buf = cbor.AppendText(buf, s.Val)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ver", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "ver", buf)
 		if s.Ver.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_Label_ver...)
 			buf = cbor.AppendInt(buf, s.Ver.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_Label_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.CID.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_Label_cid...)
@@ -156,7 +154,7 @@ func (s *LabelDefs_Label) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *LabelDefs_Label) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -244,7 +242,7 @@ func (s *LabelDefs_Label) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -258,7 +256,7 @@ func (s *LabelDefs_Label) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -266,7 +264,7 @@ func (s *LabelDefs_Label) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -365,7 +363,10 @@ func (s *LabelDefs_Label) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONInt(buf, s.Ver.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -384,7 +385,7 @@ func (s *LabelDefs_Label) UnmarshalJSON(data []byte) error {
 }
 
 func (s *LabelDefs_Label) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -501,7 +502,7 @@ func (s *LabelDefs_Label) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -537,9 +538,8 @@ type LabelDefs_LabelValueDefinition struct {
 	Locales        []LabelDefs_LabelValueDefinitionStrings `json:"locales"`
 	Severity       string                                  `json:"severity"` // How should a client visually convey this label? 'inform' means neutral and informational; 'alert'...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for LabelDefs_LabelValueDefinition.
@@ -558,7 +558,7 @@ func (s *LabelDefs_LabelValueDefinition) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LabelDefs_LabelValueDefinition) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4 + len(s.extraCBOR)
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -569,17 +569,17 @@ func (s *LabelDefs_LabelValueDefinition) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blurs", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "blurs", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_blurs...)
 		buf = cbor.AppendText(buf, s.Blurs)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "locales", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "locales", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_locales...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Locales)))
 		for _, item := range s.Locales {
@@ -589,23 +589,23 @@ func (s *LabelDefs_LabelValueDefinition) AppendCBOR(buf []byte) ([]byte, error) 
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "severity", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "severity", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_severity...)
 		buf = cbor.AppendText(buf, s.Severity)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "adultOnly", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "adultOnly", buf)
 		if s.AdultOnly.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_adultOnly...)
 			buf = cbor.AppendBool(buf, s.AdultOnly.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "identifier", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "identifier", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_identifier...)
 		buf = cbor.AppendText(buf, s.Identifier)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "defaultSetting", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "defaultSetting", buf)
 		if s.DefaultSetting.HasVal() {
 			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_defaultSetting...)
 			buf = cbor.AppendText(buf, s.DefaultSetting.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_LabelValueDefinition_dollar_type...)
@@ -644,7 +644,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -673,7 +673,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "locales" {
@@ -697,7 +697,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "severity" {
@@ -711,7 +711,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "adultOnly" {
@@ -731,7 +731,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "identifier" {
@@ -745,7 +745,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "defaultSetting" {
@@ -765,7 +765,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -773,7 +773,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -856,7 +856,10 @@ func (s *LabelDefs_LabelValueDefinition) AppendJSON(buf []byte) ([]byte, error) 
 	buf = append(buf, jsonKey_LabelDefs_LabelValueDefinition_severity...)
 	buf = cbor.AppendJSONString(buf, s.Severity)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -875,7 +878,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalJSON(data []byte) error {
 }
 
 func (s *LabelDefs_LabelValueDefinition) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -974,7 +977,7 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalJSONAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -989,9 +992,8 @@ type LabelDefs_LabelValueDefinitionStrings struct {
 	Lang          string `json:"lang"`        // The code of the language these strings are written in.
 	Name          string `json:"name"`        // A short human-readable name for the label.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for LabelDefs_LabelValueDefinitionStrings.
@@ -1007,28 +1009,28 @@ func (s *LabelDefs_LabelValueDefinitionStrings) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LabelDefs_LabelValueDefinitionStrings) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lang", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_lang...)
 		buf = cbor.AppendText(buf, s.Lang)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "name", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_name...)
 		buf = cbor.AppendText(buf, s.Name)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "description", buf)
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_description...)
 		buf = cbor.AppendText(buf, s.Description)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_LabelDefs_LabelValueDefinitionStrings_lang...)
 		buf = cbor.AppendText(buf, s.Lang)
@@ -1050,7 +1052,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBOR(data []byte) error
 }
 
 func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1079,7 +1081,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1093,7 +1095,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "description" {
@@ -1107,7 +1109,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1115,7 +1117,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1162,7 +1164,10 @@ func (s *LabelDefs_LabelValueDefinitionStrings) AppendJSON(buf []byte) ([]byte, 
 	buf = append(buf, jsonKey_LabelDefs_LabelValueDefinitionStrings_name...)
 	buf = cbor.AppendJSONString(buf, s.Name)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1181,7 +1186,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalJSON(data []byte) error
 }
 
 func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1225,7 +1230,7 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalJSONAt(data []byte, pos
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1238,9 +1243,8 @@ type LabelDefs_SelfLabel struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Val           string `json:"val"` // The short string name of the value or type of this label.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for LabelDefs_SelfLabel.
@@ -1254,22 +1258,22 @@ func (s *LabelDefs_SelfLabel) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LabelDefs_SelfLabel) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "val", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "val", buf)
 		buf = append(buf, cborKey_LabelDefs_SelfLabel_val...)
 		buf = cbor.AppendText(buf, s.Val)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_SelfLabel_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_LabelDefs_SelfLabel_val...)
 		buf = cbor.AppendText(buf, s.Val)
@@ -1287,7 +1291,7 @@ func (s *LabelDefs_SelfLabel) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *LabelDefs_SelfLabel) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1311,7 +1315,7 @@ func (s *LabelDefs_SelfLabel) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1325,7 +1329,7 @@ func (s *LabelDefs_SelfLabel) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1333,7 +1337,7 @@ func (s *LabelDefs_SelfLabel) UnmarshalCBORAt(data []byte, pos int) (int, error)
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1366,7 +1370,10 @@ func (s *LabelDefs_SelfLabel) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_LabelDefs_SelfLabel_val...)
 	buf = cbor.AppendJSONString(buf, s.Val)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1385,7 +1392,7 @@ func (s *LabelDefs_SelfLabel) UnmarshalJSON(data []byte) error {
 }
 
 func (s *LabelDefs_SelfLabel) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1419,7 +1426,7 @@ func (s *LabelDefs_SelfLabel) UnmarshalJSONAt(data []byte, pos int) (int, error)
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1432,9 +1439,8 @@ type LabelDefs_SelfLabels struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
 	Values        []LabelDefs_SelfLabel `json:"values"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for LabelDefs_SelfLabels.
@@ -1448,19 +1454,19 @@ func (s *LabelDefs_SelfLabels) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LabelDefs_SelfLabels) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_SelfLabels_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "values", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "values", buf)
 		buf = append(buf, cborKey_LabelDefs_SelfLabels_values...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Values)))
 		for _, item := range s.Values {
@@ -1470,7 +1476,7 @@ func (s *LabelDefs_SelfLabels) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_LabelDefs_SelfLabels_dollar_type...)
@@ -1495,7 +1501,7 @@ func (s *LabelDefs_SelfLabels) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1519,7 +1525,7 @@ func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "values" {
@@ -1543,7 +1549,7 @@ func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1551,7 +1557,7 @@ func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1595,7 +1601,10 @@ func (s *LabelDefs_SelfLabels) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1614,7 +1623,7 @@ func (s *LabelDefs_SelfLabels) UnmarshalJSON(data []byte) error {
 }
 
 func (s *LabelDefs_SelfLabels) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1670,7 +1679,7 @@ func (s *LabelDefs_SelfLabels) UnmarshalJSONAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

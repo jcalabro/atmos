@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -43,7 +42,10 @@ func (s *AdminUpdateAccountEmail_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_AdminUpdateAccountEmail_Input_email...)
 	buf = cbor.AppendJSONString(buf, s.Email)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -62,7 +64,7 @@ func (s *AdminUpdateAccountEmail_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminUpdateAccountEmail_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -101,7 +103,7 @@ func (s *AdminUpdateAccountEmail_Input) UnmarshalJSONAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -119,25 +121,25 @@ func (s *AdminUpdateAccountEmail_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminUpdateAccountEmail_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminUpdateAccountEmail_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "email", buf)
 		buf = append(buf, cborKey_AdminUpdateAccountEmail_Input_email...)
 		buf = cbor.AppendText(buf, s.Email)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "account", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "account", buf)
 		buf = append(buf, cborKey_AdminUpdateAccountEmail_Input_account...)
 		buf = cbor.AppendText(buf, s.Account)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminUpdateAccountEmail_Input_dollar_type...)
@@ -157,7 +159,7 @@ func (s *AdminUpdateAccountEmail_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminUpdateAccountEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -186,7 +188,7 @@ func (s *AdminUpdateAccountEmail_Input) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "account" {
@@ -200,7 +202,7 @@ func (s *AdminUpdateAccountEmail_Input) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -208,7 +210,7 @@ func (s *AdminUpdateAccountEmail_Input) UnmarshalCBORAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -219,9 +221,8 @@ type AdminUpdateAccountEmail_Input struct {
 	Account       string `json:"account"` // The handle or DID of the repo.
 	Email         string `json:"email"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // AdminUpdateAccountEmail calls the XRPC procedure "com.atproto.admin.updateAccountEmail".

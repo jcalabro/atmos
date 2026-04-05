@@ -63,7 +63,10 @@ func (s *AdminUpdateSubjectStatus_Output) AppendJSON(buf []byte) ([]byte, error)
 		}
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -82,7 +85,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminUpdateSubjectStatus_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -130,7 +133,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalJSONAt(data []byte, pos int) 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -148,7 +151,7 @@ func (s *AdminUpdateSubjectStatus_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminUpdateSubjectStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -156,14 +159,14 @@ func (s *AdminUpdateSubjectStatus_Output) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_AdminUpdateSubjectStatus_Output_subject...)
 		{
 			var err error
@@ -172,7 +175,7 @@ func (s *AdminUpdateSubjectStatus_Output) AppendCBOR(buf []byte) ([]byte, error)
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "takedown", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "takedown", buf)
 		if s.Takedown.HasVal() {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Output_takedown...)
 			{
@@ -186,7 +189,7 @@ func (s *AdminUpdateSubjectStatus_Output) AppendCBOR(buf []byte) ([]byte, error)
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Output_dollar_type...)
@@ -223,7 +226,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminUpdateSubjectStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -247,7 +250,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -261,7 +264,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "takedown" {
@@ -281,7 +284,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -289,7 +292,7 @@ func (s *AdminUpdateSubjectStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -453,9 +456,8 @@ type AdminUpdateSubjectStatus_Output struct {
 	Subject       AdminUpdateSubjectStatus_Output_Subject `json:"subject"`
 	Takedown      gt.Option[AdminDefs_StatusAttr]         `json:"takedown,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed JSON key tokens for AdminUpdateSubjectStatus_Input.
@@ -527,7 +529,10 @@ func (s *AdminUpdateSubjectStatus_Input) AppendJSON(buf []byte) ([]byte, error) 
 		}
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -546,7 +551,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminUpdateSubjectStatus_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -608,7 +613,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalJSONAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -627,7 +632,7 @@ func (s *AdminUpdateSubjectStatus_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminUpdateSubjectStatus_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -638,14 +643,14 @@ func (s *AdminUpdateSubjectStatus_Input) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_AdminUpdateSubjectStatus_Input_subject...)
 		{
 			var err error
@@ -654,7 +659,7 @@ func (s *AdminUpdateSubjectStatus_Input) AppendCBOR(buf []byte) ([]byte, error) 
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "takedown", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "takedown", buf)
 		if s.Takedown.HasVal() {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Input_takedown...)
 			{
@@ -668,7 +673,7 @@ func (s *AdminUpdateSubjectStatus_Input) AppendCBOR(buf []byte) ([]byte, error) 
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deactivated", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "deactivated", buf)
 		if s.Deactivated.HasVal() {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Input_deactivated...)
 			{
@@ -682,7 +687,7 @@ func (s *AdminUpdateSubjectStatus_Input) AppendCBOR(buf []byte) ([]byte, error) 
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AdminUpdateSubjectStatus_Input_dollar_type...)
@@ -732,7 +737,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -756,7 +761,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -770,7 +775,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "takedown" {
@@ -790,7 +795,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "deactivated" {
@@ -810,7 +815,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -818,7 +823,7 @@ func (s *AdminUpdateSubjectStatus_Input) UnmarshalCBORAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -983,9 +988,8 @@ type AdminUpdateSubjectStatus_Input struct {
 	Subject       AdminUpdateSubjectStatus_Input_Subject `json:"subject"`
 	Takedown      gt.Option[AdminDefs_StatusAttr]        `json:"takedown,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // AdminUpdateSubjectStatus calls the XRPC procedure "com.atproto.admin.updateSubjectStatus".

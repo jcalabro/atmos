@@ -23,9 +23,8 @@ type DraftDefs_Draft struct {
 	Posts                  []DraftDefs_DraftPost                    `json:"posts"`                            // Array of draft posts that compose this draft.
 	ThreadgateAllow        []DraftDefs_Draft_ThreadgateAllow        `json:"threadgateAllow,omitempty"`        // Allow-rules for the threadgate to be created when this draft is published.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // DraftDefs_Draft_PostgateEmbeddingRules is a union type.
@@ -323,7 +322,7 @@ func (s *DraftDefs_Draft) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -343,14 +342,14 @@ func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_Draft_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "langs", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "langs", buf)
 		if len(s.Langs) > 0 {
 			buf = append(buf, cborKey_DraftDefs_Draft_langs...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Langs)))
@@ -358,7 +357,7 @@ func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
 				buf = cbor.AppendText(buf, item)
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "posts", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "posts", buf)
 		buf = append(buf, cborKey_DraftDefs_Draft_posts...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Posts)))
 		for _, item := range s.Posts {
@@ -368,17 +367,17 @@ func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deviceId", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "deviceId", buf)
 		if s.DeviceId.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_Draft_deviceId...)
 			buf = cbor.AppendText(buf, s.DeviceId.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "deviceName", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "deviceName", buf)
 		if s.DeviceName.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_Draft_deviceName...)
 			buf = cbor.AppendText(buf, s.DeviceName.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgateAllow", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "threadgateAllow", buf)
 		if len(s.ThreadgateAllow) > 0 {
 			buf = append(buf, cborKey_DraftDefs_Draft_threadgateAllow...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllow)))
@@ -390,7 +389,7 @@ func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postgateEmbeddingRules", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "postgateEmbeddingRules", buf)
 		if len(s.PostgateEmbeddingRules) > 0 {
 			buf = append(buf, cborKey_DraftDefs_Draft_postgateEmbeddingRules...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
@@ -402,7 +401,7 @@ func (s *DraftDefs_Draft) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_Draft_dollar_type...)
@@ -464,7 +463,7 @@ func (s *DraftDefs_Draft) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -518,7 +517,7 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "deviceId" {
@@ -538,7 +537,7 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "deviceName" {
@@ -558,7 +557,7 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "threadgateAllow" {
@@ -582,7 +581,7 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 22:
 			if string(data[keyStart:keyEnd]) == "postgateEmbeddingRules" {
@@ -606,7 +605,7 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -614,7 +613,7 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -732,7 +731,10 @@ func (s *DraftDefs_Draft) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -751,7 +753,7 @@ func (s *DraftDefs_Draft) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_Draft) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -916,7 +918,7 @@ func (s *DraftDefs_Draft) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -928,9 +930,8 @@ type DraftDefs_DraftEmbedCaption struct {
 	Content       string `json:"content"`
 	Lang          string `json:"lang"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftEmbedCaption.
@@ -945,25 +946,25 @@ func (s *DraftDefs_DraftEmbedCaption) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftEmbedCaption) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lang", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_lang...)
 		buf = cbor.AppendText(buf, s.Lang)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "content", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "content", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_content...)
 		buf = cbor.AppendText(buf, s.Content)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedCaption_lang...)
 		buf = cbor.AppendText(buf, s.Lang)
@@ -983,7 +984,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedCaption) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1007,7 +1008,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1021,7 +1022,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "content" {
@@ -1035,7 +1036,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1043,7 +1044,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalCBORAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1083,7 +1084,10 @@ func (s *DraftDefs_DraftEmbedCaption) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_DraftDefs_DraftEmbedCaption_lang...)
 	buf = cbor.AppendJSONString(buf, s.Lang)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1102,7 +1106,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedCaption) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1141,7 +1145,7 @@ func (s *DraftDefs_DraftEmbedCaption) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1152,9 +1156,8 @@ type DraftDefs_DraftEmbedExternal struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	URI           string `json:"uri"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftEmbedExternal.
@@ -1168,22 +1171,22 @@ func (s *DraftDefs_DraftEmbedExternal) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftEmbedExternal) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedExternal_uri...)
 		buf = cbor.AppendText(buf, s.URI)
@@ -1201,7 +1204,7 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedExternal) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1225,7 +1228,7 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1239,7 +1242,7 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1247,7 +1250,7 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1280,7 +1283,10 @@ func (s *DraftDefs_DraftEmbedExternal) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_DraftDefs_DraftEmbedExternal_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1299,7 +1305,7 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedExternal) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1333,7 +1339,7 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1345,9 +1351,8 @@ type DraftDefs_DraftEmbedImage struct {
 	Alt           gt.Option[string]            `json:"alt,omitzero"`
 	LocalRef      DraftDefs_DraftEmbedLocalRef `json:"localRef"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftEmbedImage.
@@ -1362,7 +1367,7 @@ func (s *DraftDefs_DraftEmbedImage) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftEmbedImage) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Alt.HasVal() {
 		n++
 	}
@@ -1370,19 +1375,19 @@ func (s *DraftDefs_DraftEmbedImage) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "alt", buf)
 		if s.Alt.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_alt...)
 			buf = cbor.AppendText(buf, s.Alt.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "localRef", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "localRef", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_localRef...)
 		{
 			var err error
@@ -1391,7 +1396,7 @@ func (s *DraftDefs_DraftEmbedImage) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Alt.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedImage_alt...)
@@ -1419,7 +1424,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedImage) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1449,7 +1454,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1463,7 +1468,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "localRef" {
@@ -1477,7 +1482,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1485,7 +1490,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalCBORAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1533,7 +1538,10 @@ func (s *DraftDefs_DraftEmbedImage) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1552,7 +1560,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedImage) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1600,7 +1608,7 @@ func (s *DraftDefs_DraftEmbedImage) UnmarshalJSONAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1611,9 +1619,8 @@ type DraftDefs_DraftEmbedLocalRef struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Path          string `json:"path"` // Local, on-device ref to file to be embedded. Embeds are currently device-bound for drafts.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftEmbedLocalRef.
@@ -1627,22 +1634,22 @@ func (s *DraftDefs_DraftEmbedLocalRef) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftEmbedLocalRef) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "path", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "path", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_path...)
 		buf = cbor.AppendText(buf, s.Path)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedLocalRef_path...)
 		buf = cbor.AppendText(buf, s.Path)
@@ -1660,7 +1667,7 @@ func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1684,7 +1691,7 @@ func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1698,7 +1705,7 @@ func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1706,7 +1713,7 @@ func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1739,7 +1746,10 @@ func (s *DraftDefs_DraftEmbedLocalRef) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_DraftDefs_DraftEmbedLocalRef_path...)
 	buf = cbor.AppendJSONString(buf, s.Path)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1758,7 +1768,7 @@ func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1792,7 +1802,7 @@ func (s *DraftDefs_DraftEmbedLocalRef) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1803,9 +1813,8 @@ type DraftDefs_DraftEmbedRecord struct {
 	LexiconTypeID string                   `json:"$type,omitempty"`
 	Record        comatproto.RepoStrongRef `json:"record"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftEmbedRecord.
@@ -1819,19 +1828,19 @@ func (s *DraftDefs_DraftEmbedRecord) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftEmbedRecord) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "record", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_record...)
 		{
 			var err error
@@ -1840,7 +1849,7 @@ func (s *DraftDefs_DraftEmbedRecord) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedRecord_dollar_type...)
@@ -1864,7 +1873,7 @@ func (s *DraftDefs_DraftEmbedRecord) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1888,7 +1897,7 @@ func (s *DraftDefs_DraftEmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "record" {
@@ -1902,7 +1911,7 @@ func (s *DraftDefs_DraftEmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1910,7 +1919,7 @@ func (s *DraftDefs_DraftEmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1949,7 +1958,10 @@ func (s *DraftDefs_DraftEmbedRecord) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1968,7 +1980,7 @@ func (s *DraftDefs_DraftEmbedRecord) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedRecord) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2002,7 +2014,7 @@ func (s *DraftDefs_DraftEmbedRecord) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2015,9 +2027,8 @@ type DraftDefs_DraftEmbedVideo struct {
 	Captions      []DraftDefs_DraftEmbedCaption `json:"captions,omitempty"`
 	LocalRef      DraftDefs_DraftEmbedLocalRef  `json:"localRef"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftEmbedVideo.
@@ -2033,7 +2044,7 @@ func (s *DraftDefs_DraftEmbedVideo) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftEmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Alt.HasVal() {
 		n++
 	}
@@ -2044,19 +2055,19 @@ func (s *DraftDefs_DraftEmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "alt", buf)
 		if s.Alt.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_alt...)
 			buf = cbor.AppendText(buf, s.Alt.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "captions", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "captions", buf)
 		if len(s.Captions) > 0 {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_captions...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
@@ -2068,7 +2079,7 @@ func (s *DraftDefs_DraftEmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "localRef", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "localRef", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_localRef...)
 		{
 			var err error
@@ -2077,7 +2088,7 @@ func (s *DraftDefs_DraftEmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Alt.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_DraftEmbedVideo_alt...)
@@ -2116,7 +2127,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2146,7 +2157,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2160,7 +2171,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "captions" {
@@ -2189,7 +2200,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -2197,7 +2208,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -2265,7 +2276,10 @@ func (s *DraftDefs_DraftEmbedVideo) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -2284,7 +2298,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftEmbedVideo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2359,7 +2373,7 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalJSONAt(data []byte, pos int) (int, 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2377,9 +2391,8 @@ type DraftDefs_DraftPost struct {
 	Labels         gt.Option[DraftDefs_DraftPost_Labels] `json:"labels,omitzero"` // Self-label values for this post. Effectively content warnings.
 	Text           string                                `json:"text"`            // The primary post content. It has a higher limit than post contents to allow storing a larger text...
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // DraftDefs_DraftPost_Labels is a union type.
@@ -2497,7 +2510,7 @@ func (s *DraftDefs_DraftPost) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -2517,17 +2530,17 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "text", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "text", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftPost_text...)
 		buf = cbor.AppendText(buf, s.Text)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftPost_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
 		if s.Labels.HasVal() {
 			buf = append(buf, cborKey_DraftDefs_DraftPost_labels...)
 			{
@@ -2541,7 +2554,7 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedImages", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embedImages", buf)
 		if len(s.EmbedImages) > 0 {
 			buf = append(buf, cborKey_DraftDefs_DraftPost_embedImages...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedImages)))
@@ -2553,7 +2566,7 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedVideos", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embedVideos", buf)
 		if len(s.EmbedVideos) > 0 {
 			buf = append(buf, cborKey_DraftDefs_DraftPost_embedVideos...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedVideos)))
@@ -2565,7 +2578,7 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedRecords", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embedRecords", buf)
 		if len(s.EmbedRecords) > 0 {
 			buf = append(buf, cborKey_DraftDefs_DraftPost_embedRecords...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedRecords)))
@@ -2577,7 +2590,7 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embedExternals", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embedExternals", buf)
 		if len(s.EmbedExternals) > 0 {
 			buf = append(buf, cborKey_DraftDefs_DraftPost_embedExternals...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbedExternals)))
@@ -2589,7 +2602,7 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_DraftDefs_DraftPost_text...)
 		buf = cbor.AppendText(buf, s.Text)
@@ -2664,7 +2677,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2688,7 +2701,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2702,7 +2715,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "labels" {
@@ -2722,7 +2735,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "embedImages" {
@@ -2761,7 +2774,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "embedRecords" {
@@ -2785,7 +2798,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "embedExternals" {
@@ -2809,7 +2822,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -2817,7 +2830,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -2948,7 +2961,10 @@ func (s *DraftDefs_DraftPost) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_DraftDefs_DraftPost_text...)
 	buf = cbor.AppendJSONString(buf, s.Text)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -2967,7 +2983,7 @@ func (s *DraftDefs_DraftPost) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftPost) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3123,7 +3139,7 @@ func (s *DraftDefs_DraftPost) UnmarshalJSONAt(data []byte, pos int) (int, error)
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -3139,9 +3155,8 @@ type DraftDefs_DraftView struct {
 	Id            string          `json:"id"`        // A TID to be used as a draft identifier.
 	UpdatedAt     string          `json:"updatedAt"` // The time the draft was last updated.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftView.
@@ -3158,22 +3173,22 @@ func (s *DraftDefs_DraftView) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftView) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4 + len(s.extraCBOR)
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftView_id...)
 		buf = cbor.AppendText(buf, s.Id)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "draft", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "draft", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftView_draft...)
 		{
 			var err error
@@ -3182,13 +3197,13 @@ func (s *DraftDefs_DraftView) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftView_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "updatedAt", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftView_updatedAt...)
 		buf = cbor.AppendText(buf, s.UpdatedAt)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_DraftDefs_DraftView_id...)
 		buf = cbor.AppendText(buf, s.Id)
@@ -3218,7 +3233,7 @@ func (s *DraftDefs_DraftView) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -3242,7 +3257,7 @@ func (s *DraftDefs_DraftView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -3261,7 +3276,7 @@ func (s *DraftDefs_DraftView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -3280,7 +3295,7 @@ func (s *DraftDefs_DraftView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -3288,7 +3303,7 @@ func (s *DraftDefs_DraftView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -3348,7 +3363,10 @@ func (s *DraftDefs_DraftView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_DraftDefs_DraftView_updatedAt...)
 	buf = cbor.AppendJSONString(buf, s.UpdatedAt)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -3367,7 +3385,7 @@ func (s *DraftDefs_DraftView) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3416,7 +3434,7 @@ func (s *DraftDefs_DraftView) UnmarshalJSONAt(data []byte, pos int) (int, error)
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -3430,9 +3448,8 @@ type DraftDefs_DraftWithId struct {
 	Draft         DraftDefs_Draft `json:"draft"`
 	Id            string          `json:"id"` // A TID to be used as a draft identifier.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for DraftDefs_DraftWithId.
@@ -3447,22 +3464,22 @@ func (s *DraftDefs_DraftWithId) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *DraftDefs_DraftWithId) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftWithId_id...)
 		buf = cbor.AppendText(buf, s.Id)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_DraftDefs_DraftWithId_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "draft", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "draft", buf)
 		buf = append(buf, cborKey_DraftDefs_DraftWithId_draft...)
 		{
 			var err error
@@ -3471,7 +3488,7 @@ func (s *DraftDefs_DraftWithId) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_DraftDefs_DraftWithId_id...)
 		buf = cbor.AppendText(buf, s.Id)
@@ -3497,7 +3514,7 @@ func (s *DraftDefs_DraftWithId) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *DraftDefs_DraftWithId) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -3521,7 +3538,7 @@ func (s *DraftDefs_DraftWithId) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -3540,7 +3557,7 @@ func (s *DraftDefs_DraftWithId) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -3548,7 +3565,7 @@ func (s *DraftDefs_DraftWithId) UnmarshalCBORAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -3594,7 +3611,10 @@ func (s *DraftDefs_DraftWithId) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_DraftDefs_DraftWithId_id...)
 	buf = cbor.AppendJSONString(buf, s.Id)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -3613,7 +3633,7 @@ func (s *DraftDefs_DraftWithId) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DraftDefs_DraftWithId) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3652,7 +3672,7 @@ func (s *DraftDefs_DraftWithId) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

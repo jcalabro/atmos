@@ -82,7 +82,10 @@ func (s *ModerationCreateReport_Output) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -101,7 +104,7 @@ func (s *ModerationCreateReport_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationCreateReport_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -169,7 +172,7 @@ func (s *ModerationCreateReport_Output) UnmarshalJSONAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -191,7 +194,7 @@ func (s *ModerationCreateReport_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationCreateReport_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 5 + len(s.extraCBOR)
+	n := 5 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -199,22 +202,22 @@ func (s *ModerationCreateReport_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Output_id...)
 		buf = cbor.AppendInt(buf, s.Id)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationCreateReport_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reason", buf)
 		if s.Reason.HasVal() {
 			buf = append(buf, cborKey_ModerationCreateReport_Output_reason...)
 			buf = cbor.AppendText(buf, s.Reason.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Output_subject...)
 		{
 			var err error
@@ -223,16 +226,16 @@ func (s *ModerationCreateReport_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Output_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonType", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reasonType", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Output_reasonType...)
 		buf = cbor.AppendText(buf, s.ReasonType)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reportedBy", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportedBy", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Output_reportedBy...)
 		buf = cbor.AppendText(buf, s.ReportedBy)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ModerationCreateReport_Output_id...)
 		buf = cbor.AppendInt(buf, s.Id)
@@ -268,7 +271,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -292,7 +295,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -306,7 +309,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "reason" {
@@ -326,7 +329,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -340,7 +343,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -354,7 +357,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "reasonType" {
@@ -373,7 +376,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -381,7 +384,7 @@ func (s *ModerationCreateReport_Output) UnmarshalCBORAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -522,9 +525,8 @@ type ModerationCreateReport_Output struct {
 	ReportedBy    string                                `json:"reportedBy"`
 	Subject       ModerationCreateReport_Output_Subject `json:"subject"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed JSON key tokens for ModerationCreateReport_Input.
@@ -594,7 +596,10 @@ func (s *ModerationCreateReport_Input) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -613,7 +618,7 @@ func (s *ModerationCreateReport_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationCreateReport_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -680,7 +685,7 @@ func (s *ModerationCreateReport_Input) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -700,7 +705,7 @@ func (s *ModerationCreateReport_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationCreateReport_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -711,19 +716,19 @@ func (s *ModerationCreateReport_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationCreateReport_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reason", buf)
 		if s.Reason.HasVal() {
 			buf = append(buf, cborKey_ModerationCreateReport_Input_reason...)
 			buf = cbor.AppendText(buf, s.Reason.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "modTool", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "modTool", buf)
 		if s.ModTool.HasVal() {
 			buf = append(buf, cborKey_ModerationCreateReport_Input_modTool...)
 			{
@@ -737,7 +742,7 @@ func (s *ModerationCreateReport_Input) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Input_subject...)
 		{
 			var err error
@@ -746,10 +751,10 @@ func (s *ModerationCreateReport_Input) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonType", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reasonType", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_Input_reasonType...)
 		buf = cbor.AppendText(buf, s.ReasonType)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationCreateReport_Input_dollar_type...)
@@ -792,7 +797,7 @@ func (s *ModerationCreateReport_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationCreateReport_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -816,7 +821,7 @@ func (s *ModerationCreateReport_Input) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "reason" {
@@ -836,7 +841,7 @@ func (s *ModerationCreateReport_Input) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "modTool" {
@@ -861,7 +866,7 @@ func (s *ModerationCreateReport_Input) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "reasonType" {
@@ -875,7 +880,7 @@ func (s *ModerationCreateReport_Input) UnmarshalCBORAt(data []byte, pos int) (in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -883,7 +888,7 @@ func (s *ModerationCreateReport_Input) UnmarshalCBORAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1022,9 +1027,8 @@ type ModerationCreateReport_Input struct {
 	ReasonType    ModerationDefs_ReasonType                 `json:"reasonType"`      // Indicates the broad category of violation the report is for.
 	Subject       ModerationCreateReport_Input_Subject      `json:"subject"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ModerationCreateReport calls the XRPC procedure "com.atproto.moderation.createReport".
@@ -1043,9 +1047,8 @@ type ModerationCreateReport_ModTool struct {
 	Meta          json.RawMessage `json:"meta,omitempty"` // Additional arbitrary metadata about the source
 	Name          string          `json:"name"`           // Name/identifier of the source (e.g., 'bsky-app/android', 'bsky-web/chrome')
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ModerationCreateReport_ModTool.
@@ -1060,7 +1063,7 @@ func (s *ModerationCreateReport_ModTool) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationCreateReport_ModTool) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if true {
 		n++
 	}
@@ -1068,22 +1071,22 @@ func (s *ModerationCreateReport_ModTool) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "meta", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "meta", buf)
 		if true {
 			buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
 			buf = cbor.AppendNull(buf)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "name", buf)
 		buf = append(buf, cborKey_ModerationCreateReport_ModTool_name...)
 		buf = cbor.AppendText(buf, s.Name)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationCreateReport_ModTool_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if true {
 			buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
@@ -1105,7 +1108,7 @@ func (s *ModerationCreateReport_ModTool) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationCreateReport_ModTool) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1134,7 +1137,7 @@ func (s *ModerationCreateReport_ModTool) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1148,7 +1151,7 @@ func (s *ModerationCreateReport_ModTool) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -1156,7 +1159,7 @@ func (s *ModerationCreateReport_ModTool) UnmarshalCBORAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1198,7 +1201,10 @@ func (s *ModerationCreateReport_ModTool) AppendJSON(buf []byte) ([]byte, error) 
 	buf = append(buf, jsonKey_ModerationCreateReport_ModTool_name...)
 	buf = cbor.AppendJSONString(buf, s.Name)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1217,7 +1223,7 @@ func (s *ModerationCreateReport_ModTool) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationCreateReport_ModTool) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1260,7 +1266,7 @@ func (s *ModerationCreateReport_ModTool) UnmarshalJSONAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

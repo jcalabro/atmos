@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -73,7 +72,10 @@ func (s *VideoGetUploadLimits_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONInt(buf, s.RemainingDailyVideos.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -92,7 +94,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *VideoGetUploadLimits_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -182,7 +184,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -203,7 +205,7 @@ func (s *VideoGetUploadLimits_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VideoGetUploadLimits_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -220,37 +222,37 @@ func (s *VideoGetUploadLimits_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VideoGetUploadLimits_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "error", buf)
 		if s.Error.HasVal() {
 			buf = append(buf, cborKey_VideoGetUploadLimits_Output_error...)
 			buf = cbor.AppendText(buf, s.Error.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
 		if s.Message.HasVal() {
 			buf = append(buf, cborKey_VideoGetUploadLimits_Output_message...)
 			buf = cbor.AppendText(buf, s.Message.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "canUpload", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "canUpload", buf)
 		buf = append(buf, cborKey_VideoGetUploadLimits_Output_canUpload...)
 		buf = cbor.AppendBool(buf, s.CanUpload)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "remainingDailyBytes", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "remainingDailyBytes", buf)
 		if s.RemainingDailyBytes.HasVal() {
 			buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyBytes...)
 			buf = cbor.AppendInt(buf, s.RemainingDailyBytes.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "remainingDailyVideos", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "remainingDailyVideos", buf)
 		if s.RemainingDailyVideos.HasVal() {
 			buf = append(buf, cborKey_VideoGetUploadLimits_Output_remainingDailyVideos...)
 			buf = cbor.AppendInt(buf, s.RemainingDailyVideos.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VideoGetUploadLimits_Output_dollar_type...)
@@ -284,7 +286,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -319,7 +321,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "message" {
@@ -339,7 +341,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "canUpload" {
@@ -353,7 +355,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "remainingDailyBytes" {
@@ -373,7 +375,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "remainingDailyVideos" {
@@ -393,7 +395,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -401,7 +403,7 @@ func (s *VideoGetUploadLimits_Output) UnmarshalCBORAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -415,9 +417,8 @@ type VideoGetUploadLimits_Output struct {
 	RemainingDailyBytes  gt.Option[int64]  `json:"remainingDailyBytes,omitzero"`
 	RemainingDailyVideos gt.Option[int64]  `json:"remainingDailyVideos,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // VideoGetUploadLimits calls the XRPC query "app.bsky.video.getUploadLimits".

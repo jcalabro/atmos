@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -67,7 +66,10 @@ func (s *NotificationRegisterPush_Input) AppendJSON(buf []byte) ([]byte, error) 
 	buf = append(buf, jsonKey_NotificationRegisterPush_Input_token...)
 	buf = cbor.AppendJSONString(buf, s.Token)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -86,7 +88,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *NotificationRegisterPush_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -149,7 +151,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalJSONAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -170,7 +172,7 @@ func (s *NotificationRegisterPush_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *NotificationRegisterPush_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4 + len(s.extraCBOR)
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -178,31 +180,31 @@ func (s *NotificationRegisterPush_Input) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationRegisterPush_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "appId", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "appId", buf)
 		buf = append(buf, cborKey_NotificationRegisterPush_Input_appId...)
 		buf = cbor.AppendText(buf, s.AppId)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "token", buf)
 		buf = append(buf, cborKey_NotificationRegisterPush_Input_token...)
 		buf = cbor.AppendText(buf, s.Token)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "platform", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "platform", buf)
 		buf = append(buf, cborKey_NotificationRegisterPush_Input_platform...)
 		buf = cbor.AppendText(buf, s.Platform)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "serviceDid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "serviceDid", buf)
 		buf = append(buf, cborKey_NotificationRegisterPush_Input_serviceDid...)
 		buf = cbor.AppendText(buf, s.ServiceDid)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ageRestricted", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "ageRestricted", buf)
 		if s.AgeRestricted.HasVal() {
 			buf = append(buf, cborKey_NotificationRegisterPush_Input_ageRestricted...)
 			buf = cbor.AppendBool(buf, s.AgeRestricted.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationRegisterPush_Input_dollar_type...)
@@ -230,7 +232,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *NotificationRegisterPush_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -264,7 +266,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "platform" {
@@ -278,7 +280,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "serviceDid" {
@@ -292,7 +294,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "ageRestricted" {
@@ -312,7 +314,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalCBORAt(data []byte, pos int) (
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -320,7 +322,7 @@ func (s *NotificationRegisterPush_Input) UnmarshalCBORAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -334,9 +336,8 @@ type NotificationRegisterPush_Input struct {
 	ServiceDid    string          `json:"serviceDid"`
 	Token         string          `json:"token"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // NotificationRegisterPush calls the XRPC procedure "app.bsky.notification.registerPush".

@@ -513,7 +513,7 @@ func TestAppendCBORExtrasBefore_Empty(t *testing.T) {
 	t.Parallel()
 
 	// Empty extras: should return immediately.
-	idx, buf := lextypes.AppendCBORExtrasBefore(nil, 0, "anything", nil)
+	idx, buf := appendCBORExtrasBefore(nil, 0, "anything", nil)
 	assert.Equal(t, 0, idx)
 	assert.Nil(t, buf)
 }
@@ -522,12 +522,12 @@ func TestAppendCBORExtrasBefore_AllBefore(t *testing.T) {
 	t.Parallel()
 
 	// All extras sort before the next known key.
-	extras := []lextypes.ExtraField{
-		{Key: "a", Value: cborTextValue("v1")},
-		{Key: "b", Value: cborTextValue("v2")},
+	extras := []extraField{
+		{Key: "a", Value: cborTextValue("v1"), Encoding: extraEncodingCBOR},
+		{Key: "b", Value: cborTextValue("v2"), Encoding: extraEncodingCBOR},
 	}
 
-	idx, buf := lextypes.AppendCBORExtrasBefore(extras, 0, "zzzz", nil)
+	idx, buf := appendCBORExtrasBefore(extras, 0, "zzzz", nil)
 	assert.Equal(t, 2, idx, "should emit all extras")
 	assert.Greater(t, len(buf), 0)
 }
@@ -536,11 +536,11 @@ func TestAppendCBORExtrasBefore_NoneMatch(t *testing.T) {
 	t.Parallel()
 
 	// All extras sort after the next known key.
-	extras := []lextypes.ExtraField{
-		{Key: "zzz", Value: cborTextValue("v1")},
+	extras := []extraField{
+		{Key: "zzz", Value: cborTextValue("v1"), Encoding: extraEncodingCBOR},
 	}
 
-	idx, buf := lextypes.AppendCBORExtrasBefore(extras, 0, "a", nil)
+	idx, buf := appendCBORExtrasBefore(extras, 0, "a", nil)
 	assert.Equal(t, 0, idx, "should emit no extras")
 	assert.Nil(t, buf)
 }
@@ -549,12 +549,12 @@ func TestAppendCBORExtrasBefore_EmptyNextKey(t *testing.T) {
 	t.Parallel()
 
 	// Empty nextKey: emit all remaining extras.
-	extras := []lextypes.ExtraField{
-		{Key: "x", Value: cborTextValue("v1")},
-		{Key: "y", Value: cborTextValue("v2")},
+	extras := []extraField{
+		{Key: "x", Value: cborTextValue("v1"), Encoding: extraEncodingCBOR},
+		{Key: "y", Value: cborTextValue("v2"), Encoding: extraEncodingCBOR},
 	}
 
-	idx, buf := lextypes.AppendCBORExtrasBefore(extras, 0, "", nil)
+	idx, buf := appendCBORExtrasBefore(extras, 0, "", nil)
 	assert.Equal(t, 2, idx, "should emit all extras when nextKey is empty")
 	assert.Greater(t, len(buf), 0)
 }
@@ -565,22 +565,22 @@ func TestAppendCBORExtrasBefore_Interleave(t *testing.T) {
 	// Extras: a(1), cc(2), zzz(3)
 	// Known keys at positions: bb(2), dd(2)
 	// Should emit: a before bb, cc before dd, zzz after dd.
-	extras := []lextypes.ExtraField{
-		{Key: "a", Value: cborTextValue("v1")},
-		{Key: "cc", Value: cborTextValue("v2")},
-		{Key: "zzz", Value: cborTextValue("v3")},
+	extras := []extraField{
+		{Key: "a", Value: cborTextValue("v1"), Encoding: extraEncodingCBOR},
+		{Key: "cc", Value: cborTextValue("v2"), Encoding: extraEncodingCBOR},
+		{Key: "zzz", Value: cborTextValue("v3"), Encoding: extraEncodingCBOR},
 	}
 
 	// Before "bb": only "a" (length 1 < 2, sorts before "bb")
-	idx, _ := lextypes.AppendCBORExtrasBefore(extras, 0, "bb", nil)
+	idx, _ := appendCBORExtrasBefore(extras, 0, "bb", nil)
 	assert.Equal(t, 1, idx)
 
 	// Before "dd": "cc" (length 2, "cc" < "dd")
-	idx, _ = lextypes.AppendCBORExtrasBefore(extras, idx, "dd", nil)
+	idx, _ = appendCBORExtrasBefore(extras, idx, "dd", nil)
 	assert.Equal(t, 2, idx)
 
 	// After all known keys (nextKey=""): "zzz"
-	idx, _ = lextypes.AppendCBORExtrasBefore(extras, idx, "", nil)
+	idx, _ = appendCBORExtrasBefore(extras, idx, "", nil)
 	assert.Equal(t, 3, idx)
 }
 

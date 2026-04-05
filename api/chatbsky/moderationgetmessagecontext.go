@@ -50,7 +50,10 @@ func (s *ModerationGetMessageContext_Output) AppendJSON(buf []byte) ([]byte, err
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -69,7 +72,7 @@ func (s *ModerationGetMessageContext_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationGetMessageContext_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -125,7 +128,7 @@ func (s *ModerationGetMessageContext_Output) UnmarshalJSONAt(data []byte, pos in
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -142,19 +145,19 @@ func (s *ModerationGetMessageContext_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationGetMessageContext_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetMessageContext_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messages", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "messages", buf)
 		buf = append(buf, cborKey_ModerationGetMessageContext_Output_messages...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Messages)))
 		for _, item := range s.Messages {
@@ -164,7 +167,7 @@ func (s *ModerationGetMessageContext_Output) AppendCBOR(buf []byte) ([]byte, err
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetMessageContext_Output_dollar_type...)
@@ -189,7 +192,7 @@ func (s *ModerationGetMessageContext_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationGetMessageContext_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -213,7 +216,7 @@ func (s *ModerationGetMessageContext_Output) UnmarshalCBORAt(data []byte, pos in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "messages" {
@@ -237,7 +240,7 @@ func (s *ModerationGetMessageContext_Output) UnmarshalCBORAt(data []byte, pos in
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -245,7 +248,7 @@ func (s *ModerationGetMessageContext_Output) UnmarshalCBORAt(data []byte, pos in
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -381,9 +384,8 @@ type ModerationGetMessageContext_Output struct {
 	LexiconTypeID string                                        `json:"$type,omitempty"`
 	Messages      []ModerationGetMessageContext_Output_Messages `json:"messages"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ModerationGetMessageContext calls the XRPC query "chat.bsky.moderation.getMessageContext".

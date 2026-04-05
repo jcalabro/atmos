@@ -4,7 +4,6 @@ package comatproto
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -55,7 +54,10 @@ func (s *TempCheckSignupQueue_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONInt(buf, s.PlaceInQueue.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -74,7 +76,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *TempCheckSignupQueue_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -136,7 +138,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -155,7 +157,7 @@ func (s *TempCheckSignupQueue_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *TempCheckSignupQueue_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -166,27 +168,27 @@ func (s *TempCheckSignupQueue_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_TempCheckSignupQueue_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activated", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "activated", buf)
 		buf = append(buf, cborKey_TempCheckSignupQueue_Output_activated...)
 		buf = cbor.AppendBool(buf, s.Activated)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "placeInQueue", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "placeInQueue", buf)
 		if s.PlaceInQueue.HasVal() {
 			buf = append(buf, cborKey_TempCheckSignupQueue_Output_placeInQueue...)
 			buf = cbor.AppendInt(buf, s.PlaceInQueue.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "estimatedTimeMs", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "estimatedTimeMs", buf)
 		if s.EstimatedTimeMs.HasVal() {
 			buf = append(buf, cborKey_TempCheckSignupQueue_Output_estimatedTimeMs...)
 			buf = cbor.AppendInt(buf, s.EstimatedTimeMs.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_TempCheckSignupQueue_Output_dollar_type...)
@@ -212,7 +214,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *TempCheckSignupQueue_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -236,7 +238,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "activated" {
@@ -250,7 +252,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "placeInQueue" {
@@ -270,7 +272,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "estimatedTimeMs" {
@@ -290,7 +292,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -298,7 +300,7 @@ func (s *TempCheckSignupQueue_Output) UnmarshalCBORAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -310,9 +312,8 @@ type TempCheckSignupQueue_Output struct {
 	EstimatedTimeMs gt.Option[int64] `json:"estimatedTimeMs,omitzero"`
 	PlaceInQueue    gt.Option[int64] `json:"placeInQueue,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // TempCheckSignupQueue calls the XRPC query "com.atproto.temp.checkSignupQueue".

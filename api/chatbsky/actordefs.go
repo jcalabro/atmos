@@ -5,7 +5,6 @@ package chatbsky
 import (
 	bsky "github.com/jcalabro/atmos/api/bsky"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -23,9 +22,8 @@ type ActorDefs_ProfileViewBasic struct {
 	Verification  gt.Option[bsky.ActorDefs_VerificationState] `json:"verification,omitzero"`
 	Viewer        gt.Option[bsky.ActorDefs_ViewerState]       `json:"viewer,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileViewBasic.
@@ -47,7 +45,7 @@ func (s *ActorDefs_ProfileViewBasic) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -73,25 +71,25 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
 		buf = cbor.AppendText(buf, s.DID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "avatar", buf)
 		if s.Avatar.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
 			buf = cbor.AppendText(buf, s.Avatar.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "handle", buf)
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
 		buf = cbor.AppendText(buf, s.Handle)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
 		if len(s.Labels) > 0 {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
@@ -103,7 +101,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "viewer", buf)
 		if s.Viewer.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
 			{
@@ -117,7 +115,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "associated", buf)
 		if s.Associated.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
 			{
@@ -131,17 +129,17 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "displayName", buf)
 		if s.DisplayName.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
 			buf = cbor.AppendText(buf, s.DisplayName.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chatDisabled", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "chatDisabled", buf)
 		if s.ChatDisabled.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_chatDisabled...)
 			buf = cbor.AppendBool(buf, s.ChatDisabled.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "verification", buf)
 		if s.Verification.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
 			{
@@ -155,7 +153,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
 		buf = cbor.AppendText(buf, s.DID)
@@ -237,7 +235,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -261,7 +259,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -275,7 +273,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "avatar" {
@@ -326,7 +324,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "associated" {
@@ -346,7 +344,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "displayName" {
@@ -366,7 +364,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "chatDisabled" {
@@ -397,7 +395,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -405,7 +403,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -546,7 +544,10 @@ func (s *ActorDefs_ProfileViewBasic) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -565,7 +566,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileViewBasic) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -715,7 +716,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

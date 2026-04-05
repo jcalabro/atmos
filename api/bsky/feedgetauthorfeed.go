@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -63,7 +62,10 @@ func (s *FeedGetAuthorFeed_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -82,7 +84,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedGetAuthorFeed_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -152,7 +154,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalJSONAt(data []byte, pos int) (int, e
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -170,7 +172,7 @@ func (s *FeedGetAuthorFeed_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedGetAuthorFeed_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -178,9 +180,9 @@ func (s *FeedGetAuthorFeed_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feed", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "feed", buf)
 		buf = append(buf, cborKey_FeedGetAuthorFeed_Output_feed...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feed)))
 		for _, item := range s.Feed {
@@ -190,17 +192,17 @@ func (s *FeedGetAuthorFeed_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_FeedGetAuthorFeed_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cursor", buf)
 		if s.Cursor.HasVal() {
 			buf = append(buf, cborKey_FeedGetAuthorFeed_Output_cursor...)
 			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_FeedGetAuthorFeed_Output_feed...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feed)))
@@ -229,7 +231,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedGetAuthorFeed_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -263,7 +265,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -277,7 +279,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -297,7 +299,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -305,7 +307,7 @@ func (s *FeedGetAuthorFeed_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -316,9 +318,8 @@ type FeedGetAuthorFeed_Output struct {
 	Cursor        gt.Option[string]       `json:"cursor,omitzero"`
 	Feed          []FeedDefs_FeedViewPost `json:"feed"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // FeedGetAuthorFeed calls the XRPC query "app.bsky.feed.getAuthorFeed".

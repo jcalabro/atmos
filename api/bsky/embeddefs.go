@@ -3,7 +3,6 @@
 package bsky
 
 import (
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 )
 
@@ -15,9 +14,8 @@ type EmbedDefs_AspectRatio struct {
 	Height        int64  `json:"height"`
 	Width         int64  `json:"width"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for EmbedDefs_AspectRatio.
@@ -32,25 +30,25 @@ func (s *EmbedDefs_AspectRatio) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedDefs_AspectRatio) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedDefs_AspectRatio_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "width", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "width", buf)
 		buf = append(buf, cborKey_EmbedDefs_AspectRatio_width...)
 		buf = cbor.AppendInt(buf, s.Width)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "height", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "height", buf)
 		buf = append(buf, cborKey_EmbedDefs_AspectRatio_height...)
 		buf = cbor.AppendInt(buf, s.Height)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_EmbedDefs_AspectRatio_dollar_type...)
@@ -70,7 +68,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -99,7 +97,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "height" {
@@ -113,7 +111,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -121,7 +119,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -161,7 +159,10 @@ func (s *EmbedDefs_AspectRatio) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedDefs_AspectRatio_width...)
 	buf = cbor.AppendJSONInt(buf, s.Width)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -180,7 +181,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedDefs_AspectRatio) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -219,7 +220,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -4,7 +4,6 @@ package ozone
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -18,9 +17,8 @@ type VerificationGrantVerifications_GrantError struct {
 	Error         string `json:"error"`   // Error message describing the reason for failure.
 	Subject       string `json:"subject"` // The did of the subject being verified
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for VerificationGrantVerifications_GrantError.
@@ -35,25 +33,25 @@ func (s *VerificationGrantVerifications_GrantError) MarshalCBOR() ([]byte, error
 }
 
 func (s *VerificationGrantVerifications_GrantError) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "error", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_error...)
 		buf = cbor.AppendText(buf, s.Error)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_GrantError_dollar_type...)
@@ -73,7 +71,7 @@ func (s *VerificationGrantVerifications_GrantError) UnmarshalCBOR(data []byte) e
 }
 
 func (s *VerificationGrantVerifications_GrantError) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -102,7 +100,7 @@ func (s *VerificationGrantVerifications_GrantError) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -116,7 +114,7 @@ func (s *VerificationGrantVerifications_GrantError) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -124,7 +122,7 @@ func (s *VerificationGrantVerifications_GrantError) UnmarshalCBORAt(data []byte,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -164,7 +162,10 @@ func (s *VerificationGrantVerifications_GrantError) AppendJSON(buf []byte) ([]by
 	buf = append(buf, jsonKey_VerificationGrantVerifications_GrantError_subject...)
 	buf = cbor.AppendJSONString(buf, s.Subject)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -183,7 +184,7 @@ func (s *VerificationGrantVerifications_GrantError) UnmarshalJSON(data []byte) e
 }
 
 func (s *VerificationGrantVerifications_GrantError) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -222,7 +223,7 @@ func (s *VerificationGrantVerifications_GrantError) UnmarshalJSONAt(data []byte,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -284,7 +285,10 @@ func (s *VerificationGrantVerifications_Output) AppendJSON(buf []byte) ([]byte, 
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -303,7 +307,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalJSON(data []byte) error
 }
 
 func (s *VerificationGrantVerifications_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -386,7 +390,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalJSONAt(data []byte, pos
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -404,19 +408,19 @@ func (s *VerificationGrantVerifications_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VerificationGrantVerifications_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "verifications", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_Output_verifications...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
 		for _, item := range s.Verifications {
@@ -426,7 +430,7 @@ func (s *VerificationGrantVerifications_Output) AppendCBOR(buf []byte) ([]byte, 
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failedVerifications", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "failedVerifications", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_Output_failedVerifications...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedVerifications)))
 		for _, item := range s.FailedVerifications {
@@ -436,7 +440,7 @@ func (s *VerificationGrantVerifications_Output) AppendCBOR(buf []byte) ([]byte, 
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_Output_dollar_type...)
@@ -470,7 +474,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalCBOR(data []byte) error
 }
 
 func (s *VerificationGrantVerifications_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -494,7 +498,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalCBORAt(data []byte, pos
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "verifications" {
@@ -518,7 +522,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalCBORAt(data []byte, pos
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "failedVerifications" {
@@ -542,7 +546,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalCBORAt(data []byte, pos
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -550,7 +554,7 @@ func (s *VerificationGrantVerifications_Output) UnmarshalCBORAt(data []byte, pos
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -561,9 +565,8 @@ type VerificationGrantVerifications_Output struct {
 	FailedVerifications []VerificationGrantVerifications_GrantError `json:"failedVerifications"`
 	Verifications       []VerificationDefs_VerificationView         `json:"verifications"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed JSON key tokens for VerificationGrantVerifications_Input.
@@ -604,7 +607,10 @@ func (s *VerificationGrantVerifications_Input) AppendJSON(buf []byte) ([]byte, e
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -623,7 +629,7 @@ func (s *VerificationGrantVerifications_Input) UnmarshalJSON(data []byte) error 
 }
 
 func (s *VerificationGrantVerifications_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -679,7 +685,7 @@ func (s *VerificationGrantVerifications_Input) UnmarshalJSONAt(data []byte, pos 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -696,19 +702,19 @@ func (s *VerificationGrantVerifications_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VerificationGrantVerifications_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "verifications", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_Input_verifications...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
 		for _, item := range s.Verifications {
@@ -718,7 +724,7 @@ func (s *VerificationGrantVerifications_Input) AppendCBOR(buf []byte) ([]byte, e
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_Input_dollar_type...)
@@ -743,7 +749,7 @@ func (s *VerificationGrantVerifications_Input) UnmarshalCBOR(data []byte) error 
 }
 
 func (s *VerificationGrantVerifications_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -767,7 +773,7 @@ func (s *VerificationGrantVerifications_Input) UnmarshalCBORAt(data []byte, pos 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "verifications" {
@@ -791,7 +797,7 @@ func (s *VerificationGrantVerifications_Input) UnmarshalCBORAt(data []byte, pos 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -799,7 +805,7 @@ func (s *VerificationGrantVerifications_Input) UnmarshalCBORAt(data []byte, pos 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -809,9 +815,8 @@ type VerificationGrantVerifications_Input struct {
 	LexiconTypeID string                                             `json:"$type,omitempty"`
 	Verifications []VerificationGrantVerifications_VerificationInput `json:"verifications"` // Array of verification requests to process
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // VerificationGrantVerifications calls the XRPC procedure "tools.ozone.verification.grantVerifications".
@@ -830,9 +835,8 @@ type VerificationGrantVerifications_VerificationInput struct {
 	Handle        string            `json:"handle"`             // Handle of the subject the verification applies to at the moment of verifying.
 	Subject       string            `json:"subject"`            // The did of the subject being verified
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for VerificationGrantVerifications_VerificationInput.
@@ -849,7 +853,7 @@ func (s *VerificationGrantVerifications_VerificationInput) MarshalCBOR() ([]byte
 }
 
 func (s *VerificationGrantVerifications_VerificationInput) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -857,28 +861,28 @@ func (s *VerificationGrantVerifications_VerificationInput) AppendCBOR(buf []byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "handle", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_handle...)
 		buf = cbor.AppendText(buf, s.Handle)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		if s.CreatedAt.HasVal() {
 			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_createdAt...)
 			buf = cbor.AppendText(buf, s.CreatedAt.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "displayName", buf)
 		buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_VerificationGrantVerifications_VerificationInput_dollar_type...)
@@ -904,7 +908,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBOR(data []
 }
 
 func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -928,7 +932,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "handle" {
@@ -942,7 +946,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -956,7 +960,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -976,7 +980,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "displayName" {
@@ -990,7 +994,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -998,7 +1002,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalCBORAt(data 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -1054,7 +1058,10 @@ func (s *VerificationGrantVerifications_VerificationInput) AppendJSON(buf []byte
 	buf = append(buf, jsonKey_VerificationGrantVerifications_VerificationInput_subject...)
 	buf = cbor.AppendJSONString(buf, s.Subject)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -1073,7 +1080,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalJSON(data []
 }
 
 func (s *VerificationGrantVerifications_VerificationInput) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1131,7 +1138,7 @@ func (s *VerificationGrantVerifications_VerificationInput) UnmarshalJSONAt(data 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

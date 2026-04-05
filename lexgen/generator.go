@@ -76,6 +76,19 @@ func Generate(cfg *Config, cat *lexicon.Catalog) (map[string][]byte, error) {
 		}
 	}
 
+	// Generate extra field types and helpers for each package.
+	// Each package gets its own copy so the types stay unexported.
+	for _, pkg := range cfg.Packages {
+		code := generateExtraTypes(pkg.Package)
+		path := pkg.OutDir + "/extra.go"
+		raw = append(raw, rawFile{path: path, code: code})
+	}
+	if cfg.SharedTypesDir != "" {
+		code := generateExtraTypes(cfg.SharedTypesPkg)
+		path := cfg.SharedTypesDir + "/extra.go"
+		raw = append(raw, rawFile{path: path, code: code})
+	}
+
 	// Generate DecodeRecord function for each package that has record types.
 	for _, pkg := range cfg.Packages {
 		// Collect all record types in this package.

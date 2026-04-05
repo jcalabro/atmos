@@ -4,7 +4,6 @@ package ozone
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -52,7 +51,10 @@ func (s *ModerationGetAccountTimeline_Output) AppendJSON(buf []byte) ([]byte, er
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -71,7 +73,7 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationGetAccountTimeline_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -127,7 +129,7 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalJSONAt(data []byte, pos i
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -144,19 +146,19 @@ func (s *ModerationGetAccountTimeline_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationGetAccountTimeline_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "timeline", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "timeline", buf)
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_timeline...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Timeline)))
 		for _, item := range s.Timeline {
@@ -166,7 +168,7 @@ func (s *ModerationGetAccountTimeline_Output) AppendCBOR(buf []byte) ([]byte, er
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetAccountTimeline_Output_dollar_type...)
@@ -191,7 +193,7 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationGetAccountTimeline_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -215,7 +217,7 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalCBORAt(data []byte, pos i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "timeline" {
@@ -239,7 +241,7 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalCBORAt(data []byte, pos i
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -247,7 +249,7 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalCBORAt(data []byte, pos i
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -257,9 +259,8 @@ type ModerationGetAccountTimeline_Output struct {
 	LexiconTypeID string                                      `json:"$type,omitempty"`
 	Timeline      []ModerationGetAccountTimeline_TimelineItem `json:"timeline"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ModerationGetAccountTimeline calls the XRPC query "tools.ozone.moderation.getAccountTimeline".
@@ -278,9 +279,8 @@ type ModerationGetAccountTimeline_TimelineItem struct {
 	Day           string                                             `json:"day"`
 	Summary       []ModerationGetAccountTimeline_TimelineItemSummary `json:"summary"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ModerationGetAccountTimeline_TimelineItem.
@@ -295,22 +295,22 @@ func (s *ModerationGetAccountTimeline_TimelineItem) MarshalCBOR() ([]byte, error
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItem) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "day", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "day", buf)
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_day...)
 		buf = cbor.AppendText(buf, s.Day)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "summary", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "summary", buf)
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_summary...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Summary)))
 		for _, item := range s.Summary {
@@ -320,7 +320,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) AppendCBOR(buf []byte) ([]by
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItem_day...)
 		buf = cbor.AppendText(buf, s.Day)
@@ -347,7 +347,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBOR(data []byte) e
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -371,7 +371,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -385,7 +385,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "summary" {
@@ -409,7 +409,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte,
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -417,7 +417,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte,
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -468,7 +468,10 @@ func (s *ModerationGetAccountTimeline_TimelineItem) AppendJSON(buf []byte) ([]by
 	}
 	buf = append(buf, ']')
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -487,7 +490,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalJSON(data []byte) e
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -548,7 +551,7 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalJSONAt(data []byte,
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -561,9 +564,8 @@ type ModerationGetAccountTimeline_TimelineItemSummary struct {
 	EventSubjectType string `json:"eventSubjectType"`
 	EventType        string `json:"eventType"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for ModerationGetAccountTimeline_TimelineItemSummary.
@@ -579,28 +581,28 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) MarshalCBOR() ([]byte
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItemSummary) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "count", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "count", buf)
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_count...)
 		buf = cbor.AppendInt(buf, s.Count)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventType", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "eventType", buf)
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventType...)
 		buf = cbor.AppendText(buf, s.EventType)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventSubjectType", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "eventSubjectType", buf)
 		buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_eventSubjectType...)
 		buf = cbor.AppendText(buf, s.EventSubjectType)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationGetAccountTimeline_TimelineItemSummary_dollar_type...)
@@ -622,7 +624,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBOR(data []
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -651,7 +653,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "eventType" {
@@ -665,7 +667,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 16:
 			if string(data[keyStart:keyEnd]) == "eventSubjectType" {
@@ -679,7 +681,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -687,7 +689,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -734,7 +736,10 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) AppendJSON(buf []byte
 	buf = append(buf, jsonKey_ModerationGetAccountTimeline_TimelineItemSummary_eventType...)
 	buf = cbor.AppendJSONString(buf, s.EventType)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -753,7 +758,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalJSON(data []
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -797,7 +802,7 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalJSONAt(data 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -48,19 +48,6 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 )
 
-// ExtraField holds a single unknown key-value pair encountered during decoding.
-// Generated types use two separate slices (extraJSON and extraCBOR) to preserve
-// unknown fields across same-format round-trips. Slices (not maps) are used to
-// maintain insertion order, which matters for DAG-CBOR determinism and DRISL.
-//
-// Cross-format round-trips (e.g. JSON unmarshal → CBOR marshal) will not carry
-// extras across because raw JSON and CBOR bytes are not interchangeable — transcoding
-// would require schema knowledge that we explicitly lack for unknown fields.
-type ExtraField struct {
-	Key   string // the original field name
-	Value []byte // raw-encoded value bytes (JSON or CBOR, depending on which slice holds this)
-}
-
 // LexBlob represents an uploaded blob reference.
 type LexBlob struct {
 	Type     string     ` + "`" + `json:"$type"` + "`" + `
@@ -68,10 +55,9 @@ type LexBlob struct {
 	MimeType string     ` + "`" + `json:"mimeType"` + "`" + `
 	Size     int64      ` + "`" + `json:"size"` + "`" + `
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	// See ExtraField for design rationale.
-	extraJSON []ExtraField
-	extraCBOR []ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	// See extraField for design rationale.
+	extra []extraField
 }
 
 // LexCIDLink is a CID reference using the $link JSON convention.
@@ -101,25 +87,38 @@ func (b *LexBlob) MarshalCBOR() ([]byte, error) {
 
 // AppendCBOR appends the DAG-CBOR encoding to buf.
 func (b *LexBlob) AppendCBOR(buf []byte) ([]byte, error) {
-	buf = cbor.AppendMapHeader(buf, uint64(4 + len(b.extraCBOR)))
+	buf = cbor.AppendMapHeader(buf, uint64(4 + countExtra(b.extra, extraEncodingCBOR)))
 	// DAG-CBOR key order: ref(3), size(4), $type(5), mimeType(8)
-	// Extras are merged at the correct position to maintain DAG-CBOR key ordering.
-	ei := 0
-	ei, buf = AppendCBORExtrasBefore(b.extraCBOR, ei, "ref", buf)
-	buf = append(buf, cborKey_LexBlob_ref...)
-	var err error
-	buf, err = b.Ref.AppendCBOR(buf)
-	if err != nil { return nil, err }
-	ei, buf = AppendCBORExtrasBefore(b.extraCBOR, ei, "size", buf)
-	buf = append(buf, cborKey_LexBlob_size...)
-	buf = cbor.AppendInt(buf, b.Size)
-	ei, buf = AppendCBORExtrasBefore(b.extraCBOR, ei, "$type", buf)
-	buf = append(buf, cborKey_LexBlob_type...)
-	buf = cbor.AppendText(buf, b.Type)
-	ei, buf = AppendCBORExtrasBefore(b.extraCBOR, ei, "mimeType", buf)
-	buf = append(buf, cborKey_LexBlob_mimeType...)
-	buf = cbor.AppendText(buf, b.MimeType)
-	_, buf = AppendCBORExtrasBefore(b.extraCBOR, ei, "", buf)
+	if countExtra(b.extra, extraEncodingCBOR) > 0 {
+		// Extras are merged at the correct position to maintain DAG-CBOR key ordering.
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(b.extra, ei, "ref", buf)
+		buf = append(buf, cborKey_LexBlob_ref...)
+		var err error
+		buf, err = b.Ref.AppendCBOR(buf)
+		if err != nil { return nil, err }
+		ei, buf = appendCBORExtrasBefore(b.extra, ei, "size", buf)
+		buf = append(buf, cborKey_LexBlob_size...)
+		buf = cbor.AppendInt(buf, b.Size)
+		ei, buf = appendCBORExtrasBefore(b.extra, ei, "$type", buf)
+		buf = append(buf, cborKey_LexBlob_type...)
+		buf = cbor.AppendText(buf, b.Type)
+		ei, buf = appendCBORExtrasBefore(b.extra, ei, "mimeType", buf)
+		buf = append(buf, cborKey_LexBlob_mimeType...)
+		buf = cbor.AppendText(buf, b.MimeType)
+		_, buf = appendCBORExtrasBefore(b.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_LexBlob_ref...)
+		var err error
+		buf, err = b.Ref.AppendCBOR(buf)
+		if err != nil { return nil, err }
+		buf = append(buf, cborKey_LexBlob_size...)
+		buf = cbor.AppendInt(buf, b.Size)
+		buf = append(buf, cborKey_LexBlob_type...)
+		buf = cbor.AppendText(buf, b.Type)
+		buf = append(buf, cborKey_LexBlob_mimeType...)
+		buf = cbor.AppendText(buf, b.MimeType)
+	}
 	return buf, nil
 }
 
@@ -131,7 +130,7 @@ func (b *LexBlob) UnmarshalCBOR(data []byte) error {
 
 // UnmarshalCBORAt decodes a LexBlob from DAG-CBOR starting at pos.
 func (b *LexBlob) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	b.extraCBOR = nil
+	b.extra = clearExtra(b.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil { return 0, err }
 	for i := uint64(0); i < count; i++ {
@@ -153,7 +152,7 @@ func (b *LexBlob) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil { return 0, err }
-			b.extraCBOR = append(b.extraCBOR, ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			b.extra = append(b.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			continue
 		}
 		if err != nil { return 0, err }
@@ -216,7 +215,8 @@ func (b *LexBlob) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, ',')
 	buf = append(buf, jsonKey_LexBlob_size...)
 	buf = cbor.AppendJSONInt(buf, b.Size)
-	for _, ef := range b.extraJSON {
+	for _, ef := range b.extra {
+		if ef.Encoding != extraEncodingJSON { continue }
 		buf = append(buf, ',')
 		buf = cbor.AppendJSONString(buf, ef.Key)
 		buf = append(buf, ':')
@@ -234,7 +234,7 @@ func (b *LexBlob) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSONAt decodes a LexBlob from JSON starting at pos.
 func (b *LexBlob) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	b.extraJSON = nil
+	b.extra = clearExtra(b.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil { return 0, err }
@@ -258,7 +258,7 @@ func (b *LexBlob) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil { return 0, err }
-			b.extraJSON = append(b.extraJSON, ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			b.extra = append(b.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		if err != nil { return 0, err }
 		pos = cbor.SkipJSONComma(data, pos)
@@ -310,19 +310,83 @@ func (c *LexCIDLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 		pos = cbor.SkipJSONComma(data, pos)
 	}
 }
+`
+}
 
-// AppendCBORExtrasBefore appends CBOR-encoded extra fields from extras[idx:]
-// that sort before nextKey in DAG-CBOR key order. If nextKey is empty, all
-// remaining extras are appended. Returns the new index and the updated buffer.
+// generateExtraTypes produces the unexported extra field types and helpers
+// for a single package. Each package gets its own copy so the types stay
+// unexported and package-internal.
+func generateExtraTypes(pkgName string) string {
+	return `// Code generated by lexgen. DO NOT EDIT.
+
+package ` + pkgName + `
+
+import "github.com/jcalabro/atmos/cbor"
+
+// extraEncoding identifies the wire format of an extraField's value bytes.
+type extraEncoding int8
+
+const (
+	extraEncodingJSON extraEncoding = 0
+	extraEncodingCBOR extraEncoding = 1
+)
+
+// extraField holds a single unknown key-value pair encountered during decoding.
+// Generated types use a single slice to preserve unknown fields across same-format
+// round-trips. A slice (not a map) is used to maintain insertion order, which
+// matters for DAG-CBOR determinism and DRISL. The Encoding field distinguishes
+// the wire format so that extras from different encodings can coexist in one
+// slice without cross-format leakage — CBOR marshal only emits extraEncodingCBOR
+// entries, JSON marshal only emits extraEncodingJSON entries.
 //
-// extras MUST already be in DAG-CBOR sorted key order (as produced by
+// Cross-format round-trips (e.g. JSON unmarshal → CBOR marshal) will not carry
+// extras across because raw bytes are not interchangeable between formats —
+// transcoding would require schema knowledge that we explicitly lack for
+// unknown fields.
+type extraField struct {
+	Key      string         // the original field name
+	Value    []byte         // raw-encoded value bytes in the format indicated by Encoding
+	Encoding extraEncoding  // wire format of Value (extraEncodingJSON, extraEncodingCBOR, etc.)
+}
+
+// countExtra returns the number of extra fields with the given encoding.
+func countExtra(extras []extraField, enc extraEncoding) int {
+	n := 0
+	for i := range extras {
+		if extras[i].Encoding == enc { n++ }
+	}
+	return n
+}
+
+// clearExtra removes all entries with the given encoding from the slice,
+// preserving entries of other encodings. Returns the (possibly shorter) slice.
+func clearExtra(extras []extraField, enc extraEncoding) []extraField {
+	n := 0
+	for i := range extras {
+		if extras[i].Encoding != enc {
+			extras[n] = extras[i]
+			n++
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	return extras[:n]
+}
+
+// appendCBORExtrasBefore appends CBOR-encoded extra fields from extras[idx:]
+// that sort before nextKey in DAG-CBOR key order. Non-CBOR entries are skipped.
+// If nextKey is empty, all remaining CBOR extras are appended.
+//
+// CBOR entries MUST be in DAG-CBOR sorted key order (as produced by
 // UnmarshalCBORAt). This invariant is maintained by construction — CBOR maps
 // decoded from valid DAG-CBOR are always in sorted order.
-//
-// This is used by generated marshal methods to interleave unknown fields at
-// the correct position in DAG-CBOR sorted key order.
-func AppendCBORExtrasBefore(extras []ExtraField, idx int, nextKey string, buf []byte) (int, []byte) {
+func appendCBORExtrasBefore(extras []extraField, idx int, nextKey string, buf []byte) (int, []byte) {
 	for idx < len(extras) {
+		if extras[idx].Encoding != extraEncodingCBOR {
+			idx++
+			continue
+		}
 		if nextKey != "" && cbor.CompareCBORKeys(extras[idx].Key, nextKey) >= 0 {
 			break
 		}

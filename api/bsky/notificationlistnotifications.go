@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -77,7 +76,10 @@ func (s *NotificationListNotifications_Output) AppendJSON(buf []byte) ([]byte, e
 		buf = cbor.AppendJSONString(buf, s.SeenAt.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -96,7 +98,7 @@ func (s *NotificationListNotifications_Output) UnmarshalJSON(data []byte) error 
 }
 
 func (s *NotificationListNotifications_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -194,7 +196,7 @@ func (s *NotificationListNotifications_Output) UnmarshalJSONAt(data []byte, pos 
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -214,7 +216,7 @@ func (s *NotificationListNotifications_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *NotificationListNotifications_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1 + len(s.extraCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -228,29 +230,29 @@ func (s *NotificationListNotifications_Output) AppendCBOR(buf []byte) ([]byte, e
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationListNotifications_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cursor", buf)
 		if s.Cursor.HasVal() {
 			buf = append(buf, cborKey_NotificationListNotifications_Output_cursor...)
 			buf = cbor.AppendText(buf, s.Cursor.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seenAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "seenAt", buf)
 		if s.SeenAt.HasVal() {
 			buf = append(buf, cborKey_NotificationListNotifications_Output_seenAt...)
 			buf = cbor.AppendText(buf, s.SeenAt.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "priority", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "priority", buf)
 		if s.Priority.HasVal() {
 			buf = append(buf, cborKey_NotificationListNotifications_Output_priority...)
 			buf = cbor.AppendBool(buf, s.Priority.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notifications", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "notifications", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Output_notifications...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Notifications)))
 		for _, item := range s.Notifications {
@@ -260,7 +262,7 @@ func (s *NotificationListNotifications_Output) AppendCBOR(buf []byte) ([]byte, e
 				return nil, err
 			}
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationListNotifications_Output_dollar_type...)
@@ -297,7 +299,7 @@ func (s *NotificationListNotifications_Output) UnmarshalCBOR(data []byte) error 
 }
 
 func (s *NotificationListNotifications_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -321,7 +323,7 @@ func (s *NotificationListNotifications_Output) UnmarshalCBORAt(data []byte, pos 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -352,7 +354,7 @@ func (s *NotificationListNotifications_Output) UnmarshalCBORAt(data []byte, pos 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "priority" {
@@ -372,7 +374,7 @@ func (s *NotificationListNotifications_Output) UnmarshalCBORAt(data []byte, pos 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "notifications" {
@@ -396,7 +398,7 @@ func (s *NotificationListNotifications_Output) UnmarshalCBORAt(data []byte, pos 
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -404,7 +406,7 @@ func (s *NotificationListNotifications_Output) UnmarshalCBORAt(data []byte, pos 
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -417,9 +419,8 @@ type NotificationListNotifications_Output struct {
 	Priority      gt.Option[bool]                              `json:"priority,omitzero"`
 	SeenAt        gt.Option[string]                            `json:"seenAt,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // NotificationListNotifications calls the XRPC query "app.bsky.notification.listNotifications".
@@ -459,9 +460,8 @@ type NotificationListNotifications_Notification struct {
 	Record        json.RawMessage              `json:"record"`
 	URI           string                       `json:"uri"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // Precomputed CBOR key tokens for NotificationListNotifications_Notification.
@@ -483,7 +483,7 @@ func (s *NotificationListNotifications_Notification) MarshalCBOR() ([]byte, erro
 }
 
 func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 7 + len(s.extraCBOR)
+	n := 7 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -494,20 +494,20 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cid", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_cid...)
 		buf = cbor.AppendText(buf, s.CID)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_uri...)
 		buf = cbor.AppendText(buf, s.URI)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_NotificationListNotifications_Notification_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "author", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_author...)
 		{
 			var err error
@@ -516,10 +516,10 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 				return nil, err
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isRead", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "isRead", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_isRead...)
 		buf = cbor.AppendBool(buf, s.IsRead)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
 		if len(s.Labels) > 0 {
 			buf = append(buf, cborKey_NotificationListNotifications_Notification_labels...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
@@ -531,21 +531,21 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 				}
 			}
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reason", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_reason...)
 		buf = cbor.AppendText(buf, s.Reason)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "record", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_record...)
 		buf = cbor.AppendNull(buf)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "indexedAt", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_indexedAt...)
 		buf = cbor.AppendText(buf, s.IndexedAt)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonSubject", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reasonSubject", buf)
 		if s.ReasonSubject.HasVal() {
 			buf = append(buf, cborKey_NotificationListNotifications_Notification_reasonSubject...)
 			buf = cbor.AppendText(buf, s.ReasonSubject.Val())
 		}
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_cid...)
 		buf = cbor.AppendText(buf, s.CID)
@@ -596,7 +596,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBOR(data []byte) 
 }
 
 func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -625,7 +625,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -639,7 +639,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "author" {
@@ -683,7 +683,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "indexedAt" {
@@ -697,7 +697,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "reasonSubject" {
@@ -717,7 +717,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -725,7 +725,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -835,7 +835,10 @@ func (s *NotificationListNotifications_Notification) AppendJSON(buf []byte) ([]b
 	buf = append(buf, jsonKey_NotificationListNotifications_Notification_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -854,7 +857,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalJSON(data []byte) 
 }
 
 func (s *NotificationListNotifications_Notification) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -963,7 +966,7 @@ func (s *NotificationListNotifications_Notification) UnmarshalJSONAt(data []byte
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

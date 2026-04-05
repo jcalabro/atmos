@@ -105,31 +105,29 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 		}
 	}
 
-	// Include extraCBOR count in the map header so unknown fields are preserved
-	// across same-format round-trips.
+	// Include extra CBOR field count in the map header so unknown fields are
+	// preserved across same-format round-trips.
 	if len(optionalFields) > 0 {
-		fmt.Fprintf(buf, "\tn := %d + len(s.extraCBOR)\n", requiredCount)
+		fmt.Fprintf(buf, "\tn := %d + countExtra(s.extra, extraEncodingCBOR)\n", requiredCount)
 		for _, f := range optionalFields {
 			fmt.Fprintf(buf, "\tif %s { n++ }\n", g.cborHasValue(f))
 		}
 		buf.WriteString("\tbuf = cbor.AppendMapHeader(buf, uint64(n))\n")
 	} else {
-		fmt.Fprintf(buf, "\tbuf = cbor.AppendMapHeader(buf, uint64(%d + len(s.extraCBOR)))\n", requiredCount)
+		fmt.Fprintf(buf, "\tbuf = cbor.AppendMapHeader(buf, uint64(%d + countExtra(s.extra, extraEncodingCBOR)))\n", requiredCount)
 	}
 
-	appendExtras := g.sharedType("AppendCBORExtrasBefore")
-
-	// Encode fields in DAG-CBOR key order. When extraCBOR is non-empty, unknown
+	// Encode fields in DAG-CBOR key order. When CBOR extras exist, unknown
 	// fields are interleaved at their correct DAG-CBOR sort position via
-	// AppendCBORExtrasBefore. The common case (no extras) skips the interleave
+	// appendCBORExtrasBefore. The common case (no extras) skips the interleave
 	// calls entirely to avoid per-field function call overhead.
-	buf.WriteString("\tif len(s.extraCBOR) > 0 {\n")
+	buf.WriteString("\tif len(s.extra) > 0 {\n")
 	buf.WriteString("\t\tei := 0\n")
 	for _, f := range fields {
 		keyVar := fmt.Sprintf("cborKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
 		optional := !f.required || f.nullable
 
-		fmt.Fprintf(buf, "\t\tei, buf = %s(s.extraCBOR, ei, %q, buf)\n", appendExtras, f.jsonName)
+		fmt.Fprintf(buf, "\t\tei, buf = appendCBORExtrasBefore(s.extra, ei, %q, buf)\n", f.jsonName)
 
 		if optional {
 			fmt.Fprintf(buf, "\t\tif %s {\n", g.cborHasValue(f))
@@ -141,7 +139,7 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 			g.genCBOREncodeField(buf, f, "\t\t")
 		}
 	}
-	fmt.Fprintf(buf, "\t\t_, buf = %s(s.extraCBOR, ei, \"\", buf)\n", appendExtras)
+	buf.WriteString("\t\t_, buf = appendCBORExtrasBefore(s.extra, ei, \"\", buf)\n")
 	buf.WriteString("\t} else {\n")
 
 	// Fast path: no extras, emit known fields directly.
@@ -178,7 +176,7 @@ func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields
 	// compiler optimizes to avoid allocation. UTF-8 is only validated for
 	// unknown keys (known keys are implicitly valid since they match ASCII literals).
 	fmt.Fprintf(buf, "func (s *%s) UnmarshalCBORAt(data []byte, pos int) (int, error) {\n", typeName)
-	buf.WriteString("\ts.extraCBOR = nil\n")
+	buf.WriteString("\ts.extra = clearExtra(s.extra, extraEncodingCBOR)\n")
 	buf.WriteString("\tcount, pos, err := cbor.ReadMapHeader(data, pos)\n")
 	buf.WriteString("\tif err != nil { return 0, err }\n")
 	buf.WriteString("\tfor i := uint64(0); i < count; i++ {\n")
@@ -227,11 +225,10 @@ func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields
 // into the extraCBOR slice. The key is extracted from data[keyStart:keyEnd]
 // (already positioned by ReadTextKey) and the value bytes are copied.
 func (g *fileGen) genCBORCaptureExtra(buf *strings.Builder, indent string) {
-	efType := g.sharedType("ExtraField")
 	fmt.Fprintf(buf, "%svalueStart := pos\n", indent)
 	fmt.Fprintf(buf, "%spos, err = cbor.SkipValue(data, pos)\n", indent)
 	fmt.Fprintf(buf, "%sif err != nil { return 0, err }\n", indent)
-	fmt.Fprintf(buf, "%ss.extraCBOR = append(s.extraCBOR, %s{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})\n", indent, efType)
+	fmt.Fprintf(buf, "%ss.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})\n", indent)
 }
 
 // cborHasValue returns a Go expression that checks if a field has a value.

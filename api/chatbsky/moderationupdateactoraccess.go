@@ -4,7 +4,6 @@ package chatbsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -53,7 +52,10 @@ func (s *ModerationUpdateActorAccess_Input) AppendJSON(buf []byte) ([]byte, erro
 		buf = cbor.AppendJSONString(buf, s.Ref.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -72,7 +74,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationUpdateActorAccess_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -125,7 +127,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalJSONAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -144,7 +146,7 @@ func (s *ModerationUpdateActorAccess_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationUpdateActorAccess_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + len(s.extraCBOR)
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Ref.HasVal() {
 		n++
 	}
@@ -152,25 +154,25 @@ func (s *ModerationUpdateActorAccess_Input) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "ref", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "ref", buf)
 		if s.Ref.HasVal() {
 			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_ref...)
 			buf = cbor.AppendText(buf, s.Ref.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actor", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actor", buf)
 		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_actor...)
 		buf = cbor.AppendText(buf, s.Actor)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowAccess", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allowAccess", buf)
 		buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_allowAccess...)
 		buf = cbor.AppendBool(buf, s.AllowAccess)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Ref.HasVal() {
 			buf = append(buf, cborKey_ModerationUpdateActorAccess_Input_ref...)
@@ -194,7 +196,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationUpdateActorAccess_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -224,7 +226,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -243,7 +245,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "allowAccess" {
@@ -257,7 +259,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalCBORAt(data []byte, pos int
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -265,7 +267,7 @@ func (s *ModerationUpdateActorAccess_Input) UnmarshalCBORAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -277,9 +279,8 @@ type ModerationUpdateActorAccess_Input struct {
 	AllowAccess   bool              `json:"allowAccess"`
 	Ref           gt.Option[string] `json:"ref,omitzero"`
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // ModerationUpdateActorAccess calls the XRPC procedure "chat.bsky.moderation.updateActorAccess".

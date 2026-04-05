@@ -4,7 +4,6 @@ package bsky
 
 import (
 	"context"
-	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -71,7 +70,10 @@ func (s *AgeassuranceBegin_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.RegionCode.Val())
 		first = false
 	}
-	for _, ef := range s.extraJSON {
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -90,7 +92,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AgeassuranceBegin_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
-	s.extraJSON = nil
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -148,7 +150,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalJSONAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -168,7 +170,7 @@ func (s *AgeassuranceBegin_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AgeassuranceBegin_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + len(s.extraCBOR)
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -176,28 +178,28 @@ func (s *AgeassuranceBegin_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
-	if len(s.extraCBOR) > 0 {
+	if len(s.extra) > 0 {
 		ei := 0
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AgeassuranceBegin_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "email", buf)
 		buf = append(buf, cborKey_AgeassuranceBegin_Input_email...)
 		buf = cbor.AppendText(buf, s.Email)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "language", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "language", buf)
 		buf = append(buf, cborKey_AgeassuranceBegin_Input_language...)
 		buf = cbor.AppendText(buf, s.Language)
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "regionCode", buf)
 		if s.RegionCode.HasVal() {
 			buf = append(buf, cborKey_AgeassuranceBegin_Input_regionCode...)
 			buf = cbor.AppendText(buf, s.RegionCode.Val())
 		}
-		ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "countryCode", buf)
 		buf = append(buf, cborKey_AgeassuranceBegin_Input_countryCode...)
 		buf = cbor.AppendText(buf, s.CountryCode)
-		_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_AgeassuranceBegin_Input_dollar_type...)
@@ -223,7 +225,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AgeassuranceBegin_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
-	s.extraCBOR = nil
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -252,7 +254,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "language" {
@@ -266,7 +268,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "regionCode" {
@@ -286,7 +288,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "countryCode" {
@@ -300,7 +302,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalCBORAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
-				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		default:
 			valueStart := pos
@@ -308,7 +310,7 @@ func (s *AgeassuranceBegin_Input) UnmarshalCBORAt(data []byte, pos int) (int, er
 			if err != nil {
 				return 0, err
 			}
-			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 		}
 	}
 	return pos, nil
@@ -321,9 +323,8 @@ type AgeassuranceBegin_Input struct {
 	Language      string            `json:"language"`            // The user's preferred language for communication during the Age Assurance process.
 	RegionCode    gt.Option[string] `json:"regionCode,omitzero"` // An optional ISO 3166-2 code of the user's region or state within the country.
 
-	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
-	extraJSON []lextypes.ExtraField
-	extraCBOR []lextypes.ExtraField
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
 }
 
 // AgeassuranceBegin calls the XRPC procedure "app.bsky.ageassurance.begin".

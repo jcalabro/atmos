@@ -187,13 +187,10 @@ func (g *fileGen) genStructBody(typeName string, obj *lexicon.Object, isRecord b
 		}
 	}
 
-	// Extra fields preserve unknown JSON/CBOR keys across same-format round-trips.
-	// Two separate slices are used because raw JSON and CBOR bytes are not
-	// interchangeable — cross-format round-trips cannot carry extras.
-	efType := g.sharedType("ExtraField")
-	fmt.Fprintf(&buf, "\n\t// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.\n")
-	fmt.Fprintf(&buf, "\textraJSON []%s\n", efType)
-	fmt.Fprintf(&buf, "\textraCBOR []%s\n", efType)
+	// Extra field preserves unknown JSON/CBOR keys across same-format round-trips.
+	// A single slice is used with an encoding tag per entry — see extraField.
+	fmt.Fprintf(&buf, "\n\t// extra preserves unknown fields for same-format round-trips.\n")
+	fmt.Fprintf(&buf, "\textra []extraField\n")
 
 	buf.WriteString("}")
 	return buf.String(), extras, nil
