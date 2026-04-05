@@ -15,6 +15,10 @@ import (
 type ActorDefs_AdultContentPref struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Enabled       bool   `json:"enabled"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_AdultContentPref.
@@ -28,17 +32,21 @@ func (s *ActorDefs_AdultContentPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_AdultContentPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_AdultContentPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "enabled", buf)
 	buf = append(buf, cborKey_ActorDefs_AdultContentPref_enabled...)
 	buf = cbor.AppendBool(buf, s.Enabled)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -48,6 +56,7 @@ func (s *ActorDefs_AdultContentPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_AdultContentPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -66,10 +75,12 @@ func (s *ActorDefs_AdultContentPref) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "enabled" {
@@ -78,16 +89,20 @@ func (s *ActorDefs_AdultContentPref) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -120,6 +135,15 @@ func (s *ActorDefs_AdultContentPref) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_AdultContentPref_enabled...)
 	buf = cbor.AppendJSONBool(buf, s.Enabled)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -130,6 +154,7 @@ func (s *ActorDefs_AdultContentPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_AdultContentPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -158,10 +183,12 @@ func (s *ActorDefs_AdultContentPref) UnmarshalJSONAt(data []byte, pos int) (int,
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -173,6 +200,10 @@ func (s *ActorDefs_AdultContentPref) UnmarshalJSONAt(data []byte, pos int) (int,
 type ActorDefs_BskyAppProgressGuide struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Guide         string `json:"guide"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_BskyAppProgressGuide.
@@ -186,17 +217,21 @@ func (s *ActorDefs_BskyAppProgressGuide) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_BskyAppProgressGuide) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "guide", buf)
 	buf = append(buf, cborKey_ActorDefs_BskyAppProgressGuide_guide...)
 	buf = cbor.AppendText(buf, s.Guide)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -206,6 +241,7 @@ func (s *ActorDefs_BskyAppProgressGuide) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_BskyAppProgressGuide) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -229,16 +265,20 @@ func (s *ActorDefs_BskyAppProgressGuide) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -271,6 +311,15 @@ func (s *ActorDefs_BskyAppProgressGuide) AppendJSON(buf []byte) ([]byte, error) 
 	buf = append(buf, jsonKey_ActorDefs_BskyAppProgressGuide_guide...)
 	buf = cbor.AppendJSONString(buf, s.Guide)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -281,6 +330,7 @@ func (s *ActorDefs_BskyAppProgressGuide) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_BskyAppProgressGuide) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -309,10 +359,12 @@ func (s *ActorDefs_BskyAppProgressGuide) UnmarshalJSONAt(data []byte, pos int) (
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -326,6 +378,10 @@ type ActorDefs_BskyAppStatePref struct {
 	ActiveProgressGuide gt.Option[ActorDefs_BskyAppProgressGuide] `json:"activeProgressGuide,omitzero"`
 	Nuxs                []ActorDefs_Nux                           `json:"nuxs,omitempty"`         // Storage for NUXs the user has encountered.
 	QueuedNudges        []string                                  `json:"queuedNudges,omitempty"` // An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be s...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_BskyAppStatePref.
@@ -341,7 +397,7 @@ func (s *ActorDefs_BskyAppStatePref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if len(s.Nuxs) > 0 {
 		n++
 	}
@@ -355,6 +411,8 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "nuxs", buf)
 	if len(s.Nuxs) > 0 {
 		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_nuxs...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Nuxs)))
@@ -366,10 +424,12 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "queuedNudges", buf)
 	if len(s.QueuedNudges) > 0 {
 		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_queuedNudges...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.QueuedNudges)))
@@ -377,6 +437,7 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activeProgressGuide", buf)
 	if s.ActiveProgressGuide.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_activeProgressGuide...)
 		{
@@ -390,6 +451,7 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -399,6 +461,7 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -427,10 +490,12 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -439,10 +504,12 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "queuedNudges" {
@@ -461,10 +528,12 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "activeProgressGuide" {
@@ -479,16 +548,20 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.ActiveProgressGuide = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -568,6 +641,15 @@ func (s *ActorDefs_BskyAppStatePref) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -578,6 +660,7 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_BskyAppStatePref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -669,10 +752,12 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalJSONAt(data []byte, pos int) (int,
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -684,6 +769,10 @@ type ActorDefs_ContentLabelPref struct {
 	Label         string            `json:"label"`
 	LabelerDid    gt.Option[string] `json:"labelerDid,omitzero"` // Which labeler does this preference apply to? If undefined, applies globally.
 	Visibility    string            `json:"visibility"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ContentLabelPref.
@@ -699,7 +788,7 @@ func (s *ActorDefs_ContentLabelPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ContentLabelPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -707,18 +796,24 @@ func (s *ActorDefs_ContentLabelPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "label", buf)
 	buf = append(buf, cborKey_ActorDefs_ContentLabelPref_label...)
 	buf = cbor.AppendText(buf, s.Label)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelerDid", buf)
 	if s.LabelerDid.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ContentLabelPref_labelerDid...)
 		buf = cbor.AppendText(buf, s.LabelerDid.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "visibility", buf)
 	buf = append(buf, cborKey_ActorDefs_ContentLabelPref_visibility...)
 	buf = cbor.AppendText(buf, s.Visibility)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -728,6 +823,7 @@ func (s *ActorDefs_ContentLabelPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ContentLabelPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -751,10 +847,12 @@ func (s *ActorDefs_ContentLabelPref) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "labelerDid" {
@@ -774,16 +872,20 @@ func (s *ActorDefs_ContentLabelPref) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -832,6 +934,15 @@ func (s *ActorDefs_ContentLabelPref) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_ContentLabelPref_visibility...)
 	buf = cbor.AppendJSONString(buf, s.Visibility)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -842,6 +953,7 @@ func (s *ActorDefs_ContentLabelPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ContentLabelPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -889,10 +1001,12 @@ func (s *ActorDefs_ContentLabelPref) UnmarshalJSONAt(data []byte, pos int) (int,
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -906,6 +1020,10 @@ type ActorDefs_DeclaredAgePref struct {
 	IsOverAge13   gt.Option[bool] `json:"isOverAge13,omitzero"` // Indicates if the user has declared that they are over 13 years of age.
 	IsOverAge16   gt.Option[bool] `json:"isOverAge16,omitzero"` // Indicates if the user has declared that they are over 16 years of age.
 	IsOverAge18   gt.Option[bool] `json:"isOverAge18,omitzero"` // Indicates if the user has declared that they are over 18 years of age.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_DeclaredAgePref.
@@ -921,7 +1039,7 @@ func (s *ActorDefs_DeclaredAgePref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_DeclaredAgePref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -935,22 +1053,28 @@ func (s *ActorDefs_DeclaredAgePref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge13", buf)
 	if s.IsOverAge13.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge13...)
 		buf = cbor.AppendBool(buf, s.IsOverAge13.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge16", buf)
 	if s.IsOverAge16.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge16...)
 		buf = cbor.AppendBool(buf, s.IsOverAge16.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isOverAge18", buf)
 	if s.IsOverAge18.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_DeclaredAgePref_isOverAge18...)
 		buf = cbor.AppendBool(buf, s.IsOverAge18.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -960,6 +1084,7 @@ func (s *ActorDefs_DeclaredAgePref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_DeclaredAgePref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -978,10 +1103,12 @@ func (s *ActorDefs_DeclaredAgePref) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "isOverAge13" {
@@ -1018,16 +1145,20 @@ func (s *ActorDefs_DeclaredAgePref) UnmarshalCBORAt(data []byte, pos int) (int, 
 					s.IsOverAge18 = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1080,6 +1211,15 @@ func (s *ActorDefs_DeclaredAgePref) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONBool(buf, s.IsOverAge18.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1090,6 +1230,7 @@ func (s *ActorDefs_DeclaredAgePref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_DeclaredAgePref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1155,10 +1296,12 @@ func (s *ActorDefs_DeclaredAgePref) UnmarshalJSONAt(data []byte, pos int) (int, 
 				s.IsOverAge18 = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1173,6 +1316,10 @@ type ActorDefs_FeedViewPref struct {
 	HideRepliesByLikeCount  gt.Option[int64] `json:"hideRepliesByLikeCount,omitzero"`  // Hide replies in the feed if they do not have this number of likes.
 	HideRepliesByUnfollowed gt.Option[bool]  `json:"hideRepliesByUnfollowed,omitzero"` // Hide replies in the feed if they are not by followed users.
 	HideReposts             gt.Option[bool]  `json:"hideReposts,omitzero"`             // Hide reposts in the feed.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_FeedViewPref.
@@ -1191,7 +1338,7 @@ func (s *ActorDefs_FeedViewPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_FeedViewPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1211,32 +1358,41 @@ func (s *ActorDefs_FeedViewPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feed", buf)
 	buf = append(buf, cborKey_ActorDefs_FeedViewPref_feed...)
 	buf = cbor.AppendText(buf, s.Feed)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_FeedViewPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideReplies", buf)
 	if s.HideReplies.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReplies...)
 		buf = cbor.AppendBool(buf, s.HideReplies.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideReposts", buf)
 	if s.HideReposts.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideReposts...)
 		buf = cbor.AppendBool(buf, s.HideReposts.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideQuotePosts", buf)
 	if s.HideQuotePosts.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideQuotePosts...)
 		buf = cbor.AppendBool(buf, s.HideQuotePosts.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideRepliesByLikeCount", buf)
 	if s.HideRepliesByLikeCount.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByLikeCount...)
 		buf = cbor.AppendInt(buf, s.HideRepliesByLikeCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideRepliesByUnfollowed", buf)
 	if s.HideRepliesByUnfollowed.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_FeedViewPref_hideRepliesByUnfollowed...)
 		buf = cbor.AppendBool(buf, s.HideRepliesByUnfollowed.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1246,6 +1402,7 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1264,10 +1421,12 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1276,10 +1435,12 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "hideReplies" {
@@ -1305,10 +1466,12 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.HideReposts = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "hideQuotePosts" {
@@ -1323,10 +1486,12 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.HideQuotePosts = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 22:
 			if string(data[keyStart:keyEnd]) == "hideRepliesByLikeCount" {
@@ -1341,10 +1506,12 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.HideRepliesByLikeCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 23:
 			if string(data[keyStart:keyEnd]) == "hideRepliesByUnfollowed" {
@@ -1359,16 +1526,20 @@ func (s *ActorDefs_FeedViewPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.HideRepliesByUnfollowed = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1446,6 +1617,15 @@ func (s *ActorDefs_FeedViewPref) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONBool(buf, s.HideReposts.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1456,6 +1636,7 @@ func (s *ActorDefs_FeedViewPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_FeedViewPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1554,10 +1735,12 @@ func (s *ActorDefs_FeedViewPref) UnmarshalJSONAt(data []byte, pos int) (int, err
 				s.HideReposts = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1567,6 +1750,10 @@ func (s *ActorDefs_FeedViewPref) UnmarshalJSONAt(data []byte, pos int) (int, err
 type ActorDefs_HiddenPostsPref struct {
 	LexiconTypeID string   `json:"$type,omitempty"`
 	Items         []string `json:"items"` // A list of URIs of posts the account owner has hidden.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_HiddenPostsPref.
@@ -1580,20 +1767,24 @@ func (s *ActorDefs_HiddenPostsPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_HiddenPostsPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
 	buf = append(buf, cborKey_ActorDefs_HiddenPostsPref_items...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
 	for _, item := range s.Items {
 		buf = cbor.AppendText(buf, item)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1603,6 +1794,7 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_HiddenPostsPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1636,16 +1828,20 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalCBORAt(data []byte, pos int) (int, 
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1685,6 +1881,15 @@ func (s *ActorDefs_HiddenPostsPref) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1695,6 +1900,7 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_HiddenPostsPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1745,10 +1951,12 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalJSONAt(data []byte, pos int) (int, 
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1758,6 +1966,10 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalJSONAt(data []byte, pos int) (int, 
 type ActorDefs_InterestsPref struct {
 	LexiconTypeID string   `json:"$type,omitempty"`
 	Tags          []string `json:"tags"` // A list of tags which describe the account owner's interests gathered during onboarding.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_InterestsPref.
@@ -1771,20 +1983,24 @@ func (s *ActorDefs_InterestsPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_InterestsPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tags", buf)
 	buf = append(buf, cborKey_ActorDefs_InterestsPref_tags...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Tags)))
 	for _, item := range s.Tags {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_InterestsPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1794,6 +2010,7 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1822,10 +2039,12 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, er
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1834,16 +2053,20 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1883,6 +2106,15 @@ func (s *ActorDefs_InterestsPref) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1893,6 +2125,7 @@ func (s *ActorDefs_InterestsPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_InterestsPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1943,10 +2176,12 @@ func (s *ActorDefs_InterestsPref) UnmarshalJSONAt(data []byte, pos int) (int, er
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1959,6 +2194,10 @@ type ActorDefs_KnownFollowers struct {
 	LexiconTypeID string                       `json:"$type,omitempty"`
 	Count         int64                        `json:"count"`
 	Followers     []ActorDefs_ProfileViewBasic `json:"followers"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_KnownFollowers.
@@ -1973,17 +2212,21 @@ func (s *ActorDefs_KnownFollowers) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_KnownFollowers) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_KnownFollowers_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "count", buf)
 	buf = append(buf, cborKey_ActorDefs_KnownFollowers_count...)
 	buf = cbor.AppendInt(buf, s.Count)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followers", buf)
 	buf = append(buf, cborKey_ActorDefs_KnownFollowers_followers...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Followers)))
 	for _, item := range s.Followers {
@@ -1993,6 +2236,7 @@ func (s *ActorDefs_KnownFollowers) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2002,6 +2246,7 @@ func (s *ActorDefs_KnownFollowers) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_KnownFollowers) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2025,10 +2270,12 @@ func (s *ActorDefs_KnownFollowers) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "followers" {
@@ -2047,16 +2294,20 @@ func (s *ActorDefs_KnownFollowers) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2107,6 +2358,15 @@ func (s *ActorDefs_KnownFollowers) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2117,6 +2377,7 @@ func (s *ActorDefs_KnownFollowers) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_KnownFollowers) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2172,10 +2433,12 @@ func (s *ActorDefs_KnownFollowers) UnmarshalJSONAt(data []byte, pos int) (int, e
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2185,6 +2448,10 @@ func (s *ActorDefs_KnownFollowers) UnmarshalJSONAt(data []byte, pos int) (int, e
 type ActorDefs_LabelerPrefItem struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	DID           string `json:"did"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_LabelerPrefItem.
@@ -2198,17 +2465,21 @@ func (s *ActorDefs_LabelerPrefItem) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_LabelerPrefItem) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_LabelerPrefItem_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2218,6 +2489,7 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_LabelerPrefItem) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2236,10 +2508,12 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2248,16 +2522,20 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2290,6 +2568,15 @@ func (s *ActorDefs_LabelerPrefItem) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_LabelerPrefItem_did...)
 	buf = cbor.AppendJSONString(buf, s.DID)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2300,6 +2587,7 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_LabelerPrefItem) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2328,10 +2616,12 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalJSONAt(data []byte, pos int) (int, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2341,6 +2631,10 @@ func (s *ActorDefs_LabelerPrefItem) UnmarshalJSONAt(data []byte, pos int) (int, 
 type ActorDefs_LabelersPref struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
 	Labelers      []ActorDefs_LabelerPrefItem `json:"labelers"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_LabelersPref.
@@ -2354,15 +2648,18 @@ func (s *ActorDefs_LabelersPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_LabelersPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_LabelersPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labelers", buf)
 	buf = append(buf, cborKey_ActorDefs_LabelersPref_labelers...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labelers)))
 	for _, item := range s.Labelers {
@@ -2372,6 +2669,7 @@ func (s *ActorDefs_LabelersPref) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2381,6 +2679,7 @@ func (s *ActorDefs_LabelersPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_LabelersPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2399,10 +2698,12 @@ func (s *ActorDefs_LabelersPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "labelers" {
@@ -2421,16 +2722,20 @@ func (s *ActorDefs_LabelersPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2474,6 +2779,15 @@ func (s *ActorDefs_LabelersPref) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2484,6 +2798,7 @@ func (s *ActorDefs_LabelersPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_LabelersPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2534,10 +2849,12 @@ func (s *ActorDefs_LabelersPref) UnmarshalJSONAt(data []byte, pos int) (int, err
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2550,6 +2867,10 @@ type ActorDefs_LiveEventPreferences struct {
 	LexiconTypeID string          `json:"$type,omitempty"`
 	HiddenFeedIds []string        `json:"hiddenFeedIds,omitempty"` // A list of feed IDs that the user has hidden from live events.
 	HideAllFeeds  gt.Option[bool] `json:"hideAllFeeds,omitzero"`   // Whether to hide all feeds from live events.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_LiveEventPreferences.
@@ -2564,7 +2885,7 @@ func (s *ActorDefs_LiveEventPreferences) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_LiveEventPreferences) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -2575,14 +2896,18 @@ func (s *ActorDefs_LiveEventPreferences) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideAllFeeds", buf)
 	if s.HideAllFeeds.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hideAllFeeds...)
 		buf = cbor.AppendBool(buf, s.HideAllFeeds.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hiddenFeedIds", buf)
 	if len(s.HiddenFeedIds) > 0 {
 		buf = append(buf, cborKey_ActorDefs_LiveEventPreferences_hiddenFeedIds...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.HiddenFeedIds)))
@@ -2590,6 +2915,7 @@ func (s *ActorDefs_LiveEventPreferences) AppendCBOR(buf []byte) ([]byte, error) 
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2599,6 +2925,7 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_LiveEventPreferences) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2617,10 +2944,12 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "hideAllFeeds" {
@@ -2635,10 +2964,12 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalCBORAt(data []byte, pos int) (
 					s.HideAllFeeds = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "hiddenFeedIds" {
@@ -2657,16 +2988,20 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalCBORAt(data []byte, pos int) (
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2717,6 +3052,15 @@ func (s *ActorDefs_LiveEventPreferences) AppendJSON(buf []byte) ([]byte, error) 
 		buf = cbor.AppendJSONBool(buf, s.HideAllFeeds.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2727,6 +3071,7 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_LiveEventPreferences) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2791,10 +3136,12 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalJSONAt(data []byte, pos int) (
 				s.HideAllFeeds = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2810,6 +3157,10 @@ type ActorDefs_MutedWord struct {
 	Id            gt.Option[string]           `json:"id,omitzero"`
 	Targets       []ActorDefs_MutedWordTarget `json:"targets"` // The intended targets of the muted word.
 	Value         string                      `json:"value"`   // The muted word itself.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_MutedWord.
@@ -2827,7 +3178,7 @@ func (s *ActorDefs_MutedWord) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_MutedWord) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.Id.HasVal() {
 		n++
 	}
@@ -2841,29 +3192,37 @@ func (s *ActorDefs_MutedWord) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
 	if s.Id.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_MutedWord_id...)
 		buf = cbor.AppendText(buf, s.Id.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_MutedWord_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
 	buf = append(buf, cborKey_ActorDefs_MutedWord_value...)
 	buf = cbor.AppendText(buf, s.Value)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "targets", buf)
 	buf = append(buf, cborKey_ActorDefs_MutedWord_targets...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Targets)))
 	for _, item := range s.Targets {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
 	if s.ExpiresAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_MutedWord_expiresAt...)
 		buf = cbor.AppendText(buf, s.ExpiresAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actorTarget", buf)
 	if s.ActorTarget.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_MutedWord_actorTarget...)
 		buf = cbor.AppendText(buf, s.ActorTarget.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2873,6 +3232,7 @@ func (s *ActorDefs_MutedWord) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2897,10 +3257,12 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.Id = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -2914,10 +3276,12 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "targets" {
@@ -2936,10 +3300,12 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "expiresAt" {
@@ -2954,10 +3320,12 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.ExpiresAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "actorTarget" {
@@ -2972,16 +3340,20 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.ActorTarget = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -3055,6 +3427,15 @@ func (s *ActorDefs_MutedWord) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_MutedWord_value...)
 	buf = cbor.AppendJSONString(buf, s.Value)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -3065,6 +3446,7 @@ func (s *ActorDefs_MutedWord) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_MutedWord) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3162,10 +3544,12 @@ func (s *ActorDefs_MutedWord) UnmarshalJSONAt(data []byte, pos int) (int, error)
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -3184,6 +3568,10 @@ const (
 type ActorDefs_MutedWordsPref struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
 	Items         []ActorDefs_MutedWord `json:"items"` // A list of words the account owner has muted.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_MutedWordsPref.
@@ -3197,15 +3585,18 @@ func (s *ActorDefs_MutedWordsPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_MutedWordsPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_MutedWordsPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
 	buf = append(buf, cborKey_ActorDefs_MutedWordsPref_items...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
 	for _, item := range s.Items {
@@ -3215,6 +3606,7 @@ func (s *ActorDefs_MutedWordsPref) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3224,6 +3616,7 @@ func (s *ActorDefs_MutedWordsPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_MutedWordsPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -3257,16 +3650,20 @@ func (s *ActorDefs_MutedWordsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -3310,6 +3707,15 @@ func (s *ActorDefs_MutedWordsPref) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -3320,6 +3726,7 @@ func (s *ActorDefs_MutedWordsPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_MutedWordsPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3370,10 +3777,12 @@ func (s *ActorDefs_MutedWordsPref) UnmarshalJSONAt(data []byte, pos int) (int, e
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -3388,6 +3797,10 @@ type ActorDefs_Nux struct {
 	Data          gt.Option[string] `json:"data,omitzero"`      // Arbitrary data for the NUX. The structure is defined by the NUX itself. Limited to 300 characters.
 	ExpiresAt     gt.Option[string] `json:"expiresAt,omitzero"` // The date and time at which the NUX will expire and should be considered completed.
 	Id            string            `json:"id"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_Nux.
@@ -3404,7 +3817,7 @@ func (s *ActorDefs_Nux) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_Nux) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.Data.HasVal() {
 		n++
 	}
@@ -3415,22 +3828,29 @@ func (s *ActorDefs_Nux) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
 	buf = append(buf, cborKey_ActorDefs_Nux_id...)
 	buf = cbor.AppendText(buf, s.Id)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "data", buf)
 	if s.Data.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_Nux_data...)
 		buf = cbor.AppendText(buf, s.Data.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_Nux_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completed", buf)
 	buf = append(buf, cborKey_ActorDefs_Nux_completed...)
 	buf = cbor.AppendBool(buf, s.Completed)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
 	if s.ExpiresAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_Nux_expiresAt...)
 		buf = cbor.AppendText(buf, s.ExpiresAt.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3440,6 +3860,7 @@ func (s *ActorDefs_Nux) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_Nux) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -3458,10 +3879,12 @@ func (s *ActorDefs_Nux) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "data" {
@@ -3476,10 +3899,12 @@ func (s *ActorDefs_Nux) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Data = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -3488,10 +3913,12 @@ func (s *ActorDefs_Nux) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "completed" {
@@ -3511,16 +3938,20 @@ func (s *ActorDefs_Nux) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.ExpiresAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -3578,6 +4009,15 @@ func (s *ActorDefs_Nux) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_Nux_id...)
 	buf = cbor.AppendJSONString(buf, s.Id)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -3588,6 +4028,7 @@ func (s *ActorDefs_Nux) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_Nux) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3649,10 +4090,12 @@ func (s *ActorDefs_Nux) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -3662,6 +4105,10 @@ func (s *ActorDefs_Nux) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 type ActorDefs_PersonalDetailsPref struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	BirthDate     gt.Option[string] `json:"birthDate,omitzero"` // The birth date of account owner.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_PersonalDetailsPref.
@@ -3675,7 +4122,7 @@ func (s *ActorDefs_PersonalDetailsPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_PersonalDetailsPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -3683,14 +4130,18 @@ func (s *ActorDefs_PersonalDetailsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "birthDate", buf)
 	if s.BirthDate.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_PersonalDetailsPref_birthDate...)
 		buf = cbor.AppendText(buf, s.BirthDate.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -3700,6 +4151,7 @@ func (s *ActorDefs_PersonalDetailsPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_PersonalDetailsPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -3718,10 +4170,12 @@ func (s *ActorDefs_PersonalDetailsPref) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "birthDate" {
@@ -3736,16 +4190,20 @@ func (s *ActorDefs_PersonalDetailsPref) UnmarshalCBORAt(data []byte, pos int) (i
 					s.BirthDate = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -3780,6 +4238,15 @@ func (s *ActorDefs_PersonalDetailsPref) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.BirthDate.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -3790,6 +4257,7 @@ func (s *ActorDefs_PersonalDetailsPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_PersonalDetailsPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -3827,10 +4295,12 @@ func (s *ActorDefs_PersonalDetailsPref) UnmarshalJSONAt(data []byte, pos int) (i
 				s.BirthDate = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -3843,6 +4313,10 @@ type ActorDefs_PostInteractionSettingsPref struct {
 	LexiconTypeID          string                                                         `json:"$type,omitempty"`
 	PostgateEmbeddingRules []ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules `json:"postgateEmbeddingRules,omitempty"` // Matches postgate record. List of rules defining who can embed this users posts. If value is an em...
 	ThreadgateAllowRules   []ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules   `json:"threadgateAllowRules,omitempty"`   // Matches threadgate record. List of rules defining who can reply to this users posts. If value is ...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules is a union type.
@@ -4136,7 +4610,7 @@ func (s *ActorDefs_PostInteractionSettingsPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_PostInteractionSettingsPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -4147,10 +4621,13 @@ func (s *ActorDefs_PostInteractionSettingsPref) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "threadgateAllowRules", buf)
 	if len(s.ThreadgateAllowRules) > 0 {
 		buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_threadgateAllowRules...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ThreadgateAllowRules)))
@@ -4162,6 +4639,7 @@ func (s *ActorDefs_PostInteractionSettingsPref) AppendCBOR(buf []byte) ([]byte, 
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postgateEmbeddingRules", buf)
 	if len(s.PostgateEmbeddingRules) > 0 {
 		buf = append(buf, cborKey_ActorDefs_PostInteractionSettingsPref_postgateEmbeddingRules...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.PostgateEmbeddingRules)))
@@ -4173,6 +4651,7 @@ func (s *ActorDefs_PostInteractionSettingsPref) AppendCBOR(buf []byte) ([]byte, 
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -4182,6 +4661,7 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBOR(data []byte) error
 }
 
 func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -4200,10 +4680,12 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "threadgateAllowRules" {
@@ -4222,10 +4704,12 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 22:
 			if string(data[keyStart:keyEnd]) == "postgateEmbeddingRules" {
@@ -4244,16 +4728,20 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -4319,6 +4807,15 @@ func (s *ActorDefs_PostInteractionSettingsPref) AppendJSON(buf []byte) ([]byte, 
 		buf = append(buf, ']')
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -4329,6 +4826,7 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalJSON(data []byte) error
 }
 
 func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -4406,10 +4904,12 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalJSONAt(data []byte, pos
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -4932,6 +5432,10 @@ type ActorDefs_ProfileAssociated struct {
 	Labeler              gt.Option[bool]                                            `json:"labeler,omitzero"`
 	Lists                gt.Option[int64]                                           `json:"lists,omitzero"`
 	StarterPacks         gt.Option[int64]                                           `json:"starterPacks,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileAssociated.
@@ -4951,7 +5455,7 @@ func (s *ActorDefs_ProfileAssociated) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileAssociated) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.Chat.HasVal() {
 		n++
 	}
@@ -4977,6 +5481,8 @@ func (s *ActorDefs_ProfileAssociated) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
 	if s.Chat.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_chat...)
 		{
@@ -4990,6 +5496,7 @@ func (s *ActorDefs_ProfileAssociated) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "germ", buf)
 	if s.Germ.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_germ...)
 		{
@@ -5003,26 +5510,32 @@ func (s *ActorDefs_ProfileAssociated) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lists", buf)
 	if s.Lists.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_lists...)
 		buf = cbor.AppendInt(buf, s.Lists.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labeler", buf)
 	if s.Labeler.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_labeler...)
 		buf = cbor.AppendBool(buf, s.Labeler.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "feedgens", buf)
 	if s.Feedgens.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_feedgens...)
 		buf = cbor.AppendInt(buf, s.Feedgens.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "starterPacks", buf)
 	if s.StarterPacks.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_starterPacks...)
 		buf = cbor.AppendInt(buf, s.StarterPacks.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
 	if s.ActivitySubscription.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociated_activitySubscription...)
 		{
@@ -5036,6 +5549,7 @@ func (s *ActorDefs_ProfileAssociated) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5045,6 +5559,7 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -5080,10 +5595,12 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 					s.Germ = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -5103,10 +5620,12 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 					s.Lists = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "labeler" {
@@ -5121,10 +5640,12 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 					s.Labeler = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "feedgens" {
@@ -5139,10 +5660,12 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 					s.Feedgens = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "starterPacks" {
@@ -5157,10 +5680,12 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 					s.StarterPacks = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "activitySubscription" {
@@ -5175,16 +5700,20 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalCBORAt(data []byte, pos int) (int
 					s.ActivitySubscription = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -5300,6 +5829,15 @@ func (s *ActorDefs_ProfileAssociated) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONInt(buf, s.StarterPacks.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -5310,6 +5848,7 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileAssociated) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -5431,10 +5970,12 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalJSONAt(data []byte, pos int) (int
 				s.StarterPacks = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -5444,6 +5985,10 @@ func (s *ActorDefs_ProfileAssociated) UnmarshalJSONAt(data []byte, pos int) (int
 type ActorDefs_ProfileAssociatedActivitySubscription struct {
 	LexiconTypeID      string `json:"$type,omitempty"`
 	AllowSubscriptions string `json:"allowSubscriptions"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileAssociatedActivitySubscription.
@@ -5457,17 +6002,21 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) MarshalCBOR() ([]byte,
 }
 
 func (s *ActorDefs_ProfileAssociatedActivitySubscription) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowSubscriptions", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedActivitySubscription_allowSubscriptions...)
 	buf = cbor.AppendText(buf, s.AllowSubscriptions)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5477,6 +6026,7 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBOR(data []b
 }
 
 func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -5495,10 +6045,12 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBORAt(data [
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 18:
 			if string(data[keyStart:keyEnd]) == "allowSubscriptions" {
@@ -5507,16 +6059,20 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBORAt(data [
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -5549,6 +6105,15 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) AppendJSON(buf []byte)
 	buf = append(buf, jsonKey_ActorDefs_ProfileAssociatedActivitySubscription_allowSubscriptions...)
 	buf = cbor.AppendJSONString(buf, s.AllowSubscriptions)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -5559,6 +6124,7 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalJSON(data []b
 }
 
 func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -5587,10 +6153,12 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalJSONAt(data [
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -5600,6 +6168,10 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalJSONAt(data [
 type ActorDefs_ProfileAssociatedChat struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	AllowIncoming string `json:"allowIncoming"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileAssociatedChat.
@@ -5613,17 +6185,21 @@ func (s *ActorDefs_ProfileAssociatedChat) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileAssociatedChat) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowIncoming", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
 	buf = cbor.AppendText(buf, s.AllowIncoming)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5633,6 +6209,7 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -5651,10 +6228,12 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "allowIncoming" {
@@ -5663,16 +6242,20 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -5705,6 +6288,15 @@ func (s *ActorDefs_ProfileAssociatedChat) AppendJSON(buf []byte) ([]byte, error)
 	buf = append(buf, jsonKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
 	buf = cbor.AppendJSONString(buf, s.AllowIncoming)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -5715,6 +6307,7 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileAssociatedChat) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -5743,10 +6336,12 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalJSONAt(data []byte, pos int) 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -5757,6 +6352,10 @@ type ActorDefs_ProfileAssociatedGerm struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	MessageMeUrl  string `json:"messageMeUrl"`
 	ShowButtonTo  string `json:"showButtonTo"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileAssociatedGerm.
@@ -5771,19 +6370,24 @@ func (s *ActorDefs_ProfileAssociatedGerm) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileAssociatedGerm) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messageMeUrl", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_messageMeUrl...)
 	buf = cbor.AppendText(buf, s.MessageMeUrl)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "showButtonTo", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileAssociatedGerm_showButtonTo...)
 	buf = cbor.AppendText(buf, s.ShowButtonTo)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -5793,6 +6397,7 @@ func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -5811,10 +6416,12 @@ func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "messageMeUrl" {
@@ -5828,16 +6435,20 @@ func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -5877,6 +6488,15 @@ func (s *ActorDefs_ProfileAssociatedGerm) AppendJSON(buf []byte) ([]byte, error)
 	buf = append(buf, jsonKey_ActorDefs_ProfileAssociatedGerm_showButtonTo...)
 	buf = cbor.AppendJSONString(buf, s.ShowButtonTo)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -5887,6 +6507,7 @@ func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -5920,10 +6541,12 @@ func (s *ActorDefs_ProfileAssociatedGerm) UnmarshalJSONAt(data []byte, pos int) 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -5946,6 +6569,10 @@ type ActorDefs_ProfileView struct {
 	Status        gt.Option[ActorDefs_StatusView]        `json:"status,omitzero"`
 	Verification  gt.Option[ActorDefs_VerificationState] `json:"verification,omitzero"`
 	Viewer        gt.Option[ActorDefs_ViewerState]       `json:"viewer,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileView.
@@ -5972,7 +6599,7 @@ func (s *ActorDefs_ProfileView) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -6013,22 +6640,29 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileView_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
 	if true {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_debug...)
 		buf = cbor.AppendNull(buf)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
 	if s.Avatar.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_avatar...)
 		buf = cbor.AppendText(buf, s.Avatar.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileView_handle...)
 	buf = cbor.AppendText(buf, s.Handle)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
 	if len(s.Labels) > 0 {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_labels...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
@@ -6040,6 +6674,7 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	if s.Status.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_status...)
 		{
@@ -6053,6 +6688,7 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
 	if s.Viewer.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_viewer...)
 		{
@@ -6066,18 +6702,22 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
 	if s.Pronouns.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_pronouns...)
 		buf = cbor.AppendText(buf, s.Pronouns.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	if s.CreatedAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
 	if s.IndexedAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_indexedAt...)
 		buf = cbor.AppendText(buf, s.IndexedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
 	if s.Associated.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_associated...)
 		{
@@ -6091,14 +6731,17 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
 	if s.Description.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_description...)
 		buf = cbor.AppendText(buf, s.Description.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
 	if s.DisplayName.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
 	if s.Verification.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileView_verification...)
 		{
@@ -6112,6 +6755,7 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6121,6 +6765,7 @@ func (s *ActorDefs_ProfileView) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -6139,10 +6784,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -6156,10 +6803,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "avatar" {
@@ -6216,10 +6865,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Viewer = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "pronouns" {
@@ -6234,10 +6885,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Pronouns = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -6263,10 +6916,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.IndexedAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "associated" {
@@ -6281,10 +6936,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Associated = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "description" {
@@ -6310,10 +6967,12 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.DisplayName = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "verification" {
@@ -6328,16 +6987,20 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Verification = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -6532,6 +7195,15 @@ func (s *ActorDefs_ProfileView) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -6542,6 +7214,7 @@ func (s *ActorDefs_ProfileView) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -6751,10 +7424,12 @@ func (s *ActorDefs_ProfileView) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				s.Viewer = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -6775,6 +7450,10 @@ type ActorDefs_ProfileViewBasic struct {
 	Status        gt.Option[ActorDefs_StatusView]        `json:"status,omitzero"`
 	Verification  gt.Option[ActorDefs_VerificationState] `json:"verification,omitzero"`
 	Viewer        gt.Option[ActorDefs_ViewerState]       `json:"viewer,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileViewBasic.
@@ -6799,7 +7478,7 @@ func (s *ActorDefs_ProfileViewBasic) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -6834,22 +7513,29 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
 	if true {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_debug...)
 		buf = cbor.AppendNull(buf)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
 	if s.Avatar.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_avatar...)
 		buf = cbor.AppendText(buf, s.Avatar.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_handle...)
 	buf = cbor.AppendText(buf, s.Handle)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
 	if len(s.Labels) > 0 {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_labels...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
@@ -6861,6 +7547,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	if s.Status.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_status...)
 		{
@@ -6874,6 +7561,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
 	if s.Viewer.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_viewer...)
 		{
@@ -6887,14 +7575,17 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
 	if s.Pronouns.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_pronouns...)
 		buf = cbor.AppendText(buf, s.Pronouns.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	if s.CreatedAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
 	if s.Associated.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
 		{
@@ -6908,10 +7599,12 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
 	if s.DisplayName.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
 	if s.Verification.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_verification...)
 		{
@@ -6925,6 +7618,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -6934,6 +7628,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -6952,10 +7647,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -6969,10 +7666,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "avatar" {
@@ -7029,10 +7728,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.Viewer = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "pronouns" {
@@ -7047,10 +7748,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.Pronouns = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -7065,10 +7768,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.CreatedAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "associated" {
@@ -7083,10 +7788,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.Associated = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "displayName" {
@@ -7101,10 +7808,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.DisplayName = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "verification" {
@@ -7119,16 +7828,20 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.Verification = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -7305,6 +8018,15 @@ func (s *ActorDefs_ProfileViewBasic) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -7315,6 +8037,7 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileViewBasic) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -7496,10 +8219,12 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalJSONAt(data []byte, pos int) (int,
 				s.Viewer = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -7529,6 +8254,10 @@ type ActorDefs_ProfileViewDetailed struct {
 	Verification         gt.Option[ActorDefs_VerificationState]    `json:"verification,omitzero"`
 	Viewer               gt.Option[ActorDefs_ViewerState]          `json:"viewer,omitzero"`
 	Website              gt.Option[string]                         `json:"website,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileViewDetailed.
@@ -7562,7 +8291,7 @@ func (s *ActorDefs_ProfileViewDetailed) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -7624,26 +8353,34 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "debug", buf)
 	if true {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_debug...)
 		buf = cbor.AppendNull(buf)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
 	if s.Avatar.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_avatar...)
 		buf = cbor.AppendText(buf, s.Avatar.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "banner", buf)
 	if s.Banner.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_banner...)
 		buf = cbor.AppendText(buf, s.Banner.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_handle...)
 	buf = cbor.AppendText(buf, s.Handle)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
 	if len(s.Labels) > 0 {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_labels...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
@@ -7655,6 +8392,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	if s.Status.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_status...)
 		{
@@ -7668,6 +8406,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
 	if s.Viewer.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_viewer...)
 		{
@@ -7681,22 +8420,27 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "website", buf)
 	if s.Website.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_website...)
 		buf = cbor.AppendText(buf, s.Website.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pronouns", buf)
 	if s.Pronouns.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pronouns...)
 		buf = cbor.AppendText(buf, s.Pronouns.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	if s.CreatedAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
 	if s.IndexedAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_indexedAt...)
 		buf = cbor.AppendText(buf, s.IndexedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "associated", buf)
 	if s.Associated.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_associated...)
 		{
@@ -7710,6 +8454,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinnedPost", buf)
 	if s.PinnedPost.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_pinnedPost...)
 		{
@@ -7723,22 +8468,27 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "postsCount", buf)
 	if s.PostsCount.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_postsCount...)
 		buf = cbor.AppendInt(buf, s.PostsCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
 	if s.Description.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_description...)
 		buf = cbor.AppendText(buf, s.Description.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
 	if s.DisplayName.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followsCount", buf)
 	if s.FollowsCount.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followsCount...)
 		buf = cbor.AppendInt(buf, s.FollowsCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verification", buf)
 	if s.Verification.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_verification...)
 		{
@@ -7752,10 +8502,12 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followersCount", buf)
 	if s.FollowersCount.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_followersCount...)
 		buf = cbor.AppendInt(buf, s.FollowersCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "joinedViaStarterPack", buf)
 	if s.JoinedViaStarterPack.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_joinedViaStarterPack...)
 		{
@@ -7769,6 +8521,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -7778,6 +8531,7 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -7796,10 +8550,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -7813,10 +8569,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "avatar" {
@@ -7884,10 +8642,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.Viewer = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "website" {
@@ -7902,10 +8662,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.Website = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "pronouns" {
@@ -7920,10 +8682,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.Pronouns = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -7949,10 +8713,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.IndexedAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "associated" {
@@ -7989,10 +8755,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.PostsCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "description" {
@@ -8018,10 +8786,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.DisplayName = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "followsCount" {
@@ -8047,10 +8817,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.Verification = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "followersCount" {
@@ -8065,10 +8837,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.FollowersCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "joinedViaStarterPack" {
@@ -8083,16 +8857,20 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 					s.JoinedViaStarterPack = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -8368,6 +9146,15 @@ func (s *ActorDefs_ProfileViewDetailed) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Website.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -8378,6 +9165,7 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ProfileViewDetailed) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -8685,10 +9473,12 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalJSONAt(data []byte, pos int) (i
 				s.Website = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -8701,6 +9491,10 @@ type ActorDefs_SavedFeed struct {
 	Pinned        bool   `json:"pinned"`
 	Type          string `json:"type"`
 	Value         string `json:"value"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_SavedFeed.
@@ -8717,23 +9511,30 @@ func (s *ActorDefs_SavedFeed) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_SavedFeed) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeed_id...)
 	buf = cbor.AppendText(buf, s.Id)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "type", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeed_type...)
 	buf = cbor.AppendText(buf, s.Type)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_SavedFeed_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeed_value...)
 	buf = cbor.AppendText(buf, s.Value)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinned", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeed_pinned...)
 	buf = cbor.AppendBool(buf, s.Pinned)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -8743,6 +9544,7 @@ func (s *ActorDefs_SavedFeed) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_SavedFeed) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -8761,10 +9563,12 @@ func (s *ActorDefs_SavedFeed) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "type" {
@@ -8773,10 +9577,12 @@ func (s *ActorDefs_SavedFeed) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -8790,10 +9596,12 @@ func (s *ActorDefs_SavedFeed) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "pinned" {
@@ -8802,16 +9610,20 @@ func (s *ActorDefs_SavedFeed) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -8865,6 +9677,15 @@ func (s *ActorDefs_SavedFeed) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_SavedFeed_value...)
 	buf = cbor.AppendJSONString(buf, s.Value)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -8875,6 +9696,7 @@ func (s *ActorDefs_SavedFeed) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_SavedFeed) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -8918,10 +9740,12 @@ func (s *ActorDefs_SavedFeed) UnmarshalJSONAt(data []byte, pos int) (int, error)
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -8933,6 +9757,10 @@ type ActorDefs_SavedFeedsPref struct {
 	Pinned        []string         `json:"pinned"`
 	Saved         []string         `json:"saved"`
 	TimelineIndex gt.Option[int64] `json:"timelineIndex,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_SavedFeedsPref.
@@ -8948,7 +9776,7 @@ func (s *ActorDefs_SavedFeedsPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_SavedFeedsPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -8956,24 +9784,30 @@ func (s *ActorDefs_SavedFeedsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "saved", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_saved...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Saved)))
 	for _, item := range s.Saved {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pinned", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_pinned...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Pinned)))
 	for _, item := range s.Pinned {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "timelineIndex", buf)
 	if s.TimelineIndex.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_SavedFeedsPref_timelineIndex...)
 		buf = cbor.AppendInt(buf, s.TimelineIndex.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -8983,6 +9817,7 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -9016,10 +9851,12 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "pinned" {
@@ -9038,10 +9875,12 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "timelineIndex" {
@@ -9056,16 +9895,20 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.TimelineIndex = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -9128,6 +9971,15 @@ func (s *ActorDefs_SavedFeedsPref) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONInt(buf, s.TimelineIndex.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -9138,6 +9990,7 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_SavedFeedsPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -9229,10 +10082,12 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalJSONAt(data []byte, pos int) (int, e
 				s.TimelineIndex = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -9242,6 +10097,10 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalJSONAt(data []byte, pos int) (int, e
 type ActorDefs_SavedFeedsPrefV2 struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
 	Items         []ActorDefs_SavedFeed `json:"items"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_SavedFeedsPrefV2.
@@ -9255,15 +10114,18 @@ func (s *ActorDefs_SavedFeedsPrefV2) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_SavedFeedsPrefV2) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
 	buf = append(buf, cborKey_ActorDefs_SavedFeedsPrefV2_items...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
 	for _, item := range s.Items {
@@ -9273,6 +10135,7 @@ func (s *ActorDefs_SavedFeedsPrefV2) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -9282,6 +10145,7 @@ func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -9315,16 +10179,20 @@ func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalCBORAt(data []byte, pos int) (int,
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -9368,6 +10236,15 @@ func (s *ActorDefs_SavedFeedsPrefV2) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -9378,6 +10255,7 @@ func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -9428,10 +10306,12 @@ func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalJSONAt(data []byte, pos int) (int,
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -9448,6 +10328,10 @@ type ActorDefs_StatusView struct {
 	Record        json.RawMessage                       `json:"record"`
 	Status        string                                `json:"status"` // The status for the account.
 	URI           gt.Option[string]                     `json:"uri,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ActorDefs_StatusView_Embed is a union type.
@@ -9567,7 +10451,7 @@ func (s *ActorDefs_StatusView) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.CID.HasVal() {
 		n++
 	}
@@ -9590,18 +10474,23 @@ func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
 	if s.CID.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_StatusView_cid...)
 		buf = cbor.AppendText(buf, s.CID.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	if s.URI.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_StatusView_uri...)
 		buf = cbor.AppendText(buf, s.URI.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_StatusView_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embed", buf)
 	if s.Embed.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_StatusView_embed...)
 		{
@@ -9615,22 +10504,28 @@ func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
 	buf = append(buf, cborKey_ActorDefs_StatusView_record...)
 	buf = cbor.AppendNull(buf)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	buf = append(buf, cborKey_ActorDefs_StatusView_status...)
 	buf = cbor.AppendText(buf, s.Status)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isActive", buf)
 	if s.IsActive.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_StatusView_isActive...)
 		buf = cbor.AppendBool(buf, s.IsActive.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expiresAt", buf)
 	if s.ExpiresAt.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_StatusView_expiresAt...)
 		buf = cbor.AppendText(buf, s.ExpiresAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isDisabled", buf)
 	if s.IsDisabled.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_StatusView_isDisabled...)
 		buf = cbor.AppendBool(buf, s.IsDisabled.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -9640,6 +10535,7 @@ func (s *ActorDefs_StatusView) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -9675,10 +10571,12 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 					s.URI = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -9698,10 +10596,12 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 					s.Embed = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "record" {
@@ -9715,10 +10615,12 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "isActive" {
@@ -9733,10 +10635,12 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 					s.IsActive = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "expiresAt" {
@@ -9751,10 +10655,12 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 					s.ExpiresAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "isDisabled" {
@@ -9769,16 +10675,20 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 					s.IsDisabled = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -9881,6 +10791,15 @@ func (s *ActorDefs_StatusView) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.URI.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -9891,6 +10810,7 @@ func (s *ActorDefs_StatusView) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_StatusView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -10012,10 +10932,12 @@ func (s *ActorDefs_StatusView) UnmarshalJSONAt(data []byte, pos int) (int, error
 				s.URI = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -10025,6 +10947,10 @@ func (s *ActorDefs_StatusView) UnmarshalJSONAt(data []byte, pos int) (int, error
 type ActorDefs_ThreadViewPref struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Sort          gt.Option[string] `json:"sort,omitzero"` // Sorting mode for threads.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ThreadViewPref.
@@ -10038,7 +10964,7 @@ func (s *ActorDefs_ThreadViewPref) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ThreadViewPref) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.Sort.HasVal() {
 		n++
 	}
@@ -10046,14 +10972,18 @@ func (s *ActorDefs_ThreadViewPref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sort", buf)
 	if s.Sort.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ThreadViewPref_sort...)
 		buf = cbor.AppendText(buf, s.Sort.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ThreadViewPref_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10063,6 +10993,7 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ThreadViewPref) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -10087,10 +11018,12 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.Sort = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -10099,16 +11032,20 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -10143,6 +11080,15 @@ func (s *ActorDefs_ThreadViewPref) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Sort.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -10153,6 +11099,7 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ThreadViewPref) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -10190,10 +11137,12 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalJSONAt(data []byte, pos int) (int, e
 				s.Sort = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -10205,6 +11154,10 @@ func (s *ActorDefs_ThreadViewPref) UnmarshalJSONAt(data []byte, pos int) (int, e
 type ActorDefs_VerificationPrefs struct {
 	LexiconTypeID string          `json:"$type,omitempty"`
 	HideBadges    gt.Option[bool] `json:"hideBadges,omitzero"` // Hide the blue check badges for verified accounts and trusted verifiers.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_VerificationPrefs.
@@ -10218,7 +11171,7 @@ func (s *ActorDefs_VerificationPrefs) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_VerificationPrefs) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -10226,14 +11179,18 @@ func (s *ActorDefs_VerificationPrefs) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_VerificationPrefs_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hideBadges", buf)
 	if s.HideBadges.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_VerificationPrefs_hideBadges...)
 		buf = cbor.AppendBool(buf, s.HideBadges.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10243,6 +11200,7 @@ func (s *ActorDefs_VerificationPrefs) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_VerificationPrefs) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -10261,10 +11219,12 @@ func (s *ActorDefs_VerificationPrefs) UnmarshalCBORAt(data []byte, pos int) (int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "hideBadges" {
@@ -10279,16 +11239,20 @@ func (s *ActorDefs_VerificationPrefs) UnmarshalCBORAt(data []byte, pos int) (int
 					s.HideBadges = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -10323,6 +11287,15 @@ func (s *ActorDefs_VerificationPrefs) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONBool(buf, s.HideBadges.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -10333,6 +11306,7 @@ func (s *ActorDefs_VerificationPrefs) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_VerificationPrefs) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -10370,10 +11344,12 @@ func (s *ActorDefs_VerificationPrefs) UnmarshalJSONAt(data []byte, pos int) (int
 				s.HideBadges = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -10387,6 +11363,10 @@ type ActorDefs_VerificationState struct {
 	TrustedVerifierStatus string                       `json:"trustedVerifierStatus"` // The user's status as a trusted verifier.
 	Verifications         []ActorDefs_VerificationView `json:"verifications"`         // All verifications issued by trusted verifiers on behalf of this user. Verifications by untrusted ...
 	VerifiedStatus        string                       `json:"verifiedStatus"`        // The user's status as a verified account.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_VerificationState.
@@ -10402,15 +11382,18 @@ func (s *ActorDefs_VerificationState) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_VerificationState) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_VerificationState_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifications", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationState_verifications...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Verifications)))
 	for _, item := range s.Verifications {
@@ -10420,10 +11403,13 @@ func (s *ActorDefs_VerificationState) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifiedStatus", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationState_verifiedStatus...)
 	buf = cbor.AppendText(buf, s.VerifiedStatus)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "trustedVerifierStatus", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationState_trustedVerifierStatus...)
 	buf = cbor.AppendText(buf, s.TrustedVerifierStatus)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10433,6 +11419,7 @@ func (s *ActorDefs_VerificationState) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -10451,10 +11438,12 @@ func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "verifications" {
@@ -10473,10 +11462,12 @@ func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "verifiedStatus" {
@@ -10485,10 +11476,12 @@ func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 21:
 			if string(data[keyStart:keyEnd]) == "trustedVerifierStatus" {
@@ -10497,16 +11490,20 @@ func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -10564,6 +11561,15 @@ func (s *ActorDefs_VerificationState) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_VerificationState_verifiedStatus...)
 	buf = cbor.AppendJSONString(buf, s.VerifiedStatus)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -10574,6 +11580,7 @@ func (s *ActorDefs_VerificationState) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_VerificationState) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -10634,10 +11641,12 @@ func (s *ActorDefs_VerificationState) UnmarshalJSONAt(data []byte, pos int) (int
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -10652,6 +11661,10 @@ type ActorDefs_VerificationView struct {
 	IsValid       bool   `json:"isValid"`   // True if the verification passes validation, otherwise false.
 	Issuer        string `json:"issuer"`    // The user who issued this verification.
 	URI           string `json:"uri"`       // The AT-URI of the verification record.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_VerificationView.
@@ -10668,23 +11681,30 @@ func (s *ActorDefs_VerificationView) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationView_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_VerificationView_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "issuer", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationView_issuer...)
 	buf = cbor.AppendText(buf, s.Issuer)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isValid", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationView_isValid...)
 	buf = cbor.AppendBool(buf, s.IsValid)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_ActorDefs_VerificationView_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -10694,6 +11714,7 @@ func (s *ActorDefs_VerificationView) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -10712,10 +11733,12 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -10724,10 +11747,12 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "issuer" {
@@ -10736,10 +11761,12 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "isValid" {
@@ -10748,10 +11775,12 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -10760,16 +11789,20 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -10823,6 +11856,15 @@ func (s *ActorDefs_VerificationView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_VerificationView_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -10833,6 +11875,7 @@ func (s *ActorDefs_VerificationView) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_VerificationView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -10876,10 +11919,12 @@ func (s *ActorDefs_VerificationView) UnmarshalJSONAt(data []byte, pos int) (int,
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -10899,6 +11944,10 @@ type ActorDefs_ViewerState struct {
 	KnownFollowers       gt.Option[ActorDefs_KnownFollowers]              `json:"knownFollowers,omitzero"` // This property is present only in selected cases, as an optimization.
 	Muted                gt.Option[bool]                                  `json:"muted,omitzero"`
 	MutedByList          gt.Option[GraphDefs_ListViewBasic]               `json:"mutedByList,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ActorDefs_ViewerState.
@@ -10920,7 +11969,7 @@ func (s *ActorDefs_ViewerState) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -10952,30 +12001,38 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "muted", buf)
 	if s.Muted.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_muted...)
 		buf = cbor.AppendBool(buf, s.Muted.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocking", buf)
 	if s.Blocking.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_blocking...)
 		buf = cbor.AppendText(buf, s.Blocking.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockedBy", buf)
 	if s.BlockedBy.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_blockedBy...)
 		buf = cbor.AppendBool(buf, s.BlockedBy.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "following", buf)
 	if s.Following.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_following...)
 		buf = cbor.AppendText(buf, s.Following.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "followedBy", buf)
 	if s.FollowedBy.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_followedBy...)
 		buf = cbor.AppendText(buf, s.FollowedBy.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "mutedByList", buf)
 	if s.MutedByList.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_mutedByList...)
 		{
@@ -10989,6 +12046,7 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blockingByList", buf)
 	if s.BlockingByList.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_blockingByList...)
 		{
@@ -11002,6 +12060,7 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "knownFollowers", buf)
 	if s.KnownFollowers.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_knownFollowers...)
 		{
@@ -11015,6 +12074,7 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activitySubscription", buf)
 	if s.ActivitySubscription.HasVal() {
 		buf = append(buf, cborKey_ActorDefs_ViewerState_activitySubscription...)
 		{
@@ -11028,6 +12088,7 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -11037,6 +12098,7 @@ func (s *ActorDefs_ViewerState) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -11066,10 +12128,12 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Muted = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "blocking" {
@@ -11084,10 +12148,12 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Blocking = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "blockedBy" {
@@ -11113,10 +12179,12 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.Following = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "followedBy" {
@@ -11131,10 +12199,12 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.FollowedBy = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "mutedByList" {
@@ -11149,10 +12219,12 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.MutedByList = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "blockingByList" {
@@ -11178,10 +12250,12 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.KnownFollowers = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "activitySubscription" {
@@ -11196,16 +12270,20 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.ActivitySubscription = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -11348,6 +12426,15 @@ func (s *ActorDefs_ViewerState) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -11358,6 +12445,7 @@ func (s *ActorDefs_ViewerState) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorDefs_ViewerState) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -11507,10 +12595,12 @@ func (s *ActorDefs_ViewerState) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				s.MutedByList = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -4,6 +4,7 @@ package ozone
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -98,6 +99,15 @@ func (s *CommunicationUpdateTemplate_Input) AppendJSON(buf []byte) ([]byte, erro
 		buf = cbor.AppendJSONString(buf, s.UpdatedBy.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -108,6 +118,7 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *CommunicationUpdateTemplate_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -220,10 +231,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalJSONAt(data []byte, pos int
 				s.UpdatedBy = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -246,7 +259,7 @@ func (s *CommunicationUpdateTemplate_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *CommunicationUpdateTemplate_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.Lang.HasVal() {
 		n++
 	}
@@ -269,36 +282,46 @@ func (s *CommunicationUpdateTemplate_Input) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
 	buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_id...)
 	buf = cbor.AppendText(buf, s.Id)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
 	if s.Lang.HasVal() {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_lang...)
 		buf = cbor.AppendText(buf, s.Lang.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
 	if s.Name.HasVal() {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_name...)
 		buf = cbor.AppendText(buf, s.Name.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
 	if s.Subject.HasVal() {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_subject...)
 		buf = cbor.AppendText(buf, s.Subject.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
 	if s.Disabled.HasVal() {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_disabled...)
 		buf = cbor.AppendBool(buf, s.Disabled.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedBy", buf)
 	if s.UpdatedBy.HasVal() {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_updatedBy...)
 		buf = cbor.AppendText(buf, s.UpdatedBy.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMarkdown", buf)
 	if s.ContentMarkdown.HasVal() {
 		buf = append(buf, cborKey_CommunicationUpdateTemplate_Input_contentMarkdown...)
 		buf = cbor.AppendText(buf, s.ContentMarkdown.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -308,6 +331,7 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -326,10 +350,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "lang" {
@@ -355,10 +381,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					s.Name = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -367,10 +395,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -385,10 +415,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					s.Subject = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "disabled" {
@@ -403,10 +435,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					s.Disabled = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "updatedBy" {
@@ -421,10 +455,12 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					s.UpdatedBy = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "contentMarkdown" {
@@ -439,16 +475,20 @@ func (s *CommunicationUpdateTemplate_Input) UnmarshalCBORAt(data []byte, pos int
 					s.ContentMarkdown = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -463,6 +503,10 @@ type CommunicationUpdateTemplate_Input struct {
 	Name            gt.Option[string] `json:"name,omitzero"`      // Name of the template.
 	Subject         gt.Option[string] `json:"subject,omitzero"`   // Subject of the message, used in emails.
 	UpdatedBy       gt.Option[string] `json:"updatedBy,omitzero"` // DID of the user who is updating the template.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // CommunicationUpdateTemplate calls the XRPC procedure "tools.ozone.communication.updateTemplate".

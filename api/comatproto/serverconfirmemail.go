@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -50,6 +51,15 @@ func (s *ServerConfirmEmail_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ServerConfirmEmail_Input_token...)
 	buf = cbor.AppendJSONString(buf, s.Token)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -60,6 +70,7 @@ func (s *ServerConfirmEmail_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerConfirmEmail_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -93,10 +104,12 @@ func (s *ServerConfirmEmail_Input) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -114,19 +127,24 @@ func (s *ServerConfirmEmail_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerConfirmEmail_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerConfirmEmail_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
 	buf = append(buf, cborKey_ServerConfirmEmail_Input_email...)
 	buf = cbor.AppendText(buf, s.Email)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
 	buf = append(buf, cborKey_ServerConfirmEmail_Input_token...)
 	buf = cbor.AppendText(buf, s.Token)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -136,6 +154,7 @@ func (s *ServerConfirmEmail_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerConfirmEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -164,16 +183,20 @@ func (s *ServerConfirmEmail_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -183,6 +206,10 @@ type ServerConfirmEmail_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Email         string `json:"email"`
 	Token         string `json:"token"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ServerConfirmEmail calls the XRPC procedure "com.atproto.server.confirmEmail".

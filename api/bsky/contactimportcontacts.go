@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -55,6 +56,15 @@ func (s *ContactImportContacts_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -65,6 +75,7 @@ func (s *ContactImportContacts_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactImportContacts_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -115,10 +126,12 @@ func (s *ContactImportContacts_Output) UnmarshalJSONAt(data []byte, pos int) (in
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -135,15 +148,18 @@ func (s *ContactImportContacts_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactImportContacts_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ContactImportContacts_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "matchesAndContactIndexes", buf)
 	buf = append(buf, cborKey_ContactImportContacts_Output_matchesAndContactIndexes...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.MatchesAndContactIndexes)))
 	for _, item := range s.MatchesAndContactIndexes {
@@ -153,6 +169,7 @@ func (s *ContactImportContacts_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -162,6 +179,7 @@ func (s *ContactImportContacts_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactImportContacts_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -180,10 +198,12 @@ func (s *ContactImportContacts_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 24:
 			if string(data[keyStart:keyEnd]) == "matchesAndContactIndexes" {
@@ -202,16 +222,20 @@ func (s *ContactImportContacts_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -220,6 +244,10 @@ func (s *ContactImportContacts_Output) UnmarshalCBORAt(data []byte, pos int) (in
 type ContactImportContacts_Output struct {
 	LexiconTypeID            string                             `json:"$type,omitempty"`
 	MatchesAndContactIndexes []ContactDefs_MatchAndContactIndex `json:"matchesAndContactIndexes"` // The users that matched during import and their indexes on the input contacts, so the client can c...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for ContactImportContacts_Input.
@@ -263,6 +291,15 @@ func (s *ContactImportContacts_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ContactImportContacts_Input_token...)
 	buf = cbor.AppendJSONString(buf, s.Token)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -273,6 +310,7 @@ func (s *ContactImportContacts_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactImportContacts_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -328,10 +366,12 @@ func (s *ContactImportContacts_Input) UnmarshalJSONAt(data []byte, pos int) (int
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -349,22 +389,27 @@ func (s *ContactImportContacts_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactImportContacts_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ContactImportContacts_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
 	buf = append(buf, cborKey_ContactImportContacts_Input_token...)
 	buf = cbor.AppendText(buf, s.Token)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contacts", buf)
 	buf = append(buf, cborKey_ContactImportContacts_Input_contacts...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Contacts)))
 	for _, item := range s.Contacts {
 		buf = cbor.AppendText(buf, item)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -374,6 +419,7 @@ func (s *ContactImportContacts_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactImportContacts_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -397,10 +443,12 @@ func (s *ContactImportContacts_Input) UnmarshalCBORAt(data []byte, pos int) (int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "contacts" {
@@ -419,16 +467,20 @@ func (s *ContactImportContacts_Input) UnmarshalCBORAt(data []byte, pos int) (int
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -438,6 +490,10 @@ type ContactImportContacts_Input struct {
 	LexiconTypeID string   `json:"$type,omitempty"`
 	Contacts      []string `json:"contacts"` // List of phone numbers in global E.164 format (e.g., '+12125550123'). Phone numbers that cannot be...
 	Token         string   `json:"token"`    // JWT to authenticate the call. Use the JWT received as a response to the call to `app.bsky.contact...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ContactImportContacts calls the XRPC procedure "app.bsky.contact.importContacts".

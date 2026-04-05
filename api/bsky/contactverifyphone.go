@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -44,6 +45,15 @@ func (s *ContactVerifyPhone_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ContactVerifyPhone_Output_token...)
 	buf = cbor.AppendJSONString(buf, s.Token)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -54,6 +64,7 @@ func (s *ContactVerifyPhone_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactVerifyPhone_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -82,10 +93,12 @@ func (s *ContactVerifyPhone_Output) UnmarshalJSONAt(data []byte, pos int) (int, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -102,17 +115,21 @@ func (s *ContactVerifyPhone_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactVerifyPhone_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ContactVerifyPhone_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
 	buf = append(buf, cborKey_ContactVerifyPhone_Output_token...)
 	buf = cbor.AppendText(buf, s.Token)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -122,6 +139,7 @@ func (s *ContactVerifyPhone_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactVerifyPhone_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -145,16 +163,20 @@ func (s *ContactVerifyPhone_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -163,6 +185,10 @@ func (s *ContactVerifyPhone_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 type ContactVerifyPhone_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Token         string `json:"token"` // JWT to be used in a call to `app.bsky.contact.importContacts`. It is only valid for a single call.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for ContactVerifyPhone_Input.
@@ -199,6 +225,15 @@ func (s *ContactVerifyPhone_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ContactVerifyPhone_Input_phone...)
 	buf = cbor.AppendJSONString(buf, s.Phone)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -209,6 +244,7 @@ func (s *ContactVerifyPhone_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ContactVerifyPhone_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -242,10 +278,12 @@ func (s *ContactVerifyPhone_Input) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -263,19 +301,24 @@ func (s *ContactVerifyPhone_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ContactVerifyPhone_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "code", buf)
 	buf = append(buf, cborKey_ContactVerifyPhone_Input_code...)
 	buf = cbor.AppendText(buf, s.Code)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ContactVerifyPhone_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "phone", buf)
 	buf = append(buf, cborKey_ContactVerifyPhone_Input_phone...)
 	buf = cbor.AppendText(buf, s.Phone)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -285,6 +328,7 @@ func (s *ContactVerifyPhone_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ContactVerifyPhone_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -303,10 +347,12 @@ func (s *ContactVerifyPhone_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -320,16 +366,20 @@ func (s *ContactVerifyPhone_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -339,6 +389,10 @@ type ContactVerifyPhone_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Code          string `json:"code"`  // The code received via SMS as a result of the call to `app.bsky.contact.startPhoneVerification`.
 	Phone         string `json:"phone"` // The phone number to verify. Should be the same as the one passed to `app.bsky.contact.startPhoneV...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ContactVerifyPhone calls the XRPC procedure "app.bsky.contact.verifyPhone".

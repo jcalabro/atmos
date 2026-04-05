@@ -5,6 +5,7 @@ package comatproto
 import (
 	"context"
 	"encoding/json"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -118,6 +119,15 @@ func (s *ServerCreateSession_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Status.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -128,6 +138,7 @@ func (s *ServerCreateSession_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerCreateSession_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -250,10 +261,12 @@ func (s *ServerCreateSession_Output) UnmarshalJSONAt(data []byte, pos int) (int,
 				s.Status = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -279,7 +292,7 @@ func (s *ServerCreateSession_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerCreateSession_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -302,42 +315,55 @@ func (s *ServerCreateSession_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_ServerCreateSession_Output_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerCreateSession_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
 	if s.Email.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Output_email...)
 		buf = cbor.AppendText(buf, s.Email.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "active", buf)
 	if s.Active.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Output_active...)
 		buf = cbor.AppendBool(buf, s.Active.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
 	if true {
 		buf = append(buf, cborKey_ServerCreateSession_Output_didDoc...)
 		buf = cbor.AppendNull(buf)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	buf = append(buf, cborKey_ServerCreateSession_Output_handle...)
 	buf = cbor.AppendText(buf, s.Handle)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	if s.Status.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Output_status...)
 		buf = cbor.AppendText(buf, s.Status.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accessJwt", buf)
 	buf = append(buf, cborKey_ServerCreateSession_Output_accessJwt...)
 	buf = cbor.AppendText(buf, s.AccessJwt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "refreshJwt", buf)
 	buf = append(buf, cborKey_ServerCreateSession_Output_refreshJwt...)
 	buf = cbor.AppendText(buf, s.RefreshJwt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailConfirmed", buf)
 	if s.EmailConfirmed.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Output_emailConfirmed...)
 		buf = cbor.AppendBool(buf, s.EmailConfirmed.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailAuthFactor", buf)
 	if s.EmailAuthFactor.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Output_emailAuthFactor...)
 		buf = cbor.AppendBool(buf, s.EmailAuthFactor.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -347,6 +373,7 @@ func (s *ServerCreateSession_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -365,10 +392,12 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -388,10 +417,12 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.Email = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "active" {
@@ -427,10 +458,12 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.Status = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "accessJwt" {
@@ -439,10 +472,12 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "refreshJwt" {
@@ -451,10 +486,12 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "emailConfirmed" {
@@ -469,10 +506,12 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.EmailConfirmed = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "emailAuthFactor" {
@@ -487,16 +526,20 @@ func (s *ServerCreateSession_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					s.EmailAuthFactor = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -514,6 +557,10 @@ type ServerCreateSession_Output struct {
 	Handle          string            `json:"handle"`
 	RefreshJwt      string            `json:"refreshJwt"`
 	Status          gt.Option[string] `json:"status,omitzero"` // If active=false, this optional field indicates a possible reason for why the account is not activ...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for ServerCreateSession_Input.
@@ -568,6 +615,15 @@ func (s *ServerCreateSession_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ServerCreateSession_Input_password...)
 	buf = cbor.AppendJSONString(buf, s.Password)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -578,6 +634,7 @@ func (s *ServerCreateSession_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerCreateSession_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -639,10 +696,12 @@ func (s *ServerCreateSession_Input) UnmarshalJSONAt(data []byte, pos int) (int, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -662,7 +721,7 @@ func (s *ServerCreateSession_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerCreateSession_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -673,22 +732,29 @@ func (s *ServerCreateSession_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerCreateSession_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "password", buf)
 	buf = append(buf, cborKey_ServerCreateSession_Input_password...)
 	buf = cbor.AppendText(buf, s.Password)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "identifier", buf)
 	buf = append(buf, cborKey_ServerCreateSession_Input_identifier...)
 	buf = cbor.AppendText(buf, s.Identifier)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "allowTakendown", buf)
 	if s.AllowTakendown.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Input_allowTakendown...)
 		buf = cbor.AppendBool(buf, s.AllowTakendown.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "authFactorToken", buf)
 	if s.AuthFactorToken.HasVal() {
 		buf = append(buf, cborKey_ServerCreateSession_Input_authFactorToken...)
 		buf = cbor.AppendText(buf, s.AuthFactorToken.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -698,6 +764,7 @@ func (s *ServerCreateSession_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerCreateSession_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -716,10 +783,12 @@ func (s *ServerCreateSession_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "password" {
@@ -728,10 +797,12 @@ func (s *ServerCreateSession_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "identifier" {
@@ -740,10 +811,12 @@ func (s *ServerCreateSession_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "allowTakendown" {
@@ -758,10 +831,12 @@ func (s *ServerCreateSession_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					s.AllowTakendown = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "authFactorToken" {
@@ -776,16 +851,20 @@ func (s *ServerCreateSession_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					s.AuthFactorToken = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -797,6 +876,10 @@ type ServerCreateSession_Input struct {
 	AuthFactorToken gt.Option[string] `json:"authFactorToken,omitzero"`
 	Identifier      string            `json:"identifier"` // Handle or other identifier supported by the server for the authenticating user.
 	Password        string            `json:"password"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ServerCreateSession calls the XRPC procedure "com.atproto.server.createSession".

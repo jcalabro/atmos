@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -46,6 +47,15 @@ func (s *ActorPutPreferences_Input) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -56,6 +66,7 @@ func (s *ActorPutPreferences_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ActorPutPreferences_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -101,10 +112,12 @@ func (s *ActorPutPreferences_Input) UnmarshalJSONAt(data []byte, pos int) (int, 
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -121,15 +134,18 @@ func (s *ActorPutPreferences_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorPutPreferences_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ActorPutPreferences_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "preferences", buf)
 	buf = append(buf, cborKey_ActorPutPreferences_Input_preferences...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Preferences)))
 	for i := range s.Preferences {
@@ -139,6 +155,7 @@ func (s *ActorPutPreferences_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -148,6 +165,7 @@ func (s *ActorPutPreferences_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ActorPutPreferences_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -166,10 +184,12 @@ func (s *ActorPutPreferences_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "preferences" {
@@ -190,16 +210,20 @@ func (s *ActorPutPreferences_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -208,6 +232,10 @@ func (s *ActorPutPreferences_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 type ActorPutPreferences_Input struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
 	Preferences   ActorDefs_Preferences `json:"preferences"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ActorPutPreferences calls the XRPC procedure "app.bsky.actor.putPreferences".

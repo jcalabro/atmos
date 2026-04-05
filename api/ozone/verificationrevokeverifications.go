@@ -4,6 +4,7 @@ package ozone
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -61,6 +62,15 @@ func (s *VerificationRevokeVerifications_Output) AppendJSON(buf []byte) ([]byte,
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -71,6 +81,7 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalJSON(data []byte) erro
 }
 
 func (s *VerificationRevokeVerifications_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -148,10 +159,12 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalJSONAt(data []byte, po
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -169,15 +182,18 @@ func (s *VerificationRevokeVerifications_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VerificationRevokeVerifications_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_VerificationRevokeVerifications_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failedRevocations", buf)
 	buf = append(buf, cborKey_VerificationRevokeVerifications_Output_failedRevocations...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.FailedRevocations)))
 	for _, item := range s.FailedRevocations {
@@ -187,11 +203,13 @@ func (s *VerificationRevokeVerifications_Output) AppendCBOR(buf []byte) ([]byte,
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokedVerifications", buf)
 	buf = append(buf, cborKey_VerificationRevokeVerifications_Output_revokedVerifications...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.RevokedVerifications)))
 	for _, item := range s.RevokedVerifications {
 		buf = cbor.AppendText(buf, item)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -201,6 +219,7 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalCBOR(data []byte) erro
 }
 
 func (s *VerificationRevokeVerifications_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -219,10 +238,12 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalCBORAt(data []byte, po
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 17:
 			if string(data[keyStart:keyEnd]) == "failedRevocations" {
@@ -241,10 +262,12 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalCBORAt(data []byte, po
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "revokedVerifications" {
@@ -263,16 +286,20 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalCBORAt(data []byte, po
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -282,6 +309,10 @@ type VerificationRevokeVerifications_Output struct {
 	LexiconTypeID        string                                        `json:"$type,omitempty"`
 	FailedRevocations    []VerificationRevokeVerifications_RevokeError `json:"failedRevocations"`    // List of verification uris that couldn't be revoked, including failure reasons
 	RevokedVerifications []string                                      `json:"revokedVerifications"` // List of verification uris successfully revoked
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for VerificationRevokeVerifications_Input.
@@ -327,6 +358,15 @@ func (s *VerificationRevokeVerifications_Input) AppendJSON(buf []byte) ([]byte, 
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -337,6 +377,7 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalJSON(data []byte) error
 }
 
 func (s *VerificationRevokeVerifications_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -401,10 +442,12 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalJSONAt(data []byte, pos
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -422,7 +465,7 @@ func (s *VerificationRevokeVerifications_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VerificationRevokeVerifications_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -430,19 +473,24 @@ func (s *VerificationRevokeVerifications_Input) AppendCBOR(buf []byte) ([]byte, 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uris", buf)
 	buf = append(buf, cborKey_VerificationRevokeVerifications_Input_uris...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uris)))
 	for _, item := range s.Uris {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_VerificationRevokeVerifications_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "revokeReason", buf)
 	if s.RevokeReason.HasVal() {
 		buf = append(buf, cborKey_VerificationRevokeVerifications_Input_revokeReason...)
 		buf = cbor.AppendText(buf, s.RevokeReason.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -452,6 +500,7 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalCBOR(data []byte) error
 }
 
 func (s *VerificationRevokeVerifications_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -480,10 +529,12 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalCBORAt(data []byte, pos
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -492,10 +543,12 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalCBORAt(data []byte, pos
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "revokeReason" {
@@ -510,16 +563,20 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalCBORAt(data []byte, pos
 					s.RevokeReason = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -529,6 +586,10 @@ type VerificationRevokeVerifications_Input struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	RevokeReason  gt.Option[string] `json:"revokeReason,omitzero"` // Reason for revoking the verification. This is optional and can be omitted if not needed.
 	Uris          []string          `json:"uris"`                  // Array of verification record uris to revoke
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // VerificationRevokeVerifications calls the XRPC procedure "tools.ozone.verification.revokeVerifications".
@@ -546,6 +607,10 @@ type VerificationRevokeVerifications_RevokeError struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Error         string `json:"error"` // Description of the error that occurred during revocation.
 	URI           string `json:"uri"`   // The AT-URI of the verification record that failed to revoke.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for VerificationRevokeVerifications_RevokeError.
@@ -560,19 +625,24 @@ func (s *VerificationRevokeVerifications_RevokeError) MarshalCBOR() ([]byte, err
 }
 
 func (s *VerificationRevokeVerifications_RevokeError) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
 	buf = append(buf, cborKey_VerificationRevokeVerifications_RevokeError_error...)
 	buf = cbor.AppendText(buf, s.Error)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -582,6 +652,7 @@ func (s *VerificationRevokeVerifications_RevokeError) UnmarshalCBOR(data []byte)
 }
 
 func (s *VerificationRevokeVerifications_RevokeError) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -600,10 +671,12 @@ func (s *VerificationRevokeVerifications_RevokeError) UnmarshalCBORAt(data []byt
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -617,16 +690,20 @@ func (s *VerificationRevokeVerifications_RevokeError) UnmarshalCBORAt(data []byt
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -666,6 +743,15 @@ func (s *VerificationRevokeVerifications_RevokeError) AppendJSON(buf []byte) ([]
 	buf = append(buf, jsonKey_VerificationRevokeVerifications_RevokeError_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -676,6 +762,7 @@ func (s *VerificationRevokeVerifications_RevokeError) UnmarshalJSON(data []byte)
 }
 
 func (s *VerificationRevokeVerifications_RevokeError) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -709,10 +796,12 @@ func (s *VerificationRevokeVerifications_RevokeError) UnmarshalJSONAt(data []byt
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

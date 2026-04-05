@@ -5,6 +5,7 @@ package comatproto
 import (
 	"context"
 	"encoding/json"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -71,6 +72,15 @@ func (s *RepoDescribeRepo_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_RepoDescribeRepo_Output_handleIsCorrect...)
 	buf = cbor.AppendJSONBool(buf, s.HandleIsCorrect)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -81,6 +91,7 @@ func (s *RepoDescribeRepo_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *RepoDescribeRepo_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -155,10 +166,12 @@ func (s *RepoDescribeRepo_Output) UnmarshalJSONAt(data []byte, pos int) (int, er
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -179,28 +192,36 @@ func (s *RepoDescribeRepo_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *RepoDescribeRepo_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 5
+	n := 5 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_RepoDescribeRepo_Output_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_RepoDescribeRepo_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "didDoc", buf)
 	buf = append(buf, cborKey_RepoDescribeRepo_Output_didDoc...)
 	buf = cbor.AppendNull(buf)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	buf = append(buf, cborKey_RepoDescribeRepo_Output_handle...)
 	buf = cbor.AppendText(buf, s.Handle)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "collections", buf)
 	buf = append(buf, cborKey_RepoDescribeRepo_Output_collections...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Collections)))
 	for _, item := range s.Collections {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handleIsCorrect", buf)
 	buf = append(buf, cborKey_RepoDescribeRepo_Output_handleIsCorrect...)
 	buf = cbor.AppendBool(buf, s.HandleIsCorrect)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -210,6 +231,7 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -228,10 +250,12 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -240,10 +264,12 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "didDoc" {
@@ -257,10 +283,12 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "collections" {
@@ -279,10 +307,12 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "handleIsCorrect" {
@@ -291,16 +321,20 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -313,6 +347,10 @@ type RepoDescribeRepo_Output struct {
 	DidDoc          json.RawMessage `json:"didDoc"` // The complete DID document for this account.
 	Handle          string          `json:"handle"`
 	HandleIsCorrect bool            `json:"handleIsCorrect"` // Indicates if handle is currently valid (resolves bi-directionally)
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // RepoDescribeRepo calls the XRPC query "com.atproto.repo.describeRepo".

@@ -4,6 +4,7 @@ package ozone
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -56,6 +57,15 @@ func (s *SafelinkQueryRules_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -66,6 +76,7 @@ func (s *SafelinkQueryRules_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SafelinkQueryRules_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -130,10 +141,12 @@ func (s *SafelinkQueryRules_Output) UnmarshalJSONAt(data []byte, pos int) (int, 
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -151,7 +164,7 @@ func (s *SafelinkQueryRules_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SafelinkQueryRules_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -159,10 +172,13 @@ func (s *SafelinkQueryRules_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SafelinkQueryRules_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rules", buf)
 	buf = append(buf, cborKey_SafelinkQueryRules_Output_rules...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
 	for _, item := range s.Rules {
@@ -172,10 +188,12 @@ func (s *SafelinkQueryRules_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
 	if s.Cursor.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Output_cursor...)
 		buf = cbor.AppendText(buf, s.Cursor.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -185,6 +203,7 @@ func (s *SafelinkQueryRules_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SafelinkQueryRules_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -218,10 +237,12 @@ func (s *SafelinkQueryRules_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -236,16 +257,20 @@ func (s *SafelinkQueryRules_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 					s.Cursor = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -255,6 +280,10 @@ type SafelinkQueryRules_Output struct {
 	LexiconTypeID string                 `json:"$type,omitempty"`
 	Cursor        gt.Option[string]      `json:"cursor,omitzero"` // Next cursor for pagination. Only present if there are more results.
 	Rules         []SafelinkDefs_UrlRule `json:"rules"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for SafelinkQueryRules_Input.
@@ -363,6 +392,15 @@ func (s *SafelinkQueryRules_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -373,6 +411,7 @@ func (s *SafelinkQueryRules_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SafelinkQueryRules_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -534,10 +573,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalJSONAt(data []byte, pos int) (int, e
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -561,7 +602,7 @@ func (s *SafelinkQueryRules_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SafelinkQueryRules_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if len(s.Urls) > 0 {
 		n++
 	}
@@ -590,6 +631,8 @@ func (s *SafelinkQueryRules_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "urls", buf)
 	if len(s.Urls) > 0 {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_urls...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Urls)))
@@ -597,22 +640,27 @@ func (s *SafelinkQueryRules_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "limit", buf)
 	if s.Limit.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_limit...)
 		buf = cbor.AppendInt(buf, s.Limit.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
 	if s.Cursor.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_cursor...)
 		buf = cbor.AppendText(buf, s.Cursor.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
 	if s.Reason.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_reason...)
 		buf = cbor.AppendText(buf, s.Reason.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actions", buf)
 	if len(s.Actions) > 0 {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_actions...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
@@ -620,18 +668,22 @@ func (s *SafelinkQueryRules_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	if s.CreatedBy.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_createdBy...)
 		buf = cbor.AppendText(buf, s.CreatedBy.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "patternType", buf)
 	if s.PatternType.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_patternType...)
 		buf = cbor.AppendText(buf, s.PatternType.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "sortDirection", buf)
 	if s.SortDirection.HasVal() {
 		buf = append(buf, cborKey_SafelinkQueryRules_Input_sortDirection...)
 		buf = cbor.AppendText(buf, s.SortDirection.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -641,6 +693,7 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -669,10 +722,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -692,10 +747,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.Limit = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -721,10 +778,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.Reason = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "actions" {
@@ -743,10 +802,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdBy" {
@@ -761,10 +822,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.CreatedBy = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "patternType" {
@@ -779,10 +842,12 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.PatternType = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "sortDirection" {
@@ -797,16 +862,20 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.SortDirection = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -822,6 +891,10 @@ type SafelinkQueryRules_Input struct {
 	Reason        gt.Option[string] `json:"reason,omitzero"`        // Filter by reason type
 	SortDirection gt.Option[string] `json:"sortDirection,omitzero"` // Sort direction
 	Urls          []string          `json:"urls,omitempty"`         // Filter by specific URLs or domains
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // SafelinkQueryRules calls the XRPC procedure "tools.ozone.safelink.queryRules".

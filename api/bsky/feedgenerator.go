@@ -30,6 +30,10 @@ type FeedGenerator struct {
 	DID                 string                          `json:"did"`
 	DisplayName         string                          `json:"displayName"`
 	Labels              gt.Option[FeedGenerator_Labels] `json:"labels,omitzero"` // Self-label values
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // FeedGenerator_Labels is a union type.
@@ -150,7 +154,7 @@ func (s *FeedGenerator) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedGenerator) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.Avatar.HasVal() {
 		n++
 	}
@@ -170,10 +174,14 @@ func (s *FeedGenerator) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_FeedGenerator_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	buf = append(buf, cborKey_FeedGenerator_dollar_type...)
 	buf = cbor.AppendText(buf, s.LexiconTypeID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "avatar", buf)
 	if s.Avatar.HasVal() {
 		buf = append(buf, cborKey_FeedGenerator_avatar...)
 		{
@@ -187,6 +195,7 @@ func (s *FeedGenerator) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
 	if s.Labels.HasVal() {
 		buf = append(buf, cborKey_FeedGenerator_labels...)
 		{
@@ -200,18 +209,23 @@ func (s *FeedGenerator) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_FeedGenerator_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "contentMode", buf)
 	if s.ContentMode.HasVal() {
 		buf = append(buf, cborKey_FeedGenerator_contentMode...)
 		buf = cbor.AppendText(buf, s.ContentMode.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
 	if s.Description.HasVal() {
 		buf = append(buf, cborKey_FeedGenerator_description...)
 		buf = cbor.AppendText(buf, s.Description.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "displayName", buf)
 	buf = append(buf, cborKey_FeedGenerator_displayName...)
 	buf = cbor.AppendText(buf, s.DisplayName)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "descriptionFacets", buf)
 	if len(s.DescriptionFacets) > 0 {
 		buf = append(buf, cborKey_FeedGenerator_descriptionFacets...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.DescriptionFacets)))
@@ -223,10 +237,12 @@ func (s *FeedGenerator) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "acceptsInteractions", buf)
 	if s.AcceptsInteractions.HasVal() {
 		buf = append(buf, cborKey_FeedGenerator_acceptsInteractions...)
 		buf = cbor.AppendBool(buf, s.AcceptsInteractions.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -236,6 +252,7 @@ func (s *FeedGenerator) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -254,10 +271,12 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -266,10 +285,12 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "avatar" {
@@ -295,10 +316,12 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Labels = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -307,10 +330,12 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "contentMode" {
@@ -341,10 +366,12 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 17:
 			if string(data[keyStart:keyEnd]) == "descriptionFacets" {
@@ -363,10 +390,12 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "acceptsInteractions" {
@@ -381,16 +410,20 @@ func (s *FeedGenerator) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.AcceptsInteractions = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -520,6 +553,15 @@ func (s *FeedGenerator) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -530,6 +572,7 @@ func (s *FeedGenerator) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedGenerator) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -665,10 +708,12 @@ func (s *FeedGenerator) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				s.Labels = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

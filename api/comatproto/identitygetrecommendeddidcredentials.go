@@ -5,6 +5,7 @@ package comatproto
 import (
 	"context"
 	"encoding/json"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -79,6 +80,15 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendJSON(buf []byte) ([]
 		buf = append(buf, s.VerificationMethods...)
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -89,6 +99,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalJSON(data []byte)
 }
 
 func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -184,10 +195,12 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalJSONAt(data []byt
 				s.VerificationMethods = json.RawMessage(data[start:pos])
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -207,7 +220,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) MarshalCBOR() ([]byte, err
 }
 
 func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -224,14 +237,18 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "services", buf)
 	if true {
 		buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_services...)
 		buf = cbor.AppendNull(buf)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alsoKnownAs", buf)
 	if len(s.AlsoKnownAs) > 0 {
 		buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_alsoKnownAs...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.AlsoKnownAs)))
@@ -239,6 +256,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rotationKeys", buf)
 	if len(s.RotationKeys) > 0 {
 		buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_rotationKeys...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RotationKeys)))
@@ -246,10 +264,12 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationMethods", buf)
 	if true {
 		buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_verificationMethods...)
 		buf = cbor.AppendNull(buf)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -259,6 +279,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBOR(data []byte)
 }
 
 func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -277,10 +298,12 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBORAt(data []byt
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "services" {
@@ -289,10 +312,12 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBORAt(data []byt
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "alsoKnownAs" {
@@ -311,10 +336,12 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBORAt(data []byt
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "rotationKeys" {
@@ -333,10 +360,12 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBORAt(data []byt
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "verificationMethods" {
@@ -345,16 +374,20 @@ func (s *IdentityGetRecommendedDidCredentials_Output) UnmarshalCBORAt(data []byt
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -366,6 +399,10 @@ type IdentityGetRecommendedDidCredentials_Output struct {
 	RotationKeys        []string        `json:"rotationKeys,omitempty"` // Recommended rotation keys for PLC dids. Should be undefined (or ignored) for did:webs.
 	Services            json.RawMessage `json:"services,omitempty"`
 	VerificationMethods json.RawMessage `json:"verificationMethods,omitempty"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // IdentityGetRecommendedDidCredentials calls the XRPC query "com.atproto.identity.getRecommendedDidCredentials".

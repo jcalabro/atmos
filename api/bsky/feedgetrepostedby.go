@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -72,6 +73,15 @@ func (s *FeedGetRepostedBy_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_FeedGetRepostedBy_Output_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -82,6 +92,7 @@ func (s *FeedGetRepostedBy_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedGetRepostedBy_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -165,10 +176,12 @@ func (s *FeedGetRepostedBy_Output) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -188,7 +201,7 @@ func (s *FeedGetRepostedBy_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedGetRepostedBy_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.CID.HasVal() {
 		n++
 	}
@@ -199,20 +212,26 @@ func (s *FeedGetRepostedBy_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
 	if s.CID.HasVal() {
 		buf = append(buf, cborKey_FeedGetRepostedBy_Output_cid...)
 		buf = cbor.AppendText(buf, s.CID.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_FeedGetRepostedBy_Output_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_FeedGetRepostedBy_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
 	if s.Cursor.HasVal() {
 		buf = append(buf, cborKey_FeedGetRepostedBy_Output_cursor...)
 		buf = cbor.AppendText(buf, s.Cursor.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostedBy", buf)
 	buf = append(buf, cborKey_FeedGetRepostedBy_Output_repostedBy...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.RepostedBy)))
 	for _, item := range s.RepostedBy {
@@ -222,6 +241,7 @@ func (s *FeedGetRepostedBy_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -231,6 +251,7 @@ func (s *FeedGetRepostedBy_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedGetRepostedBy_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -260,10 +281,12 @@ func (s *FeedGetRepostedBy_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -272,10 +295,12 @@ func (s *FeedGetRepostedBy_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -290,10 +315,12 @@ func (s *FeedGetRepostedBy_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.Cursor = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "repostedBy" {
@@ -312,16 +339,20 @@ func (s *FeedGetRepostedBy_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -333,6 +364,10 @@ type FeedGetRepostedBy_Output struct {
 	Cursor        gt.Option[string]       `json:"cursor,omitzero"`
 	RepostedBy    []ActorDefs_ProfileView `json:"repostedBy"`
 	URI           string                  `json:"uri"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // FeedGetRepostedBy calls the XRPC query "app.bsky.feed.getRepostedBy".

@@ -3,6 +3,7 @@
 package bsky
 
 import (
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 )
 
@@ -13,6 +14,10 @@ type EmbedDefs_AspectRatio struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Height        int64  `json:"height"`
 	Width         int64  `json:"width"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedDefs_AspectRatio.
@@ -27,19 +32,24 @@ func (s *EmbedDefs_AspectRatio) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedDefs_AspectRatio) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedDefs_AspectRatio_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "width", buf)
 	buf = append(buf, cborKey_EmbedDefs_AspectRatio_width...)
 	buf = cbor.AppendInt(buf, s.Width)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "height", buf)
 	buf = append(buf, cborKey_EmbedDefs_AspectRatio_height...)
 	buf = cbor.AppendInt(buf, s.Height)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -49,6 +59,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -72,10 +83,12 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "height" {
@@ -84,16 +97,20 @@ func (s *EmbedDefs_AspectRatio) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -133,6 +150,15 @@ func (s *EmbedDefs_AspectRatio) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedDefs_AspectRatio_width...)
 	buf = cbor.AppendJSONInt(buf, s.Width)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -143,6 +169,7 @@ func (s *EmbedDefs_AspectRatio) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedDefs_AspectRatio) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -176,10 +203,12 @@ func (s *EmbedDefs_AspectRatio) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

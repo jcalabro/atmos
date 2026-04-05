@@ -5,6 +5,7 @@ package comatproto
 import (
 	"context"
 	"encoding/json"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -37,6 +38,15 @@ func (s *IdentitySignPlcOperation_Output) AppendJSON(buf []byte) ([]byte, error)
 	buf = append(buf, jsonKey_IdentitySignPlcOperation_Output_operation...)
 	buf = append(buf, s.Operation...)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -47,6 +57,7 @@ func (s *IdentitySignPlcOperation_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *IdentitySignPlcOperation_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -79,10 +90,12 @@ func (s *IdentitySignPlcOperation_Output) UnmarshalJSONAt(data []byte, pos int) 
 				s.Operation = json.RawMessage(data[start:pos])
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -99,17 +112,21 @@ func (s *IdentitySignPlcOperation_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *IdentitySignPlcOperation_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "operation", buf)
 	buf = append(buf, cborKey_IdentitySignPlcOperation_Output_operation...)
 	buf = cbor.AppendNull(buf)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -119,6 +136,7 @@ func (s *IdentitySignPlcOperation_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *IdentitySignPlcOperation_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -137,10 +155,12 @@ func (s *IdentitySignPlcOperation_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "operation" {
@@ -149,16 +169,20 @@ func (s *IdentitySignPlcOperation_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -167,6 +191,10 @@ func (s *IdentitySignPlcOperation_Output) UnmarshalCBORAt(data []byte, pos int) 
 type IdentitySignPlcOperation_Output struct {
 	LexiconTypeID string          `json:"$type,omitempty"`
 	Operation     json.RawMessage `json:"operation"` // A signed DID PLC operation.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for IdentitySignPlcOperation_Input.
@@ -248,6 +276,15 @@ func (s *IdentitySignPlcOperation_Input) AppendJSON(buf []byte) ([]byte, error) 
 		buf = append(buf, s.VerificationMethods...)
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -258,6 +295,7 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *IdentitySignPlcOperation_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -367,10 +405,12 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalJSONAt(data []byte, pos int) (
 				s.VerificationMethods = json.RawMessage(data[start:pos])
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -391,7 +431,7 @@ func (s *IdentitySignPlcOperation_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -411,18 +451,23 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "token", buf)
 	if s.Token.HasVal() {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_token...)
 		buf = cbor.AppendText(buf, s.Token.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "services", buf)
 	if true {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_services...)
 		buf = cbor.AppendNull(buf)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alsoKnownAs", buf)
 	if len(s.AlsoKnownAs) > 0 {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_alsoKnownAs...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.AlsoKnownAs)))
@@ -430,6 +475,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rotationKeys", buf)
 	if len(s.RotationKeys) > 0 {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_rotationKeys...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RotationKeys)))
@@ -437,10 +483,12 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verificationMethods", buf)
 	if true {
 		buf = append(buf, cborKey_IdentitySignPlcOperation_Input_verificationMethods...)
 		buf = cbor.AppendNull(buf)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -450,6 +498,7 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -479,10 +528,12 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 					s.Token = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "services" {
@@ -491,10 +542,12 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "alsoKnownAs" {
@@ -513,10 +566,12 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "rotationKeys" {
@@ -535,10 +590,12 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 19:
 			if string(data[keyStart:keyEnd]) == "verificationMethods" {
@@ -547,16 +604,20 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -569,6 +630,10 @@ type IdentitySignPlcOperation_Input struct {
 	Services            json.RawMessage   `json:"services,omitempty"`
 	Token               gt.Option[string] `json:"token,omitzero"` // A token received through com.atproto.identity.requestPlcOperationSignature
 	VerificationMethods json.RawMessage   `json:"verificationMethods,omitempty"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // IdentitySignPlcOperation calls the XRPC procedure "com.atproto.identity.signPlcOperation".

@@ -15,6 +15,10 @@ import (
 type EmbedRecord struct {
 	LexiconTypeID string                   `json:"$type,omitempty"`
 	Record        comatproto.RepoStrongRef `json:"record"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedRecord.
@@ -28,15 +32,18 @@ func (s *EmbedRecord) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecord) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecord_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
 	buf = append(buf, cborKey_EmbedRecord_record...)
 	{
 		var err error
@@ -45,6 +52,7 @@ func (s *EmbedRecord) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -54,6 +62,7 @@ func (s *EmbedRecord) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -72,10 +81,12 @@ func (s *EmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "record" {
@@ -84,16 +95,20 @@ func (s *EmbedRecord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -132,6 +147,15 @@ func (s *EmbedRecord) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -142,6 +166,7 @@ func (s *EmbedRecord) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecord) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -170,10 +195,12 @@ func (s *EmbedRecord) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -183,6 +210,10 @@ func (s *EmbedRecord) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 type EmbedRecord_View struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Record        EmbedRecord_View_Record `json:"record"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // EmbedRecord_View_Record is a union type.
@@ -484,15 +515,18 @@ func (s *EmbedRecord_View) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecord_View) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecord_View_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
 	buf = append(buf, cborKey_EmbedRecord_View_record...)
 	{
 		var err error
@@ -501,6 +535,7 @@ func (s *EmbedRecord_View) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -510,6 +545,7 @@ func (s *EmbedRecord_View) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecord_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -528,10 +564,12 @@ func (s *EmbedRecord_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "record" {
@@ -540,16 +578,20 @@ func (s *EmbedRecord_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -588,6 +630,15 @@ func (s *EmbedRecord_View) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -598,6 +649,7 @@ func (s *EmbedRecord_View) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecord_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -626,10 +678,12 @@ func (s *EmbedRecord_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -641,6 +695,10 @@ type EmbedRecord_ViewBlocked struct {
 	Author        FeedDefs_BlockedAuthor `json:"author"`
 	Blocked       bool                   `json:"blocked"`
 	URI           string                 `json:"uri"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedRecord_ViewBlocked.
@@ -656,17 +714,21 @@ func (s *EmbedRecord_ViewBlocked) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecord_ViewBlocked) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewBlocked_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecord_ViewBlocked_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewBlocked_author...)
 	{
 		var err error
@@ -675,8 +737,10 @@ func (s *EmbedRecord_ViewBlocked) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blocked", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewBlocked_blocked...)
 	buf = cbor.AppendBool(buf, s.Blocked)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -686,6 +750,7 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewBlocked) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -704,10 +769,12 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -716,10 +783,12 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "author" {
@@ -728,10 +797,12 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "blocked" {
@@ -740,16 +811,20 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -802,6 +877,15 @@ func (s *EmbedRecord_ViewBlocked) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedRecord_ViewBlocked_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -812,6 +896,7 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewBlocked) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -850,10 +935,12 @@ func (s *EmbedRecord_ViewBlocked) UnmarshalJSONAt(data []byte, pos int) (int, er
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -864,6 +951,10 @@ type EmbedRecord_ViewDetached struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Detached      bool   `json:"detached"`
 	URI           string `json:"uri"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedRecord_ViewDetached.
@@ -878,19 +969,24 @@ func (s *EmbedRecord_ViewDetached) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecord_ViewDetached) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewDetached_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecord_ViewDetached_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "detached", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewDetached_detached...)
 	buf = cbor.AppendBool(buf, s.Detached)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -900,6 +996,7 @@ func (s *EmbedRecord_ViewDetached) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewDetached) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -918,10 +1015,12 @@ func (s *EmbedRecord_ViewDetached) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -930,10 +1029,12 @@ func (s *EmbedRecord_ViewDetached) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "detached" {
@@ -942,16 +1043,20 @@ func (s *EmbedRecord_ViewDetached) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -991,6 +1096,15 @@ func (s *EmbedRecord_ViewDetached) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedRecord_ViewDetached_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1001,6 +1115,7 @@ func (s *EmbedRecord_ViewDetached) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewDetached) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1034,10 +1149,12 @@ func (s *EmbedRecord_ViewDetached) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1048,6 +1165,10 @@ type EmbedRecord_ViewNotFound struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	NotFound      bool   `json:"notFound"`
 	URI           string `json:"uri"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedRecord_ViewNotFound.
@@ -1062,19 +1183,24 @@ func (s *EmbedRecord_ViewNotFound) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecord_ViewNotFound) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewNotFound_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecord_ViewNotFound_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "notFound", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewNotFound_notFound...)
 	buf = cbor.AppendBool(buf, s.NotFound)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1084,6 +1210,7 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewNotFound) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1102,10 +1229,12 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1114,10 +1243,12 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "notFound" {
@@ -1126,16 +1257,20 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1175,6 +1310,15 @@ func (s *EmbedRecord_ViewNotFound) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedRecord_ViewNotFound_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1185,6 +1329,7 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewNotFound) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1218,10 +1363,12 @@ func (s *EmbedRecord_ViewNotFound) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1241,6 +1388,10 @@ type EmbedRecord_ViewRecord struct {
 	RepostCount   gt.Option[int64]                `json:"repostCount,omitzero"`
 	URI           string                          `json:"uri"`
 	Value         json.RawMessage                 `json:"value"` // The record data itself.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // EmbedRecord_ViewRecord_Embeds is a union type.
@@ -1471,7 +1622,7 @@ func (s *EmbedRecord_ViewRecord) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecord_ViewRecord) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 5
+	n := 5 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1494,16 +1645,22 @@ func (s *EmbedRecord_ViewRecord) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewRecord_cid...)
 	buf = cbor.AppendText(buf, s.CID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewRecord_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewRecord_value...)
 	buf = cbor.AppendNull(buf)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "author", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewRecord_author...)
 	{
 		var err error
@@ -1512,6 +1669,7 @@ func (s *EmbedRecord_ViewRecord) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embeds", buf)
 	if len(s.Embeds) > 0 {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_embeds...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Embeds)))
@@ -1523,6 +1681,7 @@ func (s *EmbedRecord_ViewRecord) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
 	if len(s.Labels) > 0 {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_labels...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
@@ -1534,24 +1693,30 @@ func (s *EmbedRecord_ViewRecord) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
 	buf = append(buf, cborKey_EmbedRecord_ViewRecord_indexedAt...)
 	buf = cbor.AppendText(buf, s.IndexedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likeCount", buf)
 	if s.LikeCount.HasVal() {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_likeCount...)
 		buf = cbor.AppendInt(buf, s.LikeCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "quoteCount", buf)
 	if s.QuoteCount.HasVal() {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_quoteCount...)
 		buf = cbor.AppendInt(buf, s.QuoteCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "replyCount", buf)
 	if s.ReplyCount.HasVal() {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_replyCount...)
 		buf = cbor.AppendInt(buf, s.ReplyCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repostCount", buf)
 	if s.RepostCount.HasVal() {
 		buf = append(buf, cborKey_EmbedRecord_ViewRecord_repostCount...)
 		buf = cbor.AppendInt(buf, s.RepostCount.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1561,6 +1726,7 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1584,10 +1750,12 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1601,10 +1769,12 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "author" {
@@ -1643,10 +1813,12 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "indexedAt" {
@@ -1666,10 +1838,12 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.LikeCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "quoteCount" {
@@ -1695,10 +1869,12 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.ReplyCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "repostCount" {
@@ -1713,16 +1889,20 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.RepostCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1865,6 +2045,15 @@ func (s *EmbedRecord_ViewRecord) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedRecord_ViewRecord_value...)
 	buf = append(buf, s.Value...)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1875,6 +2064,7 @@ func (s *EmbedRecord_ViewRecord) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecord_ViewRecord) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2037,10 +2227,12 @@ func (s *EmbedRecord_ViewRecord) UnmarshalJSONAt(data []byte, pos int) (int, err
 				s.Value = json.RawMessage(data[start:pos])
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

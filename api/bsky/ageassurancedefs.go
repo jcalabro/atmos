@@ -25,6 +25,10 @@ const (
 type AgeassuranceDefs_Config struct {
 	LexiconTypeID string                          `json:"$type,omitempty"`
 	Regions       []AgeassuranceDefs_ConfigRegion `json:"regions"` // The per-region Age Assurance configuration.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_Config.
@@ -38,15 +42,18 @@ func (s *AgeassuranceDefs_Config) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_Config) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_Config_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regions", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_Config_regions...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Regions)))
 	for _, item := range s.Regions {
@@ -56,6 +63,7 @@ func (s *AgeassuranceDefs_Config) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -65,6 +73,7 @@ func (s *AgeassuranceDefs_Config) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_Config) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -83,10 +92,12 @@ func (s *AgeassuranceDefs_Config) UnmarshalCBORAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "regions" {
@@ -105,16 +116,20 @@ func (s *AgeassuranceDefs_Config) UnmarshalCBORAt(data []byte, pos int) (int, er
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -158,6 +173,15 @@ func (s *AgeassuranceDefs_Config) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -168,6 +192,7 @@ func (s *AgeassuranceDefs_Config) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_Config) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -218,10 +243,12 @@ func (s *AgeassuranceDefs_Config) UnmarshalJSONAt(data []byte, pos int) (int, er
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -236,6 +263,10 @@ type AgeassuranceDefs_ConfigRegion struct {
 	MinAccessAge  int64                                 `json:"minAccessAge"`        // The minimum age (as a whole integer) required to use Bluesky in this region.
 	RegionCode    gt.Option[string]                     `json:"regionCode,omitzero"` // The ISO 3166-2 region code this configuration applies to. If omitted, the configuration applies t...
 	Rules         []AgeassuranceDefs_ConfigRegion_Rules `json:"rules"`               // The ordered list of Age Assurance rules that apply to this region. Rules should be applied in ord...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // AgeassuranceDefs_ConfigRegion_Rules is a union type.
@@ -513,7 +544,7 @@ func (s *AgeassuranceDefs_ConfigRegion) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -521,10 +552,13 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rules", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_rules...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Rules)))
 	for _, item := range s.Rules {
@@ -534,14 +568,18 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
 	if s.RegionCode.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_regionCode...)
 		buf = cbor.AppendText(buf, s.RegionCode.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_countryCode...)
 	buf = cbor.AppendText(buf, s.CountryCode)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "minAccessAge", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
 	buf = cbor.AppendInt(buf, s.MinAccessAge)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -551,6 +589,7 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -584,10 +623,12 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "regionCode" {
@@ -602,10 +643,12 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 					s.RegionCode = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "countryCode" {
@@ -614,10 +657,12 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "minAccessAge" {
@@ -626,16 +671,20 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -702,6 +751,15 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -712,6 +770,7 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_ConfigRegion) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -786,10 +845,12 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalJSONAt(data []byte, pos int) (i
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -801,6 +862,10 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalJSONAt(data []byte, pos int) (i
 type AgeassuranceDefs_ConfigRegionRuleDefault struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleDefault.
@@ -814,17 +879,21 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) MarshalCBOR() ([]byte, error)
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleDefault) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleDefault_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -834,6 +903,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBOR(data []byte) er
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -852,10 +922,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -864,16 +936,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -906,6 +982,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) AppendJSON(buf []byte) ([]byt
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleDefault_access...)
 	buf = cbor.AppendJSONString(buf, s.Access)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -916,6 +1001,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalJSON(data []byte) er
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -944,10 +1030,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalJSONAt(data []byte, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -960,6 +1048,10 @@ type AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
 	Date          string                  `json:"date"` // The date threshold as a datetime string.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan.
@@ -974,19 +1066,24 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) MarshalCBOR() ([]b
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "date", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_date...)
 	buf = cbor.AppendText(buf, s.Date)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -996,6 +1093,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBOR(data
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1014,10 +1112,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1026,10 +1126,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -1038,16 +1140,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1087,6 +1193,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) AppendJSON(buf []b
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan_date...)
 	buf = cbor.AppendJSONString(buf, s.Date)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1097,6 +1212,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalJSON(data
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1130,10 +1246,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalJSONAt(da
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1146,6 +1264,10 @@ type AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
 	Date          string                  `json:"date"` // The date threshold as a datetime string.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan.
@@ -1160,19 +1282,24 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) MarshalCBOR() ([]b
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "date", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_date...)
 	buf = cbor.AppendText(buf, s.Date)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1182,6 +1309,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBOR(data
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1200,10 +1328,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1212,10 +1342,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -1224,16 +1356,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1273,6 +1409,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) AppendJSON(buf []b
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan_date...)
 	buf = cbor.AppendJSONString(buf, s.Date)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1283,6 +1428,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalJSON(data
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1316,10 +1462,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalJSONAt(da
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1332,6 +1480,10 @@ type AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
 	Age           int64                   `json:"age"` // The age threshold as a whole integer.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge.
@@ -1346,19 +1498,24 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) MarshalCBOR() ([]byt
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_age...)
 	buf = cbor.AppendInt(buf, s.Age)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1368,6 +1525,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBOR(data [
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1386,10 +1544,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBORAt(data
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1398,10 +1558,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBORAt(data
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -1410,16 +1572,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBORAt(data
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1459,6 +1625,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) AppendJSON(buf []byt
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge_age...)
 	buf = cbor.AppendJSONInt(buf, s.Age)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1469,6 +1644,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalJSON(data [
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1502,10 +1678,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalJSONAt(data
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1518,6 +1696,10 @@ type AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
 	Age           int64                   `json:"age"` // The age threshold as a whole integer.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge.
@@ -1532,19 +1714,24 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) MarshalCBOR() ([]by
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_age...)
 	buf = cbor.AppendInt(buf, s.Age)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1554,6 +1741,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBOR(data 
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1572,10 +1760,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBORAt(dat
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1584,10 +1774,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBORAt(dat
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -1596,16 +1788,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBORAt(dat
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1645,6 +1841,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) AppendJSON(buf []by
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge_age...)
 	buf = cbor.AppendJSONInt(buf, s.Age)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1655,6 +1860,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalJSON(data 
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1688,10 +1894,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalJSONAt(dat
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1704,6 +1912,10 @@ type AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
 	Age           int64                   `json:"age"` // The age threshold as a whole integer.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge.
@@ -1718,19 +1930,24 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) MarshalCBOR() ([]by
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_age...)
 	buf = cbor.AppendInt(buf, s.Age)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1740,6 +1957,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBOR(data 
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1758,10 +1976,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBORAt(dat
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1770,10 +1990,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBORAt(dat
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -1782,16 +2004,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBORAt(dat
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1831,6 +2057,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) AppendJSON(buf []by
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge_age...)
 	buf = cbor.AppendJSONInt(buf, s.Age)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1841,6 +2076,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalJSON(data 
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1874,10 +2110,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalJSONAt(dat
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1890,6 +2128,10 @@ type AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Access        AgeassuranceDefs_Access `json:"access"`
 	Age           int64                   `json:"age"` // The age threshold as a whole integer.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge.
@@ -1904,19 +2146,24 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) MarshalCBOR() ([]b
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "age", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_age...)
 	buf = cbor.AppendInt(buf, s.Age)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1926,6 +2173,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBOR(data
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1944,10 +2192,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -1956,10 +2206,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -1968,16 +2220,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2017,6 +2273,15 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) AppendJSON(buf []b
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge_age...)
 	buf = cbor.AppendJSONInt(buf, s.Age)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2027,6 +2292,7 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalJSON(data
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2060,10 +2326,12 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalJSONAt(da
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2085,6 +2353,10 @@ type AgeassuranceDefs_Event struct {
 	InitUa        gt.Option[string] `json:"initUa,omitzero"`     // The user agent used when initiating the Age Assurance flow.
 	RegionCode    gt.Option[string] `json:"regionCode,omitzero"` // The ISO 3166-2 region code provided when beginning the Age Assurance flow.
 	Status        string            `json:"status"`              // The status of the Age Assurance process.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_Event.
@@ -2108,7 +2380,7 @@ func (s *AgeassuranceDefs_Event) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 5
+	n := 5 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -2131,44 +2403,58 @@ func (s *AgeassuranceDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
 	if s.Email.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_email...)
 		buf = cbor.AppendText(buf, s.Email.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_Event_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initIp", buf)
 	if s.InitIp.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_initIp...)
 		buf = cbor.AppendText(buf, s.InitIp.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "initUa", buf)
 	if s.InitUa.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_initUa...)
 		buf = cbor.AppendText(buf, s.InitUa.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_Event_status...)
 	buf = cbor.AppendText(buf, s.Status)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "attemptId", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_Event_attemptId...)
 	buf = cbor.AppendText(buf, s.AttemptId)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_Event_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeIp", buf)
 	if s.CompleteIp.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_completeIp...)
 		buf = cbor.AppendText(buf, s.CompleteIp.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "completeUa", buf)
 	if s.CompleteUa.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_completeUa...)
 		buf = cbor.AppendText(buf, s.CompleteUa.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "regionCode", buf)
 	if s.RegionCode.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_Event_regionCode...)
 		buf = cbor.AppendText(buf, s.RegionCode.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "countryCode", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_Event_countryCode...)
 	buf = cbor.AppendText(buf, s.CountryCode)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2178,6 +2464,7 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2207,10 +2494,12 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.Email = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -2246,10 +2535,12 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "attemptId" {
@@ -2263,10 +2554,12 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "completeIp" {
@@ -2303,10 +2596,12 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.RegionCode = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "countryCode" {
@@ -2315,16 +2610,20 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2439,6 +2738,15 @@ func (s *AgeassuranceDefs_Event) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_AgeassuranceDefs_Event_status...)
 	buf = cbor.AppendJSONString(buf, s.Status)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2449,6 +2757,7 @@ func (s *AgeassuranceDefs_Event) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_Event) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2581,10 +2890,12 @@ func (s *AgeassuranceDefs_Event) UnmarshalJSONAt(data []byte, pos int) (int, err
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2598,6 +2909,10 @@ type AgeassuranceDefs_State struct {
 	Access          AgeassuranceDefs_Access `json:"access"`
 	LastInitiatedAt gt.Option[string]       `json:"lastInitiatedAt,omitzero"` // The timestamp when this state was last updated.
 	Status          AgeassuranceDefs_Status `json:"status"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_State.
@@ -2613,7 +2928,7 @@ func (s *AgeassuranceDefs_State) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_State) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -2621,18 +2936,24 @@ func (s *AgeassuranceDefs_State) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_State_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "access", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_State_access...)
 	buf = cbor.AppendText(buf, s.Access)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	buf = append(buf, cborKey_AgeassuranceDefs_State_status...)
 	buf = cbor.AppendText(buf, s.Status)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastInitiatedAt", buf)
 	if s.LastInitiatedAt.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_State_lastInitiatedAt...)
 		buf = cbor.AppendText(buf, s.LastInitiatedAt.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2642,6 +2963,7 @@ func (s *AgeassuranceDefs_State) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_State) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2660,10 +2982,12 @@ func (s *AgeassuranceDefs_State) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "access" {
@@ -2677,10 +3001,12 @@ func (s *AgeassuranceDefs_State) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "lastInitiatedAt" {
@@ -2695,16 +3021,20 @@ func (s *AgeassuranceDefs_State) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.LastInitiatedAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2753,6 +3083,15 @@ func (s *AgeassuranceDefs_State) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_AgeassuranceDefs_State_status...)
 	buf = cbor.AppendJSONString(buf, s.Status)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2763,6 +3102,7 @@ func (s *AgeassuranceDefs_State) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_State) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2810,10 +3150,12 @@ func (s *AgeassuranceDefs_State) UnmarshalJSONAt(data []byte, pos int) (int, err
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -2825,6 +3167,10 @@ func (s *AgeassuranceDefs_State) UnmarshalJSONAt(data []byte, pos int) (int, err
 type AgeassuranceDefs_StateMetadata struct {
 	LexiconTypeID    string            `json:"$type,omitempty"`
 	AccountCreatedAt gt.Option[string] `json:"accountCreatedAt,omitzero"` // The account creation timestamp.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_StateMetadata.
@@ -2838,7 +3184,7 @@ func (s *AgeassuranceDefs_StateMetadata) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_StateMetadata) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -2846,14 +3192,18 @@ func (s *AgeassuranceDefs_StateMetadata) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCreatedAt", buf)
 	if s.AccountCreatedAt.HasVal() {
 		buf = append(buf, cborKey_AgeassuranceDefs_StateMetadata_accountCreatedAt...)
 		buf = cbor.AppendText(buf, s.AccountCreatedAt.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -2863,6 +3213,7 @@ func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -2881,10 +3232,12 @@ func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 16:
 			if string(data[keyStart:keyEnd]) == "accountCreatedAt" {
@@ -2899,16 +3252,20 @@ func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBORAt(data []byte, pos int) (
 					s.AccountCreatedAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -2943,6 +3300,15 @@ func (s *AgeassuranceDefs_StateMetadata) AppendJSON(buf []byte) ([]byte, error) 
 		buf = cbor.AppendJSONString(buf, s.AccountCreatedAt.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -2953,6 +3319,7 @@ func (s *AgeassuranceDefs_StateMetadata) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AgeassuranceDefs_StateMetadata) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -2990,10 +3357,12 @@ func (s *AgeassuranceDefs_StateMetadata) UnmarshalJSONAt(data []byte, pos int) (
 				s.AccountCreatedAt = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -15,6 +15,10 @@ type EmbedRecordWithMedia struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
 	Media         EmbedRecordWithMedia_Media `json:"media"`
 	Record        EmbedRecord                `json:"record"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // EmbedRecordWithMedia_Media is a union type.
@@ -182,15 +186,18 @@ func (s *EmbedRecordWithMedia) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecordWithMedia) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecordWithMedia_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "media", buf)
 	buf = append(buf, cborKey_EmbedRecordWithMedia_media...)
 	{
 		var err error
@@ -199,6 +206,7 @@ func (s *EmbedRecordWithMedia) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
 	buf = append(buf, cborKey_EmbedRecordWithMedia_record...)
 	{
 		var err error
@@ -207,6 +215,7 @@ func (s *EmbedRecordWithMedia) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -216,6 +225,7 @@ func (s *EmbedRecordWithMedia) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecordWithMedia) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -239,10 +249,12 @@ func (s *EmbedRecordWithMedia) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "record" {
@@ -251,16 +263,20 @@ func (s *EmbedRecordWithMedia) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -312,6 +328,15 @@ func (s *EmbedRecordWithMedia) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -322,6 +347,7 @@ func (s *EmbedRecordWithMedia) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecordWithMedia) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -355,10 +381,12 @@ func (s *EmbedRecordWithMedia) UnmarshalJSONAt(data []byte, pos int) (int, error
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -369,6 +397,10 @@ type EmbedRecordWithMedia_View struct {
 	LexiconTypeID string                          `json:"$type,omitempty"`
 	Media         EmbedRecordWithMedia_View_Media `json:"media"`
 	Record        EmbedRecord_View                `json:"record"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // EmbedRecordWithMedia_View_Media is a union type.
@@ -536,15 +568,18 @@ func (s *EmbedRecordWithMedia_View) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedRecordWithMedia_View) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedRecordWithMedia_View_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "media", buf)
 	buf = append(buf, cborKey_EmbedRecordWithMedia_View_media...)
 	{
 		var err error
@@ -553,6 +588,7 @@ func (s *EmbedRecordWithMedia_View) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "record", buf)
 	buf = append(buf, cborKey_EmbedRecordWithMedia_View_record...)
 	{
 		var err error
@@ -561,6 +597,7 @@ func (s *EmbedRecordWithMedia_View) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -570,6 +607,7 @@ func (s *EmbedRecordWithMedia_View) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedRecordWithMedia_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -593,10 +631,12 @@ func (s *EmbedRecordWithMedia_View) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "record" {
@@ -605,16 +645,20 @@ func (s *EmbedRecordWithMedia_View) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -666,6 +710,15 @@ func (s *EmbedRecordWithMedia_View) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -676,6 +729,7 @@ func (s *EmbedRecordWithMedia_View) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedRecordWithMedia_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -709,10 +763,12 @@ func (s *EmbedRecordWithMedia_View) UnmarshalJSONAt(data []byte, pos int) (int, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

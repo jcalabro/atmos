@@ -3,6 +3,7 @@
 package comatproto
 
 import (
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 )
 
@@ -16,6 +17,10 @@ type ServerDefs_InviteCode struct {
 	Disabled      bool                       `json:"disabled"`
 	ForAccount    string                     `json:"forAccount"`
 	Uses          []ServerDefs_InviteCodeUse `json:"uses"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ServerDefs_InviteCode.
@@ -35,13 +40,16 @@ func (s *ServerDefs_InviteCode) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerDefs_InviteCode) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 7
+	n := 7 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "code", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_code...)
 	buf = cbor.AppendText(buf, s.Code)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uses", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_uses...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Uses)))
 	for _, item := range s.Uses {
@@ -51,20 +59,27 @@ func (s *ServerDefs_InviteCode) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerDefs_InviteCode_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_disabled...)
 	buf = cbor.AppendBool(buf, s.Disabled)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "available", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_available...)
 	buf = cbor.AppendInt(buf, s.Available)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_createdBy...)
 	buf = cbor.AppendText(buf, s.CreatedBy)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "forAccount", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCode_forAccount...)
 	buf = cbor.AppendText(buf, s.ForAccount)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -74,6 +89,7 @@ func (s *ServerDefs_InviteCode) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerDefs_InviteCode) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -107,10 +123,12 @@ func (s *ServerDefs_InviteCode) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -119,10 +137,12 @@ func (s *ServerDefs_InviteCode) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "disabled" {
@@ -131,10 +151,12 @@ func (s *ServerDefs_InviteCode) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "available" {
@@ -153,10 +175,12 @@ func (s *ServerDefs_InviteCode) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "forAccount" {
@@ -165,16 +189,20 @@ func (s *ServerDefs_InviteCode) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -260,6 +288,15 @@ func (s *ServerDefs_InviteCode) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -270,6 +307,7 @@ func (s *ServerDefs_InviteCode) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerDefs_InviteCode) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -350,10 +388,12 @@ func (s *ServerDefs_InviteCode) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -364,6 +404,10 @@ type ServerDefs_InviteCodeUse struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	UsedAt        string `json:"usedAt"`
 	UsedBy        string `json:"usedBy"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ServerDefs_InviteCodeUse.
@@ -378,19 +422,24 @@ func (s *ServerDefs_InviteCodeUse) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerDefs_InviteCodeUse) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerDefs_InviteCodeUse_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "usedAt", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedAt...)
 	buf = cbor.AppendText(buf, s.UsedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "usedBy", buf)
 	buf = append(buf, cborKey_ServerDefs_InviteCodeUse_usedBy...)
 	buf = cbor.AppendText(buf, s.UsedBy)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -400,6 +449,7 @@ func (s *ServerDefs_InviteCodeUse) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerDefs_InviteCodeUse) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -418,10 +468,12 @@ func (s *ServerDefs_InviteCodeUse) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "usedAt" {
@@ -435,16 +487,20 @@ func (s *ServerDefs_InviteCodeUse) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -484,6 +540,15 @@ func (s *ServerDefs_InviteCodeUse) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ServerDefs_InviteCodeUse_usedBy...)
 	buf = cbor.AppendJSONString(buf, s.UsedBy)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -494,6 +559,7 @@ func (s *ServerDefs_InviteCodeUse) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerDefs_InviteCodeUse) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -527,10 +593,12 @@ func (s *ServerDefs_InviteCodeUse) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

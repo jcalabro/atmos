@@ -18,6 +18,10 @@ type VideoDefs_JobStatus struct {
 	Message       gt.Option[string]           `json:"message,omitzero"`
 	Progress      gt.Option[int64]            `json:"progress,omitzero"` // Progress within the current processing state.
 	State         string                      `json:"state"`             // The state of the video processing job. All values not listed as a known value indicate that the j...
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for VideoDefs_JobStatus.
@@ -37,7 +41,7 @@ func (s *VideoDefs_JobStatus) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.Blob.HasVal() {
 		n++
 	}
@@ -54,8 +58,11 @@ func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_VideoDefs_JobStatus_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blob", buf)
 	if s.Blob.HasVal() {
 		buf = append(buf, cborKey_VideoDefs_JobStatus_blob...)
 		{
@@ -69,26 +76,33 @@ func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_VideoDefs_JobStatus_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
 	if s.Error.HasVal() {
 		buf = append(buf, cborKey_VideoDefs_JobStatus_error...)
 		buf = cbor.AppendText(buf, s.Error.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "jobId", buf)
 	buf = append(buf, cborKey_VideoDefs_JobStatus_jobId...)
 	buf = cbor.AppendText(buf, s.JobId)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "state", buf)
 	buf = append(buf, cborKey_VideoDefs_JobStatus_state...)
 	buf = cbor.AppendText(buf, s.State)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
 	if s.Message.HasVal() {
 		buf = append(buf, cborKey_VideoDefs_JobStatus_message...)
 		buf = cbor.AppendText(buf, s.Message.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "progress", buf)
 	if s.Progress.HasVal() {
 		buf = append(buf, cborKey_VideoDefs_JobStatus_progress...)
 		buf = cbor.AppendInt(buf, s.Progress.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -98,6 +112,7 @@ func (s *VideoDefs_JobStatus) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -116,10 +131,12 @@ func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "blob" {
@@ -134,10 +151,12 @@ func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.Blob = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -167,10 +186,12 @@ func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "message" {
@@ -185,10 +206,12 @@ func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.Message = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "progress" {
@@ -203,16 +226,20 @@ func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.Progress = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -304,6 +331,15 @@ func (s *VideoDefs_JobStatus) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_VideoDefs_JobStatus_state...)
 	buf = cbor.AppendJSONString(buf, s.State)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -314,6 +350,7 @@ func (s *VideoDefs_JobStatus) UnmarshalJSON(data []byte) error {
 }
 
 func (s *VideoDefs_JobStatus) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -408,10 +445,12 @@ func (s *VideoDefs_JobStatus) UnmarshalJSONAt(data []byte, pos int) (int, error)
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

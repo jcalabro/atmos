@@ -3,6 +3,7 @@
 package ozone
 
 import (
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -31,6 +32,10 @@ type SafelinkDefs_Event struct {
 	Pattern       SafelinkDefs_PatternType `json:"pattern"`
 	Reason        SafelinkDefs_ReasonType  `json:"reason"`
 	URL           string                   `json:"url"` // The URL that this rule applies to
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for SafelinkDefs_Event.
@@ -52,7 +57,7 @@ func (s *SafelinkDefs_Event) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SafelinkDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 8
+	n := 8 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -60,30 +65,42 @@ func (s *SafelinkDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "id", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_id...)
 	buf = cbor.AppendInt(buf, s.Id)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_url...)
 	buf = cbor.AppendText(buf, s.URL)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SafelinkDefs_Event_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_action...)
 	buf = cbor.AppendText(buf, s.Action)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_reason...)
 	buf = cbor.AppendText(buf, s.Reason)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
 	if s.Comment.HasVal() {
 		buf = append(buf, cborKey_SafelinkDefs_Event_comment...)
 		buf = cbor.AppendText(buf, s.Comment.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_pattern...)
 	buf = cbor.AppendText(buf, s.Pattern)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_createdBy...)
 	buf = cbor.AppendText(buf, s.CreatedBy)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "eventType", buf)
 	buf = append(buf, cborKey_SafelinkDefs_Event_eventType...)
 	buf = cbor.AppendText(buf, s.EventType)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -93,6 +110,7 @@ func (s *SafelinkDefs_Event) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -111,10 +129,12 @@ func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 3:
 			if string(data[keyStart:keyEnd]) == "url" {
@@ -123,10 +143,12 @@ func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -135,10 +157,12 @@ func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "action" {
@@ -152,10 +176,12 @@ func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "comment" {
@@ -175,10 +201,12 @@ func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -197,16 +225,20 @@ func (s *SafelinkDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -297,6 +329,15 @@ func (s *SafelinkDefs_Event) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SafelinkDefs_Event_url...)
 	buf = cbor.AppendJSONString(buf, s.URL)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -307,6 +348,7 @@ func (s *SafelinkDefs_Event) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SafelinkDefs_Event) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -384,10 +426,12 @@ func (s *SafelinkDefs_Event) UnmarshalJSONAt(data []byte, pos int) (int, error) 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -436,6 +480,10 @@ type SafelinkDefs_UrlRule struct {
 	Reason        SafelinkDefs_ReasonType  `json:"reason"`
 	UpdatedAt     string                   `json:"updatedAt"` // Timestamp when the rule was last updated
 	URL           string                   `json:"url"`       // The URL or domain to apply the rule to
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for SafelinkDefs_UrlRule.
@@ -456,7 +504,7 @@ func (s *SafelinkDefs_UrlRule) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SafelinkDefs_UrlRule) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 7
+	n := 7 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -464,28 +512,39 @@ func (s *SafelinkDefs_UrlRule) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_url...)
 	buf = cbor.AppendText(buf, s.URL)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SafelinkDefs_UrlRule_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_action...)
 	buf = cbor.AppendText(buf, s.Action)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_reason...)
 	buf = cbor.AppendText(buf, s.Reason)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
 	if s.Comment.HasVal() {
 		buf = append(buf, cborKey_SafelinkDefs_UrlRule_comment...)
 		buf = cbor.AppendText(buf, s.Comment.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_pattern...)
 	buf = cbor.AppendText(buf, s.Pattern)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_createdBy...)
 	buf = cbor.AppendText(buf, s.CreatedBy)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
 	buf = append(buf, cborKey_SafelinkDefs_UrlRule_updatedAt...)
 	buf = cbor.AppendText(buf, s.UpdatedAt)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -495,6 +554,7 @@ func (s *SafelinkDefs_UrlRule) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SafelinkDefs_UrlRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -513,10 +573,12 @@ func (s *SafelinkDefs_UrlRule) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -525,10 +587,12 @@ func (s *SafelinkDefs_UrlRule) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "action" {
@@ -542,10 +606,12 @@ func (s *SafelinkDefs_UrlRule) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "comment" {
@@ -565,10 +631,12 @@ func (s *SafelinkDefs_UrlRule) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -587,16 +655,20 @@ func (s *SafelinkDefs_UrlRule) UnmarshalCBORAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -680,6 +752,15 @@ func (s *SafelinkDefs_UrlRule) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SafelinkDefs_UrlRule_url...)
 	buf = cbor.AppendJSONString(buf, s.URL)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -690,6 +771,7 @@ func (s *SafelinkDefs_UrlRule) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SafelinkDefs_UrlRule) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -762,10 +844,12 @@ func (s *SafelinkDefs_UrlRule) UnmarshalJSONAt(data []byte, pos int) (int, error
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

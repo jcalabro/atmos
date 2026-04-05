@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -45,6 +46,15 @@ func (s *AdminEnableAccountInvites_Input) AppendJSON(buf []byte) ([]byte, error)
 		buf = cbor.AppendJSONString(buf, s.Note.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -55,6 +65,7 @@ func (s *AdminEnableAccountInvites_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminEnableAccountInvites_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -97,10 +108,12 @@ func (s *AdminEnableAccountInvites_Input) UnmarshalJSONAt(data []byte, pos int) 
 				s.Note = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -118,7 +131,7 @@ func (s *AdminEnableAccountInvites_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminEnableAccountInvites_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.Note.HasVal() {
 		n++
 	}
@@ -126,16 +139,21 @@ func (s *AdminEnableAccountInvites_Input) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "note", buf)
 	if s.Note.HasVal() {
 		buf = append(buf, cborKey_AdminEnableAccountInvites_Input_note...)
 		buf = cbor.AppendText(buf, s.Note.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AdminEnableAccountInvites_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "account", buf)
 	buf = append(buf, cborKey_AdminEnableAccountInvites_Input_account...)
 	buf = cbor.AppendText(buf, s.Account)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -145,6 +163,7 @@ func (s *AdminEnableAccountInvites_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminEnableAccountInvites_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -169,10 +188,12 @@ func (s *AdminEnableAccountInvites_Input) UnmarshalCBORAt(data []byte, pos int) 
 					s.Note = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -181,10 +202,12 @@ func (s *AdminEnableAccountInvites_Input) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "account" {
@@ -193,16 +216,20 @@ func (s *AdminEnableAccountInvites_Input) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -212,6 +239,10 @@ type AdminEnableAccountInvites_Input struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Account       string            `json:"account"`
 	Note          gt.Option[string] `json:"note,omitzero"` // Optional reason for enabled invites.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // AdminEnableAccountInvites calls the XRPC procedure "com.atproto.admin.enableAccountInvites".

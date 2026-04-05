@@ -17,6 +17,10 @@ type HostingGetAccountHistory_AccountCreated struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Email         gt.Option[string] `json:"email,omitzero"`
 	Handle        gt.Option[string] `json:"handle,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for HostingGetAccountHistory_AccountCreated.
@@ -31,7 +35,7 @@ func (s *HostingGetAccountHistory_AccountCreated) MarshalCBOR() ([]byte, error) 
 }
 
 func (s *HostingGetAccountHistory_AccountCreated) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -42,18 +46,23 @@ func (s *HostingGetAccountHistory_AccountCreated) AppendCBOR(buf []byte) ([]byte
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
 	if s.Email.HasVal() {
 		buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_email...)
 		buf = cbor.AppendText(buf, s.Email.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	if s.Handle.HasVal() {
 		buf = append(buf, cborKey_HostingGetAccountHistory_AccountCreated_handle...)
 		buf = cbor.AppendText(buf, s.Handle.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -63,6 +72,7 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBOR(data []byte) err
 }
 
 func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -92,10 +102,12 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBORAt(data []byte, p
 					s.Email = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "handle" {
@@ -110,16 +122,20 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBORAt(data []byte, p
 					s.Handle = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -163,6 +179,15 @@ func (s *HostingGetAccountHistory_AccountCreated) AppendJSON(buf []byte) ([]byte
 		buf = cbor.AppendJSONString(buf, s.Handle.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -173,6 +198,7 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalJSON(data []byte) err
 }
 
 func (s *HostingGetAccountHistory_AccountCreated) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -224,10 +250,12 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalJSONAt(data []byte, p
 				s.Handle = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -237,6 +265,10 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalJSONAt(data []byte, p
 type HostingGetAccountHistory_EmailConfirmed struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Email         string `json:"email"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for HostingGetAccountHistory_EmailConfirmed.
@@ -250,17 +282,21 @@ func (s *HostingGetAccountHistory_EmailConfirmed) MarshalCBOR() ([]byte, error) 
 }
 
 func (s *HostingGetAccountHistory_EmailConfirmed) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_EmailConfirmed_email...)
 	buf = cbor.AppendText(buf, s.Email)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -270,6 +306,7 @@ func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalCBOR(data []byte) err
 }
 
 func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -293,16 +330,20 @@ func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalCBORAt(data []byte, p
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -335,6 +376,15 @@ func (s *HostingGetAccountHistory_EmailConfirmed) AppendJSON(buf []byte) ([]byte
 	buf = append(buf, jsonKey_HostingGetAccountHistory_EmailConfirmed_email...)
 	buf = cbor.AppendJSONString(buf, s.Email)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -345,6 +395,7 @@ func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalJSON(data []byte) err
 }
 
 func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -373,10 +424,12 @@ func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalJSONAt(data []byte, p
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -386,6 +439,10 @@ func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalJSONAt(data []byte, p
 type HostingGetAccountHistory_EmailUpdated struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Email         string `json:"email"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for HostingGetAccountHistory_EmailUpdated.
@@ -399,17 +456,21 @@ func (s *HostingGetAccountHistory_EmailUpdated) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *HostingGetAccountHistory_EmailUpdated) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "email", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_EmailUpdated_email...)
 	buf = cbor.AppendText(buf, s.Email)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -419,6 +480,7 @@ func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalCBOR(data []byte) error
 }
 
 func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -442,16 +504,20 @@ func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalCBORAt(data []byte, pos
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -484,6 +550,15 @@ func (s *HostingGetAccountHistory_EmailUpdated) AppendJSON(buf []byte) ([]byte, 
 	buf = append(buf, jsonKey_HostingGetAccountHistory_EmailUpdated_email...)
 	buf = cbor.AppendJSONString(buf, s.Email)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -494,6 +569,7 @@ func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalJSON(data []byte) error
 }
 
 func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -522,10 +598,12 @@ func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalJSONAt(data []byte, pos
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -537,6 +615,10 @@ type HostingGetAccountHistory_Event struct {
 	CreatedAt     string                                 `json:"createdAt"`
 	CreatedBy     string                                 `json:"createdBy"`
 	Details       HostingGetAccountHistory_Event_Details `json:"details"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // HostingGetAccountHistory_Event_Details is a union type.
@@ -759,15 +841,18 @@ func (s *HostingGetAccountHistory_Event) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *HostingGetAccountHistory_Event) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_Event_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "details", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_Event_details...)
 	{
 		var err error
@@ -776,10 +861,13 @@ func (s *HostingGetAccountHistory_Event) AppendCBOR(buf []byte) ([]byte, error) 
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_Event_createdBy...)
 	buf = cbor.AppendText(buf, s.CreatedBy)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -789,6 +877,7 @@ func (s *HostingGetAccountHistory_Event) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *HostingGetAccountHistory_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -807,10 +896,12 @@ func (s *HostingGetAccountHistory_Event) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "details" {
@@ -819,10 +910,12 @@ func (s *HostingGetAccountHistory_Event) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -836,16 +929,20 @@ func (s *HostingGetAccountHistory_Event) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -898,6 +995,15 @@ func (s *HostingGetAccountHistory_Event) AppendJSON(buf []byte) ([]byte, error) 
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -908,6 +1014,7 @@ func (s *HostingGetAccountHistory_Event) UnmarshalJSON(data []byte) error {
 }
 
 func (s *HostingGetAccountHistory_Event) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -946,10 +1053,12 @@ func (s *HostingGetAccountHistory_Event) UnmarshalJSONAt(data []byte, pos int) (
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -959,6 +1068,10 @@ func (s *HostingGetAccountHistory_Event) UnmarshalJSONAt(data []byte, pos int) (
 type HostingGetAccountHistory_HandleUpdated struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Handle        string `json:"handle"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for HostingGetAccountHistory_HandleUpdated.
@@ -972,17 +1085,21 @@ func (s *HostingGetAccountHistory_HandleUpdated) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *HostingGetAccountHistory_HandleUpdated) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "handle", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_HandleUpdated_handle...)
 	buf = cbor.AppendText(buf, s.Handle)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -992,6 +1109,7 @@ func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBOR(data []byte) erro
 }
 
 func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1010,10 +1128,12 @@ func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBORAt(data []byte, po
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "handle" {
@@ -1022,16 +1142,20 @@ func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBORAt(data []byte, po
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1064,6 +1188,15 @@ func (s *HostingGetAccountHistory_HandleUpdated) AppendJSON(buf []byte) ([]byte,
 	buf = append(buf, jsonKey_HostingGetAccountHistory_HandleUpdated_handle...)
 	buf = cbor.AppendJSONString(buf, s.Handle)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1074,6 +1207,7 @@ func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalJSON(data []byte) erro
 }
 
 func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1102,10 +1236,12 @@ func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalJSONAt(data []byte, po
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1158,6 +1294,15 @@ func (s *HostingGetAccountHistory_Output) AppendJSON(buf []byte) ([]byte, error)
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1168,6 +1313,7 @@ func (s *HostingGetAccountHistory_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *HostingGetAccountHistory_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1232,10 +1378,12 @@ func (s *HostingGetAccountHistory_Output) UnmarshalJSONAt(data []byte, pos int) 
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1253,7 +1401,7 @@ func (s *HostingGetAccountHistory_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *HostingGetAccountHistory_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1261,14 +1409,18 @@ func (s *HostingGetAccountHistory_Output) AppendCBOR(buf []byte) ([]byte, error)
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
 	if s.Cursor.HasVal() {
 		buf = append(buf, cborKey_HostingGetAccountHistory_Output_cursor...)
 		buf = cbor.AppendText(buf, s.Cursor.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "events", buf)
 	buf = append(buf, cborKey_HostingGetAccountHistory_Output_events...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Events)))
 	for _, item := range s.Events {
@@ -1278,6 +1430,7 @@ func (s *HostingGetAccountHistory_Output) AppendCBOR(buf []byte) ([]byte, error)
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1287,6 +1440,7 @@ func (s *HostingGetAccountHistory_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *HostingGetAccountHistory_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1305,10 +1459,12 @@ func (s *HostingGetAccountHistory_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -1338,16 +1494,20 @@ func (s *HostingGetAccountHistory_Output) UnmarshalCBORAt(data []byte, pos int) 
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1357,6 +1517,10 @@ type HostingGetAccountHistory_Output struct {
 	LexiconTypeID string                           `json:"$type,omitempty"`
 	Cursor        gt.Option[string]                `json:"cursor,omitzero"`
 	Events        []HostingGetAccountHistory_Event `json:"events"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // HostingGetAccountHistory calls the XRPC query "tools.ozone.hosting.getAccountHistory".
@@ -1381,6 +1545,10 @@ func HostingGetAccountHistory(ctx context.Context, c *xrpc.Client, cursor string
 // HostingGetAccountHistory_PasswordUpdated is a "passwordUpdated" in the tools.ozone.hosting.getAccountHistory schema.
 type HostingGetAccountHistory_PasswordUpdated struct {
 	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for HostingGetAccountHistory_PasswordUpdated.
@@ -1393,15 +1561,18 @@ func (s *HostingGetAccountHistory_PasswordUpdated) MarshalCBOR() ([]byte, error)
 }
 
 func (s *HostingGetAccountHistory_PasswordUpdated) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_HostingGetAccountHistory_PasswordUpdated_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1411,6 +1582,7 @@ func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalCBOR(data []byte) er
 }
 
 func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1429,16 +1601,20 @@ func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1464,6 +1640,15 @@ func (s *HostingGetAccountHistory_PasswordUpdated) AppendJSON(buf []byte) ([]byt
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1474,6 +1659,7 @@ func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalJSON(data []byte) er
 }
 
 func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1497,10 +1683,12 @@ func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalJSONAt(data []byte, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

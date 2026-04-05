@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -74,6 +75,15 @@ func (s *GraphGetSuggestedFollowsByActor_Output) AppendJSON(buf []byte) ([]byte,
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -84,6 +94,7 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalJSON(data []byte) erro
 }
 
 func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -176,10 +187,12 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalJSONAt(data []byte, po
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -199,7 +212,7 @@ func (s *GraphGetSuggestedFollowsByActor_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *GraphGetSuggestedFollowsByActor_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -213,22 +226,28 @@ func (s *GraphGetSuggestedFollowsByActor_Output) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recId", buf)
 	if s.RecId.HasVal() {
 		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recId...)
 		buf = cbor.AppendInt(buf, s.RecId.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "recIdStr", buf)
 	if s.RecIdStr.HasVal() {
 		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_recIdStr...)
 		buf = cbor.AppendText(buf, s.RecIdStr.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "isFallback", buf)
 	if s.IsFallback.HasVal() {
 		buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_isFallback...)
 		buf = cbor.AppendBool(buf, s.IsFallback.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "suggestions", buf)
 	buf = append(buf, cborKey_GraphGetSuggestedFollowsByActor_Output_suggestions...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggestions)))
 	for _, item := range s.Suggestions {
@@ -238,6 +257,7 @@ func (s *GraphGetSuggestedFollowsByActor_Output) AppendCBOR(buf []byte) ([]byte,
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -247,6 +267,7 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBOR(data []byte) erro
 }
 
 func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -276,10 +297,12 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, po
 					s.RecId = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "recIdStr" {
@@ -294,10 +317,12 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, po
 					s.RecIdStr = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "isFallback" {
@@ -312,10 +337,12 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, po
 					s.IsFallback = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "suggestions" {
@@ -334,16 +361,20 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, po
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -355,6 +386,10 @@ type GraphGetSuggestedFollowsByActor_Output struct {
 	RecId         gt.Option[int64]        `json:"recId,omitzero"`      // DEPRECATED: use recIdStr instead.
 	RecIdStr      gt.Option[string]       `json:"recIdStr,omitzero"`   // Snowflake for this recommendation, use when submitting recommendation events.
 	Suggestions   []ActorDefs_ProfileView `json:"suggestions"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // GraphGetSuggestedFollowsByActor calls the XRPC query "app.bsky.graph.getSuggestedFollowsByActor".

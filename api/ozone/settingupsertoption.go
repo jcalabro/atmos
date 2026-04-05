@@ -5,6 +5,7 @@ package ozone
 import (
 	"context"
 	"encoding/json"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -43,6 +44,15 @@ func (s *SettingUpsertOption_Output) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -53,6 +63,7 @@ func (s *SettingUpsertOption_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SettingUpsertOption_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -81,10 +92,12 @@ func (s *SettingUpsertOption_Output) UnmarshalJSONAt(data []byte, pos int) (int,
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -101,15 +114,18 @@ func (s *SettingUpsertOption_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SettingUpsertOption_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SettingUpsertOption_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "option", buf)
 	buf = append(buf, cborKey_SettingUpsertOption_Output_option...)
 	{
 		var err error
@@ -118,6 +134,7 @@ func (s *SettingUpsertOption_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -127,6 +144,7 @@ func (s *SettingUpsertOption_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SettingUpsertOption_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -145,10 +163,12 @@ func (s *SettingUpsertOption_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "option" {
@@ -157,16 +177,20 @@ func (s *SettingUpsertOption_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -175,6 +199,10 @@ func (s *SettingUpsertOption_Output) UnmarshalCBORAt(data []byte, pos int) (int,
 type SettingUpsertOption_Output struct {
 	LexiconTypeID string             `json:"$type,omitempty"`
 	Option        SettingDefs_Option `json:"option"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for SettingUpsertOption_Input.
@@ -236,6 +264,15 @@ func (s *SettingUpsertOption_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SettingUpsertOption_Input_value...)
 	buf = append(buf, s.Value...)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -246,6 +283,7 @@ func (s *SettingUpsertOption_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SettingUpsertOption_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -316,10 +354,12 @@ func (s *SettingUpsertOption_Input) UnmarshalJSONAt(data []byte, pos int) (int, 
 				s.Value = json.RawMessage(data[start:pos])
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -340,7 +380,7 @@ func (s *SettingUpsertOption_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SettingUpsertOption_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -351,24 +391,32 @@ func (s *SettingUpsertOption_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "key", buf)
 	buf = append(buf, cborKey_SettingUpsertOption_Input_key...)
 	buf = cbor.AppendText(buf, s.Key)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SettingUpsertOption_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scope", buf)
 	buf = append(buf, cborKey_SettingUpsertOption_Input_scope...)
 	buf = cbor.AppendText(buf, s.Scope)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "value", buf)
 	buf = append(buf, cborKey_SettingUpsertOption_Input_value...)
 	buf = cbor.AppendNull(buf)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "description", buf)
 	if s.Description.HasVal() {
 		buf = append(buf, cborKey_SettingUpsertOption_Input_description...)
 		buf = cbor.AppendText(buf, s.Description.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "managerRole", buf)
 	if s.ManagerRole.HasVal() {
 		buf = append(buf, cborKey_SettingUpsertOption_Input_managerRole...)
 		buf = cbor.AppendText(buf, s.ManagerRole.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -378,6 +426,7 @@ func (s *SettingUpsertOption_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SettingUpsertOption_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -396,10 +445,12 @@ func (s *SettingUpsertOption_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -418,10 +469,12 @@ func (s *SettingUpsertOption_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "description" {
@@ -447,16 +500,20 @@ func (s *SettingUpsertOption_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 					s.ManagerRole = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -469,6 +526,10 @@ type SettingUpsertOption_Input struct {
 	ManagerRole   gt.Option[string] `json:"managerRole,omitzero"`
 	Scope         string            `json:"scope"`
 	Value         json.RawMessage   `json:"value"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // SettingUpsertOption calls the XRPC procedure "tools.ozone.setting.upsertOption".

@@ -4,6 +4,7 @@ package bsky
 
 import (
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -21,6 +22,10 @@ type FeedLike struct {
 	CreatedAt     string                              `json:"createdAt"`
 	Subject       comatproto.RepoStrongRef            `json:"subject"`
 	Via           gt.Option[comatproto.RepoStrongRef] `json:"via,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for FeedLike.
@@ -36,11 +41,13 @@ func (s *FeedLike) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedLike) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.Via.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "via", buf)
 	if s.Via.HasVal() {
 		buf = append(buf, cborKey_FeedLike_via...)
 		{
@@ -54,8 +61,10 @@ func (s *FeedLike) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	buf = append(buf, cborKey_FeedLike_dollar_type...)
 	buf = cbor.AppendText(buf, s.LexiconTypeID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
 	buf = append(buf, cborKey_FeedLike_subject...)
 	{
 		var err error
@@ -64,8 +73,10 @@ func (s *FeedLike) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_FeedLike_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -75,6 +86,7 @@ func (s *FeedLike) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedLike) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -99,10 +111,12 @@ func (s *FeedLike) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Via = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -111,10 +125,12 @@ func (s *FeedLike) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -123,10 +139,12 @@ func (s *FeedLike) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -135,16 +153,20 @@ func (s *FeedLike) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -208,6 +230,15 @@ func (s *FeedLike) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -218,6 +249,7 @@ func (s *FeedLike) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedLike) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -265,10 +297,12 @@ func (s *FeedLike) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				s.Via = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

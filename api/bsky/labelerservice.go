@@ -27,6 +27,10 @@ type LabelerService struct {
 	ReasonTypes        []comatproto.ModerationDefs_ReasonType  `json:"reasonTypes,omitempty"`        // The set of report reason 'codes' which are in-scope for this service to review and action. These ...
 	SubjectCollections []string                                `json:"subjectCollections,omitempty"` // Set of record types (collection NSIDs) which can be reported to this service. If not defined (dis...
 	SubjectTypes       []comatproto.ModerationDefs_SubjectType `json:"subjectTypes,omitempty"`       // The set of subject types (account, record, etc) this service accepts reports on.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // LabelerService_Labels is a union type.
@@ -144,7 +148,7 @@ func (s *LabelerService) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.Labels.HasVal() {
 		n++
 	}
@@ -158,8 +162,11 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	buf = append(buf, cborKey_LabelerService_dollar_type...)
 	buf = cbor.AppendText(buf, s.LexiconTypeID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "labels", buf)
 	if s.Labels.HasVal() {
 		buf = append(buf, cborKey_LabelerService_labels...)
 		{
@@ -173,6 +180,7 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "policies", buf)
 	buf = append(buf, cborKey_LabelerService_policies...)
 	{
 		var err error
@@ -181,8 +189,10 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_LabelerService_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reasonTypes", buf)
 	if len(s.ReasonTypes) > 0 {
 		buf = append(buf, cborKey_LabelerService_reasonTypes...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReasonTypes)))
@@ -190,6 +200,7 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectTypes", buf)
 	if len(s.SubjectTypes) > 0 {
 		buf = append(buf, cborKey_LabelerService_subjectTypes...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
@@ -197,6 +208,7 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectCollections", buf)
 	if len(s.SubjectCollections) > 0 {
 		buf = append(buf, cborKey_LabelerService_subjectCollections...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectCollections)))
@@ -204,6 +216,7 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -213,6 +226,7 @@ func (s *LabelerService) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -231,10 +245,12 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "labels" {
@@ -249,10 +265,12 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Labels = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "policies" {
@@ -261,10 +279,12 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -273,10 +293,12 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "reasonTypes" {
@@ -295,10 +317,12 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "subjectTypes" {
@@ -317,10 +341,12 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 18:
 			if string(data[keyStart:keyEnd]) == "subjectCollections" {
@@ -339,16 +365,20 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -460,6 +490,15 @@ func (s *LabelerService) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -470,6 +509,7 @@ func (s *LabelerService) UnmarshalJSON(data []byte) error {
 }
 
 func (s *LabelerService) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -598,10 +638,12 @@ func (s *LabelerService) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -15,6 +16,10 @@ type FeedGetLikes_Like struct {
 	Actor         ActorDefs_ProfileView `json:"actor"`
 	CreatedAt     string                `json:"createdAt"`
 	IndexedAt     string                `json:"indexedAt"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for FeedGetLikes_Like.
@@ -30,15 +35,18 @@ func (s *FeedGetLikes_Like) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedGetLikes_Like) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_FeedGetLikes_Like_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "actor", buf)
 	buf = append(buf, cborKey_FeedGetLikes_Like_actor...)
 	{
 		var err error
@@ -47,10 +55,13 @@ func (s *FeedGetLikes_Like) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_FeedGetLikes_Like_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedAt", buf)
 	buf = append(buf, cborKey_FeedGetLikes_Like_indexedAt...)
 	buf = cbor.AppendText(buf, s.IndexedAt)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -60,6 +71,7 @@ func (s *FeedGetLikes_Like) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedGetLikes_Like) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -83,10 +95,12 @@ func (s *FeedGetLikes_Like) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -100,16 +114,20 @@ func (s *FeedGetLikes_Like) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -162,6 +180,15 @@ func (s *FeedGetLikes_Like) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_FeedGetLikes_Like_indexedAt...)
 	buf = cbor.AppendJSONString(buf, s.IndexedAt)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -172,6 +199,7 @@ func (s *FeedGetLikes_Like) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedGetLikes_Like) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -210,10 +238,12 @@ func (s *FeedGetLikes_Like) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -282,6 +312,15 @@ func (s *FeedGetLikes_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_FeedGetLikes_Output_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -292,6 +331,7 @@ func (s *FeedGetLikes_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedGetLikes_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -375,10 +415,12 @@ func (s *FeedGetLikes_Output) UnmarshalJSONAt(data []byte, pos int) (int, error)
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -398,7 +440,7 @@ func (s *FeedGetLikes_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedGetLikes_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.CID.HasVal() {
 		n++
 	}
@@ -409,16 +451,21 @@ func (s *FeedGetLikes_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
 	if s.CID.HasVal() {
 		buf = append(buf, cborKey_FeedGetLikes_Output_cid...)
 		buf = cbor.AppendText(buf, s.CID.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_FeedGetLikes_Output_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_FeedGetLikes_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "likes", buf)
 	buf = append(buf, cborKey_FeedGetLikes_Output_likes...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Likes)))
 	for _, item := range s.Likes {
@@ -428,10 +475,12 @@ func (s *FeedGetLikes_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cursor", buf)
 	if s.Cursor.HasVal() {
 		buf = append(buf, cborKey_FeedGetLikes_Output_cursor...)
 		buf = cbor.AppendText(buf, s.Cursor.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -441,6 +490,7 @@ func (s *FeedGetLikes_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedGetLikes_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -470,10 +520,12 @@ func (s *FeedGetLikes_Output) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -497,10 +549,12 @@ func (s *FeedGetLikes_Output) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "cursor" {
@@ -515,16 +569,20 @@ func (s *FeedGetLikes_Output) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					s.Cursor = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -536,6 +594,10 @@ type FeedGetLikes_Output struct {
 	Cursor        gt.Option[string]   `json:"cursor,omitzero"`
 	Likes         []FeedGetLikes_Like `json:"likes"`
 	URI           string              `json:"uri"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // FeedGetLikes calls the XRPC query "app.bsky.feed.getLikes".

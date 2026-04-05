@@ -20,6 +20,10 @@ const (
 // Disables embedding of this post.
 type FeedPostgate_DisableRule struct {
 	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for FeedPostgate_DisableRule.
@@ -32,15 +36,18 @@ func (s *FeedPostgate_DisableRule) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedPostgate_DisableRule) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_FeedPostgate_DisableRule_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -50,6 +57,7 @@ func (s *FeedPostgate_DisableRule) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedPostgate_DisableRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -68,16 +76,20 @@ func (s *FeedPostgate_DisableRule) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -103,6 +115,15 @@ func (s *FeedPostgate_DisableRule) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -113,6 +134,7 @@ func (s *FeedPostgate_DisableRule) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedPostgate_DisableRule) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -136,10 +158,12 @@ func (s *FeedPostgate_DisableRule) UnmarshalJSONAt(data []byte, pos int) (int, e
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -154,6 +178,10 @@ type FeedPostgate struct {
 	DetachedEmbeddingUris []string                      `json:"detachedEmbeddingUris,omitempty"` // List of AT-URIs embedding this post that the author has detached from.
 	EmbeddingRules        []FeedPostgate_EmbeddingRules `json:"embeddingRules,omitempty"`        // List of rules defining who can embed this post. If value is an empty array or is undefined, no pa...
 	Post                  string                        `json:"post"`                            // Reference (AT-URI) to the post record.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // FeedPostgate_EmbeddingRules is a union type.
@@ -269,7 +297,7 @@ func (s *FeedPostgate) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if len(s.EmbeddingRules) > 0 {
 		n++
 	}
@@ -277,12 +305,17 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "post", buf)
 	buf = append(buf, cborKey_FeedPostgate_post...)
 	buf = cbor.AppendText(buf, s.Post)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	buf = append(buf, cborKey_FeedPostgate_dollar_type...)
 	buf = cbor.AppendText(buf, s.LexiconTypeID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_FeedPostgate_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "embeddingRules", buf)
 	if len(s.EmbeddingRules) > 0 {
 		buf = append(buf, cborKey_FeedPostgate_embeddingRules...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.EmbeddingRules)))
@@ -294,6 +327,7 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "detachedEmbeddingUris", buf)
 	if len(s.DetachedEmbeddingUris) > 0 {
 		buf = append(buf, cborKey_FeedPostgate_detachedEmbeddingUris...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.DetachedEmbeddingUris)))
@@ -301,6 +335,7 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -310,6 +345,7 @@ func (s *FeedPostgate) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -328,10 +364,12 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -340,10 +378,12 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -352,10 +392,12 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "embeddingRules" {
@@ -374,10 +416,12 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 21:
 			if string(data[keyStart:keyEnd]) == "detachedEmbeddingUris" {
@@ -396,16 +440,20 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -481,6 +529,15 @@ func (s *FeedPostgate) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_FeedPostgate_post...)
 	buf = cbor.AppendJSONString(buf, s.Post)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -491,6 +548,7 @@ func (s *FeedPostgate) UnmarshalJSON(data []byte) error {
 }
 
 func (s *FeedPostgate) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -578,10 +636,12 @@ func (s *FeedPostgate) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

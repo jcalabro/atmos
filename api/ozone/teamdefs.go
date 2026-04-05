@@ -4,6 +4,7 @@ package ozone
 
 import (
 	bsky "github.com/jcalabro/atmos/api/bsky"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -26,6 +27,10 @@ type TeamDefs_Member struct {
 	Profile       gt.Option[bsky.ActorDefs_ProfileViewDetailed] `json:"profile,omitzero"`
 	Role          string                                        `json:"role"`
 	UpdatedAt     gt.Option[string]                             `json:"updatedAt,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for TeamDefs_Member.
@@ -45,7 +50,7 @@ func (s *TeamDefs_Member) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *TeamDefs_Member) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -65,14 +70,19 @@ func (s *TeamDefs_Member) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_TeamDefs_Member_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
 	buf = append(buf, cborKey_TeamDefs_Member_role...)
 	buf = cbor.AppendText(buf, s.Role)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_TeamDefs_Member_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "profile", buf)
 	if s.Profile.HasVal() {
 		buf = append(buf, cborKey_TeamDefs_Member_profile...)
 		{
@@ -86,22 +96,27 @@ func (s *TeamDefs_Member) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "disabled", buf)
 	if s.Disabled.HasVal() {
 		buf = append(buf, cborKey_TeamDefs_Member_disabled...)
 		buf = cbor.AppendBool(buf, s.Disabled.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	if s.CreatedAt.HasVal() {
 		buf = append(buf, cborKey_TeamDefs_Member_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "updatedAt", buf)
 	if s.UpdatedAt.HasVal() {
 		buf = append(buf, cborKey_TeamDefs_Member_updatedAt...)
 		buf = cbor.AppendText(buf, s.UpdatedAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lastUpdatedBy", buf)
 	if s.LastUpdatedBy.HasVal() {
 		buf = append(buf, cborKey_TeamDefs_Member_lastUpdatedBy...)
 		buf = cbor.AppendText(buf, s.LastUpdatedBy.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -111,6 +126,7 @@ func (s *TeamDefs_Member) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -129,10 +145,12 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "role" {
@@ -141,10 +159,12 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -153,10 +173,12 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "profile" {
@@ -171,10 +193,12 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Profile = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "disabled" {
@@ -189,10 +213,12 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Disabled = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -218,10 +244,12 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.UpdatedAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "lastUpdatedBy" {
@@ -236,16 +264,20 @@ func (s *TeamDefs_Member) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.LastUpdatedBy = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -339,6 +371,15 @@ func (s *TeamDefs_Member) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.UpdatedAt.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -349,6 +390,7 @@ func (s *TeamDefs_Member) UnmarshalJSON(data []byte) error {
 }
 
 func (s *TeamDefs_Member) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -452,10 +494,12 @@ func (s *TeamDefs_Member) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				s.UpdatedAt = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

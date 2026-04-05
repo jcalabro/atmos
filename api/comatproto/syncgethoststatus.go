@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -68,6 +69,15 @@ func (s *SyncGetHostStatus_Output) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Status.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -78,6 +88,7 @@ func (s *SyncGetHostStatus_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SyncGetHostStatus_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -148,10 +159,12 @@ func (s *SyncGetHostStatus_Output) UnmarshalJSONAt(data []byte, pos int) (int, e
 				s.Status = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -171,7 +184,7 @@ func (s *SyncGetHostStatus_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncGetHostStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.Seq.HasVal() {
 		n++
 	}
@@ -185,24 +198,31 @@ func (s *SyncGetHostStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "seq", buf)
 	if s.Seq.HasVal() {
 		buf = append(buf, cborKey_SyncGetHostStatus_Output_seq...)
 		buf = cbor.AppendInt(buf, s.Seq.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SyncGetHostStatus_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "status", buf)
 	if s.Status.HasVal() {
 		buf = append(buf, cborKey_SyncGetHostStatus_Output_status...)
 		buf = cbor.AppendText(buf, s.Status.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "hostname", buf)
 	buf = append(buf, cborKey_SyncGetHostStatus_Output_hostname...)
 	buf = cbor.AppendText(buf, s.Hostname)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "accountCount", buf)
 	if s.AccountCount.HasVal() {
 		buf = append(buf, cborKey_SyncGetHostStatus_Output_accountCount...)
 		buf = cbor.AppendInt(buf, s.AccountCount.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -212,6 +232,7 @@ func (s *SyncGetHostStatus_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SyncGetHostStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -236,10 +257,12 @@ func (s *SyncGetHostStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.Seq = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -248,10 +271,12 @@ func (s *SyncGetHostStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "status" {
@@ -266,10 +291,12 @@ func (s *SyncGetHostStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.Status = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "hostname" {
@@ -278,10 +305,12 @@ func (s *SyncGetHostStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "accountCount" {
@@ -296,16 +325,20 @@ func (s *SyncGetHostStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, e
 					s.AccountCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -317,6 +350,10 @@ type SyncGetHostStatus_Output struct {
 	Hostname      string                         `json:"hostname"`
 	Seq           gt.Option[int64]               `json:"seq,omitzero"` // Recent repo stream event sequence number. May be delayed from actual stream processing (eg, persi...
 	Status        gt.Option[SyncDefs_HostStatus] `json:"status,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // SyncGetHostStatus calls the XRPC query "com.atproto.sync.getHostStatus".

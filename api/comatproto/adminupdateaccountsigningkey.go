@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -42,6 +43,15 @@ func (s *AdminUpdateAccountSigningKey_Input) AppendJSON(buf []byte) ([]byte, err
 	buf = append(buf, jsonKey_AdminUpdateAccountSigningKey_Input_signingKey...)
 	buf = cbor.AppendJSONString(buf, s.SigningKey)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -52,6 +62,7 @@ func (s *AdminUpdateAccountSigningKey_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *AdminUpdateAccountSigningKey_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -85,10 +96,12 @@ func (s *AdminUpdateAccountSigningKey_Input) UnmarshalJSONAt(data []byte, pos in
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -106,19 +119,24 @@ func (s *AdminUpdateAccountSigningKey_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *AdminUpdateAccountSigningKey_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_AdminUpdateAccountSigningKey_Input_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_AdminUpdateAccountSigningKey_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "signingKey", buf)
 	buf = append(buf, cborKey_AdminUpdateAccountSigningKey_Input_signingKey...)
 	buf = cbor.AppendText(buf, s.SigningKey)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -128,6 +146,7 @@ func (s *AdminUpdateAccountSigningKey_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *AdminUpdateAccountSigningKey_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -146,10 +165,12 @@ func (s *AdminUpdateAccountSigningKey_Input) UnmarshalCBORAt(data []byte, pos in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -158,10 +179,12 @@ func (s *AdminUpdateAccountSigningKey_Input) UnmarshalCBORAt(data []byte, pos in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "signingKey" {
@@ -170,16 +193,20 @@ func (s *AdminUpdateAccountSigningKey_Input) UnmarshalCBORAt(data []byte, pos in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -189,6 +216,10 @@ type AdminUpdateAccountSigningKey_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	DID           string `json:"did"`
 	SigningKey    string `json:"signingKey"` // Did-key formatted public key
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // AdminUpdateAccountSigningKey calls the XRPC procedure "com.atproto.admin.updateAccountSigningKey".

@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -60,6 +61,15 @@ func (s *LexiconResolveLexicon_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_LexiconResolveLexicon_Output_uri...)
 	buf = cbor.AppendJSONString(buf, s.URI)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -70,6 +80,7 @@ func (s *LexiconResolveLexicon_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *LexiconResolveLexicon_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -108,10 +119,12 @@ func (s *LexiconResolveLexicon_Output) UnmarshalJSONAt(data []byte, pos int) (in
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -130,19 +143,24 @@ func (s *LexiconResolveLexicon_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *LexiconResolveLexicon_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
 	buf = append(buf, cborKey_LexiconResolveLexicon_Output_cid...)
 	buf = cbor.AppendText(buf, s.CID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "uri", buf)
 	buf = append(buf, cborKey_LexiconResolveLexicon_Output_uri...)
 	buf = cbor.AppendText(buf, s.URI)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_LexiconResolveLexicon_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "schema", buf)
 	buf = append(buf, cborKey_LexiconResolveLexicon_Output_schema...)
 	{
 		var err error
@@ -151,6 +169,7 @@ func (s *LexiconResolveLexicon_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -160,6 +179,7 @@ func (s *LexiconResolveLexicon_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *LexiconResolveLexicon_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -183,10 +203,12 @@ func (s *LexiconResolveLexicon_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -195,10 +217,12 @@ func (s *LexiconResolveLexicon_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "schema" {
@@ -207,16 +231,20 @@ func (s *LexiconResolveLexicon_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -227,6 +255,10 @@ type LexiconResolveLexicon_Output struct {
 	CID           string        `json:"cid"`    // The CID of the lexicon schema record.
 	Schema        LexiconSchema `json:"schema"` // The resolved lexicon schema record.
 	URI           string        `json:"uri"`    // The AT-URI of the lexicon schema record.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // LexiconResolveLexicon calls the XRPC query "com.atproto.lexicon.resolveLexicon".

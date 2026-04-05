@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -91,6 +92,15 @@ func (s *ServerCheckAccountStatus_Output) AppendJSON(buf []byte) ([]byte, error)
 	buf = append(buf, jsonKey_ServerCheckAccountStatus_Output_validDid...)
 	buf = cbor.AppendJSONBool(buf, s.ValidDid)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -101,6 +111,7 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerCheckAccountStatus_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -169,10 +180,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalJSONAt(data []byte, pos int) 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -197,33 +210,45 @@ func (s *ServerCheckAccountStatus_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerCheckAccountStatus_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 9
+	n := 9 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerCheckAccountStatus_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repoRev", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_repoRev...)
 	buf = cbor.AppendText(buf, s.RepoRev)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "validDid", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_validDid...)
 	buf = cbor.AppendBool(buf, s.ValidDid)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "activated", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_activated...)
 	buf = cbor.AppendBool(buf, s.Activated)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repoBlocks", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_repoBlocks...)
 	buf = cbor.AppendInt(buf, s.RepoBlocks)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "repoCommit", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_repoCommit...)
 	buf = cbor.AppendText(buf, s.RepoCommit)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "expectedBlobs", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_expectedBlobs...)
 	buf = cbor.AppendInt(buf, s.ExpectedBlobs)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "importedBlobs", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_importedBlobs...)
 	buf = cbor.AppendInt(buf, s.ImportedBlobs)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "indexedRecords", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_indexedRecords...)
 	buf = cbor.AppendInt(buf, s.IndexedRecords)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privateStateValues", buf)
 	buf = append(buf, cborKey_ServerCheckAccountStatus_Output_privateStateValues...)
 	buf = cbor.AppendInt(buf, s.PrivateStateValues)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -233,6 +258,7 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -251,10 +277,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "repoRev" {
@@ -263,10 +291,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "validDid" {
@@ -275,10 +305,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "activated" {
@@ -287,10 +319,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "repoBlocks" {
@@ -304,10 +338,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "expectedBlobs" {
@@ -321,10 +357,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 14:
 			if string(data[keyStart:keyEnd]) == "indexedRecords" {
@@ -333,10 +371,12 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 18:
 			if string(data[keyStart:keyEnd]) == "privateStateValues" {
@@ -345,16 +385,20 @@ func (s *ServerCheckAccountStatus_Output) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -371,6 +415,10 @@ type ServerCheckAccountStatus_Output struct {
 	RepoCommit         string `json:"repoCommit"`
 	RepoRev            string `json:"repoRev"`
 	ValidDid           bool   `json:"validDid"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ServerCheckAccountStatus calls the XRPC query "com.atproto.server.checkAccountStatus".

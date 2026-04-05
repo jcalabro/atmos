@@ -4,6 +4,7 @@ package chatbsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -67,6 +68,15 @@ func (s *ModerationGetActorMetadata_Output) AppendJSON(buf []byte) ([]byte, erro
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -77,6 +87,7 @@ func (s *ModerationGetActorMetadata_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationGetActorMetadata_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -115,10 +126,12 @@ func (s *ModerationGetActorMetadata_Output) UnmarshalJSONAt(data []byte, pos int
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -137,11 +150,13 @@ func (s *ModerationGetActorMetadata_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationGetActorMetadata_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "all", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Output_all...)
 	{
 		var err error
@@ -150,6 +165,7 @@ func (s *ModerationGetActorMetadata_Output) AppendCBOR(buf []byte) ([]byte, erro
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "day", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Output_day...)
 	{
 		var err error
@@ -158,10 +174,12 @@ func (s *ModerationGetActorMetadata_Output) AppendCBOR(buf []byte) ([]byte, erro
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationGetActorMetadata_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "month", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Output_month...)
 	{
 		var err error
@@ -170,6 +188,7 @@ func (s *ModerationGetActorMetadata_Output) AppendCBOR(buf []byte) ([]byte, erro
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -179,6 +198,7 @@ func (s *ModerationGetActorMetadata_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationGetActorMetadata_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -202,10 +222,12 @@ func (s *ModerationGetActorMetadata_Output) UnmarshalCBORAt(data []byte, pos int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -219,16 +241,20 @@ func (s *ModerationGetActorMetadata_Output) UnmarshalCBORAt(data []byte, pos int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -239,6 +265,10 @@ type ModerationGetActorMetadata_Output struct {
 	All           ModerationGetActorMetadata_Metadata `json:"all"`
 	Day           ModerationGetActorMetadata_Metadata `json:"day"`
 	Month         ModerationGetActorMetadata_Metadata `json:"month"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ModerationGetActorMetadata calls the XRPC query "chat.bsky.moderation.getActorMetadata".
@@ -256,6 +286,10 @@ type ModerationGetActorMetadata_Metadata struct {
 	ConvosStarted    int64  `json:"convosStarted"`
 	MessagesReceived int64  `json:"messagesReceived"`
 	MessagesSent     int64  `json:"messagesSent"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationGetActorMetadata_Metadata.
@@ -272,23 +306,30 @@ func (s *ModerationGetActorMetadata_Metadata) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationGetActorMetadata_Metadata) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convos", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convos...)
 	buf = cbor.AppendInt(buf, s.Convos)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messagesSent", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesSent...)
 	buf = cbor.AppendInt(buf, s.MessagesSent)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convosStarted", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_convosStarted...)
 	buf = cbor.AppendInt(buf, s.ConvosStarted)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "messagesReceived", buf)
 	buf = append(buf, cborKey_ModerationGetActorMetadata_Metadata_messagesReceived...)
 	buf = cbor.AppendInt(buf, s.MessagesReceived)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -298,6 +339,7 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -316,10 +358,12 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBORAt(data []byte, pos i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "convos" {
@@ -328,10 +372,12 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBORAt(data []byte, pos i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "messagesSent" {
@@ -340,10 +386,12 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBORAt(data []byte, pos i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "convosStarted" {
@@ -352,10 +400,12 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBORAt(data []byte, pos i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 16:
 			if string(data[keyStart:keyEnd]) == "messagesReceived" {
@@ -364,16 +414,20 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalCBORAt(data []byte, pos i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -427,6 +481,15 @@ func (s *ModerationGetActorMetadata_Metadata) AppendJSON(buf []byte) ([]byte, er
 	buf = append(buf, jsonKey_ModerationGetActorMetadata_Metadata_messagesSent...)
 	buf = cbor.AppendJSONInt(buf, s.MessagesSent)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -437,6 +500,7 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationGetActorMetadata_Metadata) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -480,10 +544,12 @@ func (s *ModerationGetActorMetadata_Metadata) UnmarshalJSONAt(data []byte, pos i
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

@@ -4,6 +4,7 @@ package chatbsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -42,6 +43,15 @@ func (s *ConvoLeaveConvo_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ConvoLeaveConvo_Output_rev...)
 	buf = cbor.AppendJSONString(buf, s.Rev)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -52,6 +62,7 @@ func (s *ConvoLeaveConvo_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ConvoLeaveConvo_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -85,10 +96,12 @@ func (s *ConvoLeaveConvo_Output) UnmarshalJSONAt(data []byte, pos int) (int, err
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -106,19 +119,24 @@ func (s *ConvoLeaveConvo_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ConvoLeaveConvo_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "rev", buf)
 	buf = append(buf, cborKey_ConvoLeaveConvo_Output_rev...)
 	buf = cbor.AppendText(buf, s.Rev)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ConvoLeaveConvo_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
 	buf = append(buf, cborKey_ConvoLeaveConvo_Output_convoId...)
 	buf = cbor.AppendText(buf, s.ConvoId)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -128,6 +146,7 @@ func (s *ConvoLeaveConvo_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ConvoLeaveConvo_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -146,10 +165,12 @@ func (s *ConvoLeaveConvo_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -158,10 +179,12 @@ func (s *ConvoLeaveConvo_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "convoId" {
@@ -170,16 +193,20 @@ func (s *ConvoLeaveConvo_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -189,6 +216,10 @@ type ConvoLeaveConvo_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
 	Rev           string `json:"rev"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for ConvoLeaveConvo_Input.
@@ -218,6 +249,15 @@ func (s *ConvoLeaveConvo_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ConvoLeaveConvo_Input_convoId...)
 	buf = cbor.AppendJSONString(buf, s.ConvoId)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -228,6 +268,7 @@ func (s *ConvoLeaveConvo_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ConvoLeaveConvo_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -256,10 +297,12 @@ func (s *ConvoLeaveConvo_Input) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -276,17 +319,21 @@ func (s *ConvoLeaveConvo_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ConvoLeaveConvo_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ConvoLeaveConvo_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
 	buf = append(buf, cborKey_ConvoLeaveConvo_Input_convoId...)
 	buf = cbor.AppendText(buf, s.ConvoId)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -296,6 +343,7 @@ func (s *ConvoLeaveConvo_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ConvoLeaveConvo_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -314,10 +362,12 @@ func (s *ConvoLeaveConvo_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "convoId" {
@@ -326,16 +376,20 @@ func (s *ConvoLeaveConvo_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -344,6 +398,10 @@ func (s *ConvoLeaveConvo_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 type ConvoLeaveConvo_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ConvoLeaveConvo calls the XRPC procedure "chat.bsky.convo.leaveConvo".

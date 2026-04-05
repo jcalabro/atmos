@@ -105,20 +105,30 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 		}
 	}
 
+	// Include extraCBOR count in the map header so unknown fields are preserved
+	// across same-format round-trips.
 	if len(optionalFields) > 0 {
-		fmt.Fprintf(buf, "\tn := %d\n", requiredCount)
+		fmt.Fprintf(buf, "\tn := %d + len(s.extraCBOR)\n", requiredCount)
 		for _, f := range optionalFields {
 			fmt.Fprintf(buf, "\tif %s { n++ }\n", g.cborHasValue(f))
 		}
 		buf.WriteString("\tbuf = cbor.AppendMapHeader(buf, uint64(n))\n")
 	} else {
-		fmt.Fprintf(buf, "\tbuf = cbor.AppendMapHeader(buf, %d)\n", requiredCount)
+		fmt.Fprintf(buf, "\tbuf = cbor.AppendMapHeader(buf, uint64(%d + len(s.extraCBOR)))\n", requiredCount)
 	}
 
-	// Encode fields in DAG-CBOR key order.
+	appendExtras := g.sharedType("AppendCBORExtrasBefore")
+
+	// Encode fields in DAG-CBOR key order. Unknown fields from extraCBOR are
+	// interleaved at their correct sort position via AppendCBORExtrasBefore,
+	// which emits all extras whose keys sort before the next known key.
+	buf.WriteString("\tei := 0\n")
 	for _, f := range fields {
 		keyVar := fmt.Sprintf("cborKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
 		optional := !f.required || f.nullable
+
+		// Emit any extras that sort before this known field.
+		fmt.Fprintf(buf, "\tei, buf = %s(s.extraCBOR, ei, %q, buf)\n", appendExtras, f.jsonName)
 
 		if optional {
 			fmt.Fprintf(buf, "\tif %s {\n", g.cborHasValue(f))
@@ -131,6 +141,8 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 		}
 	}
 
+	// Emit any remaining extras that sort after all known fields.
+	fmt.Fprintf(buf, "\t_, buf = %s(s.extraCBOR, ei, \"\", buf)\n", appendExtras)
 	buf.WriteString("\treturn buf, nil\n")
 	buf.WriteString("}")
 }
@@ -148,6 +160,7 @@ func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields
 	// compiler optimizes to avoid allocation. UTF-8 is only validated for
 	// unknown keys (known keys are implicitly valid since they match ASCII literals).
 	fmt.Fprintf(buf, "func (s *%s) UnmarshalCBORAt(data []byte, pos int) (int, error) {\n", typeName)
+	buf.WriteString("\ts.extraCBOR = nil\n")
 	buf.WriteString("\tcount, pos, err := cbor.ReadMapHeader(data, pos)\n")
 	buf.WriteString("\tif err != nil { return 0, err }\n")
 	buf.WriteString("\tfor i := uint64(0); i < count; i++ {\n")
@@ -181,17 +194,26 @@ func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields
 			g.genCBORDecodeField(buf, f, "\t\t\t\t")
 		}
 		buf.WriteString("\t\t\t} else {\n")
-		buf.WriteString("\t\t\t\tpos, err = cbor.SkipValue(data, pos)\n")
-		buf.WriteString("\t\t\t\tif err != nil { return 0, err }\n")
+		g.genCBORCaptureExtra(buf, "\t\t\t\t")
 		buf.WriteString("\t\t\t}\n")
 	}
 	buf.WriteString("\t\tdefault:\n")
-	buf.WriteString("\t\t\tpos, err = cbor.SkipValue(data, pos)\n")
-	buf.WriteString("\t\t\tif err != nil { return 0, err }\n")
+	g.genCBORCaptureExtra(buf, "\t\t\t")
 	buf.WriteString("\t\t}\n")
 	buf.WriteString("\t}\n")
 	buf.WriteString("\treturn pos, nil\n")
 	buf.WriteString("}")
+}
+
+// genCBORCaptureExtra generates code to capture an unknown CBOR key-value pair
+// into the extraCBOR slice. The key is extracted from data[keyStart:keyEnd]
+// (already positioned by ReadTextKey) and the value bytes are copied.
+func (g *fileGen) genCBORCaptureExtra(buf *strings.Builder, indent string) {
+	efType := g.sharedType("ExtraField")
+	fmt.Fprintf(buf, "%svalueStart := pos\n", indent)
+	fmt.Fprintf(buf, "%spos, err = cbor.SkipValue(data, pos)\n", indent)
+	fmt.Fprintf(buf, "%sif err != nil { return 0, err }\n", indent)
+	fmt.Fprintf(buf, "%ss.extraCBOR = append(s.extraCBOR, %s{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})\n", indent, efType)
 }
 
 // cborHasValue returns a Go expression that checks if a field has a value.

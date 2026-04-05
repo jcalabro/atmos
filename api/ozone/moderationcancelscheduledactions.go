@@ -4,6 +4,7 @@ package ozone
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -14,6 +15,10 @@ type ModerationCancelScheduledActions_CancellationResults struct {
 	LexiconTypeID string                                                `json:"$type,omitempty"`
 	Failed        []ModerationCancelScheduledActions_FailedCancellation `json:"failed"`    // DIDs for which cancellation failed with error details
 	Succeeded     []string                                              `json:"succeeded"` // DIDs for which all pending scheduled actions were successfully cancelled
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationCancelScheduledActions_CancellationResults.
@@ -28,15 +33,18 @@ func (s *ModerationCancelScheduledActions_CancellationResults) MarshalCBOR() ([]
 }
 
 func (s *ModerationCancelScheduledActions_CancellationResults) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failed", buf)
 	buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_failed...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Failed)))
 	for _, item := range s.Failed {
@@ -46,11 +54,13 @@ func (s *ModerationCancelScheduledActions_CancellationResults) AppendCBOR(buf []
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "succeeded", buf)
 	buf = append(buf, cborKey_ModerationCancelScheduledActions_CancellationResults_succeeded...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Succeeded)))
 	for _, item := range s.Succeeded {
 		buf = cbor.AppendText(buf, item)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -60,6 +70,7 @@ func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalCBOR(dat
 }
 
 func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -78,10 +89,12 @@ func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalCBORAt(d
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "failed" {
@@ -100,10 +113,12 @@ func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalCBORAt(d
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "succeeded" {
@@ -122,16 +137,20 @@ func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalCBORAt(d
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -189,6 +208,15 @@ func (s *ModerationCancelScheduledActions_CancellationResults) AppendJSON(buf []
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -199,6 +227,7 @@ func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalJSON(dat
 }
 
 func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -276,10 +305,12 @@ func (s *ModerationCancelScheduledActions_CancellationResults) UnmarshalJSONAt(d
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -291,6 +322,10 @@ type ModerationCancelScheduledActions_FailedCancellation struct {
 	DID           string            `json:"did"`
 	Error         string            `json:"error"`
 	ErrorCode     gt.Option[string] `json:"errorCode,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationCancelScheduledActions_FailedCancellation.
@@ -306,7 +341,7 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) MarshalCBOR() ([]b
 }
 
 func (s *ModerationCancelScheduledActions_FailedCancellation) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -314,18 +349,24 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) AppendCBOR(buf []b
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "did", buf)
 	buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_did...)
 	buf = cbor.AppendText(buf, s.DID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
 	buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_error...)
 	buf = cbor.AppendText(buf, s.Error)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "errorCode", buf)
 	if s.ErrorCode.HasVal() {
 		buf = append(buf, cborKey_ModerationCancelScheduledActions_FailedCancellation_errorCode...)
 		buf = cbor.AppendText(buf, s.ErrorCode.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -335,6 +376,7 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalCBOR(data
 }
 
 func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -353,10 +395,12 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -370,10 +414,12 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalCBORAt(da
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "errorCode" {
@@ -388,16 +434,20 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalCBORAt(da
 					s.ErrorCode = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -446,6 +496,15 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) AppendJSON(buf []b
 		buf = cbor.AppendJSONString(buf, s.ErrorCode.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -456,6 +515,7 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalJSON(data
 }
 
 func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -503,10 +563,12 @@ func (s *ModerationCancelScheduledActions_FailedCancellation) UnmarshalJSONAt(da
 				s.ErrorCode = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -558,6 +620,15 @@ func (s *ModerationCancelScheduledActions_Input) AppendJSON(buf []byte) ([]byte,
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -568,6 +639,7 @@ func (s *ModerationCancelScheduledActions_Input) UnmarshalJSON(data []byte) erro
 }
 
 func (s *ModerationCancelScheduledActions_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -632,10 +704,12 @@ func (s *ModerationCancelScheduledActions_Input) UnmarshalJSONAt(data []byte, po
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -653,7 +727,7 @@ func (s *ModerationCancelScheduledActions_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationCancelScheduledActions_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -661,19 +735,24 @@ func (s *ModerationCancelScheduledActions_Input) AppendCBOR(buf []byte) ([]byte,
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
 	if s.Comment.HasVal() {
 		buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_comment...)
 		buf = cbor.AppendText(buf, s.Comment.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjects", buf)
 	buf = append(buf, cborKey_ModerationCancelScheduledActions_Input_subjects...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
 	for _, item := range s.Subjects {
 		buf = cbor.AppendText(buf, item)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -683,6 +762,7 @@ func (s *ModerationCancelScheduledActions_Input) UnmarshalCBOR(data []byte) erro
 }
 
 func (s *ModerationCancelScheduledActions_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -701,10 +781,12 @@ func (s *ModerationCancelScheduledActions_Input) UnmarshalCBORAt(data []byte, po
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "comment" {
@@ -719,10 +801,12 @@ func (s *ModerationCancelScheduledActions_Input) UnmarshalCBORAt(data []byte, po
 					s.Comment = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "subjects" {
@@ -741,16 +825,20 @@ func (s *ModerationCancelScheduledActions_Input) UnmarshalCBORAt(data []byte, po
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -760,6 +848,10 @@ type ModerationCancelScheduledActions_Input struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Comment       gt.Option[string] `json:"comment,omitzero"` // Optional comment describing the reason for cancellation
 	Subjects      []string          `json:"subjects"`         // Array of DID subjects to cancel scheduled actions for
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ModerationCancelScheduledActions calls the XRPC procedure "tools.ozone.moderation.cancelScheduledActions".

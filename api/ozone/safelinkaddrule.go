@@ -4,6 +4,7 @@ package ozone
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -84,6 +85,15 @@ func (s *SafelinkAddRule_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SafelinkAddRule_Input_url...)
 	buf = cbor.AppendJSONString(buf, s.URL)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -94,6 +104,7 @@ func (s *SafelinkAddRule_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *SafelinkAddRule_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -165,10 +176,12 @@ func (s *SafelinkAddRule_Input) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -190,7 +203,7 @@ func (s *SafelinkAddRule_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SafelinkAddRule_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -201,26 +214,35 @@ func (s *SafelinkAddRule_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
 	buf = append(buf, cborKey_SafelinkAddRule_Input_url...)
 	buf = cbor.AppendText(buf, s.URL)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_SafelinkAddRule_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
 	buf = append(buf, cborKey_SafelinkAddRule_Input_action...)
 	buf = cbor.AppendText(buf, s.Action)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "reason", buf)
 	buf = append(buf, cborKey_SafelinkAddRule_Input_reason...)
 	buf = cbor.AppendText(buf, s.Reason)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
 	if s.Comment.HasVal() {
 		buf = append(buf, cborKey_SafelinkAddRule_Input_comment...)
 		buf = cbor.AppendText(buf, s.Comment.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pattern", buf)
 	buf = append(buf, cborKey_SafelinkAddRule_Input_pattern...)
 	buf = cbor.AppendText(buf, s.Pattern)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	if s.CreatedBy.HasVal() {
 		buf = append(buf, cborKey_SafelinkAddRule_Input_createdBy...)
 		buf = cbor.AppendText(buf, s.CreatedBy.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -230,6 +252,7 @@ func (s *SafelinkAddRule_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *SafelinkAddRule_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -248,10 +271,12 @@ func (s *SafelinkAddRule_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -260,10 +285,12 @@ func (s *SafelinkAddRule_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "action" {
@@ -277,10 +304,12 @@ func (s *SafelinkAddRule_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "comment" {
@@ -300,10 +329,12 @@ func (s *SafelinkAddRule_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdBy" {
@@ -318,16 +349,20 @@ func (s *SafelinkAddRule_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					s.CreatedBy = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -341,6 +376,10 @@ type SafelinkAddRule_Input struct {
 	Pattern       SafelinkDefs_PatternType `json:"pattern"`
 	Reason        SafelinkDefs_ReasonType  `json:"reason"`
 	URL           string                   `json:"url"` // The URL or domain to apply the rule to
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // SafelinkAddRule calls the XRPC procedure "tools.ozone.safelink.addRule".

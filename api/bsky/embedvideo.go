@@ -13,6 +13,10 @@ type EmbedVideo_Caption struct {
 	LexiconTypeID string           `json:"$type,omitempty"`
 	File          lextypes.LexBlob `json:"file"`
 	Lang          string           `json:"lang"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedVideo_Caption.
@@ -27,11 +31,13 @@ func (s *EmbedVideo_Caption) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedVideo_Caption) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "file", buf)
 	buf = append(buf, cborKey_EmbedVideo_Caption_file...)
 	{
 		var err error
@@ -40,12 +46,15 @@ func (s *EmbedVideo_Caption) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "lang", buf)
 	buf = append(buf, cborKey_EmbedVideo_Caption_lang...)
 	buf = cbor.AppendText(buf, s.Lang)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedVideo_Caption_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -55,6 +64,7 @@ func (s *EmbedVideo_Caption) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedVideo_Caption) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -78,10 +88,12 @@ func (s *EmbedVideo_Caption) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -90,16 +102,20 @@ func (s *EmbedVideo_Caption) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -145,6 +161,15 @@ func (s *EmbedVideo_Caption) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedVideo_Caption_lang...)
 	buf = cbor.AppendJSONString(buf, s.Lang)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -155,6 +180,7 @@ func (s *EmbedVideo_Caption) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedVideo_Caption) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -188,10 +214,12 @@ func (s *EmbedVideo_Caption) UnmarshalJSONAt(data []byte, pos int) (int, error) 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -205,6 +233,10 @@ type EmbedVideo struct {
 	Captions      []EmbedVideo_Caption             `json:"captions,omitempty"`
 	Presentation  gt.Option[string]                `json:"presentation,omitzero"` // A hint to the client about how to present the video.
 	Video         lextypes.LexBlob                 `json:"video"`                 // The mp4 video file. May be up to 100mb, formerly limited to 50mb.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedVideo.
@@ -222,7 +254,7 @@ func (s *EmbedVideo) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.Alt.HasVal() {
 		n++
 	}
@@ -239,14 +271,18 @@ func (s *EmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
 	if s.Alt.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_alt...)
 		buf = cbor.AppendText(buf, s.Alt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedVideo_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "video", buf)
 	buf = append(buf, cborKey_EmbedVideo_video...)
 	{
 		var err error
@@ -255,6 +291,7 @@ func (s *EmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "captions", buf)
 	if len(s.Captions) > 0 {
 		buf = append(buf, cborKey_EmbedVideo_captions...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Captions)))
@@ -266,6 +303,7 @@ func (s *EmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
 	if s.AspectRatio.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_aspectRatio...)
 		{
@@ -279,10 +317,12 @@ func (s *EmbedVideo) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "presentation", buf)
 	if s.Presentation.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_presentation...)
 		buf = cbor.AppendText(buf, s.Presentation.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -292,6 +332,7 @@ func (s *EmbedVideo) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -316,10 +357,12 @@ func (s *EmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Alt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -333,10 +376,12 @@ func (s *EmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "captions" {
@@ -355,10 +400,12 @@ func (s *EmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "aspectRatio" {
@@ -373,10 +420,12 @@ func (s *EmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.AspectRatio = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "presentation" {
@@ -391,16 +440,20 @@ func (s *EmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Presentation = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -495,6 +548,15 @@ func (s *EmbedVideo) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -505,6 +567,7 @@ func (s *EmbedVideo) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedVideo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -602,10 +665,12 @@ func (s *EmbedVideo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -620,6 +685,10 @@ type EmbedVideo_View struct {
 	Playlist      string                           `json:"playlist"`
 	Presentation  gt.Option[string]                `json:"presentation,omitzero"` // A hint to the client about how to present the video.
 	Thumbnail     gt.Option[string]                `json:"thumbnail,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for EmbedVideo_View.
@@ -638,7 +707,7 @@ func (s *EmbedVideo_View) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *EmbedVideo_View) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.Alt.HasVal() {
 		n++
 	}
@@ -655,22 +724,29 @@ func (s *EmbedVideo_View) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "alt", buf)
 	if s.Alt.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_View_alt...)
 		buf = cbor.AppendText(buf, s.Alt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "cid", buf)
 	buf = append(buf, cborKey_EmbedVideo_View_cid...)
 	buf = cbor.AppendText(buf, s.CID)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_EmbedVideo_View_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "playlist", buf)
 	buf = append(buf, cborKey_EmbedVideo_View_playlist...)
 	buf = cbor.AppendText(buf, s.Playlist)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "thumbnail", buf)
 	if s.Thumbnail.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_View_thumbnail...)
 		buf = cbor.AppendText(buf, s.Thumbnail.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "aspectRatio", buf)
 	if s.AspectRatio.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_View_aspectRatio...)
 		{
@@ -684,10 +760,12 @@ func (s *EmbedVideo_View) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "presentation", buf)
 	if s.Presentation.HasVal() {
 		buf = append(buf, cborKey_EmbedVideo_View_presentation...)
 		buf = cbor.AppendText(buf, s.Presentation.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -697,6 +775,7 @@ func (s *EmbedVideo_View) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -726,10 +805,12 @@ func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -738,10 +819,12 @@ func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "playlist" {
@@ -750,10 +833,12 @@ func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "thumbnail" {
@@ -768,10 +853,12 @@ func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Thumbnail = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "aspectRatio" {
@@ -786,10 +873,12 @@ func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.AspectRatio = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "presentation" {
@@ -804,16 +893,20 @@ func (s *EmbedVideo_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					s.Presentation = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -898,6 +991,15 @@ func (s *EmbedVideo_View) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Thumbnail.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -908,6 +1010,7 @@ func (s *EmbedVideo_View) UnmarshalJSON(data []byte) error {
 }
 
 func (s *EmbedVideo_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -997,10 +1100,12 @@ func (s *EmbedVideo_View) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				s.Thumbnail = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

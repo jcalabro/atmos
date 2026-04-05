@@ -102,6 +102,16 @@ func (g *fileGen) genMarshalJSON(buf *strings.Builder, typeName string, fields [
 		}
 	}
 
+	// Emit unknown fields preserved from a prior JSON unmarshal, maintaining
+	// their original order. These are appended after known fields since JSON
+	// object key order is not semantically significant.
+	buf.WriteString("\tfor _, ef := range s.extraJSON {\n")
+	buf.WriteString("\t\tif !first { buf = append(buf, ',') }\n")
+	buf.WriteString("\t\tbuf = cbor.AppendJSONString(buf, ef.Key)\n")
+	buf.WriteString("\t\tbuf = append(buf, ':')\n")
+	buf.WriteString("\t\tbuf = append(buf, ef.Value...)\n")
+	buf.WriteString("\t\tfirst = false\n")
+	buf.WriteString("\t}\n")
 	buf.WriteString("\tbuf = append(buf, '}')\n")
 	buf.WriteString("\treturn buf, nil\n")
 	buf.WriteString("}")
@@ -222,6 +232,7 @@ func (g *fileGen) genUnmarshalJSON(buf *strings.Builder, typeName string, fields
 
 	// UnmarshalJSONAt
 	fmt.Fprintf(buf, "func (s *%s) UnmarshalJSONAt(data []byte, pos int) (int, error) {\n", typeName)
+	buf.WriteString("\ts.extraJSON = nil\n")
 	buf.WriteString("\tvar err error\n")
 	buf.WriteString("\tpos, err = cbor.ReadJSONObjectStart(data, pos)\n")
 	buf.WriteString("\tif err != nil { return 0, err }\n")
@@ -240,8 +251,10 @@ func (g *fileGen) genUnmarshalJSON(buf *strings.Builder, typeName string, fields
 	}
 
 	buf.WriteString("\t\tdefault:\n")
+	buf.WriteString("\t\t\tvalueStart := pos\n")
 	buf.WriteString("\t\t\tpos, err = cbor.SkipJSONValue(data, pos)\n")
 	buf.WriteString("\t\t\tif err != nil { return 0, err }\n")
+	fmt.Fprintf(buf, "\t\t\ts.extraJSON = append(s.extraJSON, %s{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})\n", g.sharedType("ExtraField"))
 	buf.WriteString("\t\t}\n")
 	buf.WriteString("\t\tpos = cbor.SkipJSONComma(data, pos)\n")
 	buf.WriteString("\t}\n")

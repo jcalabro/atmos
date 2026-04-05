@@ -4,6 +4,7 @@ package ozone
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -128,6 +129,15 @@ func (s *ServerGetConfig_Output) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -138,6 +148,7 @@ func (s *ServerGetConfig_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerGetConfig_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -245,10 +256,12 @@ func (s *ServerGetConfig_Output) UnmarshalJSONAt(data []byte, pos int) (int, err
 				s.Viewer = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -270,7 +283,7 @@ func (s *ServerGetConfig_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.Pds.HasVal() {
 		n++
 	}
@@ -293,6 +306,8 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "pds", buf)
 	if s.Pds.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_Output_pds...)
 		{
@@ -306,6 +321,7 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "chat", buf)
 	if s.Chat.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_Output_chat...)
 		{
@@ -319,10 +335,12 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerGetConfig_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "viewer", buf)
 	if s.Viewer.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_Output_viewer...)
 		{
@@ -336,6 +354,7 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "appview", buf)
 	if s.Appview.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_Output_appview...)
 		{
@@ -349,6 +368,7 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "blobDivert", buf)
 	if s.BlobDivert.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_Output_blobDivert...)
 		{
@@ -362,10 +382,12 @@ func (s *ServerGetConfig_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "verifierDid", buf)
 	if s.VerifierDid.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_Output_verifierDid...)
 		buf = cbor.AppendText(buf, s.VerifierDid.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -375,6 +397,7 @@ func (s *ServerGetConfig_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -399,10 +422,12 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.Pds = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 4:
 			if string(data[keyStart:keyEnd]) == "chat" {
@@ -417,10 +442,12 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.Chat = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -429,10 +456,12 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "viewer" {
@@ -447,10 +476,12 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.Viewer = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "appview" {
@@ -465,10 +496,12 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.Appview = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "blobDivert" {
@@ -483,10 +516,12 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.BlobDivert = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "verifierDid" {
@@ -501,16 +536,20 @@ func (s *ServerGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					s.VerifierDid = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -524,6 +563,10 @@ type ServerGetConfig_Output struct {
 	Pds           gt.Option[ServerGetConfig_ServiceConfig] `json:"pds,omitzero"`
 	VerifierDid   gt.Option[string]                        `json:"verifierDid,omitzero"` // The did of the verifier used for verification.
 	Viewer        gt.Option[ServerGetConfig_ViewerConfig]  `json:"viewer,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ServerGetConfig calls the XRPC query "tools.ozone.server.getConfig".
@@ -538,6 +581,10 @@ func ServerGetConfig(ctx context.Context, c *xrpc.Client) (*ServerGetConfig_Outp
 type ServerGetConfig_ServiceConfig struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	URL           gt.Option[string] `json:"url,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ServerGetConfig_ServiceConfig.
@@ -551,7 +598,7 @@ func (s *ServerGetConfig_ServiceConfig) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerGetConfig_ServiceConfig) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.URL.HasVal() {
 		n++
 	}
@@ -559,14 +606,18 @@ func (s *ServerGetConfig_ServiceConfig) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "url", buf)
 	if s.URL.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_url...)
 		buf = cbor.AppendText(buf, s.URL.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerGetConfig_ServiceConfig_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -576,6 +627,7 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerGetConfig_ServiceConfig) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -600,10 +652,12 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalCBORAt(data []byte, pos int) (i
 					s.URL = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -612,16 +666,20 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -656,6 +714,15 @@ func (s *ServerGetConfig_ServiceConfig) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.URL.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -666,6 +733,7 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerGetConfig_ServiceConfig) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -703,10 +771,12 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalJSONAt(data []byte, pos int) (i
 				s.URL = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -716,6 +786,10 @@ func (s *ServerGetConfig_ServiceConfig) UnmarshalJSONAt(data []byte, pos int) (i
 type ServerGetConfig_ViewerConfig struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Role          gt.Option[string] `json:"role,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ServerGetConfig_ViewerConfig.
@@ -729,7 +803,7 @@ func (s *ServerGetConfig_ViewerConfig) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerGetConfig_ViewerConfig) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.Role.HasVal() {
 		n++
 	}
@@ -737,14 +811,18 @@ func (s *ServerGetConfig_ViewerConfig) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "role", buf)
 	if s.Role.HasVal() {
 		buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_role...)
 		buf = cbor.AppendText(buf, s.Role.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerGetConfig_ViewerConfig_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -754,6 +832,7 @@ func (s *ServerGetConfig_ViewerConfig) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerGetConfig_ViewerConfig) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -778,10 +857,12 @@ func (s *ServerGetConfig_ViewerConfig) UnmarshalCBORAt(data []byte, pos int) (in
 					s.Role = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -790,16 +871,20 @@ func (s *ServerGetConfig_ViewerConfig) UnmarshalCBORAt(data []byte, pos int) (in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -834,6 +919,15 @@ func (s *ServerGetConfig_ViewerConfig) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Role.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -844,6 +938,7 @@ func (s *ServerGetConfig_ViewerConfig) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerGetConfig_ViewerConfig) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -881,10 +976,12 @@ func (s *ServerGetConfig_ViewerConfig) UnmarshalJSONAt(data []byte, pos int) (in
 				s.Role = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

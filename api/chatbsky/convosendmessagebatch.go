@@ -4,6 +4,7 @@ package chatbsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -13,6 +14,10 @@ type ConvoSendMessageBatch_BatchItem struct {
 	LexiconTypeID string                 `json:"$type,omitempty"`
 	ConvoId       string                 `json:"convoId"`
 	Message       ConvoDefs_MessageInput `json:"message"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ConvoSendMessageBatch_BatchItem.
@@ -27,17 +32,21 @@ func (s *ConvoSendMessageBatch_BatchItem) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ConvoSendMessageBatch_BatchItem) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ConvoSendMessageBatch_BatchItem_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "convoId", buf)
 	buf = append(buf, cborKey_ConvoSendMessageBatch_BatchItem_convoId...)
 	buf = cbor.AppendText(buf, s.ConvoId)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "message", buf)
 	buf = append(buf, cborKey_ConvoSendMessageBatch_BatchItem_message...)
 	{
 		var err error
@@ -46,6 +55,7 @@ func (s *ConvoSendMessageBatch_BatchItem) AppendCBOR(buf []byte) ([]byte, error)
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -55,6 +65,7 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ConvoSendMessageBatch_BatchItem) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -73,10 +84,12 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "convoId" {
@@ -90,16 +103,20 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalCBORAt(data []byte, pos int) 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -145,6 +162,15 @@ func (s *ConvoSendMessageBatch_BatchItem) AppendJSON(buf []byte) ([]byte, error)
 		}
 	}
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -155,6 +181,7 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ConvoSendMessageBatch_BatchItem) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -188,10 +215,12 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalJSONAt(data []byte, pos int) 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -235,6 +264,15 @@ func (s *ConvoSendMessageBatch_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -245,6 +283,7 @@ func (s *ConvoSendMessageBatch_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ConvoSendMessageBatch_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -295,10 +334,12 @@ func (s *ConvoSendMessageBatch_Output) UnmarshalJSONAt(data []byte, pos int) (in
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -315,15 +356,18 @@ func (s *ConvoSendMessageBatch_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ConvoSendMessageBatch_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ConvoSendMessageBatch_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
 	buf = append(buf, cborKey_ConvoSendMessageBatch_Output_items...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
 	for _, item := range s.Items {
@@ -333,6 +377,7 @@ func (s *ConvoSendMessageBatch_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -342,6 +387,7 @@ func (s *ConvoSendMessageBatch_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ConvoSendMessageBatch_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -375,16 +421,20 @@ func (s *ConvoSendMessageBatch_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -393,6 +443,10 @@ func (s *ConvoSendMessageBatch_Output) UnmarshalCBORAt(data []byte, pos int) (in
 type ConvoSendMessageBatch_Output struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Items         []ConvoDefs_MessageView `json:"items"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed JSON key tokens for ConvoSendMessageBatch_Input.
@@ -433,6 +487,15 @@ func (s *ConvoSendMessageBatch_Input) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -443,6 +506,7 @@ func (s *ConvoSendMessageBatch_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ConvoSendMessageBatch_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -493,10 +557,12 @@ func (s *ConvoSendMessageBatch_Input) UnmarshalJSONAt(data []byte, pos int) (int
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -513,15 +579,18 @@ func (s *ConvoSendMessageBatch_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ConvoSendMessageBatch_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ConvoSendMessageBatch_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "items", buf)
 	buf = append(buf, cborKey_ConvoSendMessageBatch_Input_items...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
 	for _, item := range s.Items {
@@ -531,6 +600,7 @@ func (s *ConvoSendMessageBatch_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -540,6 +610,7 @@ func (s *ConvoSendMessageBatch_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ConvoSendMessageBatch_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -573,16 +644,20 @@ func (s *ConvoSendMessageBatch_Input) UnmarshalCBORAt(data []byte, pos int) (int
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -591,6 +666,10 @@ func (s *ConvoSendMessageBatch_Input) UnmarshalCBORAt(data []byte, pos int) (int
 type ConvoSendMessageBatch_Input struct {
 	LexiconTypeID string                            `json:"$type,omitempty"`
 	Items         []ConvoSendMessageBatch_BatchItem `json:"items"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ConvoSendMessageBatch calls the XRPC procedure "chat.bsky.convo.sendMessageBatch".

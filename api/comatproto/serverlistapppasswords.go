@@ -4,6 +4,7 @@ package comatproto
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -15,6 +16,10 @@ type ServerListAppPasswords_AppPassword struct {
 	CreatedAt     string          `json:"createdAt"`
 	Name          string          `json:"name"`
 	Privileged    gt.Option[bool] `json:"privileged,omitzero"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ServerListAppPasswords_AppPassword.
@@ -30,7 +35,7 @@ func (s *ServerListAppPasswords_AppPassword) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerListAppPasswords_AppPassword) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -38,18 +43,24 @@ func (s *ServerListAppPasswords_AppPassword) AppendCBOR(buf []byte) ([]byte, err
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "name", buf)
 	buf = append(buf, cborKey_ServerListAppPasswords_AppPassword_name...)
 	buf = cbor.AppendText(buf, s.Name)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerListAppPasswords_AppPassword_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdAt", buf)
 	buf = append(buf, cborKey_ServerListAppPasswords_AppPassword_createdAt...)
 	buf = cbor.AppendText(buf, s.CreatedAt)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "privileged", buf)
 	if s.Privileged.HasVal() {
 		buf = append(buf, cborKey_ServerListAppPasswords_AppPassword_privileged...)
 		buf = cbor.AppendBool(buf, s.Privileged.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -59,6 +70,7 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerListAppPasswords_AppPassword) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -77,10 +89,12 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalCBORAt(data []byte, pos in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -89,10 +103,12 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalCBORAt(data []byte, pos in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdAt" {
@@ -101,10 +117,12 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalCBORAt(data []byte, pos in
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "privileged" {
@@ -119,16 +137,20 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalCBORAt(data []byte, pos in
 					s.Privileged = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -177,6 +199,15 @@ func (s *ServerListAppPasswords_AppPassword) AppendJSON(buf []byte) ([]byte, err
 		buf = cbor.AppendJSONBool(buf, s.Privileged.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -187,6 +218,7 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerListAppPasswords_AppPassword) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -234,10 +266,12 @@ func (s *ServerListAppPasswords_AppPassword) UnmarshalJSONAt(data []byte, pos in
 				s.Privileged = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -286,6 +320,15 @@ func (s *ServerListAppPasswords_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -296,6 +339,7 @@ func (s *ServerListAppPasswords_Output) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ServerListAppPasswords_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -346,10 +390,12 @@ func (s *ServerListAppPasswords_Output) UnmarshalJSONAt(data []byte, pos int) (i
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -366,15 +412,18 @@ func (s *ServerListAppPasswords_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ServerListAppPasswords_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ServerListAppPasswords_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "passwords", buf)
 	buf = append(buf, cborKey_ServerListAppPasswords_Output_passwords...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Passwords)))
 	for _, item := range s.Passwords {
@@ -384,6 +433,7 @@ func (s *ServerListAppPasswords_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -393,6 +443,7 @@ func (s *ServerListAppPasswords_Output) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ServerListAppPasswords_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -411,10 +462,12 @@ func (s *ServerListAppPasswords_Output) UnmarshalCBORAt(data []byte, pos int) (i
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "passwords" {
@@ -433,16 +486,20 @@ func (s *ServerListAppPasswords_Output) UnmarshalCBORAt(data []byte, pos int) (i
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -451,6 +508,10 @@ func (s *ServerListAppPasswords_Output) UnmarshalCBORAt(data []byte, pos int) (i
 type ServerListAppPasswords_Output struct {
 	LexiconTypeID string                               `json:"$type,omitempty"`
 	Passwords     []ServerListAppPasswords_AppPassword `json:"passwords"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ServerListAppPasswords calls the XRPC query "com.atproto.server.listAppPasswords".

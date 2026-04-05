@@ -4,6 +4,7 @@ package bsky
 
 import (
 	"context"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
 )
@@ -46,6 +47,15 @@ func (s *UnspeccedGetTaggedSuggestions_Output) AppendJSON(buf []byte) ([]byte, e
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -56,6 +66,7 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalJSON(data []byte) error 
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -106,10 +117,12 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalJSONAt(data []byte, pos 
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -126,15 +139,18 @@ func (s *UnspeccedGetTaggedSuggestions_Output) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Output) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 1
+	n := 1 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_UnspeccedGetTaggedSuggestions_Output_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "suggestions", buf)
 	buf = append(buf, cborKey_UnspeccedGetTaggedSuggestions_Output_suggestions...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Suggestions)))
 	for _, item := range s.Suggestions {
@@ -144,6 +160,7 @@ func (s *UnspeccedGetTaggedSuggestions_Output) AppendCBOR(buf []byte) ([]byte, e
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -153,6 +170,7 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBOR(data []byte) error 
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -171,10 +189,12 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBORAt(data []byte, pos 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "suggestions" {
@@ -193,16 +213,20 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBORAt(data []byte, pos 
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -211,6 +235,10 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBORAt(data []byte, pos 
 type UnspeccedGetTaggedSuggestions_Output struct {
 	LexiconTypeID string                                     `json:"$type,omitempty"`
 	Suggestions   []UnspeccedGetTaggedSuggestions_Suggestion `json:"suggestions"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // UnspeccedGetTaggedSuggestions calls the XRPC query "app.bsky.unspecced.getTaggedSuggestions".
@@ -227,6 +255,10 @@ type UnspeccedGetTaggedSuggestions_Suggestion struct {
 	Subject       string `json:"subject"`
 	SubjectType   string `json:"subjectType"`
 	Tag           string `json:"tag"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for UnspeccedGetTaggedSuggestions_Suggestion.
@@ -242,21 +274,27 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) MarshalCBOR() ([]byte, error)
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Suggestion) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3
+	n := 3 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "tag", buf)
 	buf = append(buf, cborKey_UnspeccedGetTaggedSuggestions_Suggestion_tag...)
 	buf = cbor.AppendText(buf, s.Tag)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_UnspeccedGetTaggedSuggestions_Suggestion_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
 	buf = append(buf, cborKey_UnspeccedGetTaggedSuggestions_Suggestion_subject...)
 	buf = cbor.AppendText(buf, s.Subject)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjectType", buf)
 	buf = append(buf, cborKey_UnspeccedGetTaggedSuggestions_Suggestion_subjectType...)
 	buf = cbor.AppendText(buf, s.SubjectType)
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -266,6 +304,7 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBOR(data []byte) er
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -284,10 +323,12 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
@@ -296,10 +337,12 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -308,10 +351,12 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "subjectType" {
@@ -320,16 +365,20 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, 
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -376,6 +425,15 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) AppendJSON(buf []byte) ([]byt
 	buf = append(buf, jsonKey_UnspeccedGetTaggedSuggestions_Suggestion_tag...)
 	buf = cbor.AppendJSONString(buf, s.Tag)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -386,6 +444,7 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalJSON(data []byte) er
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -424,10 +483,12 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalJSONAt(data []byte, 
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}

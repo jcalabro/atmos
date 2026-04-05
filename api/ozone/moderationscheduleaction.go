@@ -18,6 +18,10 @@ type ModerationScheduleAction_FailedScheduling struct {
 	Error         string            `json:"error"`
 	ErrorCode     gt.Option[string] `json:"errorCode,omitzero"`
 	Subject       string            `json:"subject"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationScheduleAction_FailedScheduling.
@@ -33,7 +37,7 @@ func (s *ModerationScheduleAction_FailedScheduling) MarshalCBOR() ([]byte, error
 }
 
 func (s *ModerationScheduleAction_FailedScheduling) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -41,18 +45,24 @@ func (s *ModerationScheduleAction_FailedScheduling) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationScheduleAction_FailedScheduling_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "error", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_FailedScheduling_error...)
 	buf = cbor.AppendText(buf, s.Error)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subject", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_FailedScheduling_subject...)
 	buf = cbor.AppendText(buf, s.Subject)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "errorCode", buf)
 	if s.ErrorCode.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_FailedScheduling_errorCode...)
 		buf = cbor.AppendText(buf, s.ErrorCode.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -62,6 +72,7 @@ func (s *ModerationScheduleAction_FailedScheduling) UnmarshalCBOR(data []byte) e
 }
 
 func (s *ModerationScheduleAction_FailedScheduling) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -85,10 +96,12 @@ func (s *ModerationScheduleAction_FailedScheduling) UnmarshalCBORAt(data []byte,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "subject" {
@@ -97,10 +110,12 @@ func (s *ModerationScheduleAction_FailedScheduling) UnmarshalCBORAt(data []byte,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "errorCode" {
@@ -115,16 +130,20 @@ func (s *ModerationScheduleAction_FailedScheduling) UnmarshalCBORAt(data []byte,
 					s.ErrorCode = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -173,6 +192,15 @@ func (s *ModerationScheduleAction_FailedScheduling) AppendJSON(buf []byte) ([]by
 	buf = append(buf, jsonKey_ModerationScheduleAction_FailedScheduling_subject...)
 	buf = cbor.AppendJSONString(buf, s.Subject)
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -183,6 +211,7 @@ func (s *ModerationScheduleAction_FailedScheduling) UnmarshalJSON(data []byte) e
 }
 
 func (s *ModerationScheduleAction_FailedScheduling) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -230,10 +259,12 @@ func (s *ModerationScheduleAction_FailedScheduling) UnmarshalJSONAt(data []byte,
 				return 0, err
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -327,6 +358,15 @@ func (s *ModerationScheduleAction_Input) AppendJSON(buf []byte) ([]byte, error) 
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -337,6 +377,7 @@ func (s *ModerationScheduleAction_Input) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationScheduleAction_Input) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -416,10 +457,12 @@ func (s *ModerationScheduleAction_Input) UnmarshalJSONAt(data []byte, pos int) (
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -440,7 +483,7 @@ func (s *ModerationScheduleAction_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationScheduleAction_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 4
+	n := 4 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -448,10 +491,13 @@ func (s *ModerationScheduleAction_Input) AppendCBOR(buf []byte) ([]byte, error) 
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationScheduleAction_Input_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "action", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_Input_action...)
 	{
 		var err error
@@ -460,6 +506,7 @@ func (s *ModerationScheduleAction_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "modTool", buf)
 	if s.ModTool.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Input_modTool...)
 		{
@@ -473,13 +520,16 @@ func (s *ModerationScheduleAction_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			}
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "subjects", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_Input_subjects...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Subjects)))
 	for _, item := range s.Subjects {
 		buf = cbor.AppendText(buf, item)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "createdBy", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_Input_createdBy...)
 	buf = cbor.AppendText(buf, s.CreatedBy)
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "scheduling", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_Input_scheduling...)
 	{
 		var err error
@@ -488,6 +538,7 @@ func (s *ModerationScheduleAction_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			return nil, err
 		}
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -497,6 +548,7 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -515,10 +567,12 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "action" {
@@ -527,10 +581,12 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "modTool" {
@@ -545,10 +601,12 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					s.ModTool = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "subjects" {
@@ -567,10 +625,12 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "createdBy" {
@@ -579,10 +639,12 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "scheduling" {
@@ -591,16 +653,20 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -712,6 +778,10 @@ type ModerationScheduleAction_Input struct {
 	ModTool       gt.Option[ModerationDefs_ModTool]         `json:"modTool,omitzero"` // This will be propagated to the moderation event when it is applied
 	Scheduling    ModerationScheduleAction_SchedulingConfig `json:"scheduling"`
 	Subjects      []string                                  `json:"subjects"` // Array of DID subjects to schedule the action for
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // ModerationScheduleAction calls the XRPC procedure "tools.ozone.moderation.scheduleAction".
@@ -727,6 +797,10 @@ type ModerationScheduleAction_ScheduledActionResults struct {
 	LexiconTypeID string                                      `json:"$type,omitempty"`
 	Failed        []ModerationScheduleAction_FailedScheduling `json:"failed"`
 	Succeeded     []string                                    `json:"succeeded"`
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationScheduleAction_ScheduledActionResults.
@@ -741,15 +815,18 @@ func (s *ModerationScheduleAction_ScheduledActionResults) MarshalCBOR() ([]byte,
 }
 
 func (s *ModerationScheduleAction_ScheduledActionResults) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2
+	n := 2 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationScheduleAction_ScheduledActionResults_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "failed", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_ScheduledActionResults_failed...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Failed)))
 	for _, item := range s.Failed {
@@ -759,11 +836,13 @@ func (s *ModerationScheduleAction_ScheduledActionResults) AppendCBOR(buf []byte)
 			return nil, err
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "succeeded", buf)
 	buf = append(buf, cborKey_ModerationScheduleAction_ScheduledActionResults_succeeded...)
 	buf = cbor.AppendArrayHeader(buf, uint64(len(s.Succeeded)))
 	for _, item := range s.Succeeded {
 		buf = cbor.AppendText(buf, item)
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -773,6 +852,7 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBOR(data []b
 }
 
 func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -791,10 +871,12 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBORAt(data [
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 6:
 			if string(data[keyStart:keyEnd]) == "failed" {
@@ -813,10 +895,12 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBORAt(data [
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "succeeded" {
@@ -835,16 +919,20 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBORAt(data [
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -902,6 +990,15 @@ func (s *ModerationScheduleAction_ScheduledActionResults) AppendJSON(buf []byte)
 	}
 	buf = append(buf, ']')
 	first = false
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -912,6 +1009,7 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalJSON(data []b
 }
 
 func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -989,10 +1087,12 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalJSONAt(data [
 				}
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1006,6 +1106,10 @@ type ModerationScheduleAction_SchedulingConfig struct {
 	ExecuteAfter  gt.Option[string] `json:"executeAfter,omitzero"` // Earliest time to execute the action (for randomized scheduling)
 	ExecuteAt     gt.Option[string] `json:"executeAt,omitzero"`    // Exact time to execute the action
 	ExecuteUntil  gt.Option[string] `json:"executeUntil,omitzero"` // Latest time to execute the action (for randomized scheduling)
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationScheduleAction_SchedulingConfig.
@@ -1021,7 +1125,7 @@ func (s *ModerationScheduleAction_SchedulingConfig) MarshalCBOR() ([]byte, error
 }
 
 func (s *ModerationScheduleAction_SchedulingConfig) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1035,22 +1139,28 @@ func (s *ModerationScheduleAction_SchedulingConfig) AppendCBOR(buf []byte) ([]by
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationScheduleAction_SchedulingConfig_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "executeAt", buf)
 	if s.ExecuteAt.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_SchedulingConfig_executeAt...)
 		buf = cbor.AppendText(buf, s.ExecuteAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "executeAfter", buf)
 	if s.ExecuteAfter.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_SchedulingConfig_executeAfter...)
 		buf = cbor.AppendText(buf, s.ExecuteAfter.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "executeUntil", buf)
 	if s.ExecuteUntil.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_SchedulingConfig_executeUntil...)
 		buf = cbor.AppendText(buf, s.ExecuteUntil.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1060,6 +1170,7 @@ func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalCBOR(data []byte) e
 }
 
 func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1078,10 +1189,12 @@ func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalCBORAt(data []byte,
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "executeAt" {
@@ -1096,10 +1209,12 @@ func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalCBORAt(data []byte,
 					s.ExecuteAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "executeAfter" {
@@ -1125,16 +1240,20 @@ func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalCBORAt(data []byte,
 					s.ExecuteUntil = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1187,6 +1306,15 @@ func (s *ModerationScheduleAction_SchedulingConfig) AppendJSON(buf []byte) ([]by
 		buf = cbor.AppendJSONString(buf, s.ExecuteUntil.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1197,6 +1325,7 @@ func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalJSON(data []byte) e
 }
 
 func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1262,10 +1391,12 @@ func (s *ModerationScheduleAction_SchedulingConfig) UnmarshalJSONAt(data []byte,
 				s.ExecuteUntil = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
@@ -1285,6 +1416,10 @@ type ModerationScheduleAction_Takedown struct {
 	SeverityLevel              gt.Option[string] `json:"severityLevel,omitzero"`   // Severity level of the violation (e.g., 'sev-0', 'sev-1', 'sev-2', etc.).
 	StrikeCount                gt.Option[int64]  `json:"strikeCount,omitzero"`     // Number of strikes to assign to the user when takedown is applied.
 	StrikeExpiresAt            gt.Option[string] `json:"strikeExpiresAt,omitzero"` // When the strike should expire. If not provided, the strike never expires.
+
+	// extraJSON and extraCBOR preserve unknown fields for same-format round-trips.
+	extraJSON []lextypes.ExtraField
+	extraCBOR []lextypes.ExtraField
 }
 
 // Precomputed CBOR key tokens for ModerationScheduleAction_Takedown.
@@ -1306,7 +1441,7 @@ func (s *ModerationScheduleAction_Takedown) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ModerationScheduleAction_Takedown) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 0
+	n := 0 + len(s.extraCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1338,14 +1473,18 @@ func (s *ModerationScheduleAction_Takedown) AppendCBOR(buf []byte) ([]byte, erro
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
+	ei := 0
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "$type", buf)
 	if s.LexiconTypeID != "" {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "comment", buf)
 	if s.Comment.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_comment...)
 		buf = cbor.AppendText(buf, s.Comment.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "policies", buf)
 	if len(s.Policies) > 0 {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_policies...)
 		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Policies)))
@@ -1353,34 +1492,42 @@ func (s *ModerationScheduleAction_Takedown) AppendCBOR(buf []byte) ([]byte, erro
 			buf = cbor.AppendText(buf, item)
 		}
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "strikeCount", buf)
 	if s.StrikeCount.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_strikeCount...)
 		buf = cbor.AppendInt(buf, s.StrikeCount.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailContent", buf)
 	if s.EmailContent.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_emailContent...)
 		buf = cbor.AppendText(buf, s.EmailContent.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "emailSubject", buf)
 	if s.EmailSubject.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_emailSubject...)
 		buf = cbor.AppendText(buf, s.EmailSubject.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "severityLevel", buf)
 	if s.SeverityLevel.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_severityLevel...)
 		buf = cbor.AppendText(buf, s.SeverityLevel.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "durationInHours", buf)
 	if s.DurationInHours.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_durationInHours...)
 		buf = cbor.AppendInt(buf, s.DurationInHours.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "strikeExpiresAt", buf)
 	if s.StrikeExpiresAt.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_strikeExpiresAt...)
 		buf = cbor.AppendText(buf, s.StrikeExpiresAt.Val())
 	}
+	ei, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "acknowledgeAccountSubjects", buf)
 	if s.AcknowledgeAccountSubjects.HasVal() {
 		buf = append(buf, cborKey_ModerationScheduleAction_Takedown_acknowledgeAccountSubjects...)
 		buf = cbor.AppendBool(buf, s.AcknowledgeAccountSubjects.Val())
 	}
+	_, buf = lextypes.AppendCBORExtrasBefore(s.extraCBOR, ei, "", buf)
 	return buf, nil
 }
 
@@ -1390,6 +1537,7 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBOR(data []byte) error {
 }
 
 func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extraCBOR = nil
 	count, pos, err := cbor.ReadMapHeader(data, pos)
 	if err != nil {
 		return 0, err
@@ -1408,10 +1556,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					return 0, err
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "comment" {
@@ -1426,10 +1576,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					s.Comment = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "policies" {
@@ -1448,10 +1600,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					}
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "strikeCount" {
@@ -1466,10 +1620,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					s.StrikeCount = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "emailContent" {
@@ -1495,10 +1651,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					s.EmailSubject = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "severityLevel" {
@@ -1513,10 +1671,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					s.SeverityLevel = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 15:
 			if string(data[keyStart:keyEnd]) == "durationInHours" {
@@ -1542,10 +1702,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					s.StrikeExpiresAt = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		case 26:
 			if string(data[keyStart:keyEnd]) == "acknowledgeAccountSubjects" {
@@ -1560,16 +1722,20 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 					s.AcknowledgeAccountSubjects = gt.Some(v)
 				}
 			} else {
+				valueStart := pos
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
 				}
+				s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraCBOR = append(s.extraCBOR, lextypes.ExtraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 	}
 	return pos, nil
@@ -1683,6 +1849,15 @@ func (s *ModerationScheduleAction_Takedown) AppendJSON(buf []byte) ([]byte, erro
 		buf = cbor.AppendJSONString(buf, s.StrikeExpiresAt.Val())
 		first = false
 	}
+	for _, ef := range s.extraJSON {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
 	buf = append(buf, '}')
 	return buf, nil
 }
@@ -1693,6 +1868,7 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ModerationScheduleAction_Takedown) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extraJSON = nil
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
 	if err != nil {
@@ -1855,10 +2031,12 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalJSONAt(data []byte, pos int
 				s.StrikeExpiresAt = gt.Some(v)
 			}
 		default:
+			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
 			if err != nil {
 				return 0, err
 			}
+			s.extraJSON = append(s.extraJSON, lextypes.ExtraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...)})
 		}
 		pos = cbor.SkipJSONComma(data, pos)
 	}
