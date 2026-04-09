@@ -84,6 +84,11 @@ at://did:plc:asdf123/com.atproto.feed.post/%
 at://did:plc:asdf123/com.atproto.feed.post/%zz
 at://did:plc:asdf123/com.atproto.feed.post/%%%
 
+# percent-encoding in authority
+at://did%3Aplc%3Amy_did
+at://did%3Aplc%3Amy_did/com.atproto.feed.post/record
+at://user%2Ebsky%2Esocial
+
 # disallow dot / double-dot
 at://did:plc:asdf123/com.atproto.feed.post/.
 at://did:plc:asdf123/com.atproto.feed.post/..

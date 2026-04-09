@@ -40,7 +40,7 @@ func ParseDID(raw string) (DID, error) {
 		return "", syntaxErr("DID", raw, "empty identifier")
 	}
 
-	// Validate identifier: [a-zA-Z0-9._:%-]* ending with [a-zA-Z0-9._-].
+	// Validate identifier: [a-zA-Z0-9._:-]* ending with [a-zA-Z0-9._-].
 	for j := i; j < len(raw); j++ {
 		c := raw[j]
 		if !isDIDIdentChar(c) {
@@ -48,19 +48,9 @@ func ParseDID(raw string) (DID, error) {
 		}
 	}
 
-	// Last char cannot be '%' or ':'.
-	last := raw[len(raw)-1]
-	if last == '%' || last == ':' {
-		return "", syntaxErr("DID", raw, "identifier cannot end with '%' or ':'")
-	}
-
-	// Validate percent-encoding: every '%' must be followed by exactly two hex digits.
-	for j := i; j < len(raw); j++ {
-		if raw[j] == '%' {
-			if j+2 >= len(raw) || !isHexDigit(raw[j+1]) || !isHexDigit(raw[j+2]) {
-				return "", syntaxErr("DID", raw, "invalid percent-encoding")
-			}
-		}
+	// Last char cannot be ':'.
+	if raw[len(raw)-1] == ':' {
+		return "", syntaxErr("DID", raw, "identifier cannot end with ':'")
 	}
 
 	return DID(raw), nil
@@ -117,7 +107,7 @@ func (d *DID) UnmarshalText(b []byte) error {
 }
 
 func isDIDIdentChar(c byte) bool {
-	return isAlphanumeric(c) || c == '.' || c == '_' || c == ':' || c == '%' || c == '-'
+	return isAlphanumeric(c) || c == '.' || c == '_' || c == ':' || c == '-'
 }
 
 func isLowerAlpha(c byte) bool {
@@ -138,8 +128,4 @@ func isAlphanumericOrHyphen(c byte) bool {
 
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
-}
-
-func isHexDigit(c byte) bool {
-	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }

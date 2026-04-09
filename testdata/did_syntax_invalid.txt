@@ -8,6 +8,9 @@ did:methodval)
 did.method.val
 did:method:val:
 did:method:val%
+did:method:val%BB
+did:method:-:_:.:%ab
+did:web:localhost%3A1234
 DID:method:val
 did:METHOD:val
 did:m123:val

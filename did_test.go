@@ -44,19 +44,19 @@ func TestDID_ZeroValue(t *testing.T) {
 	require.Equal(t, "", d.String())
 }
 
-func TestDID_PercentEncoding(t *testing.T) {
+func TestDID_PercentEncodingRejected(t *testing.T) {
 	t.Parallel()
-	// Valid percent-encoding
-	_, err := ParseDID("did:example:abc%2Fdef")
-	require.NoError(t, err)
-
-	// Invalid percent-encoding: non-hex digits after %
-	_, err = ParseDID("did:example:abc%zzdef")
-	require.Error(t, err)
-
-	// Truncated percent-encoding at end
-	_, err = ParseDID("did:example:abc%2")
-	require.Error(t, err)
+	// Percent-encoding is not valid in AT Protocol DIDs.
+	for _, s := range []string{
+		"did:example:abc%2Fdef",
+		"did:example:abc%zzdef",
+		"did:example:abc%2",
+		"did:method:val%BB",
+		"did:web:localhost%3A1234",
+	} {
+		_, err := ParseDID(s)
+		require.Error(t, err, s)
+	}
 }
 
 func TestDID_MarshalRoundTrip(t *testing.T) {
