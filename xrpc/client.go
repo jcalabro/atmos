@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jcalabro/gt"
+	"github.com/jcalabro/jttp"
 )
 
 const (
@@ -36,12 +37,14 @@ type Client struct {
 }
 
 // client returns the HTTP client, initializing it once if needed.
+// Uses jttp with retries disabled because Client.doInternal implements its
+// own XRPC-aware retry loop with rate-limit tracking and session refresh.
 func (c *Client) client() *http.Client {
 	c.clientOnce.Do(func() {
 		if c.HTTPClient.HasVal() {
 			c.httpClient = c.HTTPClient.Val()
 		} else {
-			c.httpClient = NewHTTPClient(30 * time.Second)
+			c.httpClient = jttp.New(append(atprotoOpts(30*time.Second), jttp.WithNoRetries())...)
 		}
 	})
 	return c.httpClient

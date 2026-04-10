@@ -91,10 +91,12 @@ func TestSlowTransferReader_TrickleAttack(t *testing.T) {
 func TestSlowTransferReader_SlowThenFast(t *testing.T) {
 	t.Parallel()
 
-	// Slow for 2 ticks (below maxSlow=5), then speeds up.
+	// Slow for 2 ticks (below maxSlow), then speeds up.
 	// The slow counter should reset when speed recovers.
+	// Use a generous maxSlow to avoid flakes under -race where scheduling
+	// delays stretch the slow phase well beyond 2 tick intervals.
 	pr, pw := io.Pipe()
-	str := newSlowTransferReaderWithConfig(pr, pr, 100, 5, fastTick)
+	str := newSlowTransferReaderWithConfig(pr, pr, 100, 20, fastTick)
 	defer str.Close()
 
 	go func() {

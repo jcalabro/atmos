@@ -37,10 +37,10 @@ func (e *Engine) Completed() int64 {
 // Run enumerates all repos and processes each with bounded concurrency.
 // Blocks until complete or ctx is cancelled.
 //
-// The default transport ([xrpc.NewTransport]) uses MaxIdleConnsPerHost=50,
-// which matches the default worker count. For more than 50 workers, configure
-// the xrpc.Client's HTTPClient with a transport that has
-// MaxIdleConnsPerHost >= workers.
+// The default client ([xrpc.NewHTTPClient], backed by jttp) uses
+// MaxIdleConnsPerHost=50, which matches the default worker count. For more
+// than 50 workers, configure the xrpc.Client's HTTPClient with a jttp client
+// that has jttp.WithMaxIdleConnsPerHost(workers) or higher.
 func (e *Engine) Run(ctx context.Context) error {
 	workers := 50
 	if e.opts.Workers.HasVal() && e.opts.Workers.Val() > 0 {
