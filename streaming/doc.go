@@ -14,6 +14,14 @@
 // record as an [ActionResync] operation. This behavior is enabled by default;
 // override via [Options.SyncClient] or disable with gt.Some[*sync.Client](nil).
 //
+// Events are delivered in batches for efficient bulk processing. The
+// [Options.BatchSize] and [Options.BatchTimeout] fields control batching
+// behavior (defaults: 50 events, 500ms). Each yield from [Client.Events]
+// delivers a slice of 1 to BatchSize events. Batches flush when full, when
+// the timeout elapses, or when an error (decode error, sequence gap) is
+// encountered — in which case the partial batch is yielded first, followed
+// by the error.
+//
 // For label events, use [Event.Labels] to access the individual
 // labels — including negation labels (Neg=true) that revoke a previous label.
 //
@@ -28,7 +36,7 @@
 // only the lock holder consumes from the stream while other nodes wait idle,
 // automatically taking over if the active consumer fails.
 //
-// Events are delivered at least once. In rare cases during leader failover,
-// the same event may be emitted more than once. Consumers must handle events
-// idempotently.
+// Events are delivered at least once in batches. In rare cases during leader
+// failover, the same event may be emitted more than once. Consumers must
+// handle events idempotently.
 package streaming

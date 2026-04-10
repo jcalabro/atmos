@@ -214,14 +214,14 @@ func TestLeaderClient_NoopLock(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	client := mustNewClient(t, Options{URL: wsURL(srv), BatchSize: gt.Some(1)})
 	assert.True(t, client.IsLeader())
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		require.NoError(t, err)
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -257,16 +257,17 @@ func TestLeaderClient_AcquiresBeforeConsuming(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		require.NoError(t, err)
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -303,9 +304,10 @@ func TestLeaderClient_StopsOnLockLoss(t *testing.T) {
 	}
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var count int
@@ -364,22 +366,30 @@ func TestLeaderClient_ReacquiresAfterLoss(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var gotFirst3 bool
-	for evt, err := range client.Events(ctx) {
+	done := false
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		if evt.Seq == 3 && !gotFirst3 {
-			gotFirst3 = true
-			ml.setRenewErr(ErrNotHolder) // lose lock after first batch
+		for _, evt := range batch {
+			if evt.Seq == 3 && !gotFirst3 {
+				gotFirst3 = true
+				ml.setRenewErr(ErrNotHolder) // lose lock after first batch
+			}
+			if evt.Seq >= 100 {
+				cancel()
+				done = true
+				break
+			}
 		}
-		if evt.Seq >= 100 {
-			cancel()
+		if done {
 			break
 		}
 	}
@@ -411,9 +421,10 @@ func TestLeaderClient_GracefulShutdown(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var count int
@@ -443,9 +454,10 @@ func TestLeaderClient_ContextCancelDuringAcquisition(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(fastLockOpts(ml)),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(fastLockOpts(ml)),
 	})
 
 	// Cancel after a few acquire attempts via goroutine, since the
@@ -479,9 +491,10 @@ func TestLeaderClient_PanicReleasesLock(t *testing.T) {
 	ml := newMockLock(state, "node-1")
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(fastLockOpts(ml)),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(fastLockOpts(ml)),
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -539,22 +552,30 @@ func TestLeaderClient_CursorPreservedAcrossLockCycles(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var gotFirst3 bool
-	for evt, err := range client.Events(ctx) {
+	done := false
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		if evt.Seq == 3 && !gotFirst3 {
-			gotFirst3 = true
-			ml.setRenewErr(ErrNotHolder)
+		for _, evt := range batch {
+			if evt.Seq == 3 && !gotFirst3 {
+				gotFirst3 = true
+				ml.setRenewErr(ErrNotHolder)
+			}
+			if evt.Seq >= 100 {
+				cancel()
+				done = true
+				break
+			}
 		}
-		if evt.Seq >= 100 {
-			cancel()
+		if done {
 			break
 		}
 	}
@@ -596,9 +617,10 @@ func TestLeaderClient_IsLeader(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	assert.False(t, client.IsLeader())
@@ -630,9 +652,10 @@ func TestLeaderClient_Close(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(fastLockOpts(ml)),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(fastLockOpts(ml)),
 	})
 
 	// Breaking out of the range loop terminates the iterator, which runs
@@ -685,9 +708,10 @@ func TestLeaderClient_SequentialEventsCalls(t *testing.T) {
 	lockOpts.OnBecameLeader = func() { becameCount.Add(1) }
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	// First Events() call — consume events 1-2.
@@ -695,10 +719,10 @@ func TestLeaderClient_SequentialEventsCalls(t *testing.T) {
 	defer cancel1()
 
 	var firstBatch []Event
-	for evt, err := range client.Events(ctx1) {
+	for batch, err := range client.Events(ctx1) {
 		require.NoError(t, err)
-		firstBatch = append(firstBatch, evt)
-		if len(firstBatch) == 2 {
+		firstBatch = append(firstBatch, batch...)
+		if len(firstBatch) >= 2 {
 			cancel1()
 		}
 	}
@@ -709,10 +733,10 @@ func TestLeaderClient_SequentialEventsCalls(t *testing.T) {
 	defer cancel2()
 
 	var secondBatch []Event
-	for evt, err := range client.Events(ctx2) {
+	for batch, err := range client.Events(ctx2) {
 		require.NoError(t, err)
-		secondBatch = append(secondBatch, evt)
-		if len(secondBatch) == 2 {
+		secondBatch = append(secondBatch, batch...)
+		if len(secondBatch) >= 2 {
 			cancel2()
 		}
 	}
@@ -760,14 +784,16 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 	defer cancel()
 
 	clientA := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOptsA),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOptsA),
 	})
 	clientB := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOptsB),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOptsB),
 	})
 
 	nodeAEvents := make(chan Event, 100)
@@ -780,11 +806,13 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for evt, err := range clientA.Events(ctx) {
+		for batch, err := range clientA.Events(ctx) {
 			if err == nil {
-				select {
-				case nodeAEvents <- evt:
-				default:
+				for _, evt := range batch {
+					select {
+					case nodeAEvents <- evt:
+					default:
+					}
 				}
 			}
 		}
@@ -804,11 +832,13 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for evt, err := range clientB.Events(ctx) {
+		for batch, err := range clientB.Events(ctx) {
 			if err == nil {
-				select {
-				case nodeBEvents <- evt:
-				default:
+				for _, evt := range batch {
+					select {
+					case nodeBEvents <- evt:
+					default:
+					}
 				}
 			}
 		}
@@ -860,9 +890,10 @@ func TestLeaderClient_MultiNode_OnlyOneConsumes(t *testing.T) {
 	for i := range numNodes {
 		ml := newMockLock(state, fmt.Sprintf("node-%d", i))
 		client := mustNewLeaderClient(t, Options{
-			URL:     wsURL(srv),
-			Backoff: gt.Some(fastBackoff()),
-			Locker:  gt.Some(fastLockOpts(ml)),
+			URL:       wsURL(srv),
+			BatchSize: gt.Some(1),
+			Backoff:   gt.Some(fastBackoff()),
+			Locker:    gt.Some(fastLockOpts(ml)),
 		})
 
 		idx := i
@@ -920,9 +951,10 @@ func TestLeaderClient_AcquireFailsThenSucceeds(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(fastLockOpts(ml)),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(fastLockOpts(ml)),
 	})
 
 	// Clear error after a few attempts from a goroutine (since the
@@ -935,12 +967,12 @@ func TestLeaderClient_AcquireFailsThenSucceeds(t *testing.T) {
 	}()
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -986,24 +1018,32 @@ func TestLeaderClient_RenewFailsOnce_Reacquires(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	seenSeqs := make(map[int64]bool)
 	var gotFirst5 bool
-	for evt, err := range client.Events(ctx) {
+	done := false
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		seenSeqs[evt.Seq] = true
-		if evt.Seq >= 5 && !gotFirst5 {
-			gotFirst5 = true
-			ml.setRenewErr(ErrNotHolder) // lose lock
+		for _, evt := range batch {
+			seenSeqs[evt.Seq] = true
+			if evt.Seq >= 5 && !gotFirst5 {
+				gotFirst5 = true
+				ml.setRenewErr(ErrNotHolder) // lose lock
+			}
+			if evt.Seq >= 100 {
+				cancel()
+				done = true
+				break
+			}
 		}
-		if evt.Seq >= 100 {
-			cancel()
+		if done {
 			break
 		}
 	}
@@ -1044,20 +1084,32 @@ func TestLeaderClient_RapidLockCycling(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var eventCount int
-	for range client.Events(ctx) {
-		eventCount++
-		// Trigger lock loss every 5 events to create rapid cycling.
-		if eventCount%5 == 0 {
-			ml.setRenewErr(ErrNotHolder)
+	done := false
+	for batch, err := range client.Events(ctx) {
+		if err != nil {
+			continue
 		}
-		if becameCount.Load() >= 4 {
-			cancel()
+		for _, evt := range batch {
+			_ = evt
+			eventCount++
+			// Trigger lock loss every 5 events to create rapid cycling.
+			if eventCount%5 == 0 {
+				ml.setRenewErr(ErrNotHolder)
+			}
+			if becameCount.Load() >= 4 {
+				cancel()
+				done = true
+				break
+			}
+		}
+		if done {
 			break
 		}
 	}
@@ -1095,19 +1147,31 @@ func TestLeaderClient_ReleaseFails_StillReacquires(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var eventCount int
-	for range client.Events(ctx) {
-		eventCount++
-		if eventCount == 3 {
-			ml.setRenewErr(ErrNotHolder) // lose lock (release will also fail)
+	done := false
+	for batch, err := range client.Events(ctx) {
+		if err != nil {
+			continue
 		}
-		if becameCount.Load() >= 2 && eventCount >= 5 {
-			cancel()
+		for _, evt := range batch {
+			_ = evt
+			eventCount++
+			if eventCount == 3 {
+				ml.setRenewErr(ErrNotHolder) // lose lock (release will also fail)
+			}
+			if becameCount.Load() >= 2 && eventCount >= 5 {
+				cancel()
+				done = true
+				break
+			}
+		}
+		if done {
 			break
 		}
 	}
@@ -1164,27 +1228,35 @@ func TestLeaderClient_AllEventsDelivered(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	seenSeqs := make(map[int64]bool)
 	triggerLoss := false
-	for evt, err := range client.Events(ctx) {
+	done := false
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		if evt.Seq > 0 && evt.Seq <= totalEvents {
-			seenSeqs[evt.Seq] = true
+		for _, evt := range batch {
+			if evt.Seq > 0 && evt.Seq <= totalEvents {
+				seenSeqs[evt.Seq] = true
+			}
+			// Trigger one lock loss mid-stream.
+			if evt.Seq == 25 && !triggerLoss {
+				triggerLoss = true
+				ml.setRenewErr(ErrNotHolder)
+			}
+			if int64(len(seenSeqs)) >= totalEvents {
+				cancel()
+				done = true
+				break
+			}
 		}
-		// Trigger one lock loss mid-stream.
-		if evt.Seq == 25 && !triggerLoss {
-			triggerLoss = true
-			ml.setRenewErr(ErrNotHolder)
-		}
-		if int64(len(seenSeqs)) >= totalEvents {
-			cancel()
+		if done {
 			break
 		}
 	}
@@ -1226,17 +1298,18 @@ func TestLeaderClient_LockLossDuringBackoff(t *testing.T) {
 	defer cancel()
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(lockOpts),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(lockOpts),
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
+		events = append(events, batch...)
 		if len(events) >= 2 {
 			cancel()
 		}
@@ -1260,9 +1333,10 @@ func TestLeaderClient_ImmediateContextCancel(t *testing.T) {
 	cancel() // cancel immediately
 
 	client := mustNewLeaderClient(t, Options{
-		URL:     wsURL(srv),
-		Backoff: gt.Some(fastBackoff()),
-		Locker:  gt.Some(fastLockOpts(ml)),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
+		Backoff:   gt.Some(fastBackoff()),
+		Locker:    gt.Some(fastLockOpts(ml)),
 	})
 
 	var count int

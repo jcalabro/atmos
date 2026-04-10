@@ -133,12 +133,12 @@ func TestHappyPath(t *testing.T) {
 	client := mustNewClient(t, Options{URL: wsURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		events = append(events, evt)
-		if len(events) == 3 {
+		events = append(events, batch...)
+		if len(events) >= 3 {
 			cancel()
 		}
 	}
@@ -173,7 +173,7 @@ func TestSequenceGap(t *testing.T) {
 		events []Event
 		gaps   []*GapError
 	)
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			if ge, ok := errors.AsType[*GapError](err); ok {
 				gaps = append(gaps, ge)
@@ -181,8 +181,8 @@ func TestSequenceGap(t *testing.T) {
 			}
 			t.Fatalf("unexpected error: %v", err)
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -230,12 +230,12 @@ func TestReconnection(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -278,12 +278,12 @@ func TestConsumerTooSlow(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -336,13 +336,13 @@ func TestBadCBOR(t *testing.T) {
 		events   []Event
 		errCount int
 	)
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			errCount++
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -382,12 +382,11 @@ func TestConcurrentCursorRead(t *testing.T) {
 	}()
 
 	var count int
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		_ = evt
-		count++
+		count += len(batch)
 		if count >= 100 {
 			cancel()
 		}
@@ -421,7 +420,8 @@ func TestGracefulClose(t *testing.T) {
 	defer cancel()
 
 	client := mustNewClient(t, Options{
-		URL: wsURL(srv),
+		URL:       wsURL(srv),
+		BatchSize: gt.Some(1),
 		Backoff: gt.Some(BackoffPolicy{
 			InitialDelay: gt.Some(10 * time.Millisecond),
 			MaxDelay:     gt.Some(50 * time.Millisecond),
@@ -431,14 +431,20 @@ func TestGracefulClose(t *testing.T) {
 	})
 
 	var count int
-	for _, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		count++
+		for _, evt := range batch {
+			_ = evt
+			count++
+			if count >= 3 {
+				close(done)
+				cancel()
+				break
+			}
+		}
 		if count >= 3 {
-			close(done)
-			cancel()
 			break
 		}
 	}
@@ -462,12 +468,12 @@ func TestErrorFrame(t *testing.T) {
 	client := mustNewClient(t, Options{URL: wsURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 1 {
+		events = append(events, batch...)
+		if len(events) >= 1 {
 			cancel()
 		}
 	}
@@ -493,12 +499,12 @@ func TestInfoEvent(t *testing.T) {
 	client := mustNewClient(t, Options{URL: wsURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 1 {
+		events = append(events, batch...)
+		if len(events) >= 1 {
 			cancel()
 		}
 	}

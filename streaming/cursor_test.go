@@ -144,18 +144,19 @@ func TestCursorCheckpointInterval(t *testing.T) {
 
 	client, err := NewClient(Options{
 		URL:            wsURL(srv),
+		BatchSize:      gt.Some(1),
 		CursorStore:    gt.Some[CursorStore](store),
 		CursorInterval: gt.Some(interval),
 	})
 	require.NoError(t, err)
 
 	var count int
-	for _, iterErr := range client.Events(ctx) {
+	for batch, iterErr := range client.Events(ctx) {
 		if iterErr != nil {
 			continue
 		}
-		count++
-		if count == 12 {
+		count += len(batch)
+		if count >= 12 {
 			cancel()
 		}
 	}
@@ -185,15 +186,17 @@ func TestCursorSaveOnClose(t *testing.T) {
 	// Use a large interval so readLoop doesn't save.
 	client, err := NewClient(Options{
 		URL:            wsURL(srv),
+		BatchSize:      gt.Some(1),
 		CursorStore:    gt.Some[CursorStore](store),
 		CursorInterval: gt.Some(int64(1000)),
 	})
 	require.NoError(t, err)
 
-	for _, iterErr := range client.Events(ctx) {
+	for batch, iterErr := range client.Events(ctx) {
 		if iterErr != nil {
 			continue
 		}
+		_ = batch
 		cancel()
 	}
 

@@ -38,12 +38,12 @@ func TestIntegration_MixedEventTypes(t *testing.T) {
 	client := mustNewClient(t, Options{URL: wsURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		events = append(events, evt)
-		if len(events) == 5 {
+		events = append(events, batch...)
+		if len(events) >= 5 {
 			cancel()
 		}
 	}
@@ -112,12 +112,12 @@ func TestIntegration_ReconnectWithCursor(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 5 {
+		events = append(events, batch...)
+		if len(events) >= 5 {
 			cancel()
 		}
 	}
@@ -156,12 +156,12 @@ func TestIntegration_MaxMessageSize(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 1 {
+		events = append(events, batch...)
+		if len(events) >= 1 {
 			time.AfterFunc(50*time.Millisecond, cancel)
 		}
 	}
@@ -221,6 +221,7 @@ func TestIntegration_SyncEvent_EndToEnd(t *testing.T) {
 
 	client := mustNewClient(t, Options{
 		URL:        wsURL(wsSrv),
+		BatchSize:  gt.Some(1),
 		SyncClient: gt.Some(sc),
 	})
 
@@ -228,11 +229,13 @@ func TestIntegration_SyncEvent_EndToEnd(t *testing.T) {
 	defer cancel()
 
 	var ops []Operation
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		require.NoError(t, err)
-		for op, err := range evt.Operations() {
-			require.NoError(t, err)
-			ops = append(ops, op)
+		for _, evt := range batch {
+			for op, err := range evt.Operations() {
+				require.NoError(t, err)
+				ops = append(ops, op)
+			}
 		}
 		cancel() // only process one event
 	}

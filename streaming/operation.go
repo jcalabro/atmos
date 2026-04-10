@@ -62,11 +62,34 @@ func (e *Event) Operations() iter.Seq2[Operation, error] {
 			e.yieldCommitOps(yield)
 			return
 		}
+		if e.Jetstream != nil && e.Jetstream.Commit != nil {
+			e.yieldJetstreamOp(yield)
+			return
+		}
 		if e.Sync != nil && e.syncClient != nil {
 			e.yieldResyncOps(yield)
 			return
 		}
 	}
+}
+
+// yieldJetstreamOp yields a single operation from a Jetstream commit event.
+// Note: blockData is nil because Jetstream records are JSON (not CBOR), so
+// [Operation.Decode] will return an error. Use [JetstreamCommit.Record]
+// directly for the raw JSON payload.
+func (e *Event) yieldJetstreamOp(yield func(Operation, error) bool) {
+	jc := e.Jetstream.Commit
+	op := Operation{
+		Action:     Action(jc.Operation),
+		Collection: jc.Collection,
+		RKey:       jc.RKey,
+		Repo:       e.Jetstream.DID,
+		Rev:        jc.Rev,
+	}
+	if jc.CID != "" {
+		op.CID = []byte(jc.CID)
+	}
+	yield(op, nil)
 }
 
 // yieldCommitOps yields operations from a #commit event's CAR diff.

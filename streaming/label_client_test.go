@@ -65,12 +65,12 @@ func TestLabelClient_HappyPath(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -135,7 +135,8 @@ func TestLabelClient_ApplyAndRemoveLabels(t *testing.T) {
 	defer cancel()
 
 	client := mustNewClient(t, Options{
-		URL: wsURL(srv) + "/xrpc/com.atproto.label.subscribeLabels",
+		URL:       wsURL(srv) + "/xrpc/com.atproto.label.subscribeLabels",
+		BatchSize: gt.Some(1),
 	})
 
 	// Track effective labels per URI as a consumer would.
@@ -143,21 +144,23 @@ func TestLabelClient_ApplyAndRemoveLabels(t *testing.T) {
 	effective := make(map[labelKey]bool) // true = applied, false/missing = removed
 
 	var eventCount int
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		for _, lbl := range evt.Labels() {
-			key := labelKey{URI: lbl.URI, Val: lbl.Val}
-			if lbl.Neg.ValOr(false) {
-				delete(effective, key)
-			} else {
-				effective[key] = true
+		for _, evt := range batch {
+			for _, lbl := range evt.Labels() {
+				key := labelKey{URI: lbl.URI, Val: lbl.Val}
+				if lbl.Neg.ValOr(false) {
+					delete(effective, key)
+				} else {
+					effective[key] = true
+				}
 			}
-		}
-		eventCount++
-		if eventCount == 3 {
-			cancel()
+			eventCount++
+			if eventCount == 3 {
+				cancel()
+			}
 		}
 	}
 
@@ -193,12 +196,12 @@ func TestLabelClient_InfoEvent(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 1 {
+		events = append(events, batch...)
+		if len(events) >= 1 {
 			cancel()
 		}
 	}
@@ -249,12 +252,12 @@ func TestLabelClient_Reconnect(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -305,13 +308,13 @@ func TestLabelClient_BadCBOR(t *testing.T) {
 		events   []Event
 		errCount int
 	)
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			errCount++
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 2 {
+		events = append(events, batch...)
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
@@ -345,12 +348,12 @@ func TestLabelClient_UnknownFrameSkipped(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 1 {
+		events = append(events, batch...)
+		if len(events) >= 1 {
 			cancel()
 		}
 	}

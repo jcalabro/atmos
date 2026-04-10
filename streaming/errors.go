@@ -31,3 +31,19 @@ func ErrorRawFrame(err error) []byte {
 	}
 	return nil
 }
+
+// DialError indicates a connection failure that should not be retried,
+// such as the server returning a non-WebSocket HTTP response (e.g. 200, 404).
+type DialError struct {
+	StatusCode int   // HTTP status code, or 0 if unavailable
+	Err        error // underlying error
+}
+
+func (e *DialError) Error() string {
+	if e.StatusCode > 0 {
+		return fmt.Sprintf("dial: HTTP %d: %v", e.StatusCode, e.Err)
+	}
+	return fmt.Sprintf("dial: %v", e.Err)
+}
+
+func (e *DialError) Unwrap() error { return e.Err }

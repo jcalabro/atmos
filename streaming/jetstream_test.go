@@ -314,10 +314,10 @@ func TestJetstream_Integration_MixedEvents(t *testing.T) {
 	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		require.NoError(t, err)
-		events = append(events, evt)
-		if len(events) == 3 {
+		events = append(events, batch...)
+		if len(events) >= 3 {
 			cancel()
 		}
 	}
@@ -393,12 +393,12 @@ func TestJetstream_Integration_ReconnectWithCursor(t *testing.T) {
 	})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			continue
 		}
-		events = append(events, evt)
-		if len(events) == 3 {
+		events = append(events, batch...)
+		if len(events) >= 3 {
 			cancel()
 		}
 	}
@@ -476,13 +476,13 @@ func TestJetstream_Integration_ErrorFrame(t *testing.T) {
 
 	var events []Event
 	var errs []error
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			errs = append(errs, err)
 			cancel()
 			continue
 		}
-		events = append(events, evt)
+		events = append(events, batch...)
 	}
 
 	require.Len(t, events, 1)
@@ -527,10 +527,10 @@ func TestJetstream_Integration_CursorTracking(t *testing.T) {
 	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		require.NoError(t, err)
-		events = append(events, evt)
-		if len(events) == 3 {
+		events = append(events, batch...)
+		if len(events) >= 3 {
 			cancel()
 		}
 	}
@@ -560,10 +560,10 @@ func TestJetstream_Integration_UnknownKindSkipped(t *testing.T) {
 	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
 
 	var events []Event
-	for evt, err := range client.Events(ctx) {
+	for batch, err := range client.Events(ctx) {
 		require.NoError(t, err)
-		events = append(events, evt)
-		if len(events) == 1 {
+		events = append(events, batch...)
+		if len(events) >= 1 {
 			cancel()
 		}
 	}

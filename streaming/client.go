@@ -45,6 +45,14 @@ type Options struct {
 	// events). None means 100. Only used when CursorStore is set.
 	CursorInterval gt.Option[int64]
 
+	// BatchSize controls how many events are accumulated before yielding
+	// a batch to the caller. None means 50.
+	BatchSize gt.Option[int]
+
+	// BatchTimeout is the maximum time to wait for a full batch before
+	// flushing whatever has accumulated. None means 500ms.
+	BatchTimeout gt.Option[time.Duration]
+
 	// Backoff controls reconnection timing. None uses sensible defaults
 	// (1s initial, 30s max, full jitter).
 	Backoff gt.Option[BackoffPolicy]
@@ -87,6 +95,8 @@ type Client struct {
 	conn           atomic.Pointer[websocket.Conn]
 	cursorCount    int64 // only used in readLoop goroutine
 	cursorInterval int64
+	batchSize      int
+	batchTimeout   time.Duration
 	decode         func([]byte) (Event, error)
 	syncClient     *sync.Client // nil disables automatic #sync resync
 	isJetstream    bool
@@ -113,6 +123,14 @@ func NewClient(opts Options) (*Client, error) {
 	}
 
 	interval := opts.CursorInterval.ValOr(100)
+	batchSize := opts.BatchSize.ValOr(50)
+	if batchSize < 1 {
+		return nil, errors.New("BatchSize must be >= 1")
+	}
+	batchTimeout := opts.BatchTimeout.ValOr(500 * time.Millisecond)
+	if batchTimeout <= 0 {
+		return nil, errors.New("BatchTimeout must be > 0")
+	}
 
 	lk := DistributedLocker(NoopLock{})
 	var lockOpts *DistributedLockerOptions
@@ -166,6 +184,8 @@ func NewClient(opts Options) (*Client, error) {
 	c := &Client{
 		opts:                opts,
 		cursorInterval:      interval,
+		batchSize:           batchSize,
+		batchTimeout:        batchTimeout,
 		decode:              decode,
 		syncClient:          sc,
 		isJetstream:         isJS,
@@ -250,8 +270,8 @@ func (c *Client) IsLeader() bool {
 // does not stop the iterator.
 //
 // Events must not be called concurrently from multiple goroutines.
-func (c *Client) Events(ctx context.Context) iter.Seq2[Event, error] {
-	return func(yield func(Event, error) bool) {
+func (c *Client) Events(ctx context.Context) iter.Seq2[[]Event, error] {
+	return func(yield func([]Event, error) bool) {
 		defer c.releaseOnShutdown()
 
 		for {
@@ -299,7 +319,7 @@ func (c *Client) Events(ctx context.Context) iter.Seq2[Event, error] {
 // backoff on connection loss. Returns true only when the yield function
 // returns false (caller wants to stop iterating). Returns false when the
 // context is cancelled or connection errors occur.
-func (c *Client) consumeLoop(ctx context.Context, yield func(Event, error) bool) bool {
+func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) bool) bool {
 	attempt := 0
 	for {
 		if ctx.Err() != nil {
@@ -310,6 +330,12 @@ func (c *Client) consumeLoop(ctx context.Context, yield func(Event, error) bool)
 		if err != nil {
 			if ctx.Err() != nil {
 				return false
+			}
+
+			// Non-retryable dial errors (e.g. wrong URL, non-WebSocket
+			// endpoint) are yielded to the caller.
+			if errors.As(err, new(*DialError)) {
+				return !yield(nil, err)
 			}
 
 			// Dial failed — backoff and retry.
@@ -433,6 +459,13 @@ func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 		_ = resp.Body.Close()
 	}
 	if err != nil {
+		// If the server returned an HTTP response but didn't upgrade to
+		// WebSocket (e.g. 200 "Welcome to Jetstream", 404 Not Found),
+		// wrap it as a non-retryable DialError so consumeLoop surfaces
+		// it to the caller instead of retrying forever.
+		if resp != nil && resp.StatusCode != 101 {
+			return nil, &DialError{StatusCode: resp.StatusCode, Err: err}
+		}
 		return nil, err
 	}
 
@@ -441,60 +474,153 @@ func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 	return conn, nil
 }
 
-// readLoop reads messages from the WebSocket and yields events. Returns true
-// only when the yield function returns false (caller wants to stop). Returns
-// false for context cancellation and connection errors (caller should
-// reconnect or exit).
-func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(Event, error) bool) bool {
-	for {
-		_, data, err := conn.Read(ctx)
-		if err != nil {
-			return false // context cancelled or connection error
-		}
+// readResult is a raw WebSocket message read by the reader goroutine.
+type readResult struct {
+	data []byte
+	err  error
+}
 
-		evt, err := c.decode(data)
-		if errors.Is(err, errUnknownType) {
-			continue // skip unrecognized event types for forward compat
-		}
-		if err != nil {
-			// Decode error — yield to caller but don't reconnect.
-			if !yield(Event{}, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)}) {
-				return true
+// readLoop reads messages from the WebSocket and yields batches of events.
+// A reader goroutine sends raw frames to a channel; the main select loop
+// decodes, accumulates, and flushes batches on three triggers: batch full,
+// timeout, or error. Returns true only when the yield function returns false
+// (caller wants to stop iterating). Returns false for context cancellation
+// and connection errors (caller should reconnect or exit).
+func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
+	msgCh := make(chan readResult, 1)
+
+	// Reader goroutine: reads raw frames and sends them to msgCh.
+	// Guaranteed not to leak because consumeLoop calls conn.CloseNow()
+	// after readLoop returns, which forces the blocking conn.Read to
+	// fail. The ctx.Done() branch handles the case where the context
+	// is cancelled before the read completes.
+	go func() {
+		for {
+			_, data, err := conn.Read(ctx)
+			select {
+			case msgCh <- readResult{data, err}:
+			case <-ctx.Done():
+				return
 			}
-			continue
-		}
-
-		// Attach context and sync client for lazy #sync handling.
-		if evt.Sync != nil && c.syncClient != nil {
-			evt.ctx = ctx
-			evt.syncClient = c.syncClient
-		}
-
-		// Sequence gap detection (firehose/labels only — Jetstream uses
-		// time_us as cursor which is not sequential).
-		seq := evt.seqOf()
-		if seq > 0 && !c.isJetstream {
-			lastSeq := c.cursor.Load()
-			if lastSeq > 0 && seq > lastSeq+1 {
-				if !yield(Event{}, &GapError{Expected: lastSeq + 1, Got: seq}) {
-					return true
-				}
+			if err != nil {
+				return
 			}
 		}
+	}()
 
-		if !yield(evt, nil) {
-			return true
+	batch := make([]Event, 0, c.batchSize)
+	lastSeenSeq := c.cursor.Load()
+
+	timer := time.NewTimer(c.batchTimeout)
+	defer timer.Stop()
+
+	// flushBatch yields the current batch, updates the cursor, and resets
+	// state. Returns true if the caller wants to stop iterating. Does
+	// nothing and returns false if the batch is empty.
+	flushBatch := func() bool {
+		if len(batch) == 0 {
+			return false
 		}
+
+		// Find the last seq for cursor update.
+		var lastSeq int64
+		for i := len(batch) - 1; i >= 0; i-- {
+			if s := batch[i].seqOf(); s > 0 {
+				lastSeq = s
+				break
+			}
+		}
+
+		stopped := !yield(batch, nil)
 
 		// Update cursor after successful yield.
-		if seq > 0 {
-			c.cursor.Store(seq)
+		if lastSeq > 0 {
+			c.cursor.Store(lastSeq)
 			if c.opts.CursorStore.HasVal() {
-				c.cursorCount++
-				if c.cursorCount%c.cursorInterval == 0 {
-					_ = c.opts.CursorStore.Val().SaveCursor(ctx, seq)
+				prevCount := c.cursorCount
+				c.cursorCount += int64(len(batch))
+				if c.cursorCount/c.cursorInterval > prevCount/c.cursorInterval {
+					_ = c.opts.CursorStore.Val().SaveCursor(ctx, lastSeq)
 				}
 			}
+		}
+
+		batch = make([]Event, 0, c.batchSize)
+		return stopped
+	}
+
+	for {
+		select {
+		case res := <-msgCh:
+			if res.err != nil {
+				// Connection error or context cancelled — flush partial batch.
+				if flushBatch() {
+					return true
+				}
+				return false
+			}
+
+			evt, err := c.decode(res.data)
+			if errors.Is(err, errUnknownType) {
+				continue
+			}
+			if err != nil {
+				// Decode error — flush batch, then yield error.
+				if flushBatch() {
+					return true
+				}
+				timer.Reset(c.batchTimeout)
+				if !yield(nil, &DecodeError{Frame: res.data, Err: fmt.Errorf("decode: %w", err)}) {
+					return true
+				}
+				continue
+			}
+
+			// Attach context and sync client for lazy #sync handling.
+			if evt.Sync != nil && c.syncClient != nil {
+				evt.ctx = ctx
+				evt.syncClient = c.syncClient
+			}
+
+			// Sequence gap detection (firehose/labels only — Jetstream uses
+			// time_us as cursor which is not sequential).
+			seq := evt.seqOf()
+			if seq > 0 && !c.isJetstream {
+				if lastSeenSeq > 0 && seq > lastSeenSeq+1 {
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+					if !yield(nil, &GapError{Expected: lastSeenSeq + 1, Got: seq}) {
+						return true
+					}
+				}
+				lastSeenSeq = seq
+			}
+
+			batch = append(batch, evt)
+
+			if len(batch) >= c.batchSize {
+				if flushBatch() {
+					return true
+				}
+				timer.Reset(c.batchTimeout)
+			}
+
+		case <-timer.C:
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+
+		case <-ctx.Done():
+			// Context cancelled (e.g. lock lost or parent cancel) while the
+			// reader goroutine exited via its own ctx.Done() branch without
+			// sending the error to msgCh. Flush any partial batch and exit.
+			if flushBatch() {
+				return true
+			}
+			return false
 		}
 	}
 }
