@@ -28,9 +28,10 @@ lexgen:
 bench *ARGS="./...":
     go test -bench=. -benchmem -count=1 -run='^$' {{ARGS}}
 
-# Builds the WASM binary and copies wasm_exec.js
+# Builds the WASM binary, gzips it, and copies wasm_exec.js
 wasm:
-    GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o wasm/atproto.wasm ./wasm/
+    GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o wasm/atmos.wasm ./wasm/
+    gzip -k -f wasm/atmos.wasm
     cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" wasm/
 
 # Runs tests under GOOS=js/wasm via Node (closest to in-browser WASM)

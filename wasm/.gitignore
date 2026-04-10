@@ -1,2 +1,3 @@
-atproto.wasm
+atmos.wasm
+atmos.wasm.gz
 wasm_exec.js

@@ -15,7 +15,7 @@ func main() {
 	registerXRPC(atp)
 	registerFirehose(atp)
 
-	js.Global().Set("atp", atp)
+	js.Global().Set("atmos", atp)
 
 	// Block forever — the Go runtime must stay alive for callbacks.
 	select {}

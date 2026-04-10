@@ -8,10 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/jcalabro/atmos"
-	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 )
 
@@ -38,12 +36,7 @@ func (r *DefaultResolver) client() *http.Client {
 		return r.HTTPClient.Val()
 	}
 	r.clientOnce.Do(func() {
-		t := xrpc.NewTransport()
-		t.DialContext = ssrfSafeDialContext(10 * time.Second)
-		r.httpClient = &http.Client{
-			Transport: xrpc.WrapGzip(t),
-			Timeout:   10 * time.Second,
-		}
+		r.httpClient = newDefaultHTTPClient()
 	})
 	return r.httpClient
 }
@@ -102,7 +95,7 @@ func (r *DefaultResolver) resolveWeb(ctx context.Context, did atmos.DID) (*DIDDo
 // SkipDNSDomainSuffixes entry, only HTTP is used. Otherwise DNS and HTTP
 // are raced in parallel, returning whichever succeeds first.
 func (r *DefaultResolver) ResolveHandle(ctx context.Context, handle atmos.Handle) (atmos.DID, error) {
-	if r.shouldSkipDNS(handle) {
+	if !canDNS || r.shouldSkipDNS(handle) {
 		return r.resolveHandleHTTP(ctx, handle)
 	}
 

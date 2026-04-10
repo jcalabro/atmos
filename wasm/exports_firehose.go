@@ -44,7 +44,7 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 
 	// Start consuming events in a goroutine.
 	go func() {
-		for evt, err := range client.Events(ctx) {
+		for batch, err := range client.Events(ctx) {
 			if err != nil {
 				continue
 			}
@@ -52,17 +52,19 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 				continue
 			}
 
-			for op, opErr := range evt.Operations() {
-				if opErr != nil {
-					continue
+			for _, evt := range batch {
+				for op, opErr := range evt.Operations() {
+					if opErr != nil {
+						continue
+					}
+					callback.Invoke(jsObj(
+						"seq", evt.Seq,
+						"action", string(op.Action),
+						"collection", op.Collection,
+						"repo", op.Repo,
+						"rkey", op.RKey,
+					))
 				}
-				callback.Invoke(jsObj(
-					"seq", evt.Seq,
-					"action", string(op.Action),
-					"collection", op.Collection,
-					"repo", op.Repo,
-					"rkey", op.RKey,
-				))
 			}
 		}
 	}()

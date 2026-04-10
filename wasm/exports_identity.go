@@ -16,6 +16,12 @@ func registerIdentity(atp js.Value) {
 	atp.Set("identity", ns)
 }
 
+// jsResolve resolves a DID or handle to an identity document.
+//
+// Note: handle resolution in WASM uses HTTP only (fetching
+// https://<handle>/.well-known/atproto-did). DNS TXT record resolution
+// (_atproto.<handle>) is not supported because web browsers do not
+// provide any API for performing DNS lookups.
 func jsResolve(_ js.Value, args []js.Value) any {
 	input := args[0].String()
 	promise, resolve, reject := newPromise()
