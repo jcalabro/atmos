@@ -39,6 +39,12 @@ type Operation struct {
 	blockData  []byte // CBOR bytes of the record block (nil for deletes)
 }
 
+// BlockData returns the raw CBOR bytes of the record block, or nil for
+// delete operations which have no record data.
+func (o *Operation) BlockData() []byte {
+	return o.blockData
+}
+
 // Decode unmarshals the record block into dst. Returns an error for delete
 // ops which have no record data.
 func (o *Operation) Decode(dst CBORUnmarshaler) error {

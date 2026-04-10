@@ -13,14 +13,21 @@
     #log { white-space: pre-wrap; }
 
     #firehose { margin-bottom: 2rem; }
-    #firehose-controls { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    #firehose-controls { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
     #firehose-controls button {
       font-family: monospace; padding: 0.4rem 1rem; cursor: pointer;
       background: #0984e3; color: white; border: none; border-radius: 4px;
     }
     #firehose-controls button:disabled { background: #555; cursor: default; }
     #firehose-controls button.stop { background: #d63031; }
+    #source-select {
+      font-family: monospace; padding: 0.4rem 0.6rem; cursor: pointer;
+      background: #16213e; color: #e0e0e0; border: 1px solid #555; border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    #source-select:disabled { color: #888; cursor: default; }
     #firehose-stats { color: #888; }
+    #source-info { color: #666; font-size: 0.8rem; margin-bottom: 0.5rem; }
     #firehose-log {
       height: 400px; overflow-y: auto; background: #0d1117; border-radius: 4px;
       padding: 0.5rem; font-size: 0.85rem; line-height: 1.4;
@@ -38,13 +45,18 @@
   <h1>AT Protocol WASM Demo</h1>
 
   <div id="firehose">
-    <h2>Live Jetstream Firehose</h2>
+    <h2>Live Event Stream</h2>
     <div id="firehose-controls">
+      <select id="source-select">
+        <option value="wss://jetstream1.us-east.bsky.network/subscribe">Jetstream</option>
+        <option value="wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos">Firehose</option>
+      </select>
       <button id="btn-start">Start</button>
       <button id="btn-stop" disabled class="stop">Stop</button>
       <button id="btn-clear">Clear</button>
       <span id="firehose-stats"></span>
     </div>
+    <div id="source-info">Jetstream: lightweight JSON events with record text previews</div>
     <div id="firehose-log"></div>
   </div>
 
@@ -162,7 +174,16 @@
       setupFirehose(atmos);
     }
 
+    const sourceDescriptions = {
+      'wss://jetstream1.us-east.bsky.network/subscribe':
+        'Jetstream: lightweight JSON events with record text previews',
+      'wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos':
+        'Firehose: full-fidelity CBOR frames with CAR blocks, high volume',
+    };
+
     function setupFirehose(atmos) {
+      const sourceSelect = document.getElementById('source-select');
+      const sourceInfo = document.getElementById('source-info');
       const btnStart = document.getElementById('btn-start');
       const btnStop = document.getElementById('btn-stop');
       const btnClear = document.getElementById('btn-clear');
@@ -173,6 +194,10 @@
       let source = null;
       let count = 0;
       let startTime = 0;
+
+      sourceSelect.addEventListener('change', () => {
+        sourceInfo.textContent = sourceDescriptions[sourceSelect.value] || '';
+      });
 
       function updateStats() {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -229,14 +254,15 @@
       btnStart.addEventListener('click', () => {
         if (source) return;
 
+        const url = sourceSelect.value;
+        sourceSelect.disabled = true;
+
         count = 0;
         startTime = Date.now();
         firehoseLog.replaceChildren();
         stats.textContent = 'Connecting...';
 
-        source = atmos.firehose.connect(
-          'wss://jetstream1.us-east.bsky.network/subscribe',
-        );
+        source = atmos.firehose.connect(url);
         source.onEvent(addEvent);
 
         btnStart.disabled = true;
@@ -248,6 +274,7 @@
         if (!source) return;
         source.close();
         source = null;
+        sourceSelect.disabled = false;
         btnStart.disabled = false;
         btnStop.disabled = true;
         updateStats();

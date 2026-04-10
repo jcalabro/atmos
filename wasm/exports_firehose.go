@@ -3,9 +3,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"syscall/js"
 
+	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/streaming"
 	"github.com/jcalabro/gt"
 )
@@ -95,14 +98,26 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 					if opErr != nil {
 						continue
 					}
-					callback.Invoke(jsObj(
+					obj := jsObj(
 						"seq", evt.Seq,
 						"kind", "commit",
 						"operation", string(op.Action),
 						"collection", op.Collection,
 						"did", op.Repo,
 						"rkey", op.RKey,
-					))
+					)
+
+					// Decode CBOR record to JSON for display.
+					if data := op.BlockData(); len(data) > 0 {
+						dec := cbor.NewDecoder(bytes.NewReader(data))
+						if v, err := dec.ReadValue(); err == nil {
+							if jsonBytes, err := json.Marshal(v); err == nil {
+								obj.Set("record", string(jsonBytes))
+							}
+						}
+					}
+
+					callback.Invoke(obj)
 				}
 			}
 		}
