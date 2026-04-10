@@ -7,6 +7,7 @@ import (
 	"syscall/js"
 
 	"github.com/jcalabro/atmos/streaming"
+	"github.com/jcalabro/gt"
 )
 
 func registerFirehose(atp js.Value) {
@@ -21,6 +22,25 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 	// Build streaming options.
 	opts := streaming.Options{
 		URL: relayURL,
+	}
+
+	// Optional second argument: options object with collections and dids filters.
+	if len(args) > 1 && args[1].Type() == js.TypeObject {
+		jsOpts := args[1]
+		if cols := jsOpts.Get("collections"); !cols.IsUndefined() && cols.Length() > 0 {
+			var collections []string
+			for i := range cols.Length() {
+				collections = append(collections, cols.Index(i).String())
+			}
+			opts.Collections = gt.Some(collections)
+		}
+		if dids := jsOpts.Get("dids"); !dids.IsUndefined() && dids.Length() > 0 {
+			var didList []string
+			for i := range dids.Length() {
+				didList = append(didList, dids.Index(i).String())
+			}
+			opts.DIDs = gt.Some(didList)
+		}
 	}
 
 	client, err := streaming.NewClient(opts)
@@ -38,7 +58,7 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 	}))
 	source.Set("close", js.FuncOf(func(_ js.Value, _ []js.Value) any {
 		cancel()
-		_ = client.Close()
+		go func() { _ = client.Close() }()
 		return nil
 	}))
 
@@ -53,15 +73,34 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 			}
 
 			for _, evt := range batch {
+				// Jetstream events: emit the rich event directly.
+				if js := evt.Jetstream; js != nil && js.Commit != nil {
+					obj := jsObj(
+						"kind", js.Kind,
+						"did", js.DID,
+						"timeUS", js.TimeUS,
+						"operation", js.Commit.Operation,
+						"collection", js.Commit.Collection,
+						"rkey", js.Commit.RKey,
+					)
+					if len(js.Commit.Record) > 0 {
+						obj.Set("record", string(js.Commit.Record))
+					}
+					callback.Invoke(obj)
+					continue
+				}
+
+				// Firehose events: emit operations.
 				for op, opErr := range evt.Operations() {
 					if opErr != nil {
 						continue
 					}
 					callback.Invoke(jsObj(
 						"seq", evt.Seq,
-						"action", string(op.Action),
+						"kind", "commit",
+						"operation", string(op.Action),
 						"collection", op.Collection,
-						"repo", op.Repo,
+						"did", op.Repo,
 						"rkey", op.RKey,
 					))
 				}

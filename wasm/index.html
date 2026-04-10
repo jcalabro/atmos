@@ -6,15 +6,49 @@
   <title>AT Protocol WASM Demo</title>
   <style>
     body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 2rem; }
-    h1 { color: #0984e3; }
+    h1, h2 { color: #0984e3; }
     .result { background: #16213e; padding: 1rem; margin: 0.5rem 0; border-radius: 4px; }
     .ok { border-left: 3px solid #00b894; }
     .err { border-left: 3px solid #d63031; }
     #log { white-space: pre-wrap; }
+
+    #firehose { margin-bottom: 2rem; }
+    #firehose-controls { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    #firehose-controls button {
+      font-family: monospace; padding: 0.4rem 1rem; cursor: pointer;
+      background: #0984e3; color: white; border: none; border-radius: 4px;
+    }
+    #firehose-controls button:disabled { background: #555; cursor: default; }
+    #firehose-controls button.stop { background: #d63031; }
+    #firehose-stats { color: #888; }
+    #firehose-log {
+      height: 400px; overflow-y: auto; background: #0d1117; border-radius: 4px;
+      padding: 0.5rem; font-size: 0.85rem; line-height: 1.4;
+    }
+    .evt { padding: 2px 4px; border-bottom: 1px solid #1a1a2e; }
+    .evt-create { color: #00b894; }
+    .evt-update { color: #fdcb6e; }
+    .evt-delete { color: #d63031; }
+    .evt-did { color: #888; }
+    .evt-collection { color: #74b9ff; }
+    .evt-text { color: #dfe6e9; }
   </style>
 </head>
 <body>
   <h1>AT Protocol WASM Demo</h1>
+
+  <div id="firehose">
+    <h2>Live Jetstream Firehose</h2>
+    <div id="firehose-controls">
+      <button id="btn-start">Start</button>
+      <button id="btn-stop" disabled class="stop">Stop</button>
+      <button id="btn-clear">Clear</button>
+      <span id="firehose-stats"></span>
+    </div>
+    <div id="firehose-log"></div>
+  </div>
+
+  <h2>Tests</h2>
   <div id="log"></div>
 
   <script src="wasm_exec.js"></script>
@@ -56,7 +90,7 @@
       } catch (e) { emit('parseDID', e.message, false); }
 
       try {
-        const handle = atmos.parseHandle('atmosroto.com');
+        const handle = atmos.parseHandle('atproto.com');
         emit('parseHandle', handle);
       } catch (e) { emit('parseHandle', e.message, false); }
 
@@ -123,6 +157,109 @@
       } catch (e) { emit('identity.resolve', e.message, false); }
 
       emit('Status', 'All tests complete');
+
+      // --- Jetstream firehose ---
+      setupFirehose(atmos);
+    }
+
+    function setupFirehose(atmos) {
+      const btnStart = document.getElementById('btn-start');
+      const btnStop = document.getElementById('btn-stop');
+      const btnClear = document.getElementById('btn-clear');
+      const stats = document.getElementById('firehose-stats');
+      const firehoseLog = document.getElementById('firehose-log');
+
+      const MAX_ROWS = 200;
+      let source = null;
+      let count = 0;
+      let startTime = 0;
+
+      function updateStats() {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const rate = (count / (Date.now() - startTime) * 1000).toFixed(1);
+        stats.textContent = `${count} events | ${elapsed}s | ${rate} evt/s`;
+      }
+
+      function makeSpan(className, text) {
+        const span = document.createElement('span');
+        span.className = className;
+        span.textContent = text;
+        return span;
+      }
+
+      function addEvent(evt) {
+        count++;
+        if (count % 50 === 0) updateStats();
+
+        const row = document.createElement('div');
+        row.className = `evt evt-${evt.operation}`;
+
+        const op = evt.operation.padEnd(6);
+        const col = evt.collection.split('.').pop();
+        const did = evt.did.slice(0, 24) + '...';
+
+        row.append(
+          makeSpan(`evt-${evt.operation}`, op),
+          ' ',
+          makeSpan('evt-collection', col),
+          ' ',
+          makeSpan('evt-did', did),
+        );
+
+        if (evt.record) {
+          try {
+            const rec = JSON.parse(evt.record);
+            let text = rec.text || rec.subject?.uri || rec.subject || '';
+            if (typeof text === 'object') text = JSON.stringify(text);
+            if (text.length > 80) text = text.slice(0, 80) + '...';
+            if (text) {
+              row.append(' ', makeSpan('evt-text', text));
+            }
+          } catch {}
+        }
+
+        firehoseLog.prepend(row);
+
+        // Trim old rows.
+        while (firehoseLog.children.length > MAX_ROWS) {
+          firehoseLog.lastChild.remove();
+        }
+      }
+
+      btnStart.addEventListener('click', () => {
+        if (source) return;
+
+        count = 0;
+        startTime = Date.now();
+        firehoseLog.replaceChildren();
+        stats.textContent = 'Connecting...';
+
+        source = atmos.firehose.connect(
+          'wss://jetstream1.us-east.bsky.network/subscribe',
+        );
+        source.onEvent(addEvent);
+
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        stats.textContent = 'Connected, waiting for events...';
+      });
+
+      btnStop.addEventListener('click', () => {
+        if (!source) return;
+        source.close();
+        source = null;
+        btnStart.disabled = false;
+        btnStop.disabled = true;
+        updateStats();
+        stats.textContent += ' (stopped)';
+      });
+
+      btnClear.addEventListener('click', () => {
+        firehoseLog.replaceChildren();
+        count = 0;
+        startTime = Date.now();
+        stats.textContent = '';
+      });
     }
 
     run().catch(e => emit('Fatal', e.message, false));
