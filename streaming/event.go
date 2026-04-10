@@ -14,6 +14,10 @@ import (
 // silently skipped for forward compatibility.
 var errUnknownType = errors.New("unknown event type")
 
+// errUnknownOp is returned for unrecognized frame op codes, which are
+// silently skipped for forward compatibility per the event stream spec.
+var errUnknownOp = errors.New("unknown frame op")
+
 // Event is a single event from a subscribeRepos or subscribeLabels stream.
 type Event struct {
 	Seq      int64
@@ -73,7 +77,7 @@ func decodeFrame(data []byte) (Event, error) {
 	}
 
 	if hdr.Op != 1 {
-		return Event{}, fmt.Errorf("unknown frame op: %d", hdr.Op)
+		return Event{}, errUnknownOp
 	}
 
 	return decodeMessageBody(hdr.T, body)
@@ -182,7 +186,7 @@ func decodeLabelFrame(data []byte) (Event, error) {
 	}
 
 	if hdr.Op != 1 {
-		return Event{}, fmt.Errorf("unknown frame op: %d", hdr.Op)
+		return Event{}, errUnknownOp
 	}
 
 	switch hdr.T {

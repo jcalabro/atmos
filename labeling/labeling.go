@@ -53,6 +53,7 @@ func UnsignedBytes(label *comatproto.LabelDefs_Label) ([]byte, error) {
 	// Copy the label to avoid mutating the original (thread safety).
 	cp := *label
 	cp.Sig = nil
+	cp.LexiconTypeID = "" // Labels are signed without $type per the label spec.
 	data, err := cp.MarshalCBOR()
 	if err != nil {
 		return nil, fmt.Errorf("labeling: marshal unsigned: %w", err)

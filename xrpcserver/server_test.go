@@ -63,9 +63,9 @@ func TestRouting(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 	_ = resp.Body.Close()
 
-	// Unknown NSID → 400 MethodNotImplemented.
+	// Unknown NSID → 501 MethodNotImplemented.
 	resp = doGet(t, s, "/xrpc/com.example.unknown")
-	assert.Equal(t, 400, resp.StatusCode)
+	assert.Equal(t, 501, resp.StatusCode)
 	env := decodeError(t, resp)
 	assert.Equal(t, "MethodNotImplemented", env.Error)
 	_ = resp.Body.Close()
@@ -620,6 +620,7 @@ func TestErrorConstructors(t *testing.T) {
 		{xrpcserver.TooLarge, 413, "TooLarge"},
 		{xrpcserver.RateLimited, 429, "RateLimited"},
 		{xrpcserver.InternalError, 500, "InternalServerError"},
+		{xrpcserver.MethodNotImplemented, 501, "MethodNotImplemented"},
 	}
 
 	for _, tt := range tests {

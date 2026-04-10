@@ -67,7 +67,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	e, ok := s.handlers[nsid]
 	if !ok {
-		writeError(w, &xrpc.Error{StatusCode: 400, Name: "MethodNotImplemented", Message: "method not implemented: " + nsid})
+		writeError(w, MethodNotImplemented("method not implemented: "+nsid))
 		return
 	}
 
@@ -169,4 +169,9 @@ func RateLimited(msg string) *xrpc.Error {
 // InternalError returns a 500 InternalServerError XRPC error.
 func InternalError(msg string) *xrpc.Error {
 	return &xrpc.Error{StatusCode: 500, Name: "InternalServerError", Message: msg}
+}
+
+// MethodNotImplemented returns a 501 MethodNotImplemented XRPC error.
+func MethodNotImplemented(msg string) *xrpc.Error {
+	return &xrpc.Error{StatusCode: 501, Name: "MethodNotImplemented", Message: msg}
 }

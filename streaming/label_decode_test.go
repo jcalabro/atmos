@@ -230,8 +230,7 @@ func TestDecodeLabelFrame_UnknownOp(t *testing.T) {
 	frame := append(hdr, body...)
 
 	_, err := decodeLabelFrame(frame)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown frame op: 2")
+	require.ErrorIs(t, err, errUnknownOp)
 }
 
 func TestDecodeLabelFrame_UnknownType(t *testing.T) {

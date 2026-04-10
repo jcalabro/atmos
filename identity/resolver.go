@@ -38,7 +38,12 @@ func (r *DefaultResolver) client() *http.Client {
 		return r.HTTPClient.Val()
 	}
 	r.clientOnce.Do(func() {
-		r.httpClient = xrpc.NewHTTPClient(10 * time.Second)
+		t := xrpc.NewTransport()
+		t.DialContext = ssrfSafeDialContext(10 * time.Second)
+		r.httpClient = &http.Client{
+			Transport: xrpc.WrapGzip(t),
+			Timeout:   10 * time.Second,
+		}
 	})
 	return r.httpClient
 }

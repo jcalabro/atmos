@@ -231,6 +231,33 @@ func TestNegateAt_Fields(t *testing.T) {
 	assert.Nil(t, label.Sig)
 }
 
+func TestUnsignedBytes_ClearsLexiconTypeID(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Create and sign a label without $type.
+	label := NewAt(atmos.DID("did:plc:test"), "at://did:plc:test/app.bsky.feed.post/abc", "spam", testTime)
+	require.NoError(t, Sign(label, key))
+
+	// Simulate what happens when a label is deserialized from the wire
+	// with $type set (e.g. as part of a union).
+	label.LexiconTypeID = "com.atproto.label.defs#label"
+
+	// Verify should still pass because UnsignedBytes clears $type.
+	require.NoError(t, Verify(label, key.PublicKey()))
+
+	// UnsignedBytes with and without $type should produce the same output.
+	withType, err := UnsignedBytes(label)
+	require.NoError(t, err)
+
+	label.LexiconTypeID = ""
+	withoutType, err := UnsignedBytes(label)
+	require.NoError(t, err)
+
+	assert.Equal(t, withoutType, withType)
+}
+
 func TestMarshalUnmarshalRoundtrip(t *testing.T) {
 	t.Parallel()
 	key, err := crypto.GenerateP256()

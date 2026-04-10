@@ -561,7 +561,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			}
 
 			evt, err := c.decode(res.data)
-			if errors.Is(err, errUnknownType) {
+			if errors.Is(err, errUnknownType) || errors.Is(err, errUnknownOp) {
 				continue
 			}
 			if err != nil {

@@ -213,6 +213,5 @@ func TestDecodeFrame_UnknownOp(t *testing.T) {
 
 	frame := append(hdr, body...)
 	_, err := decodeFrame(frame)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown frame op: 2")
+	require.ErrorIs(t, err, errUnknownOp)
 }
