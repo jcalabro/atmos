@@ -32,6 +32,7 @@ type Block struct {
 type Reader struct {
 	r      io.Reader
 	header Header
+	buf    []byte // reusable read buffer for NextInto
 }
 
 // NewReader creates a Reader by reading and validating the CAR v1 header.
@@ -159,6 +160,59 @@ func (r *Reader) Next() (Block, error) {
 	}
 
 	data := buf[cidLen:]
+
+	// Verify the block data matches the claimed CID.
+	expected := cbor.ComputeCID(cid.Codec(), data)
+	if !expected.Equal(cid) {
+		return Block{}, fmt.Errorf("car: block CID mismatch: claimed %s, computed %s", cid.String(), expected.String())
+	}
+
+	return Block{
+		CID:  cid,
+		Data: data,
+	}, nil
+}
+
+// NextInto reads the next block, reusing the Reader's internal buffer to
+// reduce allocations when reading many blocks sequentially. The returned
+// Block.Data is valid only until the next call to NextInto — callers must
+// copy it if they need to retain it.
+func (r *Reader) NextInto() (Block, error) {
+	// Read block length varint.
+	blockLen, err := readUvarintFromReader(r.r)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return Block{}, io.EOF
+		}
+		return Block{}, fmt.Errorf("car: reading block length: %w", err)
+	}
+
+	if blockLen == 0 {
+		return Block{}, errors.New("car: zero-length block")
+	}
+	if blockLen > MaxBlockSize {
+		return Block{}, fmt.Errorf("car: block length %d exceeds max size", blockLen)
+	}
+
+	// Grow the reusable buffer if needed, reusing the backing array.
+	n := int(blockLen)
+	if cap(r.buf) < n {
+		r.buf = make([]byte, n)
+	} else {
+		r.buf = r.buf[:n]
+	}
+
+	if _, err := io.ReadFull(r.r, r.buf); err != nil {
+		return Block{}, fmt.Errorf("car: reading block: %w", err)
+	}
+
+	// Parse CID from front of buffer.
+	cid, cidLen, err := cbor.ParseCIDPrefix(r.buf)
+	if err != nil {
+		return Block{}, fmt.Errorf("car: parsing block CID: %w", err)
+	}
+
+	data := r.buf[cidLen:]
 
 	// Verify the block data matches the claimed CID.
 	expected := cbor.ComputeCID(cid.Codec(), data)

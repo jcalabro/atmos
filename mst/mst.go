@@ -48,19 +48,29 @@ func (s *MemBlockStore) PutBlock(cid cbor.CID, data []byte) error {
 }
 
 // entry is an in-memory MST entry: a key/value pair with optional right subtree.
+//
+// Field order places the hot traversal fields (key, right) in the first 24
+// bytes so they share a cache line regardless of slice alignment. The cold
+// val (only read on an exact key match) trails behind.
 type entry struct {
-	key   string
-	val   cbor.CID
-	right *node
+	key   string   // 16B — hot: comparison in every scan iteration
+	right *node    // 8B  — hot: subtree descent
+	val   cbor.CID // 33B — cold: only on match
 }
 
 // node is an in-memory MST node.
+//
+// Field order is chosen for cache-line locality: the hot traversal fields
+// (left, entries, height, dirty) sit in the first 34 bytes so that
+// ensureLoaded's guard check and getNode's descent stay within a single
+// 64-byte cache line. The cold CID (only touched during serialization /
+// loading) trails at the end and spills to a second line.
 type node struct {
-	left    *node
-	entries []entry
-	cid     cbor.CID // cached CID, invalid if dirty
-	height  uint8
-	dirty   bool
+	left    *node    // 8B  — hot: every traversal
+	entries []entry  // 24B — hot: every traversal
+	height  uint8    // 1B  — hot: insert level checks
+	dirty   bool     // 1B  — hot: ensureLoaded guard
+	cid     cbor.CID // 33B — cold: serialization / loading only
 }
 
 // Tree is an in-memory Merkle Search Tree.

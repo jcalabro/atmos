@@ -153,6 +153,38 @@ func BenchmarkDecodeNodeData(b *testing.B) {
 	}
 }
 
+func BenchmarkDiff_1000(b *testing.B) {
+	val1 := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v1"))
+	val2 := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v2"))
+
+	store := NewMemBlockStore()
+	tree1 := NewTree(store)
+	tree2 := NewTree(store)
+	for i := range 1000 {
+		k := fmt.Sprintf("com.example.record/%06d", i)
+		_ = tree1.Insert(k, val1)
+		if i%10 == 0 {
+			// 10% of keys have a different value.
+			_ = tree2.Insert(k, val2)
+		} else if i%20 != 1 {
+			// Skip 5% of keys to create deletes.
+			_ = tree2.Insert(k, val1)
+		}
+	}
+	// Add some creates in tree2.
+	for i := 1000; i < 1050; i++ {
+		_ = tree2.Insert(fmt.Sprintf("com.example.record/%06d", i), val1)
+	}
+
+	root1, _ := tree1.WriteBlocks(store)
+	root2, _ := tree2.WriteBlocks(store)
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, _ = Diff(store, root1, root2)
+	}
+}
+
 func BenchmarkIsValidMstKey(b *testing.B) {
 	key := "app.bsky.feed.post/3jqfcqzm3fo2j"
 	for b.Loop() {

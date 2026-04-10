@@ -41,6 +41,18 @@ func BenchmarkReadBlocks(b *testing.B) {
 	}
 }
 
+func BenchmarkReadBlocksInto(b *testing.B) {
+	for b.Loop() {
+		r, _ := NewReader(bytes.NewReader(benchCAR))
+		for {
+			_, err := r.NextInto()
+			if err != nil {
+				break
+			}
+		}
+	}
+}
+
 func BenchmarkWriteAll(b *testing.B) {
 	roots := []cbor.CID{benchBlocks[0].CID}
 	var buf bytes.Buffer
