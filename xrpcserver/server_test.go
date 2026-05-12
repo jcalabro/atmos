@@ -28,13 +28,13 @@ type errorEnvelope struct {
 func doGet(t *testing.T, h http.Handler, target string) *http.Response {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil))
 	return rec.Result()
 }
 
 func doPost(t *testing.T, h http.Handler, target, contentType string, body io.Reader) *http.Response {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, target, body)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, target, body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -551,7 +551,7 @@ func TestMiddleware(t *testing.T) {
 	assert.Equal(t, 401, resp.StatusCode)
 
 	// With auth header → 200.
-	req := httptest.NewRequest(http.MethodGet, "/xrpc/com.example.auth", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/xrpc/com.example.auth", nil)
 	req.Header.Set("Authorization", "Bearer testuser")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -592,13 +592,14 @@ func TestConcurrency(t *testing.T) {
 		return &output{N: int(n)}, nil
 	}))
 
+	ctx := t.Context()
 	var wg sync.WaitGroup
 	for i := range 50 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
 			rec := httptest.NewRecorder()
-			s.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/xrpc/com.example.echo?n="+strconv.Itoa(n%10), nil))
+			s.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, "/xrpc/com.example.echo?n="+strconv.Itoa(n%10), nil))
 		}(i)
 	}
 	wg.Wait()
