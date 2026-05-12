@@ -4,10 +4,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
-github.com/jcalabro/gt v0.0.11 h1:VjXWBrMvurwVpSNOSNXjLkxbv82/QmGRApQu9Vx6nB4=
-github.com/jcalabro/gt v0.0.11/go.mod h1:3qTs2C49vvNGCq539/uPZhiQc8h1XnfdNCBu1B2ZC+Q=
-github.com/jcalabro/jttp v0.0.1 h1:VU3/OqPTRykNwL/XtK+sUzj//ToA12OojYh2QzDQjlo=
-github.com/jcalabro/jttp v0.0.1/go.mod h1:xN8GTKJcy8YS9RpUz+ta6N9HcaiSuMEbR6agdSjFTeA=
+github.com/jcalabro/gt v0.0.12 h1:9BPGSkFWihlA/iHRdQdiwDTuQoIK5X77SMgpKTfY8VA=
+github.com/jcalabro/gt v0.0.12/go.mod h1:iBnF7jE8LG8mW0zjXVYTuXoT+L9UfwP7RNgMrmuuOTs=
+github.com/jcalabro/jttp v0.0.2 h1:Kzqv+bd6DvXiuLa5tGaOM8RD/tXqho26luSTaYdp9Lg=
+github.com/jcalabro/jttp v0.0.2/go.mod h1:xN8GTKJcy8YS9RpUz+ta6N9HcaiSuMEbR6agdSjFTeA=
 github.com/klauspost/compress v1.18.4 h1:RPhnKRAQ4Fh8zU2FY/6ZFDwTVTxgJ/EMydqSTzE9a2c=
 github.com/klauspost/compress v1.18.4/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=
@@ -24,6 +24,8 @@ gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 h1:qwDnMxjkyLmAF
 gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02/go.mod h1:JTnUj0mpYiAsuZLmKjTx/ex3AtMowcCgnE7YNyCEP0I=
 golang.org/x/crypto v0.11.0 h1:6Ewdq3tDic1mg5xRO4milcWCfMVQhI4NkqWWvqejpuA=
 golang.org/x/crypto v0.11.0/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
+golang.org/x/sync v0.20.0 h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=
+golang.org/x/sync v0.20.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
 golang.org/x/sys v0.10.0 h1:SqMFp9UcQJZa+pmYuAKjd9xq1f0j5rLcDIk0mj4qAsA=
 golang.org/x/sys v0.10.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
