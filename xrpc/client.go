@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultUserAgent   = "jcalabro/mono-atproto"
+	defaultUserAgent   = "go/atmos"
 	maxResponseBody    = 5 << 20   // 5 MB (JSON responses)
 	maxRawResponseBody = 512 << 20 // 512 MB (binary: blobs, CAR files)
 )
