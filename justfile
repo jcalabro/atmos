@@ -5,7 +5,7 @@ default: lint test
 
 # Ensures that all tools required for local development are installed
 install-tools:
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
     go install gotest.tools/gotestsum@v1.13.0
 
 # Lints the code
