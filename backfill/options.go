@@ -84,6 +84,31 @@ type Options struct {
 	// same few PDS hosts; accumulating more before shuffle spreads
 	// work across many more PDSes in parallel. None = 100_000.
 	ShuffleBatchSize gt.Option[int]
+
+	// StartCursor is the starting cursor passed to
+	// SyncClient.ListRepos. None = "" (start from the beginning).
+	// Set this to the value last persisted via OnPageComplete to
+	// resume past the last fully-reconciled page from a prior Run.
+	StartCursor gt.Option[string]
+
+	// OnPageComplete fires after every entry on a listRepos page has
+	// been reconciled (Store.OnDiscover/OnUpdate calls landed) AND
+	// every eligible job from that page has been pushed onto the
+	// worker channel. The cursor argument is the relay's NextCursor
+	// for this page — pass it as StartCursor on the next Run() to
+	// skip every entry up through this page.
+	//
+	// Workers may still be downloading in the background when this
+	// fires; that's fine because anything not at StateComplete on
+	// restart will be re-dispatched once it's seen again. The
+	// guarantee is: any DID the persisted cursor "covers" has been
+	// queued at least once.
+	//
+	// Errors from this callback abort the Run with a wrapped error.
+	//
+	// None = no callback. Engines that don't need cursor persistence
+	// pay no cost.
+	OnPageComplete gt.Option[func(cursor string) error]
 }
 
 // Stats summarises engine progress, delivered to Options.OnProgress

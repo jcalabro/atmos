@@ -168,12 +168,24 @@ func (e *Engine) shuffleBatchSize() int {
 }
 
 // producerLoop walks the listRepos pages, reconciles every entry
-// against the Store, and dispatches eligible DIDs in shuffled batches
-// of up to shuffleBatchSize().
+// against the Store, dispatches eligible DIDs in shuffled batches
+// of up to shuffleBatchSize(), and fires OnPageComplete (if set)
+// at every page boundary after that page's batch has been flushed.
+//
+// Per-page flush is what makes cursor advancement sound: if we fired
+// OnPageComplete with a partial batch still buffered, a crash before
+// dispatch would leave those StateDiscovered DIDs orphaned. Flushing
+// at the boundary guarantees every DID covered by the persisted
+// cursor is on the worker channel (or already StateComplete).
+//
+// As a side effect, the shuffle batch is now bounded above by the
+// page size (1000 today) rather than ShuffleBatchSize, so wider
+// load-spreading would require a larger relay page cap.
 func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
+	startCursor := e.opts.StartCursor.ValOr("")
 	batch := make([]repoJob, 0, e.shuffleBatchSize())
 
-	for page, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit) {
+	for page, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit, startCursor) {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -181,7 +193,7 @@ func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
 			return fmt.Errorf("backfill: listRepos: %w", err)
 		}
 
-		for _, entry := range page {
+		for _, entry := range page.Entries {
 			job, dispatch, err := e.reconcile(ctx, entry)
 			if err != nil {
 				return err
@@ -197,8 +209,27 @@ func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
 				batch = batch[:0]
 			}
 		}
+
+		// Page is fully reconciled. Flush the buffered batch before
+		// firing OnPageComplete so the persisted cursor never advances
+		// past undispatched DIDs.
+		if len(batch) > 0 {
+			if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
+				return err
+			}
+			batch = batch[:0]
+		}
+
+		if cb := e.opts.OnPageComplete; cb.HasVal() {
+			if err := cb.Val()(page.NextCursor); err != nil {
+				return fmt.Errorf("backfill: on_page_complete: %w", err)
+			}
+		}
 	}
 
+	// Defensive: per-page flush above handles everything in the
+	// normal case. Keep the post-loop drain in case future ListRepos
+	// changes ever yield mid-page partial batches.
 	if len(batch) > 0 {
 		if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
 			return err

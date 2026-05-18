@@ -236,14 +236,24 @@ func TestListRepos_Pagination(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	var entries []sync.ListReposEntry
-	for page, err := range sc.ListRepos(context.Background(), 1000) {
+	var observedCursors []string
+	for page, err := range sc.ListRepos(context.Background(), 1000, "") {
 		require.NoError(t, err)
-		entries = append(entries, page...)
+		entries = append(entries, page.Entries...)
+		observedCursors = append(observedCursors, page.NextCursor)
 	}
 
 	assert.Len(t, entries, 4)
 	assert.Equal(t, atmos.DID("did:plc:aaa"), entries[0].DID)
 	assert.Equal(t, atmos.DID("did:plc:ddd"), entries[3].DID)
+
+	// Cursor on each page matches what the stub returned. The first
+	// two pages have non-empty cursors; the final page's NextCursor
+	// is empty (terminator).
+	require.Len(t, observedCursors, 3)
+	assert.Equal(t, "cursor1", observedCursors[0])
+	assert.Equal(t, "cursor2", observedCursors[1])
+	assert.Equal(t, "", observedCursors[2], "final page's NextCursor must be empty")
 }
 
 func TestListRepos_Empty(t *testing.T) {
@@ -258,7 +268,7 @@ func TestListRepos_Empty(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	count := 0
-	for _, err := range sc.ListRepos(context.Background(), 1000) {
+	for _, err := range sc.ListRepos(context.Background(), 1000, "") {
 		require.NoError(t, err)
 		count++
 	}
@@ -466,7 +476,7 @@ func TestListRepos_ContextCanceled(t *testing.T) {
 	cancel() // cancel before iterating
 
 	count := 0
-	for range sc.ListRepos(ctx, 1000) {
+	for range sc.ListRepos(ctx, 1000, "") {
 		count++
 	}
 	assert.Equal(t, 0, count)
@@ -488,12 +498,12 @@ func TestListRepos_InvalidDID(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	var gotError, gotEntry bool
-	for page, err := range sc.ListRepos(context.Background(), 1000) {
+	for page, err := range sc.ListRepos(context.Background(), 1000, "") {
 		if err != nil {
 			gotError = true
 			continue
 		}
-		for _, entry := range page {
+		for _, entry := range page.Entries {
 			if entry.DID == "did:plc:valid1234567890abcde" {
 				gotEntry = true
 			}
@@ -522,7 +532,7 @@ func TestListRepos_BreakEarly(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	count := 0
-	for _, err := range sc.ListRepos(context.Background(), 1000) {
+	for _, err := range sc.ListRepos(context.Background(), 1000, "") {
 		require.NoError(t, err)
 		count++
 		if count >= 1 {
@@ -590,4 +600,31 @@ func BenchmarkIterRecords(b *testing.B) {
 			}
 		})
 	}
+}
+
+// TestListRepos_StartCursor confirms a non-empty startCursor is
+// passed through as the first request's cursor query param. This is
+// the resume mechanism — without it, every Run starts from the
+// beginning regardless of prior progress.
+func TestListRepos_StartCursor(t *testing.T) {
+	t.Parallel()
+
+	var firstCursor string
+	var firstSeen bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/xrpc/com.atproto.sync.listRepos", r.URL.Path)
+		if !firstSeen {
+			firstCursor = r.URL.Query().Get("cursor")
+			firstSeen = true
+		}
+		_ = json.NewEncoder(w).Encode(listReposPage{})
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	for range sc.ListRepos(context.Background(), 1000, "resume-from-here") {
+	}
+	assert.Equal(t, "resume-from-here", firstCursor)
 }

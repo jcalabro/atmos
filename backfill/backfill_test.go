@@ -1504,3 +1504,187 @@ func TestEngine_RetryAfter_ExceedsMaxDelay_FailsFast(t *testing.T) {
 	_ = dids
 	_ = repos
 }
+
+// TestEngine_StartCursor_PassedToListRepos confirms the cursor
+// configured on Options is sent to the relay on the first request.
+// This is the resume mechanism end-to-end.
+func TestEngine_StartCursor_PassedToListRepos(t *testing.T) {
+	t.Parallel()
+
+	var firstCursor string
+	var firstSeen atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.listRepos":
+			if firstSeen.CompareAndSwap(false, true) {
+				firstCursor = r.URL.Query().Get("cursor")
+			}
+			_ = json.NewEncoder(w).Encode(listPage{})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	store := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:  sc,
+		Store:       store,
+		Handler:     backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
+		StartCursor: gt.Some("resume-token-x"),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	require.Equal(t, "resume-token-x", firstCursor)
+}
+
+// TestEngine_OnPageComplete_FiresPerPage confirms OnPageComplete is
+// called once per listRepos page, with the cursor the relay returned
+// for that page. testServer paginates 3 entries per page; with 4 DIDs
+// we get two pages (3 + 1).
+func TestEngine_OnPageComplete_FiresPerPage(t *testing.T) {
+	t.Parallel()
+
+	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
+	repos := map[string][]byte{}
+	for _, d := range dids {
+		repos[d] = buildTestRepoCAR(t, d, 1)
+	}
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	var observedCursors []string
+	var mu sync.Mutex
+	store := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      store,
+		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
+		OnPageComplete: gt.Some(func(cursor string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			observedCursors = append(observedCursors, cursor)
+			return nil
+		}),
+	})
+	require.NoError(t, engine.Run(context.Background()))
+
+	mu.Lock()
+	defer mu.Unlock()
+	// testServer cursors page boundaries on the LAST DID of each
+	// non-final page. So 4 DIDs => two pages: page1 cursor "did:plc:ccc",
+	// page2 (terminator) cursor "".
+	require.Len(t, observedCursors, 2)
+	require.Equal(t, "did:plc:ccc", observedCursors[0])
+	require.Equal(t, "", observedCursors[1], "final page cursor must be empty")
+}
+
+// TestEngine_OnPageComplete_DispatchesPageBeforeCallback verifies the
+// soundness invariant: every DID on a page is on the worker channel
+// before OnPageComplete fires for that page. Without this guarantee
+// a crash between OnPageComplete and the next dispatch would leave
+// DIDs in StateDiscovered with their cursor "covered."
+//
+// The engine guarantees DIDs are *enqueued* (synchronous channel send
+// returned) before the callback runs — handler completion is async.
+// We exercise this by blocking handlers: with Workers=1 the jobs
+// channel buffer is 2, so once a handler parks, the producer can
+// enqueue at most two more jobs before any further dispatch blocks.
+// Page boundaries flush the per-page batch *before* OnPageComplete,
+// so page-complete-2 cannot fire until page-2's dispatches succeed —
+// which requires worker progress, which we withhold. Therefore, while
+// handlers are blocked, page-complete fires at most once (for page 1,
+// whose three dispatches fit between buffer + the parked worker
+// slot). page-complete-2 must NEVER fire until handlers run.
+func TestEngine_OnPageComplete_DispatchesPageBeforeCallback(t *testing.T) {
+	t.Parallel()
+
+	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd", "did:plc:eee", "did:plc:fff"}
+	repos := map[string][]byte{}
+	for _, d := range dids {
+		repos[d] = buildTestRepoCAR(t, d, 1)
+	}
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	var handlerEntered atomic.Int32
+	handlerRelease := make(chan struct{})
+	var pageCompleteCalls atomic.Int32
+
+	store := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      store,
+		Workers:    gt.Some(1),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
+			handlerEntered.Add(1)
+			<-handlerRelease
+			return nil
+		}),
+		OnPageComplete: gt.Some(func(_ string) error {
+			pageCompleteCalls.Add(1)
+			return nil
+		}),
+	})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- engine.Run(context.Background())
+	}()
+
+	// Wait for the worker to park inside a handler. After this, the
+	// producer is blocked attempting to dispatch page-2 jobs (channel
+	// is saturated: 2 buffered + 1 in-flight). page-complete-2 cannot
+	// fire because the page-2 batch flush precedes it.
+	require.Eventually(t, func() bool {
+		return handlerEntered.Load() >= 1
+	}, 5*time.Second, time.Millisecond, "worker never entered a handler")
+
+	// Give the producer plenty of opportunity to misbehave and fire
+	// page-complete-2 prematurely. The flush invariant says it can't.
+	time.Sleep(50 * time.Millisecond)
+	require.LessOrEqual(t, pageCompleteCalls.Load(), int32(1),
+		"page-complete-2 fired while page-2 dispatches are still blocked — flush invariant broken")
+
+	close(handlerRelease)
+	require.NoError(t, <-done)
+
+	require.Equal(t, int32(6), handlerEntered.Load(), "every DID's handler must run")
+	require.Equal(t, int32(2), pageCompleteCalls.Load(), "6 DIDs / 3 per page = 2 pages")
+}
+
+// TestEngine_OnPageCompleteError_AbortsRun confirms an error from
+// the callback aborts the Run with a wrapped error.
+func TestEngine_OnPageCompleteError_AbortsRun(t *testing.T) {
+	t.Parallel()
+
+	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
+	repos := map[string][]byte{}
+	for _, d := range dids {
+		repos[d] = buildTestRepoCAR(t, d, 1)
+	}
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	store := newMemStore()
+	wantErr := errors.New("persist failed")
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      store,
+		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
+		OnPageComplete: gt.Some(func(_ string) error {
+			return wantErr
+		}),
+	})
+
+	err := engine.Run(context.Background())
+	require.Error(t, err)
+	require.ErrorIs(t, err, wantErr)
+	require.Contains(t, err.Error(), "on_page_complete")
+}

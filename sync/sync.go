@@ -27,6 +27,18 @@ type ListReposEntry struct {
 	Active bool
 }
 
+// ListReposPage is one page of results yielded by Client.ListRepos.
+// NextCursor is the cursor a caller can pass on a subsequent ListRepos
+// call to resume past this page; empty when the relay reports there
+// are no more pages.
+//
+// Per-entry parse errors during pagination still surface as the err
+// argument of the iter.Seq2 yield alongside an empty Entries slice.
+type ListReposPage struct {
+	Entries    []ListReposEntry
+	NextCursor string
+}
+
 // Options configures a sync client.
 type Options struct {
 	Client *xrpc.Client // required: points at PDS or relay

@@ -33,6 +33,24 @@
 // completion and returns. A second Run() returns ErrEngineAlreadyRan.
 // Construct a new Engine to start another pass.
 //
+// # Resume across Runs
+//
+// By default each Run() walks listRepos from the beginning. To resume
+// from a prior Run's progress, set Options.StartCursor to the cursor
+// last persisted via Options.OnPageComplete.
+//
+// Cursor advancement granularity is per page: when OnPageComplete
+// fires, every DID on that page (and prior pages) has been queued
+// onto the worker channel — either it's already StateComplete and
+// was skipped at Lookup, or it'll reach StateComplete (or
+// StateFailed) via the worker pool. A new Run with that cursor
+// starts at the page after the saved one.
+//
+// The cursor is opaque; treat it as a string. Persist it durably
+// (e.g., in your Store's underlying database) before returning from
+// the OnPageComplete callback if you want crash-after-this-page to
+// skip the same work on restart.
+//
 // # Extension surface
 //
 // Two interfaces - Store and Handler - cover the full extension
