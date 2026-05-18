@@ -1,147 +1,137 @@
 package backfill
 
 import (
+	"bufio"
 	"context"
+	"errors"
+	"fmt"
+	"math/bits"
 	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/jcalabro/atmos"
-	atmosSync "github.com/jcalabro/atmos/sync"
+	atmosrepo "github.com/jcalabro/atmos/repo"
+	atmossync "github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
-type repoJob struct {
-	DID atmos.DID
-	Rev string
-}
+// errOnCompleteRecorded is returned from tryRepo when Store.OnComplete
+// itself failed. The handler has already run (and its side effects
+// landed). Calling Store.OnFail at that point would be incorrect: the
+// DID is in a partially-Complete state, not a Failed one.
+// processRepo recognizes this sentinel and returns without further
+// store transitions.
+var errOnCompleteRecorded = errors.New("backfill: OnComplete recording failed; handler already ran")
 
-// Engine runs the backfill process.
+// ErrEngineAlreadyRan is returned by Run when called a second time on
+// the same Engine. Engines are single-shot to avoid silently sharing
+// the per-Run progress counter and pdsClients pool across multiple
+// concurrent or sequential Runs. Construct a new Engine to start
+// another pass.
+var ErrEngineAlreadyRan = errors.New("backfill: Engine.Run already invoked; engines are single-shot")
+
+// listReposPageLimit is the page size requested from listRepos. The
+// XRPC protocol caps this at 1000.
+const listReposPageLimit = 1000
+
+// defaultWorkers is the default value of Options.Workers.
+const defaultWorkers = 50
+
+// defaultShuffleBatchSize is the default value of
+// Options.ShuffleBatchSize.
+const defaultShuffleBatchSize = 100_000
+
+// defaultMaxRetries is the default value of Options.MaxRetries.
+const defaultMaxRetries = 5
+
+// defaultRetryBaseDelay is the default value of
+// Options.RetryBaseDelay.
+const defaultRetryBaseDelay = time.Second
+
+// defaultRetryMaxDelay is the default value of Options.RetryMaxDelay.
+const defaultRetryMaxDelay = 30 * time.Second
+
+// Engine drives the backfill pipeline. Construct with NewEngine and
+// drive with Run. Engines are single-shot: a Run() call enumerates
+// listRepos to completion and returns; create a new Engine to start
+// another pass. A second Run on the same Engine returns
+// ErrEngineAlreadyRan.
 type Engine struct {
-	opts       Options
-	completed  atomic.Int64
-	pdsClients sync.Map // map[string]*sync.Client — pooled by PDS host URL
+	opts Options
+
+	// pdsClients pools per-PDS sync clients when Options.Directory is
+	// set, keyed by the PDS endpoint URL. Lazily populated by
+	// syncClientForRepo.
+	pdsClients sync.Map
+
+	// completed counts DIDs transitioned to StateComplete in this Run.
+	completed atomic.Int64
+
+	// progressMu serializes the completed.Add+OnProgress callback so
+	// successive callbacks observe strictly increasing Stats.Completed.
+	// Only acquired when OnProgress is set.
+	progressMu sync.Mutex
+
+	// started flips to true on the first Run() to enforce single-shot.
+	started atomic.Bool
 }
 
-// NewEngine creates a new backfill engine.
+// NewEngine constructs an Engine from opts.
 func NewEngine(opts Options) *Engine {
 	return &Engine{opts: opts}
 }
 
-// Completed returns the number of repos processed so far.
-func (e *Engine) Completed() int64 {
-	return e.completed.Load()
-}
-
-// Run enumerates all repos and processes each with bounded concurrency.
-// Blocks until complete or ctx is cancelled.
+// Run drives the engine to completion. It enumerates listRepos via
+// the SyncClient, reconciles each entry against the Store, dispatches
+// Discovered/Failed DIDs whose entry.Active is true to workers,
+// downloads each one, and records the result via Store.OnComplete or
+// Store.OnFail. Run blocks until enumeration drains and all workers
+// idle, or ctx is cancelled. On producer error the run-level context
+// is cancelled, draining workers promptly.
 //
-// The default client ([xrpc.NewHTTPClient], backed by jttp) uses
-// MaxIdleConnsPerHost=50, which matches the default worker count. For more
-// than 50 workers, configure the xrpc.Client's HTTPClient with a jttp client
-// that has jttp.WithMaxIdleConnsPerHost(workers) or higher.
+// Returns ErrEngineAlreadyRan if Run is invoked a second time on the
+// same Engine.
 func (e *Engine) Run(ctx context.Context) error {
-	workers := 50
-	if e.opts.Workers.HasVal() && e.opts.Workers.Val() > 0 {
-		workers = e.opts.Workers.Val()
+	if !e.started.CompareAndSwap(false, true) {
+		return ErrEngineAlreadyRan
+	}
+	if err := e.validate(); err != nil {
+		return err
 	}
 
-	// Build collection filter once.
-	var collections map[string]bool
-	if e.opts.Collections.HasVal() {
-		cols := e.opts.Collections.Val()
-		collections = make(map[string]bool, len(cols))
-		for _, c := range cols {
-			collections[c] = true
-		}
-	}
+	// runCtx is cancelled when the producer returns (success or error)
+	// so workers stop pulling new jobs and abandon in-flight downloads
+	// promptly. Without this, a fatal listRepos error would still let
+	// workers drain the buffered channel before exiting.
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	jobs := make(chan repoJob, workers*2)
+	// Buffer one batch per worker so the producer can stay one batch
+	// ahead — when workers are saturated, the producer blocks on
+	// channel send rather than spinning.
+	jobs := make(chan repoJob, e.workerCount()*2)
 
 	var wg sync.WaitGroup
-
-	// Workers.
-	for range workers {
+	for range e.workerCount() {
 		wg.Go(func() {
-			for job := range jobs {
-				if ctx.Err() != nil {
-					return
-				}
-				e.processRepo(ctx, job, collections)
-			}
+			e.workerLoop(runCtx, jobs)
 		})
 	}
 
-	// Producer: enumerate repos, accumulate a large batch, shuffle to break
-	// up PDS clustering from relay enumeration order, then dispatch.
 	var producerErr error
 	func() {
 		defer close(jobs)
-
-		var cursor string
-		if e.opts.Checkpoint.HasVal() {
-			c, err := e.opts.Checkpoint.Val().LoadCursor(ctx)
-			if err != nil {
-				producerErr = err
-				return
-			}
-			cursor = c
-		}
-
-		shuffleSize := e.opts.ShuffleBatchSize.ValOr(100_000)
-		batch := make([]repoJob, 0, shuffleSize)
-
-		// listRepos page size is always 1000 (the protocol maximum).
-		const listReposPageLimit = 1000
-
-		for page, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit) {
-			if ctx.Err() != nil {
-				producerErr = ctx.Err()
-				return
-			}
-			if err != nil {
-				if e.opts.OnError.HasVal() {
-					e.opts.OnError.Val()(atmos.DID(""), err)
-				}
-				continue
-			}
-
-			for _, entry := range page {
-				if !entry.Active {
-					continue
-				}
-
-				if e.opts.Checkpoint.HasVal() {
-					done, err := e.opts.Checkpoint.Val().IsComplete(ctx, entry.DID)
-					if err != nil {
-						producerErr = err
-						return
-					}
-					if done {
-						continue
-					}
-				}
-
-				batch = append(batch, repoJob{DID: entry.DID, Rev: entry.Rev})
-				cursor = string(entry.DID)
-
-				if len(batch) >= shuffleSize {
-					if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
-						producerErr = err
-						return
-					}
-					batch = batch[:0]
-				}
-			}
-		}
-
-		// Flush remaining partial batch.
-		if len(batch) > 0 {
-			if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
-				producerErr = err
-				return
-			}
+		producerErr = e.producerLoop(runCtx, jobs)
+		// On producer error cancel the run context so workers
+		// abandon in-flight downloads promptly. On clean producer
+		// return we let workers drain the buffered channel — those
+		// jobs were already accepted, finishing them is the correct
+		// behaviour.
+		if producerErr != nil {
+			cancel()
 		}
 	}()
 
@@ -149,13 +139,115 @@ func (e *Engine) Run(ctx context.Context) error {
 	return producerErr
 }
 
-// dispatchBatch shuffles the batch and sends each job to the workers channel,
-// then saves the checkpoint cursor.
-func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob, cursor string) error {
-	rand.Shuffle(len(batch), func(i, j int) {
-		batch[i], batch[j] = batch[j], batch[i]
-	})
+type repoJob struct {
+	entry atmossync.ListReposEntry
+}
 
+func (e *Engine) validate() error {
+	if e.opts.SyncClient == nil {
+		return fmt.Errorf("backfill: SyncClient is required")
+	}
+	if e.opts.Store == nil {
+		return fmt.Errorf("backfill: Store is required")
+	}
+	if e.opts.Handler == nil {
+		return fmt.Errorf("backfill: Handler is required")
+	}
+	return nil
+}
+
+func (e *Engine) workerCount() int {
+	if e.opts.Workers.HasVal() && e.opts.Workers.Val() > 0 {
+		return e.opts.Workers.Val()
+	}
+	return defaultWorkers
+}
+
+func (e *Engine) shuffleBatchSize() int {
+	return e.opts.ShuffleBatchSize.ValOr(defaultShuffleBatchSize)
+}
+
+// producerLoop walks the listRepos pages, reconciles every entry
+// against the Store, and dispatches eligible DIDs in shuffled batches
+// of up to shuffleBatchSize().
+func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
+	batch := make([]repoJob, 0, e.shuffleBatchSize())
+
+	for page, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			return fmt.Errorf("backfill: listRepos: %w", err)
+		}
+
+		for _, entry := range page {
+			job, dispatch, err := e.reconcile(ctx, entry)
+			if err != nil {
+				return err
+			}
+			if !dispatch {
+				continue
+			}
+			batch = append(batch, job)
+			if len(batch) >= e.shuffleBatchSize() {
+				if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
+					return err
+				}
+				batch = batch[:0]
+			}
+		}
+	}
+
+	if len(batch) > 0 {
+		if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// reconcile applies the producer-side rules:
+//
+//   - StateUnknown -> OnDiscover, then dispatch if entry.Active
+//   - StateDiscovered/StateFailed -> dispatch if entry.Active;
+//     OnUpdate if entry.Active flipped vs Store's recorded value
+//   - StateComplete -> never dispatch; OnUpdate if Active flipped
+//   - !entry.Active -> never dispatch (regardless of state)
+//
+// OnDiscover fires unconditionally for Unknown DIDs (active or not),
+// so the consumer Store sees every DID the relay knows about. OnUpdate
+// fires when a known DID's listRepos.Active value differs from the
+// last value the Store persisted, so the Store can track liveness
+// flips without polling.
+func (e *Engine) reconcile(ctx context.Context, entry atmossync.ListReposEntry) (repoJob, bool, error) {
+	rec, err := e.opts.Store.Lookup(ctx, entry.DID)
+	if err != nil {
+		return repoJob{}, false, fmt.Errorf("backfill: store lookup %s: %w", entry.DID, err)
+	}
+
+	if rec.State == StateUnknown {
+		if err := e.opts.Store.OnDiscover(ctx, entry); err != nil {
+			return repoJob{}, false, fmt.Errorf("backfill: store on_discover %s: %w", entry.DID, err)
+		}
+	} else if rec.Active != entry.Active {
+		if err := e.opts.Store.OnUpdate(ctx, entry); err != nil {
+			return repoJob{}, false, fmt.Errorf("backfill: store on_update %s: %w", entry.DID, err)
+		}
+	}
+
+	if !entry.Active {
+		return repoJob{}, false, nil
+	}
+	if rec.State == StateComplete {
+		return repoJob{}, false, nil
+	}
+	return repoJob{entry: entry}, true, nil
+}
+
+// dispatchBatch shuffles and pushes each job onto the workers channel.
+func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob) error {
+	rand.Shuffle(len(batch), func(i, j int) { batch[i], batch[j] = batch[j], batch[i] })
 	for _, job := range batch {
 		select {
 		case <-ctx.Done():
@@ -163,70 +255,182 @@ func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch [
 		case jobs <- job:
 		}
 	}
-
-	if e.opts.Checkpoint.HasVal() && cursor != "" {
-		_ = e.opts.Checkpoint.Val().SaveCursor(ctx, cursor)
-	}
-
 	return nil
 }
 
-func (e *Engine) processRepo(ctx context.Context, job repoJob, collections map[string]bool) {
-	maxRetries := e.opts.MaxRetries.ValOr(5)
-	baseDelay := e.opts.RetryBaseDelay.ValOr(time.Second)
-	maxDelay := e.opts.RetryMaxDelay.ValOr(30 * time.Second)
+// workerLoop pulls jobs off the channel and processes each via
+// processRepo. The channel close (signalled by the producer when
+// enumeration drains or fails) is what unwinds workers.
+func (e *Engine) workerLoop(ctx context.Context, jobs <-chan repoJob) {
+	for job := range jobs {
+		if ctx.Err() != nil {
+			return
+		}
+		e.processRepo(ctx, job)
+	}
+}
+
+// processRepo runs the retry/backoff loop around tryRepo. The final
+// outcome is reported via Store.OnComplete (success path inside
+// tryRepo) or Store.OnFail (here, after retries exhaust or the error
+// is non-transient).
+func (e *Engine) processRepo(ctx context.Context, job repoJob) {
+	maxRetries := e.opts.MaxRetries.ValOr(defaultMaxRetries)
+	baseDelay := e.opts.RetryBaseDelay.ValOr(defaultRetryBaseDelay)
+	maxDelay := e.opts.RetryMaxDelay.ValOr(defaultRetryMaxDelay)
 
 	for attempt := range maxRetries + 1 {
-		err := e.tryRepo(ctx, job, collections)
+		err := e.tryRepo(ctx, job)
 		if err == nil {
-			break
+			return
 		}
-
 		if ctx.Err() != nil {
+			return
+		}
+		if errors.Is(err, errOnCompleteRecorded) {
 			return
 		}
 
 		if !xrpc.IsTransient(err) || attempt >= maxRetries {
-			if e.opts.OnError.HasVal() {
-				e.opts.OnError.Val()(job.DID, err)
-			}
+			e.recordFail(ctx, job.entry.DID, err, attempt+1)
 			return
 		}
 
-		// Exponential backoff with jitter.
-		delay := baseDelay << attempt
-		if delay <= 0 || delay > maxDelay {
-			delay = maxDelay
-		}
-		if half := int64(delay) / 2; half > 0 {
-			delay += time.Duration(rand.Int64N(half))
-		}
-
-		// Respect Retry-After if available and reasonable.
-		// Use as a floor — never sleep less than the server requested.
+		delay := backoffDelay(baseDelay, maxDelay, attempt)
+		// Honor server-side Retry-After when it asks for longer than
+		// our own backoff. If the server wants more than maxDelay,
+		// give up rather than ignoring its request and hammering it.
 		if ra := xrpc.RetryAfter(err); !ra.IsZero() {
-			if wait := time.Until(ra); wait > delay && wait < maxDelay {
+			wait := time.Until(ra)
+			if wait > maxDelay {
+				e.recordFail(ctx, job.entry.DID, fmt.Errorf("server requested %s delay exceeds RetryMaxDelay %s: %w", wait, maxDelay, err), attempt+1)
+				return
+			}
+			if wait > delay {
 				delay = wait
 			}
 		}
-
+		t := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
+			t.Stop()
 			return
-		case <-time.After(delay):
+		case <-t.C:
 		}
 	}
 }
 
-// syncClientForRepo returns a sync client for downloading the given repo.
-// If a Directory is configured, the DID is resolved to its PDS endpoint and
-// a per-PDS client is used. Falls back to the relay SyncClient on failure.
+// backoffDelay returns base * 2^attempt, capped at maxDelay, with
+// jitter of up to 50% of the base delay added on top. Saturates
+// instead of overflowing when attempt is large.
+func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
+	delay := maxDelay
+	// math/bits.LeadingZeros64 gives us a quick saturation check:
+	// base << attempt overflows when attempt >= leading zeros of base.
+	if base > 0 && attempt < bits.LeadingZeros64(uint64(base)) {
+		shifted := base << attempt
+		if shifted < maxDelay {
+			delay = shifted
+		}
+	}
+	if half := int64(delay) / 2; half > 0 {
+		delay += time.Duration(rand.Int64N(half))
+	}
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	return delay
+}
+
+// recordFail reports a final failure: fires OnError, persists via
+// Store.OnFail, and surfaces a Store.OnFail error via OnError too. ctx
+// may already be cancelled here (e.g., producer error cancelled
+// runCtx); callers can pass a fresh background context if they need
+// the failure recorded regardless.
+func (e *Engine) recordFail(ctx context.Context, did atmos.DID, err error, attempts int) {
+	if onErr := e.opts.OnError; onErr.HasVal() {
+		onErr.Val()(did, err)
+	}
+	if storeErr := e.opts.Store.OnFail(ctx, did, err, attempts); storeErr != nil {
+		// The Store rejected the failure write. There's no good
+		// recovery — surface via OnError so the operator at least
+		// sees it.
+		if onErr := e.opts.OnError; onErr.HasVal() {
+			onErr.Val()(did, fmt.Errorf("backfill: store on_fail: %w", storeErr))
+		}
+	}
+}
+
+// tryRepo executes a single download+parse+handle attempt. On nil
+// return, the DID is transitioned to Complete via Store.OnComplete.
+// Errors flow back to processRepo for retry handling.
+func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
+	sc := e.syncClientForRepo(ctx, job.entry.DID)
+
+	body, err := sc.GetRepoStream(ctx, job.entry.DID, "")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = body.Close() }()
+
+	rp, commit, err := atmosrepo.LoadFromCAR(bufio.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	if e.opts.Directory.HasVal() {
+		if err := sc.VerifyCommit(ctx, commit); err != nil {
+			return err
+		}
+	}
+
+	if err := e.opts.Handler.HandleRepo(ctx, job.entry.DID, rp, commit); err != nil {
+		return err
+	}
+
+	if err := e.opts.Store.OnComplete(ctx, job.entry.DID, commit); err != nil {
+		// Treat OnComplete failure as a hard error: the handler has
+		// already had its side effects but the durability marker
+		// failed. Surface via OnError. Do NOT call OnFail here —
+		// that would conflict with the partially-Complete state.
+		if onErr := e.opts.OnError; onErr.HasVal() {
+			onErr.Val()(job.entry.DID, fmt.Errorf("backfill: store on_complete: %w", err))
+		}
+		return errOnCompleteRecorded
+	}
+
+	e.notifyProgress()
+	return nil
+}
+
+// notifyProgress increments the completed counter and fires
+// OnProgress under a lock so successive callbacks see monotonically
+// increasing Stats.Completed.
+func (e *Engine) notifyProgress() {
+	if !e.opts.OnProgress.HasVal() {
+		e.completed.Add(1)
+		return
+	}
+	e.progressMu.Lock()
+	defer e.progressMu.Unlock()
+	n := e.completed.Add(1)
+	e.opts.OnProgress.Val()(Stats{Completed: n})
+}
+
+// syncClientForRepo returns a sync client for the given DID. If a
+// Directory is configured, attempt to resolve to the DID's PDS; on
+// success, use a per-PDS pooled client. On any failure, fall back to
+// the relay SyncClient.
 //
-// Uses the Directory's Resolver directly (single PLC HTTP GET) instead of
-// the full LookupDID which does bi-directional handle verification — that
-// requires connecting to every user's handle server and is far too slow for
-// bulk backfill.
-func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmosSync.Client {
+// We use the Directory's Resolver directly (single PLC HTTP GET)
+// rather than the full LookupDID, because the latter does
+// bi-directional handle verification which is far too slow for bulk
+// backfill.
+//
+// Pooled clients are constructed with MaxAttempts=1 so the engine's
+// retry loop is the only retry source — preventing xrpc and the
+// engine from compounding retries against a slow PDS.
+func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmossync.Client {
 	if !e.opts.Directory.HasVal() {
 		return e.opts.SyncClient
 	}
@@ -236,7 +440,6 @@ func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmosSyn
 		return e.opts.SyncClient
 	}
 
-	// Extract PDS endpoint from the DID document's service list.
 	var pds string
 	for _, svc := range doc.Service {
 		if svc.Type == "AtprotoPersonalDataServer" {
@@ -249,42 +452,19 @@ func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmosSyn
 	}
 
 	if v, ok := e.pdsClients.Load(pds); ok {
-		sc, _ := v.(*atmosSync.Client)
+		sc, _ := v.(*atmossync.Client)
 		return sc
 	}
-
-	xc := &xrpc.Client{Host: pds, HTTPClient: e.opts.HTTPClient}
-	sc := atmosSync.NewClient(atmosSync.Options{Client: xc})
+	xc := &xrpc.Client{
+		Host:       pds,
+		HTTPClient: e.opts.HTTPClient,
+		Retry:      gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+	}
+	sc := atmossync.NewClient(atmossync.Options{
+		Client:    xc,
+		Directory: e.opts.Directory,
+	})
 	actual, _ := e.pdsClients.LoadOrStore(pds, sc)
-	stored, _ := actual.(*atmosSync.Client)
+	stored, _ := actual.(*atmossync.Client)
 	return stored
-}
-
-// tryRepo downloads and processes a single repo, returning the first error.
-func (e *Engine) tryRepo(ctx context.Context, job repoJob, collections map[string]bool) error {
-	sc := e.syncClientForRepo(ctx, job.DID)
-	for rec, err := range sc.IterRecords(ctx, job.DID) {
-		if err != nil {
-			return err
-		}
-
-		if collections != nil && !collections[rec.Collection] {
-			continue
-		}
-
-		if err := e.opts.Handler.HandleRecord(ctx, job.DID, rec); err != nil {
-			return err
-		}
-	}
-
-	if e.opts.Checkpoint.HasVal() {
-		_ = e.opts.Checkpoint.Val().MarkComplete(ctx, job.DID, job.Rev)
-	}
-
-	n := e.completed.Add(1)
-	if e.opts.OnProgress.HasVal() {
-		e.opts.OnProgress.Val()(n)
-	}
-
-	return nil
 }
