@@ -236,9 +236,9 @@ func TestListRepos_Pagination(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	var entries []sync.ListReposEntry
-	for entry, err := range sc.ListRepos(context.Background(), 1000) {
+	for page, err := range sc.ListRepos(context.Background(), 1000) {
 		require.NoError(t, err)
-		entries = append(entries, entry)
+		entries = append(entries, page...)
 	}
 
 	assert.Len(t, entries, 4)
@@ -488,13 +488,15 @@ func TestListRepos_InvalidDID(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	var gotError, gotEntry bool
-	for entry, err := range sc.ListRepos(context.Background(), 1000) {
+	for page, err := range sc.ListRepos(context.Background(), 1000) {
 		if err != nil {
 			gotError = true
 			continue
 		}
-		if entry.DID == "did:plc:valid1234567890abcde" {
-			gotEntry = true
+		for _, entry := range page {
+			if entry.DID == "did:plc:valid1234567890abcde" {
+				gotEntry = true
+			}
 		}
 	}
 	assert.True(t, gotError, "should have received an error for invalid DID")

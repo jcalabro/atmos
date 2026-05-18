@@ -9,9 +9,11 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 )
 
-// ListRepos paginates through all repos on the service, yielding one entry at a time.
-func (c *Client) ListRepos(ctx context.Context, limit int64) iter.Seq2[ListReposEntry, error] {
-	return func(yield func(ListReposEntry, error) bool) {
+// ListRepos paginates through all repos on the service, yielding one page at a time
+// so callers can perform batch operations. Per-entry parse errors are yielded with a
+// nil batch and iteration continues; transport errors terminate iteration.
+func (c *Client) ListRepos(ctx context.Context, limit int64) iter.Seq2[[]ListReposEntry, error] {
+	return func(yield func([]ListReposEntry, error) bool) {
 		cursor := ""
 		for {
 			if ctx.Err() != nil {
@@ -20,7 +22,7 @@ func (c *Client) ListRepos(ctx context.Context, limit int64) iter.Seq2[ListRepos
 
 			out, err := comatproto.SyncListRepos(ctx, c.opts.Client, cursor, limit)
 			if err != nil {
-				yield(ListReposEntry{}, err)
+				yield(nil, err)
 				return
 			}
 
@@ -28,23 +30,26 @@ func (c *Client) ListRepos(ctx context.Context, limit int64) iter.Seq2[ListRepos
 				return
 			}
 
+			batch := make([]ListReposEntry, 0, len(out.Repos))
 			for _, r := range out.Repos {
 				did, err := atmos.ParseDID(r.DID)
 				if err != nil {
-					if !yield(ListReposEntry{}, err) {
+					if !yield(nil, err) {
 						return
 					}
 					continue
 				}
 
-				active := r.Active.ValOr(true)
-
-				if !yield(ListReposEntry{
+				batch = append(batch, ListReposEntry{
 					DID:    did,
 					Rev:    r.Rev,
 					Head:   r.Head,
-					Active: active,
-				}, nil) {
+					Active: r.Active.ValOr(true),
+				})
+			}
+
+			if len(batch) > 0 {
+				if !yield(batch, nil) {
 					return
 				}
 			}

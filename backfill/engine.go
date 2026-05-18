@@ -95,7 +95,7 @@ func (e *Engine) Run(ctx context.Context) error {
 		// listRepos page size is always 1000 (the protocol maximum).
 		const listReposPageLimit = 1000
 
-		for entry, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit) {
+		for page, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit) {
 			if ctx.Err() != nil {
 				producerErr = ctx.Err()
 				return
@@ -107,30 +107,32 @@ func (e *Engine) Run(ctx context.Context) error {
 				continue
 			}
 
-			if !entry.Active {
-				continue
-			}
-
-			if e.opts.Checkpoint.HasVal() {
-				done, err := e.opts.Checkpoint.Val().IsComplete(ctx, entry.DID)
-				if err != nil {
-					producerErr = err
-					return
-				}
-				if done {
+			for _, entry := range page {
+				if !entry.Active {
 					continue
 				}
-			}
 
-			batch = append(batch, repoJob{DID: entry.DID, Rev: entry.Rev})
-			cursor = string(entry.DID)
-
-			if len(batch) >= shuffleSize {
-				if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
-					producerErr = err
-					return
+				if e.opts.Checkpoint.HasVal() {
+					done, err := e.opts.Checkpoint.Val().IsComplete(ctx, entry.DID)
+					if err != nil {
+						producerErr = err
+						return
+					}
+					if done {
+						continue
+					}
 				}
-				batch = batch[:0]
+
+				batch = append(batch, repoJob{DID: entry.DID, Rev: entry.Rev})
+				cursor = string(entry.DID)
+
+				if len(batch) >= shuffleSize {
+					if err := e.dispatchBatch(ctx, jobs, batch, cursor); err != nil {
+						producerErr = err
+						return
+					}
+					batch = batch[:0]
+				}
 			}
 		}
 
