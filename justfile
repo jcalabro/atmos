@@ -10,7 +10,7 @@ install-tools:
 
 # Lints the code
 lint:
-    golangci-lint run --timeout 1m ./...
+    golangci-lint run --timeout 3m ./...
 
 # Updates to latest go practices
 modernize:
