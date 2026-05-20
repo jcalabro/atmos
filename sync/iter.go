@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"iter"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -156,7 +155,7 @@ func (c *Client) IterRecords(ctx context.Context, did atmos.DID) iter.Seq2[Recor
 
 		// Walk MST, yield each record.
 		_ = rp.Tree.Walk(func(key string, val cbor.CID) error {
-			col, rkey := splitKey(key)
+			col, rkey := repo.SplitMSTKey(key)
 
 			data, err := rp.Store.GetBlock(val)
 			if err != nil {
@@ -172,13 +171,4 @@ func (c *Client) IterRecords(ctx context.Context, did atmos.DID) iter.Seq2[Recor
 			return nil
 		})
 	}
-}
-
-// splitKey splits an MST key "collection/rkey" into its parts.
-func splitKey(key string) (collection, rkey string) {
-	i := strings.IndexByte(key, '/')
-	if i < 0 {
-		return key, ""
-	}
-	return key[:i], key[i+1:]
 }

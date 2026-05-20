@@ -10,6 +10,7 @@ import (
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/car"
+	"github.com/jcalabro/atmos/repo"
 )
 
 // Action is the type of record mutation.
@@ -124,7 +125,7 @@ func (e *Event) yieldCommitOps(yield func(Operation, error) bool) {
 	}
 
 	for _, op := range commit.Ops {
-		collection, rkey := splitPath(op.Path)
+		collection, rkey := repo.SplitMSTKey(op.Path)
 
 		o := Operation{
 			Action:     Action(op.Action),
@@ -216,13 +217,4 @@ func ChainDecoders(decoders ...RecordDecoder) RecordDecoder {
 		}
 		return nil, fmt.Errorf("unknown collection: %s", collection)
 	}
-}
-
-// splitPath splits "app.bsky.feed.post/3abc" into ("app.bsky.feed.post", "3abc").
-func splitPath(path string) (collection, rkey string) {
-	i := strings.LastIndexByte(path, '/')
-	if i < 0 {
-		return path, ""
-	}
-	return path[:i], path[i+1:]
 }

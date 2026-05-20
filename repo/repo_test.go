@@ -807,3 +807,36 @@ func TestLoadBlocksFromCAR_Invalid(t *testing.T) {
 	_, _, err = LoadBlocksFromCAR(bytes.NewReader([]byte("not a car file")))
 	require.Error(t, err)
 }
+
+func TestSplitMSTKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		path       string
+		collection string
+		rkey       string
+	}{
+		// Standard well-formed MST keys.
+		{"app.bsky.feed.post/3abc", "app.bsky.feed.post", "3abc"},
+		{"app.bsky.graph.follow/xyz", "app.bsky.graph.follow", "xyz"},
+		// No slash → whole path returned as collection, empty rkey.
+		// Caller can detect "not an MST key" via the empty rkey or
+		// via mst.IsValidMstKey if strict validation is desired.
+		{"noSlash", "noSlash", ""},
+		// Empty input.
+		{"", "", ""},
+		// Multi-slash (malformed): the FIRST slash is the boundary so
+		// the intended NSID stays on the left even when downstream
+		// produced something weird with extra slashes in the rkey.
+		// This is the documented contract; if behavior changes the
+		// test should be updated deliberately.
+		{"app.bsky.feed.post/abc/def", "app.bsky.feed.post", "abc/def"},
+		// Slash-prefixed (also malformed): collection is empty.
+		{"/onlyrkey", "", "onlyrkey"},
+	}
+	for _, tt := range tests {
+		col, rk := SplitMSTKey(tt.path)
+		require.Equal(t, tt.collection, col, "path=%q", tt.path)
+		require.Equal(t, tt.rkey, rk, "path=%q", tt.path)
+	}
+}

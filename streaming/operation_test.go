@@ -311,25 +311,6 @@ func TestOperations_BadCAR(t *testing.T) {
 	assert.Equal(t, 1, errCount)
 }
 
-func TestSplitPath(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		path       string
-		collection string
-		rkey       string
-	}{
-		{"app.bsky.feed.post/3abc", "app.bsky.feed.post", "3abc"},
-		{"app.bsky.graph.follow/xyz", "app.bsky.graph.follow", "xyz"},
-		{"noSlash", "noSlash", ""},
-	}
-	for _, tt := range tests {
-		col, rk := splitPath(tt.path)
-		assert.Equal(t, tt.collection, col)
-		assert.Equal(t, tt.rkey, rk)
-	}
-}
-
 // --- Resync tests ---
 
 func buildResyncRepo(t *testing.T, n int) []byte {

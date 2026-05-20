@@ -3418,6 +3418,98 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
+// TestVerifyAndExpand_MissingRecordBlockCounter exercises the
+// observability hook for upstreams that ship incomplete CARs: when a
+// create/update op declares a CID whose block isn't present in the
+// CAR, the verifier still emits the op (with empty BlockData) and
+// increments Stats.MissingRecordBlocks. Tests the observability
+// path; correctness of the verifier's decision (still accept, still
+// pass through) is unchanged.
+func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:missingblk1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	chainStore := sync.NewMemChainStore()
+	require.NoError(t, chainStore.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: chainStore,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "real"},
+	}})
+
+	// Strip the record block from the CAR but leave the commit + MST
+	// nodes intact. The op-CID gate runs against the MST tree value
+	// (which is the record's CID), not against block presence — so
+	// the commit still verifies; only the BlockData on the emitted
+	// op is empty and the counter ticks.
+	recordCID, err := cbor.ParseCIDString(commit.Ops[0].CID.Val().Link)
+	require.NoError(t, err)
+	commit.Blocks = stripBlockFromCAR(t, commit.Blocks, recordCID)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr, "missing record block must NOT fail verification — counter only")
+	require.Len(t, ops, 1)
+	assert.Equal(t, "create", ops[0].Action)
+	assert.Empty(t, ops[0].BlockData, "BlockData should be empty when the block was missing from the CAR")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.MissingRecordBlocks)
+	assert.Equal(t, uint64(1), stats.EventsVerified, "still counted as verified — the commit itself is fine")
+}
+
+// stripBlockFromCAR returns a CAR identical to in except with the
+// block at target removed. Used by the missing-block counter test
+// to simulate an upstream PDS that shipped an incomplete CAR.
+func stripBlockFromCAR(t *testing.T, in []byte, target cbor.CID) []byte {
+	t.Helper()
+	cr, err := car.NewReader(bytes.NewReader(in))
+	require.NoError(t, err)
+	roots := cr.Header().Roots
+
+	var blocks []car.Block
+	for {
+		b, err := cr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		if b.CID.Equal(target) {
+			continue
+		}
+		blocks = append(blocks, b)
+	}
+
+	var out bytes.Buffer
+	cw, err := car.NewWriter(&out, roots)
+	require.NoError(t, err)
+	for _, b := range blocks {
+		require.NoError(t, cw.WriteBlock(b.CID, b.Data))
+	}
+	return out.Bytes()
+}
+
 // BenchmarkVerifyAndExpand_HappyPath measures the per-event hot path
 // — a clean #commit that passes every gate (rev-replay, future-rev,
 // legacy detection, inversion, chain check, field consistency,

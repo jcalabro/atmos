@@ -525,6 +525,16 @@ type VerifierStats struct {
 	// upstream PDS.
 	LegacyCommits uint64
 
+	// MissingRecordBlocks counts create/update ops whose record blocks
+	// were missing from the firehose CAR (consumers requesting
+	// [VerifierOp.BlockData] saw nil for those ops). The verifier
+	// still emits the op with its CID so consumers can fetch the
+	// block out-of-band; this counter exists as a signal that some
+	// upstream is shipping incomplete CARs. A persistently nonzero
+	// value alongside missing-record consumer reports usually means
+	// a buggy PDS.
+	MissingRecordBlocks uint64
+
 	// SyncNoOps counts #sync events whose embedded commit's data CID
 	// matched our locally-tracked data CID — the upstream was just
 	// asserting current state, not signaling a desync. We advance the
@@ -657,6 +667,7 @@ type Verifier struct {
 	opCIDMismatches        atomic.Uint64
 	legacyCommits          atomic.Uint64
 	syncNoOps              atomic.Uint64
+	missingRecordBlocks    atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -826,7 +837,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 	// Walk MST, build ops.
 	var ops []VerifierOp
 	walkErr := rp.Tree.Walk(func(key string, val cbor.CID) error {
-		col, rkey := splitKey(key)
+		col, rkey := repo.SplitMSTKey(key)
 		data, err := rp.Store.GetBlock(val)
 		if err != nil {
 			return fmt.Errorf("walk %s: %w", key, err)
@@ -907,6 +918,7 @@ func (v *Verifier) Stats() VerifierStats {
 		OpCIDMismatches:        v.opCIDMismatches.Load(),
 		LegacyCommits:          v.legacyCommits.Load(),
 		SyncNoOps:              v.syncNoOps.Load(),
+		MissingRecordBlocks:    v.missingRecordBlocks.Load(),
 	}
 }
 
@@ -1177,9 +1189,6 @@ func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error
 // problems, never on a non-matching root.
 func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCommit *repo.Commit, store *mst.MemBlockStore) (cbor.CID, error) {
 	did := atmos.DID(commit.Repo)
-	wrapErr := func(format string, args ...any) error {
-		return &InversionError{DID: did, Rev: commit.Rev, Cause: fmt.Errorf(format, args...)}
-	}
 
 	// Load partial MST rooted at the post-state data CID.
 	tree := mst.LoadTree(store, innerCommit.Data)
@@ -1190,30 +1199,39 @@ func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCo
 		switch op.Action {
 		case "create":
 			if err := tree.Remove(key); err != nil {
-				return cbor.CID{}, wrapErr("invert create %q: %w", key, err)
+				return cbor.CID{}, newInversionErr(did, commit.Rev, "invert create %q: %w", key, err)
 			}
 		case "delete", "update":
 			if !op.Prev.HasVal() {
-				return cbor.CID{}, wrapErr("%s op %q missing prev CID", op.Action, key)
+				return cbor.CID{}, newInversionErr(did, commit.Rev, "%s op %q missing prev CID", op.Action, key)
 			}
 			prevCID, err := cidFromLink(op.Prev.Val())
 			if err != nil {
-				return cbor.CID{}, wrapErr("%s op %q bad prev CID: %w", op.Action, key, err)
+				return cbor.CID{}, newInversionErr(did, commit.Rev, "%s op %q bad prev CID: %w", op.Action, key, err)
 			}
 			if err := tree.Insert(key, prevCID); err != nil {
-				return cbor.CID{}, wrapErr("invert %s %q: %w", op.Action, key, err)
+				return cbor.CID{}, newInversionErr(did, commit.Rev, "invert %s %q: %w", op.Action, key, err)
 			}
 		default:
-			return cbor.CID{}, wrapErr("unknown op action %q", op.Action)
+			return cbor.CID{}, newInversionErr(did, commit.Rev, "unknown op action %q", op.Action)
 		}
 	}
 
 	// Compute new root.
 	newRoot, err := tree.RootCID()
 	if err != nil {
-		return cbor.CID{}, wrapErr("compute inverted root: %w", err)
+		return cbor.CID{}, newInversionErr(did, commit.Rev, "compute inverted root: %w", err)
 	}
 	return newRoot, nil
+}
+
+// newInversionErr is the free-function equivalent of the inline
+// wrapErr closure invertCommitFromStore previously used. Avoids heap-
+// allocating a closure on every invertCommitFromStore call (this
+// function is on the verifyCommit hot path), at the cost of taking
+// did and rev as explicit arguments.
+func newInversionErr(did atmos.DID, rev, format string, args ...any) error {
+	return &InversionError{DID: did, Rev: rev, Cause: fmt.Errorf(format, args...)}
 }
 
 // cidFromLink converts a LexCIDLink to a cbor.CID. The link's
@@ -1400,7 +1418,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	}
 
 	// Success: build verified ops, advance state.
-	ops, err := buildOpsFromCommit(commit, store)
+	ops, err := v.buildOpsFromCommit(commit, store)
 	if err != nil {
 		v.inversionFailures.Add(1)
 		return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure,
@@ -1476,10 +1494,15 @@ func decodeCommitFromSyncCAR(syncEvt *comatproto.SyncSubscribeRepos_Sync) (*repo
 // not an error here (deletes legitimately have no CID, and partial
 // CARs may legitimately omit blocks the consumer doesn't need).
 //
+// Bumps [VerifierStats.MissingRecordBlocks] for each create/update
+// op whose CID is well-formed but whose block isn't present in the
+// CAR. Operators monitoring this counter can spot upstreams that
+// ship incomplete CARs.
+//
 // store must be the block store returned by decodeCommitFromCAR for
 // this same commit. Reusing the pre-parsed store avoids the per-event
 // cost of re-parsing the CAR.
-func buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst.MemBlockStore) ([]VerifierOp, error) {
+func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst.MemBlockStore) ([]VerifierOp, error) {
 	// Empty-but-non-nil so the streaming layer can distinguish a
 	// successful zero-ops verification from a rev-replay drop, both
 	// of which surface here as "no ops produced." Rev-replay returns
@@ -1489,7 +1512,7 @@ func buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst
 	}
 	ops := make([]VerifierOp, 0, len(commit.Ops))
 	for _, op := range commit.Ops {
-		col, rkey := splitKey(op.Path)
+		col, rkey := repo.SplitMSTKey(op.Path)
 		o := VerifierOp{
 			Action:     op.Action,
 			Collection: col,
@@ -1505,6 +1528,8 @@ func buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst
 			o.CID = cid.Bytes()
 			if data, err := store.GetBlock(cid); err == nil {
 				o.BlockData = data
+			} else {
+				v.missingRecordBlocks.Add(1)
 			}
 		}
 		ops = append(ops, o)
