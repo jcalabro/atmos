@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	mathrand "math/rand"
 	stdsync "sync"
 	"testing"
@@ -1544,6 +1545,9 @@ func TestVerifyAndExpand_FutureRevWithinTolerance(t *testing.T) {
 		Record:     map[string]any{"text": "near"},
 	}})
 	commit.Rev = string(nearFutureRev)
+	rebuildInnerCommit(t, commit, key, func(c *repo.Commit) {
+		c.Rev = string(nearFutureRev)
+	})
 
 	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
 
@@ -1592,11 +1596,12 @@ func TestVerifyAndExpand_FutureRevCustomTolerance(t *testing.T) {
 }
 
 // TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck documents the
-// best-effort behavior on malformed input: an unparseable rev does NOT
-// trigger FutureRevError; the future-rev gate yields and downstream
-// gates (chain check, signature) handle the malformed event. The
-// commit here is otherwise valid, so it lands as a first-sighting
-// accept.
+// best-effort behavior on malformed input: an unparseable envelope rev
+// does NOT trigger FutureRevError; the future-rev gate yields. With
+// the field-consistency gate (A2) in place, an unparseable envelope
+// rev that disagrees with the parseable inner rev is caught downstream
+// as a FieldMismatchError — the test asserts that's how the malformed
+// event surfaces, not as a future-rev rejection.
 func TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
 	t.Parallel()
 
@@ -1616,14 +1621,19 @@ func TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
 		RKey:       "rec1",
 		Record:     map[string]any{"text": "v"},
 	}})
-	// Replace with something that fails atmos.ParseTID — not 13 chars.
+	// Replace envelope with something that fails atmos.ParseTID — not
+	// 13 chars. Inner rev still says the synthetic-clock TID.
 	commit.Rev = "not-a-tid"
 
 	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
 
 	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
-	require.NoError(t, vErr, "unparseable rev should be passed to downstream gates, not rejected as future-rev")
+	// A1 contract: future-rev gate must not trip on unparseable input.
 	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
+	// A2 contract: malformed envelope surfaces as FieldMismatchError
+	// rather than something downstream and less specific.
+	var fme *sync.FieldMismatchError
+	assert.ErrorAs(t, vErr, &fme)
 }
 
 // TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance covers the
@@ -1650,7 +1660,13 @@ func TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance(t *testing.T) {
 		RKey:       "rec1",
 		Record:     map[string]any{"text": "century"},
 	}})
+	// Keep envelope and inner in sync — otherwise the field-consistency
+	// gate (A2) catches the mismatch first and the test stops measuring
+	// the future-rev opt-out.
 	commit.Rev = string(farFutureRev)
+	rebuildInnerCommit(t, commit, key, func(c *repo.Commit) {
+		c.Rev = string(farFutureRev)
+	})
 
 	v := futureRevTestVerifier(t, did, key, now, gt.Some(-time.Second))
 
@@ -1744,6 +1760,319 @@ func TestNewVerifier_DefaultsApplyFutureRevTolerance(t *testing.T) {
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
+}
+
+// ---------------------------------------------------------------------------
+// Outer/inner field consistency (Sync 1.1 spec MUST: envelope == signed inner)
+// ---------------------------------------------------------------------------
+
+// rebuildInnerCommit decodes commit.Blocks, finds the commit block,
+// applies mutate to the decoded *repo.Commit, re-signs with key,
+// re-encodes, and rewrites the envelope's Commit link + Blocks CAR
+// to reference the new commit block. Used by the field-mismatch tests
+// to construct envelopes whose inner commit deliberately diverges from
+// what BuildSyntheticCommit produced.
+func rebuildInnerCommit(t *testing.T, c *comatproto.SyncSubscribeRepos_Commit, key crypto.PrivateKey, mutate func(*repo.Commit)) {
+	t.Helper()
+
+	// Pull every block out of the existing CAR so we can rebuild the CAR
+	// with a swapped commit block but identical MST blocks.
+	blocks := make(map[cbor.CID][]byte)
+	cr, err := car.NewReader(bytes.NewReader(c.Blocks))
+	require.NoError(t, err)
+	for {
+		b, err := cr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		blocks[b.CID] = b.Data
+	}
+
+	// Decode the original commit block, mutate, re-sign, re-encode.
+	oldCommitCID, err := cbor.ParseCIDString(c.Commit.Link)
+	require.NoError(t, err)
+	inner, err := repo.DecodeCommitCBOR(blocks[oldCommitCID])
+	require.NoError(t, err)
+	mutate(inner)
+	require.NoError(t, inner.Sign(key))
+	newCommitBytes, err := inner.EncodeCBOR()
+	require.NoError(t, err)
+	newCommitCID := cbor.ComputeCID(cbor.CodecDagCBOR, newCommitBytes)
+
+	// Rebuild the CAR with the new commit block as root. We drop the
+	// old commit block from the map (it's superseded and unreachable);
+	// MST nodes carry over unchanged.
+	delete(blocks, oldCommitCID)
+	var carBuf bytes.Buffer
+	cw, err := car.NewWriter(&carBuf, []cbor.CID{newCommitCID})
+	require.NoError(t, err)
+	require.NoError(t, cw.WriteBlock(newCommitCID, newCommitBytes))
+	for cid, data := range blocks {
+		require.NoError(t, cw.WriteBlock(cid, data))
+	}
+
+	c.Commit = lextypes.LexCIDLink{Link: newCommitCID.String()}
+	c.Blocks = carBuf.Bytes()
+}
+
+// fieldMismatchTestVerifier constructs a verifier wired with a
+// resolver that knows about did, configured with PolicyResync pointing
+// at an unreachable sync server (a tripwire — if the field-mismatch
+// gate erroneously triggers resync, the test fails with a network
+// error rather than a clean FieldMismatchError).
+func fieldMismatchTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.ChainStore, *bool, *error) {
+	t.Helper()
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	cs := sync.NewMemChainStore()
+	hookFired := false
+	var hookErr error
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyResync),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
+			hookFired = true
+			hookErr = e
+		}),
+	})
+	require.NoError(t, err)
+	return v, cs, &hookFired, &hookErr
+}
+
+func TestFieldMismatchError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	err := &sync.FieldMismatchError{
+		DID:      atmos.DID("did:plc:victim"),
+		Field:    "rev",
+		Envelope: "3zzzzzzzzzzzz",
+		Inner:    "3aaaaaaaaaaaa",
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "rev field mismatch")
+	assert.Contains(t, msg, "did:plc:victim")
+	assert.Contains(t, msg, "3zzzzzzzzzzzz")
+	assert.Contains(t, msg, "3aaaaaaaaaaaa")
+
+	var target *sync.FieldMismatchError
+	assert.True(t, errors.As(err, &target))
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, "rev", target.Field)
+}
+
+// TestVerifyAndExpand_FieldMismatchRev is the security-relevant
+// scenario: a misbehaving PDS replays an old signed commit but
+// relabels the firehose envelope's Rev to a higher value, hoping to
+// bypass our rev-replay drop and corrupt chain state with stale data.
+// The signed inner commit still says the original (older) rev, so the
+// signature still validates — only our envelope/inner cross-check
+// catches the swap. Bypasses policy; chain state is NOT advanced.
+func TestVerifyAndExpand_FieldMismatchRev(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:fmrev1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "real"},
+	}})
+	innerRev := commit.Rev
+	// Envelope claims a higher rev than the signed inner — the scenario
+	// a malicious PDS uses to defeat rev-replay drops. Use a rev a
+	// minute ahead of wall clock (well within the default 5m future-rev
+	// tolerance) so the future-rev gate doesn't catch it first.
+	envelopeRev := string(atmos.NewTIDFromTime(time.Now().Add(1*time.Minute), 0))
+	commit.Rev = envelopeRev
+
+	v, cs, hookFired, hookErr := fieldMismatchTestVerifier(t, did, key)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, vErr, &fme)
+	assert.Nil(t, ops)
+	assert.Equal(t, "rev", fme.Field)
+	assert.Equal(t, envelopeRev, fme.Envelope)
+	assert.Equal(t, innerRev, fme.Inner)
+	assert.True(t, *hookFired, "OnVerificationFailure should fire on field mismatch")
+	assert.ErrorAs(t, *hookErr, &fme)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.FieldMismatches)
+	assert.Equal(t, uint64(0), stats.EventsVerified)
+	assert.Equal(t, uint64(0), stats.SignatureFailures, "field check must run before signature verify")
+	assert.Equal(t, uint64(0), stats.Resyncs, "field mismatch must not trigger resync")
+
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, state, "field mismatch must not advance chain state")
+}
+
+// TestVerifyAndExpand_FieldMismatchDID covers the misattribution
+// vector: an attacker who controls any PDS can build a valid signed
+// commit for their own DID and wrap it in a firehose envelope that
+// claims a different ("victim") DID. Without this gate, signature
+// verification still rejects it (the victim's key can't verify the
+// attacker's sig) — but a FieldMismatchError is more precise and
+// fires before the more expensive signature check.
+func TestVerifyAndExpand_FieldMismatchDID(t *testing.T) {
+	t.Parallel()
+
+	innerDID := atmos.DID("did:plc:attacker")
+	envelopeDID := atmos.DID("did:plc:victim")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, innerDID)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "evil"},
+	}})
+	// Swap envelope DID. Inner commit still says innerDID; signature
+	// is over the inner commit, so it would still verify against
+	// innerDID's key — but the verifier would look up envelopeDID's
+	// key (a different one), so without the field check we'd surface
+	// SignatureError instead of FieldMismatchError. The test asserts
+	// the precise typed error and that the signature check never ran.
+	commit.Repo = string(envelopeDID)
+
+	v, _, _, _ := fieldMismatchTestVerifier(t, envelopeDID, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, vErr, &fme)
+	assert.Equal(t, "did", fme.Field)
+	assert.Equal(t, string(envelopeDID), fme.Envelope)
+	assert.Equal(t, string(innerDID), fme.Inner)
+	assert.Equal(t, envelopeDID, fme.DID)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.FieldMismatches)
+	assert.Equal(t, uint64(0), stats.SignatureFailures, "field check must short-circuit before signature verify")
+}
+
+// TestVerifyAndExpand_FieldMismatchVersion covers the spec MUST that
+// Sync 1.1 mandates commit version 3. A v2 commit on a 1.1 firehose
+// is a producer bug or a stale-data replay; we reject it outright.
+func TestVerifyAndExpand_FieldMismatchVersion(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:fmver1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v2"},
+	}})
+	// Rebuild the inner commit at version 2, re-signing so the
+	// signature would still validate if we let it through. Only the
+	// version check should reject this.
+	rebuildInnerCommit(t, commit, key, func(c *repo.Commit) {
+		c.Version = 2
+	})
+
+	v, _, _, _ := fieldMismatchTestVerifier(t, did, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, vErr, &fme)
+	assert.Equal(t, "version", fme.Field)
+	assert.Equal(t, "3", fme.Envelope)
+	assert.Equal(t, "2", fme.Inner)
+	assert.Equal(t, uint64(1), v.Stats().FieldMismatches)
+}
+
+// TestVerifyAndExpand_FieldMismatchPriorityVersionFirst documents the
+// helper's check ordering: when more than one field disagrees, version
+// is reported first. The ordering is part of the contract because
+// operators interpreting metrics by Field label rely on consistent
+// labeling for identical underlying conditions.
+func TestVerifyAndExpand_FieldMismatchPriorityVersionFirst(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:fmpri1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "x"},
+	}})
+	// Mutate envelope rev too — version + rev both mismatch the inner.
+	// Within the default future-rev tolerance.
+	commit.Rev = string(atmos.NewTIDFromTime(time.Now().Add(1*time.Minute), 0))
+	rebuildInnerCommit(t, commit, key, func(c *repo.Commit) {
+		c.Version = 2
+	})
+
+	v, _, _, _ := fieldMismatchTestVerifier(t, did, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, vErr, &fme)
+	assert.Equal(t, "version", fme.Field, "version takes priority over rev when both mismatch")
+}
+
+// TestVerifyAndExpand_FieldMismatchHappyPathUnchanged guards against a
+// regression where the new check spuriously rejects valid commits.
+// The standard happy-path commit (envelope and inner agree) must still
+// verify cleanly.
+func TestVerifyAndExpand_FieldMismatchHappyPathUnchanged(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:fmhappy1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "ok"},
+	}})
+
+	v, _, _, _ := fieldMismatchTestVerifier(t, did, key)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().FieldMismatches)
 }
 
 // TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the

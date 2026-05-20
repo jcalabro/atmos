@@ -222,6 +222,36 @@ func (e *ResyncFailedError) Error() string {
 
 func (e *ResyncFailedError) Unwrap() error { return e.Cause }
 
+// FieldMismatchError is returned when one or more fields in the
+// firehose #commit envelope disagree with the corresponding field in
+// the signed inner commit object (decoded from commit.Blocks). Per
+// Sync 1.1's validation checklist, outer fields MUST match the signed
+// commit; mismatches indicate a malformed PDS at best and a
+// misattribution attack at worst — an attacker controlling any PDS
+// can sign a valid commit for their own DID and wrap it in an
+// envelope claiming a victim's DID, which would otherwise pass
+// signature verification (the signature is over the inner commit) and
+// land in chain state under the wrong identity.
+//
+// Like SignatureError and FutureRevError, FieldMismatchError bypasses
+// VerifierPolicy: a resync against the same untrustworthy upstream
+// would return the same garbage. Chain state is NOT advanced.
+//
+// Field is one of "did", "rev", or "version". For "version" mismatches
+// we always require Sync 1.1's commit version 3; older versions are
+// rejected unconditionally.
+type FieldMismatchError struct {
+	DID     atmos.DID
+	Field   string // "did" | "rev" | "version"
+	Envelope string // value seen on the firehose envelope
+	Inner    string // value decoded from the signed commit block
+}
+
+func (e *FieldMismatchError) Error() string {
+	return fmt.Sprintf("sync: %s field mismatch for %s: envelope=%q inner=%q",
+		e.Field, e.DID, e.Envelope, e.Inner)
+}
+
 // FutureRevError is returned when a #commit or #sync event carries a
 // rev whose TID timestamp is more than [VerifierOptions.FutureRevTolerance]
 // ahead of the verifier's wall clock. Per the Sync 1.1 spec, future-
@@ -331,6 +361,11 @@ type VerifierStats struct {
 	// than the configured tolerance ahead of the verifier's wall clock.
 	// Spec-mandated rejection; bypasses policy.
 	FutureRevsRejected uint64
+
+	// FieldMismatches counts events whose firehose envelope fields
+	// (did/rev/version) disagreed with the corresponding fields in the
+	// signed inner commit. Spec-mandated rejection; bypasses policy.
+	FieldMismatches uint64
 }
 
 // VerifierOp is the operation shape the Verifier produces. It mirrors
@@ -446,6 +481,7 @@ type Verifier struct {
 	revReplaysDropped      atomic.Uint64
 	chainStateSaveFailures atomic.Uint64
 	futureRevsRejected     atomic.Uint64
+	fieldMismatches        atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -697,7 +733,53 @@ func (v *Verifier) Stats() VerifierStats {
 		RevReplaysDropped:      v.revReplaysDropped.Load(),
 		ChainStateSaveFailures: v.chainStateSaveFailures.Load(),
 		FutureRevsRejected:     v.futureRevsRejected.Load(),
+		FieldMismatches:        v.fieldMismatches.Load(),
 	}
+}
+
+// commitVersion is the only repo-commit version atmos accepts on the
+// firehose. Sync 1.1 mandates v3; older v2 commits exist in archived
+// data but should not appear on a 1.1-compliant subscribeRepos stream.
+const commitVersion = 3
+
+// checkCommitFields enforces the spec MUST that firehose envelope
+// fields agree with the signed inner commit. Returns a non-nil
+// [*FieldMismatchError] iff a mismatch is found, naming the first
+// offending field in the order: version, did, rev. Caller is
+// responsible for incrementing counters and invoking hooks.
+//
+// The version check is asymmetric: we don't compare envelope-vs-inner
+// (the envelope has no version field) — we just require the inner
+// commit's version to be the Sync-1.1 commitVersion. A v2 commit
+// surfaces as a "version" mismatch with envelope="3" so consumers see
+// a consistent error shape.
+func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *repo.Commit) *FieldMismatchError {
+	did := atmos.DID(envelope.Repo)
+	if inner.Version != commitVersion {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "version",
+			Envelope: fmt.Sprintf("%d", commitVersion),
+			Inner:    fmt.Sprintf("%d", inner.Version),
+		}
+	}
+	if inner.DID != envelope.Repo {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "did",
+			Envelope: envelope.Repo,
+			Inner:    inner.DID,
+		}
+	}
+	if inner.Rev != envelope.Rev {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "rev",
+			Envelope: envelope.Rev,
+			Inner:    inner.Rev,
+		}
+	}
+	return nil
 }
 
 // checkFutureRev tests whether rev's TID timestamp is more than the
@@ -948,6 +1030,19 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		v.inversionFailures.Add(1)
 		return v.handleVerificationFailure(ctx, did, commit, ReasonInversionFailure,
 			&InversionError{DID: did, Rev: commit.Rev, Cause: decErr})
+	}
+	// Outer/inner field consistency. Runs before signature verification:
+	// a relabeled envelope rev (e.g. to bypass our rev-replay drop) is
+	// cheaper to reject here than after a P-256 verify, and a "did" or
+	// "version" mismatch is a definite reject regardless of signature.
+	// Bypasses policy — a misbehaving upstream cannot be repaired by
+	// re-fetching from the same upstream.
+	if fmErr := checkCommitFields(commit, innerCommit); fmErr != nil {
+		v.fieldMismatches.Add(1)
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, fmErr)
+		}
+		return nil, fmErr
 	}
 	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
 		// Only count true signature mismatches (typed *SignatureError).
