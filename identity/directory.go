@@ -2,11 +2,11 @@ package identity
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"sync"
 
 	"github.com/jcalabro/atmos"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // identityCopy returns a shallow copy of id so callers cannot mutate cached entries.
@@ -35,7 +35,21 @@ type Directory struct {
 	Resolver Resolver
 	Cache    Cache // nil = no caching
 
-	flights sync.Map // map[string]*inflight
+	// flights coalesces in-progress lookups so concurrent callers
+	// requesting the same key share one resolver round-trip. Lazily
+	// initialized so &Directory{Resolver: ...} struct literals stay
+	// valid; flightMap returns the live map.
+	flightsOnce sync.Once
+	flights     *xsync.Map[string, *inflight]
+}
+
+// flightMap returns the lazily-initialized in-flight request coalesce
+// map, constructing it on first access.
+func (d *Directory) flightMap() *xsync.Map[string, *inflight] {
+	d.flightsOnce.Do(func() {
+		d.flights = xsync.NewMap[string, *inflight]()
+	})
+	return d.flights
 }
 
 // Lookup resolves an ATIdentifier (DID or handle) to a verified Identity.
@@ -157,12 +171,10 @@ func (d *Directory) cacheIdentity(ctx context.Context, id *Identity, handle atmo
 }
 
 func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Context) (*Identity, error)) (*Identity, error) {
+	flights := d.flightMap()
+
 	// Check for in-flight request.
-	if val, ok := d.flights.Load(key); ok {
-		f, ok := val.(*inflight)
-		if !ok {
-			return nil, fmt.Errorf("unexpected type in flights map")
-		}
+	if f, ok := flights.Load(key); ok {
 		select {
 		case <-f.done:
 			return identityCopy(f.id), f.err
@@ -172,16 +184,11 @@ func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Co
 	}
 
 	f := &inflight{done: make(chan struct{})}
-	actual, loaded := d.flights.LoadOrStore(key, f)
-	if loaded {
+	if actual, loaded := flights.LoadOrStore(key, f); loaded {
 		// Another goroutine won the race.
-		f, ok := actual.(*inflight)
-		if !ok {
-			return nil, fmt.Errorf("unexpected type in flights map")
-		}
 		select {
-		case <-f.done:
-			return identityCopy(f.id), f.err
+		case <-actual.done:
+			return identityCopy(actual.id), actual.err
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -190,6 +197,6 @@ func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Co
 	// We won — do the work.
 	f.id, f.err = fn(ctx)
 	close(f.done)
-	d.flights.Delete(key)
+	flights.Delete(key)
 	return f.id, f.err
 }

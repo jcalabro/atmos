@@ -9,6 +9,7 @@ require (
 	github.com/jcalabro/jttp v0.0.2
 	github.com/klauspost/compress v1.18.4
 	github.com/mr-tron/base58 v1.2.0
+	github.com/puzpuzpuz/xsync/v4 v4.5.0
 	github.com/rivo/uniseg v0.4.7
 	github.com/stretchr/testify v1.11.1
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b

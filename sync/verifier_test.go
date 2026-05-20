@@ -4045,8 +4045,8 @@ func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		// Reset state every iteration so the rev-replay gate stays
-		// open. SaveChain on MemStateStore is a sync.Map.Store — its
-		// cost is constant and small relative to the verification
+		// open. SaveChain on MemStateStore is an xsync.Map.Store —
+		// its cost is constant and small relative to the verification
 		// work, so it doesn't meaningfully pollute the measurement.
 		_ = cs.SaveChain(ctx, did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData})
 		ops, err := v.VerifyAndExpand(ctx, commit, nil)

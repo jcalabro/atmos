@@ -17,6 +17,7 @@ import (
 	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/gt"
+	"github.com/puzpuzpuz/xsync/v4"
 	"golang.org/x/time/rate"
 )
 
@@ -109,26 +110,26 @@ type StateStore interface {
 }
 
 // MemStateStore is an in-memory StateStore for tests and development.
-// State is lost on restart.
+// State is lost on restart. Construct via [NewMemStateStore]; the zero
+// value is unsafe.
 type MemStateStore struct {
-	chain   sync.Map // map[atmos.DID]ChainState
-	hosting sync.Map // map[atmos.DID]HostingState
+	chain   *xsync.Map[atmos.DID, ChainState]
+	hosting *xsync.Map[atmos.DID, HostingState]
 }
 
 // NewMemStateStore returns an empty MemStateStore.
 func NewMemStateStore() *MemStateStore {
-	return &MemStateStore{}
+	return &MemStateStore{
+		chain:   xsync.NewMap[atmos.DID, ChainState](),
+		hosting: xsync.NewMap[atmos.DID, HostingState](),
+	}
 }
 
 // LoadChain returns the chain state for did, or (nil, nil) if absent.
 func (s *MemStateStore) LoadChain(_ context.Context, did atmos.DID) (*ChainState, error) {
-	v, ok := s.chain.Load(did)
+	state, ok := s.chain.Load(did)
 	if !ok {
 		return nil, nil
-	}
-	state, ok := v.(ChainState)
-	if !ok {
-		panic("MemStateStore: stored chain value is not ChainState")
 	}
 	return &state, nil
 }
@@ -141,13 +142,9 @@ func (s *MemStateStore) SaveChain(_ context.Context, did atmos.DID, state ChainS
 
 // LoadHosting returns the hosting state for did, or (nil, nil) if absent.
 func (s *MemStateStore) LoadHosting(_ context.Context, did atmos.DID) (*HostingState, error) {
-	v, ok := s.hosting.Load(did)
+	state, ok := s.hosting.Load(did)
 	if !ok {
 		return nil, nil
-	}
-	state, ok := v.(HostingState)
-	if !ok {
-		panic("MemStateStore: stored hosting value is not HostingState")
 	}
 	return &state, nil
 }
@@ -779,10 +776,10 @@ type Verifier struct {
 
 	// per-DID serialization. Two events for the same DID never run
 	// through verification concurrently.
-	didMu sync.Map // map[atmos.DID]*sync.Mutex
+	didMu *xsync.Map[atmos.DID, *sync.Mutex]
 
 	// per-DID resync rate limiter. Lazy-initialized.
-	limiters sync.Map // map[atmos.DID]*rate.Limiter
+	limiters *xsync.Map[atmos.DID, *rate.Limiter]
 
 	eventsVerified         atomic.Uint64
 	chainBreaks            atomic.Uint64
@@ -832,7 +829,11 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	if !opts.Now.HasVal() {
 		opts.Now = gt.Some(time.Now)
 	}
-	return &Verifier{opts: opts}, nil
+	return &Verifier{
+		opts:     opts,
+		didMu:    xsync.NewMap[atmos.DID, *sync.Mutex](),
+		limiters: xsync.NewMap[atmos.DID, *rate.Limiter](),
+	}, nil
 }
 
 // lockDID acquires the per-DID mutex and returns an unlock function.
@@ -842,13 +843,7 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 // must not call lockDID(did) again, and helpers invoked under the
 // lock must not call back into lockDID for the same DID.
 func (v *Verifier) lockDID(did atmos.DID) func() {
-	val, _ := v.didMu.LoadOrStore(did, &sync.Mutex{})
-	mu, ok := val.(*sync.Mutex)
-	if !ok {
-		// Verifier is the sole writer of this map; a wrong-typed
-		// value indicates memory corruption.
-		panic("Verifier.lockDID: stored value is not *sync.Mutex")
-	}
+	mu, _ := v.didMu.LoadOrStore(did, &sync.Mutex{})
 	mu.Lock()
 	return mu.Unlock
 }
@@ -901,14 +896,8 @@ func (v *Verifier) verifyCommitSignature(ctx context.Context, did atmos.DID, c *
 // the per-DID rate limit. The limiter is lazy-initialized full to
 // ResyncBurst, so the first ResyncBurst calls succeed immediately.
 func (v *Verifier) allowResync(did atmos.DID) bool {
-	val, _ := v.limiters.LoadOrStore(did,
+	lim, _ := v.limiters.LoadOrStore(did,
 		rate.NewLimiter(v.opts.ResyncLimit.Val(), v.opts.ResyncBurst.Val()))
-	lim, ok := val.(*rate.Limiter)
-	if !ok {
-		// Verifier is the sole writer of this map; a wrong-typed
-		// value indicates memory corruption.
-		panic("Verifier.allowResync: stored value is not *rate.Limiter")
-	}
 	return lim.Allow()
 }
 
