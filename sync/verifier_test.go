@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	mathrand "math/rand"
-	"net/http"
-	"net/http/httptest"
 	stdsync "sync"
 	"testing"
 	"time"
@@ -19,9 +17,8 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
-	"github.com/jcalabro/atmos/mst"
+	"github.com/jcalabro/atmos/internal/testutil"
 	"github.com/jcalabro/atmos/repo"
-	"github.com/jcalabro/atmos/streaming"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -316,147 +313,6 @@ func TestNewVerifier_DoesNotMutateCallerOptions(t *testing.T) {
 // InvertCommit tests
 // ---------------------------------------------------------------------------
 
-// buildEmptyRepo returns a freshly created Repo and the CID of its
-// (empty) MST root. The empty MST has a well-defined root CID
-// regardless of which key signs it.
-func buildEmptyRepo(t *testing.T, did atmos.DID) (*repo.Repo, cbor.CID) {
-	t.Helper()
-	store := mst.NewMemBlockStore()
-	r := &repo.Repo{
-		DID:   did,
-		Clock: atmos.NewTIDClock(0),
-		Store: store,
-		Tree:  mst.NewTree(store),
-	}
-	rootCID, err := r.Tree.RootCID()
-	require.NoError(t, err)
-	return r, rootCID
-}
-
-// opAction describes a single mutation to apply during synthetic-commit
-// construction.
-type opAction struct {
-	action     streaming.Action // ActionCreate, ActionUpdate, ActionDelete
-	collection string
-	rkey       string
-	record     any // ignored for delete
-}
-
-// commitBuildResult is returned by buildAndStoreSignedCommit.
-type commitBuildResult struct {
-	cid cbor.CID
-	rev string
-}
-
-// buildAndStoreSignedCommit creates and signs a commit pointing at
-// rootCID, stores the encoded commit block in r.Store, and returns the
-// commit's CID + raw bytes + rev.
-func buildAndStoreSignedCommit(r *repo.Repo, key crypto.PrivateKey, rootCID cbor.CID) (commitBuildResult, error) {
-	rev := r.Clock.Next()
-	c := &repo.Commit{
-		DID:     string(r.DID),
-		Version: 3,
-		Data:    rootCID,
-		Rev:     string(rev),
-	}
-	if err := c.Sign(key); err != nil {
-		return commitBuildResult{}, err
-	}
-	data, err := c.EncodeCBOR()
-	if err != nil {
-		return commitBuildResult{}, err
-	}
-	cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
-	if err := r.Store.PutBlock(cid, data); err != nil {
-		return commitBuildResult{}, err
-	}
-	return commitBuildResult{cid: cid, rev: string(rev)}, nil
-}
-
-// buildSyntheticCommit applies opActions to r in order, then constructs
-// a synthetic SyncSubscribeRepos_Commit whose Blocks CAR contains the
-// post-state MST blocks plus all pre-state nodes the inverter will
-// need (i.e., everything currently in r.Store). The commit is signed
-// with key. PrevData is set to prevData.
-func buildSyntheticCommit(t *testing.T, r *repo.Repo, key crypto.PrivateKey, prevData cbor.CID, ops []opAction) *comatproto.SyncSubscribeRepos_Commit {
-	t.Helper()
-
-	// Capture pre-state record CIDs for update/delete ops before
-	// mutating the tree.
-	type prevSnap struct {
-		cid cbor.CID
-		had bool
-	}
-	prevSnaps := make([]prevSnap, len(ops))
-	for i, op := range ops {
-		if op.action == streaming.ActionUpdate || op.action == streaming.ActionDelete {
-			cid, _, err := r.Get(op.collection, op.rkey)
-			require.NoError(t, err, "pre-state Get %s/%s", op.collection, op.rkey)
-			prevSnaps[i] = prevSnap{cid: cid, had: true}
-		}
-	}
-
-	// Apply ops to the live tree.
-	postCIDs := make([]cbor.CID, len(ops)) // for create/update, the new record CID
-	for i, op := range ops {
-		switch op.action {
-		case streaming.ActionCreate, streaming.ActionUpdate:
-			require.NoError(t, r.Create(op.collection, op.rkey, op.record))
-			cid, _, err := r.Get(op.collection, op.rkey)
-			require.NoError(t, err)
-			postCIDs[i] = cid
-		case streaming.ActionDelete:
-			require.NoError(t, r.Delete(op.collection, op.rkey))
-		default:
-			t.Fatalf("unsupported op action %q", op.action)
-		}
-	}
-
-	// Compute the post-state root and persist all touched MST nodes.
-	postRoot, err := r.Tree.WriteBlocks(r.Store)
-	require.NoError(t, err)
-
-	// Build and store the signed commit block.
-	commitBlock, err := buildAndStoreSignedCommit(r, key, postRoot)
-	require.NoError(t, err)
-
-	// Write CAR. Iterate every block in r.Store; the inverter only
-	// strictly needs the nodes touched by the inverse path, but
-	// dumping the whole store is always sufficient.
-	memStore, ok := r.Store.(*mst.MemBlockStore)
-	require.True(t, ok, "test setup expected MemBlockStore")
-
-	var carBuf bytes.Buffer
-	cw, err := car.NewWriter(&carBuf, []cbor.CID{commitBlock.cid})
-	require.NoError(t, err)
-	for cid, data := range memStore.All() {
-		require.NoError(t, cw.WriteBlock(cid, data))
-	}
-
-	// Build the SyncSubscribeRepos_Commit.
-	c := &comatproto.SyncSubscribeRepos_Commit{
-		Repo:     string(r.DID),
-		Rev:      commitBlock.rev,
-		Commit:   lextypes.LexCIDLink{Link: commitBlock.cid.String()},
-		Blocks:   carBuf.Bytes(),
-		PrevData: gt.Some(lextypes.LexCIDLink{Link: prevData.String()}),
-	}
-	for i, op := range ops {
-		repoOp := comatproto.SyncSubscribeRepos_RepoOp{
-			Action: string(op.action),
-			Path:   op.collection + "/" + op.rkey,
-		}
-		if op.action != streaming.ActionDelete {
-			repoOp.CID = gt.Some(lextypes.LexCIDLink{Link: postCIDs[i].String()})
-		}
-		if prevSnaps[i].had {
-			repoOp.Prev = gt.Some(lextypes.LexCIDLink{Link: prevSnaps[i].cid.String()})
-		}
-		c.Ops = append(c.Ops, repoOp)
-	}
-	return c
-}
-
 func TestInvertCommit_SingleCreateOnEmptyMST(t *testing.T) {
 	t.Parallel()
 
@@ -464,12 +320,12 @@ func TestInvertCommit_SingleCreateOnEmptyMST(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, prevData := buildEmptyRepo(t, did)
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
-		action:     streaming.ActionCreate,
-		collection: "app.bsky.feed.post",
-		rkey:       "rec1",
-		record:     map[string]any{"text": "hello", "createdAt": "2024-01-01T00:00:00Z"},
+	r, prevData := testutil.BuildEmptyRepo(t, did)
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "hello", "createdAt": "2024-01-01T00:00:00Z"},
 	}})
 
 	got, err := sync.InvertCommit(commit)
@@ -488,16 +344,16 @@ func TestInvertCommit_MultiOp(t *testing.T) {
 
 	// Pre-state: r already has rec1 (so we can update it) and rec2
 	// (so we can delete it). Capture prevData after seeding.
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec2", map[string]any{"text": "doomed"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{
-		{action: streaming.ActionCreate, collection: "app.bsky.feed.post", rkey: "rec3", record: map[string]any{"text": "new"}},
-		{action: streaming.ActionUpdate, collection: "app.bsky.feed.post", rkey: "rec1", record: map[string]any{"text": "new"}},
-		{action: streaming.ActionDelete, collection: "app.bsky.feed.post", rkey: "rec2"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{
+		{Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec3", Record: map[string]any{"text": "new"}},
+		{Action: testutil.ActionUpdate, Collection: "app.bsky.feed.post", RKey: "rec1", Record: map[string]any{"text": "new"}},
+		{Action: testutil.ActionDelete, Collection: "app.bsky.feed.post", RKey: "rec2"},
 	})
 
 	got, err := sync.InvertCommit(commit)
@@ -513,8 +369,8 @@ func TestInvertCommit_EmptyOps(t *testing.T) {
 	did := atmos.DID("did:plc:empty")
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
-	r, prevData := buildEmptyRepo(t, did)
-	commit := buildSyntheticCommit(t, r, key, prevData, nil)
+	r, prevData := testutil.BuildEmptyRepo(t, did)
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, nil)
 
 	got, err := sync.InvertCommit(commit)
 	require.NoError(t, err)
@@ -532,16 +388,16 @@ func TestInvertCommit_MissingPrevOnRealCommit(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
-		action:     streaming.ActionUpdate,
-		collection: "app.bsky.feed.post",
-		rkey:       "rec1",
-		record:     map[string]any{"text": "v2"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v2"},
 	}})
 	// Drop the Prev field that the helper added.
 	commit.Ops[0].Prev = gt.None[lextypes.LexCIDLink]()
@@ -600,7 +456,7 @@ func TestInvertCommit_PropertyRandomOps(t *testing.T) {
 			require.NoError(t, err)
 
 			// Seed with 5 records so we have things to update/delete.
-			r, _ := buildEmptyRepo(t, did)
+			r, _ := testutil.BuildEmptyRepo(t, did)
 			for j := range 5 {
 				require.NoError(t, r.Create("app.bsky.feed.post",
 					fmt.Sprintf("seed%d", j),
@@ -620,7 +476,7 @@ func TestInvertCommit_PropertyRandomOps(t *testing.T) {
 			seed := int64(i*1000 + 1)
 			rng := mathrand.New(mathrand.NewSource(seed))
 			nOps := 1 + rng.Intn(10)
-			ops := make([]opAction, 0, nOps)
+			ops := make([]testutil.OpAction, 0, nOps)
 			seedKeys := []string{"seed0", "seed1", "seed2", "seed3", "seed4"}
 			deletedSeeds := make(map[string]struct{})
 			usedNewKeys := make(map[string]struct{})
@@ -649,11 +505,11 @@ func TestInvertCommit_PropertyRandomOps(t *testing.T) {
 						continue
 					}
 					usedNewKeys[rkey] = struct{}{}
-					ops = append(ops, opAction{
-						action:     streaming.ActionCreate,
-						collection: "app.bsky.feed.post",
-						rkey:       rkey,
-						record:     map[string]any{"text": rkey},
+					ops = append(ops, testutil.OpAction{
+						Action:     testutil.ActionCreate,
+						Collection: "app.bsky.feed.post",
+						RKey:       rkey,
+						Record:     map[string]any{"text": rkey},
 					})
 				case 1:
 					avail := availableSeeds()
@@ -661,11 +517,11 @@ func TestInvertCommit_PropertyRandomOps(t *testing.T) {
 						continue
 					}
 					target := avail[rng.Intn(len(avail))]
-					ops = append(ops, opAction{
-						action:     streaming.ActionUpdate,
-						collection: "app.bsky.feed.post",
-						rkey:       target,
-						record:     map[string]any{"text": "updated"},
+					ops = append(ops, testutil.OpAction{
+						Action:     testutil.ActionUpdate,
+						Collection: "app.bsky.feed.post",
+						RKey:       target,
+						Record:     map[string]any{"text": "updated"},
 					})
 				case 2:
 					avail := availableSeeds()
@@ -674,15 +530,15 @@ func TestInvertCommit_PropertyRandomOps(t *testing.T) {
 					}
 					target := avail[rng.Intn(len(avail))]
 					deletedSeeds[target] = struct{}{}
-					ops = append(ops, opAction{
-						action:     streaming.ActionDelete,
-						collection: "app.bsky.feed.post",
-						rkey:       target,
+					ops = append(ops, testutil.OpAction{
+						Action:     testutil.ActionDelete,
+						Collection: "app.bsky.feed.post",
+						RKey:       target,
 					})
 				}
 			}
 
-			commit := buildSyntheticCommit(t, r, key, prevData, ops)
+			commit := testutil.BuildSyntheticCommit(t, r, key, prevData, ops)
 			got, err := sync.InvertCommit(commit)
 			require.NoError(t, err)
 			assert.True(t, got.Equal(prevData), "iter %d: ops=%v got %s want %s", i, ops, got, prevData)
@@ -757,52 +613,6 @@ func TestVerifier_PerDIDLocking(t *testing.T) {
 	})
 }
 
-// trackingResolver returns canned DID documents. It also tracks how
-// many times each DID was resolved so we can assert key-rotation
-// logic. (Distinct from sync_test.go's fakeResolver which is single-DID
-// and doesn't track hits.)
-type trackingResolver struct {
-	docs        map[atmos.DID]*identity.DIDDocument
-	resolveHits map[atmos.DID]int
-	mu          stdsync.Mutex
-}
-
-func newTrackingResolver() *trackingResolver {
-	return &trackingResolver{
-		docs:        make(map[atmos.DID]*identity.DIDDocument),
-		resolveHits: make(map[atmos.DID]int),
-	}
-}
-
-func (f *trackingResolver) ResolveDID(_ context.Context, did atmos.DID) (*identity.DIDDocument, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.resolveHits[did]++
-	doc, ok := f.docs[did]
-	if !ok {
-		return nil, fmt.Errorf("not found: %s", did)
-	}
-	return doc, nil
-}
-
-func (f *trackingResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
-	return "", fmt.Errorf("not implemented")
-}
-
-// buildDIDDoc constructs a minimal DID document for did with the given
-// signing key as the "atproto" verification method.
-func buildDIDDoc(did atmos.DID, key crypto.PublicKey) *identity.DIDDocument {
-	return &identity.DIDDocument{
-		ID: string(did),
-		VerificationMethod: []identity.VerificationMethod{{
-			ID:                 string(did) + "#atproto",
-			Type:               "Multikey",
-			Controller:         string(did),
-			PublicKeyMultibase: key.Multibase(),
-		}},
-	}
-}
-
 func TestVerifier_VerifySignature_Success(t *testing.T) {
 	t.Parallel()
 
@@ -810,8 +620,8 @@ func TestVerifier_VerifySignature_Success(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -840,8 +650,8 @@ func TestVerifier_VerifySignature_KeyRotation(t *testing.T) {
 	newKey, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, oldKey.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, oldKey.PublicKey())
 	cache := identity.NewLRUCache(64, time.Hour)
 	dir := &identity.Directory{Resolver: resolver, Cache: cache}
 
@@ -850,7 +660,7 @@ func TestVerifier_VerifySignature_KeyRotation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now flip the resolver to return the new key.
-	resolver.docs[did] = buildDIDDoc(did, newKey.PublicKey())
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, newKey.PublicKey())
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
@@ -867,7 +677,7 @@ func TestVerifier_VerifySignature_KeyRotation(t *testing.T) {
 	// First verify should fail with the cached old key, then verifier
 	// purges and retries, getting the new key, and succeeds.
 	require.NoError(t, sync.VerifyCommitSignatureForTest(v, context.Background(), did, c))
-	assert.GreaterOrEqual(t, resolver.resolveHits[did], 2,
+	assert.GreaterOrEqual(t, resolver.ResolveHits[did], 2,
 		"expected at least one re-resolution after Purge")
 }
 
@@ -880,8 +690,8 @@ func TestVerifier_VerifySignature_PermanentFailure(t *testing.T) {
 	wrongKey, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, wrongKey.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, wrongKey.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -933,30 +743,6 @@ func TestVerifier_PerDIDRateLimiter(t *testing.T) {
 	assert.True(t, sync.AllowResyncForTest(v, other))
 }
 
-// newFakeSyncServer returns an *xrpc.Client whose GetRepo endpoint
-// returns the given CAR bytes for the matching DID.
-func newFakeSyncServer(t *testing.T, did atmos.DID, carBytes []byte) *xrpc.Client {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/xrpc/com.atproto.sync.getRepo":
-			if r.URL.Query().Get("did") != string(did) {
-				w.WriteHeader(404)
-				return
-			}
-			w.Header().Set("Content-Type", "application/vnd.ipld.car")
-			_, _ = w.Write(carBytes)
-		default:
-			w.WriteHeader(404)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return &xrpc.Client{
-		Host:  srv.URL,
-		Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
-	}
-}
-
 func TestVerifier_Resync_Success(t *testing.T) {
 	t.Parallel()
 
@@ -964,7 +750,7 @@ func TestVerifier_Resync_Success(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	for i := range 3 {
 		require.NoError(t, r.Create("app.bsky.feed.post",
 			fmt.Sprintf("rec%d", i), map[string]any{"text": fmt.Sprintf("rec%d", i)}))
@@ -972,9 +758,9 @@ func TestVerifier_Resync_Success(t *testing.T) {
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
 
-	xc := newFakeSyncServer(t, did, carBuf.Bytes())
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
@@ -1022,15 +808,15 @@ func TestVerifier_Resync_RateLimited(t *testing.T) {
 	did := atmos.DID("did:plc:rl1")
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "x",
 		map[string]any{"text": "x"}))
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
 
-	xc := newFakeSyncServer(t, did, carBuf.Bytes())
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
@@ -1066,15 +852,15 @@ func TestVerifier_Resync_BadSignatureFails(t *testing.T) {
 	wrongKey, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "x",
 		map[string]any{"text": "x"}))
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, signKey))
 
-	xc := newFakeSyncServer(t, did, carBuf.Bytes())
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, wrongKey.PublicKey()) // wrong key in DID doc
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, wrongKey.PublicKey()) // wrong key in DID doc
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
@@ -1118,7 +904,7 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
@@ -1127,8 +913,8 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	require.NoError(t, chainStore.Save(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -1141,11 +927,11 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
-		action:     streaming.ActionCreate,
-		collection: "app.bsky.feed.post",
-		rkey:       "rec2",
-		record:     map[string]any{"text": "v2"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec2",
+		Record:     map[string]any{"text": "v2"},
 	}})
 
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
@@ -1174,7 +960,7 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
@@ -1183,8 +969,8 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	require.NoError(t, chainStore.Save(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -1198,7 +984,7 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Zero-ops commit at a higher rev than the persisted state.
-	commit := buildSyntheticCommit(t, r, key, prevData, nil)
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, nil)
 
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, err)
@@ -1221,7 +1007,7 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	did := atmos.DID("did:plc:replay1")
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
@@ -1231,8 +1017,8 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	require.NoError(t, cs.Save(context.Background(), did,
 		sync.ChainState{Rev: highRev, Data: prevData}))
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -1243,11 +1029,11 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
-		action:     streaming.ActionUpdate,
-		collection: "app.bsky.feed.post",
-		rkey:       "rec1",
-		record:     map[string]any{"text": "replay"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "replay"},
 	}})
 	commit.Rev = "3aaaaaaaaaaaa" // low rev
 
@@ -1263,7 +1049,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 	did := atmos.DID("did:plc:cb1")
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
@@ -1273,8 +1059,8 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 	cs := sync.NewMemChainStore()
 	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	var failureCalled bool
@@ -1289,11 +1075,11 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
-		action:     streaming.ActionUpdate,
-		collection: "app.bsky.feed.post",
-		rkey:       "rec1",
-		record:     map[string]any{"text": "v2"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v2"},
 	}})
 
 	_, err = v.VerifyAndExpand(context.Background(), commit, nil)
@@ -1309,13 +1095,13 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	did := atmos.DID("did:plc:fresh1")
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
 	cs := sync.NewMemChainStore()
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -1326,11 +1112,11 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
-		action:     streaming.ActionCreate,
-		collection: "app.bsky.feed.post",
-		rkey:       "first",
-		record:     map[string]any{"text": "first"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "first",
+		Record:     map[string]any{"text": "first"},
 	}})
 
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
@@ -1349,7 +1135,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
 	realPrevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
@@ -1361,10 +1147,10 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
-	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
@@ -1378,11 +1164,11 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := buildSyntheticCommit(t, r, key, realPrevData, []opAction{{
-		action:     streaming.ActionUpdate,
-		collection: "app.bsky.feed.post",
-		rkey:       "x",
-		record:     map[string]any{"text": "y"},
+	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "x",
+		Record:     map[string]any{"text": "y"},
 	}})
 
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
@@ -1403,15 +1189,15 @@ func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) 
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	require.NoError(t, r.Create("app.bsky.feed.post", "x",
 		map[string]any{"text": "x"}))
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
 
-	xc := newFakeSyncServer(t, did, carBuf.Bytes())
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
@@ -1443,7 +1229,7 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	r, _ := buildEmptyRepo(t, did)
+	r, _ := testutil.BuildEmptyRepo(t, did)
 	for i := range 2 {
 		require.NoError(t, r.Create("app.bsky.feed.post",
 			fmt.Sprintf("rec%d", i), map[string]any{"text": "x"}))
@@ -1451,9 +1237,9 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
 
-	xc := newFakeSyncServer(t, did, carBuf.Bytes())
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
@@ -1493,8 +1279,8 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 	require.NoError(t, cs.Save(context.Background(), did,
 		sync.ChainState{Rev: "3zzzzzzzzzzzz", Data: someCID}))
 
-	resolver := newTrackingResolver()
-	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
