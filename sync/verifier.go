@@ -55,10 +55,6 @@ type ChainState struct {
 // Returning (nil, nil) from Load means "no state for this DID yet";
 // the verifier treats that as a first-sighting and accepts whatever
 // the next commit declares as ground truth, advancing state to it.
-//
-// Implementations MAY skip fsync per Save call: a crash that loses
-// recent saves is recovered by the verifier's rev-replay gate, which
-// silently drops re-delivered events whose rev <= the persisted rev.
 type ChainStore interface {
 	Load(ctx context.Context, did atmos.DID) (*ChainState, error)
 	Save(ctx context.Context, did atmos.DID, state ChainState) error
