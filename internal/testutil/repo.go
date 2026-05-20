@@ -79,7 +79,9 @@ func InnerCommitDataCID(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID,
 // BuildEmptyRepo returns a freshly created Repo and the CID of its
 // (empty) MST root. The empty MST has a well-defined root CID
 // regardless of which key signs it.
-func BuildEmptyRepo(t *testing.T, did atmos.DID) (*repo.Repo, cbor.CID) {
+//
+// Accepts testing.TB so benchmarks can reuse the helper.
+func BuildEmptyRepo(t testing.TB, did atmos.DID) (*repo.Repo, cbor.CID) {
 	t.Helper()
 	store := mst.NewMemBlockStore()
 	r := &repo.Repo{
@@ -123,7 +125,9 @@ func BuildAndStoreSignedCommit(r *repo.Repo, key crypto.PrivateKey, rootCID cbor
 // post-state MST blocks plus all pre-state nodes the inverter will
 // need (i.e., everything currently in r.Store). The commit is signed
 // with key. PrevData is set to prevData.
-func BuildSyntheticCommit(t *testing.T, r *repo.Repo, key crypto.PrivateKey, prevData cbor.CID, ops []OpAction) *comatproto.SyncSubscribeRepos_Commit {
+//
+// Accepts testing.TB so benchmarks can reuse the helper.
+func BuildSyntheticCommit(t testing.TB, r *repo.Repo, key crypto.PrivateKey, prevData cbor.CID, ops []OpAction) *comatproto.SyncSubscribeRepos_Commit {
 	t.Helper()
 
 	// Capture pre-state record CIDs for update/delete ops before

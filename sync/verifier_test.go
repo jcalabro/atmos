@@ -3417,3 +3417,70 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.InversionFailures)
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
+
+// BenchmarkVerifyAndExpand_HappyPath measures the per-event hot path
+// — a clean #commit that passes every gate (rev-replay, future-rev,
+// legacy detection, inversion, chain check, field consistency,
+// signature, op-CID consistency, state advance). The pre-state is a
+// synthetic ~50-record repo, representative of a small Bluesky
+// account; each iteration verifies an update of one record. Used to
+// quantify the savings from CAR-parse deduplication (B1) and to
+// guard against future regressions on the hot path.
+func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
+	did := atmos.DID("did:plc:bench1")
+	key, err := crypto.GenerateP256()
+	require.NoError(b, err)
+
+	r, _ := testutil.BuildEmptyRepo(b, did)
+	const seedRecords = 50
+	for i := range seedRecords {
+		require.NoError(b, r.Create("app.bsky.feed.post",
+			fmt.Sprintf("rec%d", i), map[string]any{"text": fmt.Sprintf("v%d", i)}))
+	}
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(b, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	cs := sync.NewMemChainStore()
+	require.NoError(b, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(b, err)
+
+	// Build one representative commit and reuse its bytes per
+	// iteration. Each iter resets state to the seeded value before
+	// verifying so the rev-replay drop never trips.
+	commit := testutil.BuildSyntheticCommit(b, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec0",
+		Record:     map[string]any{"text": "updated"},
+	}})
+
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		// Reset state every iteration so the rev-replay gate stays
+		// open. Save() on MemChainStore is a sync.Map.Store — its
+		// cost is constant and small relative to the verification
+		// work, so it doesn't meaningfully pollute the measurement.
+		_ = cs.Save(ctx, did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData})
+		ops, err := v.VerifyAndExpand(ctx, commit, nil)
+		if err != nil {
+			b.Fatalf("verify: %v", err)
+		}
+		if len(ops) != 1 {
+			b.Fatalf("expected 1 op, got %d", len(ops))
+		}
+	}
+}
