@@ -697,3 +697,251 @@ func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error
 func cidFromLink(link lextypes.LexCIDLink) (cbor.CID, error) {
 	return cbor.ParseCIDString(link.Link)
 }
+
+// VerifyAndExpand runs Sync 1.1 verification on a single firehose
+// event. Called by the streaming layer once per #commit or #sync
+// event before the event reaches the consumer's batch.
+//
+// Exactly one of commitEvt or syncEvt should be non-nil per call;
+// passing both nil is a no-op returning (nil, nil). The split
+// signature avoids a streaming->sync->streaming import cycle: the
+// streaming layer already has the decoded `evt.Commit` and `evt.Sync`
+// fields available and passes them in directly.
+//
+// Returns the operations the consumer should observe, or:
+//   - (nil, nil) for silent drops (rev replay).
+//   - (nil, *ChainBreakError|*InversionError|*SignatureError|*ResyncFailedError|*ResyncRateLimitedError)
+//     under PolicyError, or for failures even PolicyResync can't recover from.
+//
+// Under PolicyResync, chain breaks and inversion failures trigger
+// transparent resync; only resync failures or signature failures
+// reach the consumer.
+func (v *Verifier) VerifyAndExpand(
+	ctx context.Context,
+	commitEvt *comatproto.SyncSubscribeRepos_Commit,
+	syncEvt *comatproto.SyncSubscribeRepos_Sync,
+) ([]VerifierOp, error) {
+	if commitEvt != nil {
+		return v.verifyCommit(ctx, commitEvt)
+	}
+	if syncEvt != nil {
+		return v.verifySync(ctx, syncEvt)
+	}
+	return nil, nil
+}
+
+// verifyCommit handles the #commit branch of VerifyAndExpand: parses
+// the DID, takes the per-DID lock, runs rev-replay/inversion/chain
+// checks, signature checks, and on success advances chain state and
+// emits per-op VerifierOp values.
+func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubscribeRepos_Commit) ([]VerifierOp, error) {
+	did, err := atmos.ParseDID(commit.Repo)
+	if err != nil {
+		return nil, fmt.Errorf("verifier: invalid DID %q: %w", commit.Repo, err)
+	}
+
+	unlock := v.lockDID(did)
+	defer unlock()
+
+	state, err := v.opts.ChainStore.Load(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("verifier: load chain state: %w", err)
+	}
+
+	// Rev-replay drop: any commit at or below the persisted rev is a
+	// re-delivery (or out-of-order) and silently dropped.
+	if state != nil && commit.Rev <= state.Rev {
+		v.revReplaysDropped.Add(1)
+		return nil, nil
+	}
+
+	// Inversion + chain check (only meaningful when state is non-nil).
+	var inverted cbor.CID
+	if state != nil {
+		inverted, err = InvertCommit(commit)
+		if err != nil {
+			v.inversionFailures.Add(1)
+			return v.handleVerificationFailure(ctx, did, commit, ReasonInversionFailure, err)
+		}
+
+		var prevDataCID cbor.CID
+		if commit.PrevData.HasVal() {
+			prevDataCID, _ = cidFromLink(commit.PrevData.Val())
+		}
+		// Both the inverted post-state and the commit's declared
+		// prevData must agree with locally-tracked state. Either one
+		// disagreeing is a chain break.
+		if !inverted.Equal(state.Data) || !prevDataCID.Equal(state.Data) {
+			v.chainBreaks.Add(1)
+			cbErr := &ChainBreakError{
+				DID:          did,
+				SeenRev:      state.Rev,
+				SeenData:     state.Data,
+				GotRev:       commit.Rev,
+				GotPrevData:  prevDataCID,
+				InvertedData: inverted,
+			}
+			return v.handleVerificationFailure(ctx, did, commit, ReasonChainBreak, cbErr)
+		}
+	}
+
+	// Decode commit block + signature check. We need the decoded
+	// commit both to verify the signature and to advance chain state.
+	// The store returned here is reused by buildOpsFromCommit below to
+	// avoid re-parsing the CAR on every accepted commit.
+	innerCommit, store, decErr := decodeCommitFromCAR(commit)
+	if decErr != nil {
+		v.inversionFailures.Add(1)
+		return v.handleVerificationFailure(ctx, did, commit, ReasonInversionFailure,
+			&InversionError{DID: did, Rev: commit.Rev, Cause: decErr})
+	}
+	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
+		v.signatureFailures.Add(1)
+		var sigErr *SignatureError
+		if errors.As(err, &sigErr) {
+			if v.opts.OnVerificationFailure != nil {
+				v.opts.OnVerificationFailure(did, sigErr)
+			}
+			return nil, sigErr
+		}
+		// Non-typed (e.g. resolver network error) — wrap and return.
+		return nil, fmt.Errorf("verifier: signature verification: %w", err)
+	}
+
+	// Success: build verified ops, advance state.
+	ops, err := buildOpsFromCommit(commit, store)
+	if err != nil {
+		v.inversionFailures.Add(1)
+		return v.handleVerificationFailure(ctx, did, commit, ReasonInversionFailure,
+			&InversionError{DID: did, Rev: commit.Rev, Cause: err})
+	}
+	if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: innerCommit.Data}); err != nil {
+		return nil, fmt.Errorf("verifier: save chain state: %w", err)
+	}
+	v.eventsVerified.Add(1)
+	return ops, nil
+}
+
+// decodeCommitFromCAR loads the commit's CAR diff, looks up the
+// commit block by commit.Commit's CID, and decodes it into a
+// *repo.Commit. Used both for signature verification and for
+// extracting the post-state MST data CID.
+//
+// Also returns the parsed block store so callers that subsequently
+// need the CAR's record blocks (e.g. buildOpsFromCommit) can reuse it
+// rather than parsing the CAR a second time.
+func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Commit, *mst.MemBlockStore, error) {
+	commitCID, err := cidFromLink(commit.Commit)
+	if err != nil {
+		return nil, nil, fmt.Errorf("commit CID: %w", err)
+	}
+	store, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(commit.Blocks))
+	if err != nil {
+		return nil, nil, fmt.Errorf("read CAR: %w", err)
+	}
+	data, err := store.GetBlock(commitCID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("commit block missing from CAR: %w", err)
+	}
+	c, err := repo.DecodeCommitCBOR(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c, store, nil
+}
+
+// buildOpsFromCommit decodes the commit's ops list into VerifierOp
+// values. For non-delete ops with a CID, the corresponding record
+// block is pulled from the CAR diff if present; missing blocks are
+// not an error here (deletes legitimately have no CID, and partial
+// CARs may legitimately omit blocks the consumer doesn't need).
+//
+// store must be the block store returned by decodeCommitFromCAR for
+// this same commit. Reusing the pre-parsed store avoids the per-event
+// cost of re-parsing the CAR.
+func buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst.MemBlockStore) ([]VerifierOp, error) {
+	if len(commit.Ops) == 0 {
+		return nil, nil
+	}
+	ops := make([]VerifierOp, 0, len(commit.Ops))
+	for _, op := range commit.Ops {
+		col, rkey := splitKey(op.Path)
+		o := VerifierOp{
+			Action:     op.Action,
+			Collection: col,
+			RKey:       rkey,
+			Repo:       commit.Repo,
+			Rev:        commit.Rev,
+		}
+		if op.CID.HasVal() {
+			cid, err := cidFromLink(op.CID.Val())
+			if err != nil {
+				return nil, fmt.Errorf("op %s: parse CID: %w", op.Path, err)
+			}
+			o.CID = cid.Bytes()
+			if data, err := store.GetBlock(cid); err == nil {
+				o.BlockData = data
+			}
+		}
+		ops = append(ops, o)
+	}
+	return ops, nil
+}
+
+// handleVerificationFailure dispatches a chain-break or inversion
+// failure per the verifier's policy. Caller must hold the per-DID
+// mutex.
+//
+// Always invokes OnVerificationFailure with the original typed error
+// before consulting policy — consumers see every break, regardless of
+// whether the verifier subsequently repairs it via resync.
+//
+// PolicyError advances state to the offending commit's (rev, data)
+// so we don't perpetually re-report the same break for re-deliveries.
+// If the commit is malformed enough that we can't decode its data
+// CID, we skip the advance — a malformed commit can't be replayed
+// identically and we'd rather leave state untouched than corrupt it.
+func (v *Verifier) handleVerificationFailure(
+	ctx context.Context,
+	did atmos.DID,
+	commit *comatproto.SyncSubscribeRepos_Commit,
+	reason ResyncReason,
+	origErr error,
+) ([]VerifierOp, error) {
+	if v.opts.OnVerificationFailure != nil {
+		v.opts.OnVerificationFailure(did, origErr)
+	}
+	switch v.opts.Policy {
+	case PolicyResync:
+		ops, rerr := v.resync(ctx, did, reason)
+		if rerr != nil {
+			return nil, rerr
+		}
+		return ops, nil
+	case PolicyError:
+		if dataCID := dataCIDFromCommit(commit); dataCID.Defined() {
+			_ = v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID})
+		}
+		return nil, origErr
+	default:
+		return nil, fmt.Errorf("verifier: unknown policy %v", v.opts.Policy)
+	}
+}
+
+// dataCIDFromCommit returns the post-state MST root CID by decoding
+// the commit block from the CAR. Returns the zero CID if any step
+// fails — used by handleVerificationFailure when we may already be
+// looking at a malformed commit.
+func dataCIDFromCommit(commit *comatproto.SyncSubscribeRepos_Commit) cbor.CID {
+	c, _, err := decodeCommitFromCAR(commit)
+	if err != nil {
+		return cbor.CID{}
+	}
+	return c.Data
+}
+
+// verifySync handles the #sync branch of VerifyAndExpand. Implemented
+// in Task 12; for now the firehose event router refuses to dispatch.
+func (v *Verifier) verifySync(_ context.Context, _ *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
+	return nil, fmt.Errorf("verifier: #sync handling not yet implemented")
+}

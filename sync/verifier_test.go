@@ -1107,6 +1107,243 @@ func (s *failingChainStore) Delete(ctx context.Context, did atmos.DID) error {
 	return s.real.Delete(ctx, did)
 }
 
+// ---------------------------------------------------------------------------
+// VerifyAndExpand (#commit)
+// ---------------------------------------------------------------------------
+
+func TestVerifyAndExpand_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:happy1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	chainStore := sync.NewMemChainStore()
+	require.NoError(t, chainStore.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:   dir,
+		ChainStore:  chainStore,
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
+		action:     streaming.ActionCreate,
+		collection: "app.bsky.feed.post",
+		rkey:       "rec2",
+		record:     map[string]any{"text": "v2"},
+	}})
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	require.Len(t, ops, 1)
+	assert.Equal(t, "create", ops[0].Action)
+	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
+	assert.Equal(t, "rec2", ops[0].RKey)
+
+	state, err := chainStore.Load(context.Background(), did)
+	require.NoError(t, err)
+	assert.Equal(t, commit.Rev, state.Rev)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.EventsVerified)
+}
+
+func TestVerifyAndExpand_RevReplay(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:replay1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	highRev := "3zzzzzzzzzzzz"
+	require.NoError(t, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: highRev, Data: prevData}))
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
+		action:     streaming.ActionUpdate,
+		collection: "app.bsky.feed.post",
+		rkey:       "rec1",
+		record:     map[string]any{"text": "replay"},
+	}})
+	commit.Rev = "3aaaaaaaaaaaa" // low rev
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	assert.Nil(t, ops, "rev replay should drop silently")
+	assert.Equal(t, uint64(1), v.Stats().RevReplaysDropped)
+}
+
+func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:cb1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	var failureCalled bool
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     sync.PolicyError,
+		OnVerificationFailure: func(_ atmos.DID, _ error) {
+			failureCalled = true
+		},
+	})
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
+		action:     streaming.ActionUpdate,
+		collection: "app.bsky.feed.post",
+		rkey:       "rec1",
+		record:     map[string]any{"text": "v2"},
+	}})
+
+	_, err = v.VerifyAndExpand(context.Background(), commit, nil)
+	var cb *sync.ChainBreakError
+	require.ErrorAs(t, err, &cb)
+	assert.True(t, failureCalled)
+	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
+}
+
+func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:fresh1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	r, _ := buildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
+		action:     streaming.ActionCreate,
+		collection: "app.bsky.feed.post",
+		rkey:       "first",
+		record:     map[string]any{"text": "first"},
+	}})
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	assert.Len(t, ops, 1)
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, commit.Rev, state.Rev)
+}
+
+func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:cbres1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	realPrevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, realPrevData, []opAction{{
+		action:     streaming.ActionUpdate,
+		collection: "app.bsky.feed.post",
+		rkey:       "x",
+		record:     map[string]any{"text": "y"},
+	}})
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	require.Greater(t, len(ops), 0)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.ChainBreaks)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
 func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) {
 	t.Parallel()
 
