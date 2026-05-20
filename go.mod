@@ -12,6 +12,7 @@ require (
 	github.com/rivo/uniseg v0.4.7
 	github.com/stretchr/testify v1.11.1
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b
+	golang.org/x/time v0.15.0
 )
 
 require (

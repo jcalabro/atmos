@@ -173,3 +173,28 @@ func TestResyncReason_String(t *testing.T) {
 	assert.Equal(t, "sync_event", sync.ReasonSyncEvent.String())
 	assert.Equal(t, "unknown_reason(99)", sync.ResyncReason(99).String())
 }
+
+func TestVerifierPolicy_String(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "resync", sync.PolicyResync.String())
+	assert.Equal(t, "error", sync.PolicyError.String())
+	assert.Equal(t, "unknown_policy(99)", sync.VerifierPolicy(99).String())
+}
+
+func TestVerifierOptions_ZeroValuePolicyIsResync(t *testing.T) {
+	t.Parallel()
+	var o sync.VerifierOptions
+	assert.Equal(t, sync.PolicyResync, o.Policy)
+}
+
+func TestVerifierStatsZero(t *testing.T) {
+	t.Parallel()
+	var s sync.VerifierStats
+	assert.Equal(t, uint64(0), s.EventsVerified)
+	assert.Equal(t, uint64(0), s.ChainBreaks)
+	assert.Equal(t, uint64(0), s.Resyncs)
+	assert.Equal(t, uint64(0), s.InversionFailures)
+	assert.Equal(t, uint64(0), s.SignatureFailures)
+	assert.Equal(t, uint64(0), s.ResyncFailures)
+	assert.Equal(t, uint64(0), s.RevReplaysDropped)
+}
