@@ -14,6 +14,7 @@ import (
 	"github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/internal/lru"
 	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/gt"
@@ -32,6 +33,24 @@ const (
 // lead wall clock before the event is rejected as future-dated.
 // Matches indigo's relay (cmd/relay/relay/verify.go futureRevTolerance).
 const DefaultFutureRevTolerance = 5 * time.Minute
+
+// DefaultMutexCapacity bounds the per-DID serialization-mutex cache.
+// Pinned entries (i.e. mutexes currently held) are never evicted, so
+// the cache may transiently exceed this watermark under burst.
+//
+// Sized to comfortably accommodate the concurrency level of a busy
+// firehose consumer: a few thousand simultaneously-active DIDs
+// without churn, with eviction kicking in for the long tail. Tunable
+// via VerifierOptions.MutexCapacity.
+const DefaultMutexCapacity = 4096
+
+// DefaultLimiterCapacity bounds the per-DID resync-rate-limiter
+// cache. Larger than DefaultMutexCapacity because limiter lifetime
+// extends beyond a single event: a DID's token-bucket state is
+// remembered as long as the entry stays in cache, so a more generous
+// cap reduces the chance that a DID returning to activity loses its
+// (mostly-empty) bucket. Tunable via VerifierOptions.LimiterCapacity.
+const DefaultLimiterCapacity = 16384
 
 // Spec-mandated resource bounds on #commit events. Match indigo's
 // MaxMessageBlocksBytes and MaxCommitOps in cmd/relay/relay/verify.go.
@@ -762,6 +781,18 @@ type VerifierOptions struct {
 	// Invoked synchronously while the per-DID mutex is held; keep
 	// the callback fast or hand off to a worker.
 	OnAccountEvent gt.Option[func(did atmos.DID, state HostingState)]
+
+	// MutexCapacity bounds the per-DID serialization-mutex cache.
+	// None or zero → DefaultMutexCapacity. Currently-held mutexes
+	// veto eviction, so the cache may transiently exceed this value
+	// under burst.
+	MutexCapacity gt.Option[int]
+
+	// LimiterCapacity bounds the per-DID resync-rate-limiter cache.
+	// None or zero → DefaultLimiterCapacity. Eviction loses an
+	// inactive DID's token-bucket state — its next resync gets a
+	// fresh full bucket, equivalent to a long-quiet account.
+	LimiterCapacity gt.Option[int]
 }
 
 // Verifier performs Sync 1.1 verification of firehose events. Safe
@@ -775,11 +806,15 @@ type Verifier struct {
 	opts VerifierOptions
 
 	// per-DID serialization. Two events for the same DID never run
-	// through verification concurrently.
-	didMu *xsync.Map[atmos.DID, *sync.Mutex]
+	// through verification concurrently. Bounded by MutexCapacity;
+	// pinning vetoes eviction of currently-held mutexes (see
+	// internal/lru).
+	didMu *lru.Cache[atmos.DID, *sync.Mutex]
 
-	// per-DID resync rate limiter. Lazy-initialized.
-	limiters *xsync.Map[atmos.DID, *rate.Limiter]
+	// per-DID resync rate limiter. Bounded by LimiterCapacity. No
+	// pinning — an evicted limiter just loses its token-bucket state,
+	// equivalent to a long-quiet DID.
+	limiters *lru.Cache[atmos.DID, *rate.Limiter]
 
 	eventsVerified         atomic.Uint64
 	chainBreaks            atomic.Uint64
@@ -829,23 +864,38 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	if !opts.Now.HasVal() {
 		opts.Now = gt.Some(time.Now)
 	}
+	mutexCap := opts.MutexCapacity.ValOr(DefaultMutexCapacity)
+	if mutexCap <= 0 {
+		mutexCap = DefaultMutexCapacity
+	}
+	limiterCap := opts.LimiterCapacity.ValOr(DefaultLimiterCapacity)
+	if limiterCap <= 0 {
+		limiterCap = DefaultLimiterCapacity
+	}
 	return &Verifier{
 		opts:     opts,
-		didMu:    xsync.NewMap[atmos.DID, *sync.Mutex](),
-		limiters: xsync.NewMap[atmos.DID, *rate.Limiter](),
+		didMu:    lru.New[atmos.DID, *sync.Mutex](mutexCap, 0),
+		limiters: lru.New[atmos.DID, *rate.Limiter](limiterCap, 0),
 	}, nil
 }
 
 // lockDID acquires the per-DID mutex and returns an unlock function.
-// The mutex is lazy-initialized via LoadOrStore.
+// The mutex is lazy-initialized via the LRU cache and pinned for the
+// duration of the lock so eviction can't replace it underneath us
+// (which would let two callers each acquire a distinct mutex for the
+// same DID, breaking serialization). The unlock function unpins,
+// making the entry eligible for eviction once nobody else holds it.
 //
 // Non-reentrant. A goroutine already holding the per-DID lock for did
 // must not call lockDID(did) again, and helpers invoked under the
 // lock must not call back into lockDID for the same DID.
 func (v *Verifier) lockDID(did atmos.DID) func() {
-	mu, _ := v.didMu.LoadOrStore(did, &sync.Mutex{})
+	mu, _ := v.didMu.PinOrAdd(did, func() *sync.Mutex { return &sync.Mutex{} })
 	mu.Lock()
-	return mu.Unlock
+	return func() {
+		mu.Unlock()
+		v.didMu.Unpin(did)
+	}
 }
 
 // verifyCommitSignature looks up the DID's signing key, verifies the
@@ -895,9 +945,14 @@ func (v *Verifier) verifyCommitSignature(ctx context.Context, did atmos.DID, c *
 // allowResync reports whether a resync for did is permitted under
 // the per-DID rate limit. The limiter is lazy-initialized full to
 // ResyncBurst, so the first ResyncBurst calls succeed immediately.
+//
+// The limiter cache is bounded by LimiterCapacity; an evicted entry's
+// next call gets a fresh limiter (equivalent to a long-quiet DID
+// returning to activity).
 func (v *Verifier) allowResync(did atmos.DID) bool {
-	lim, _ := v.limiters.LoadOrStore(did,
-		rate.NewLimiter(v.opts.ResyncLimit.Val(), v.opts.ResyncBurst.Val()))
+	lim, _ := v.limiters.GetOrAdd(did, func() *rate.Limiter {
+		return rate.NewLimiter(v.opts.ResyncLimit.Val(), v.opts.ResyncBurst.Val())
+	})
 	return lim.Allow()
 }
 

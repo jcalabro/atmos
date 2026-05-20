@@ -23,3 +23,11 @@ func AllowResyncForTest(v *Verifier, did atmos.DID) bool {
 func VerifyCommitSignatureForTest(v *Verifier, ctx context.Context, did atmos.DID, c *repo.Commit) error {
 	return v.verifyCommitSignature(ctx, did, c)
 }
+
+// MutexCacheLen returns the live size of the per-DID mutex cache.
+// Test-only.
+func MutexCacheLen(v *Verifier) int { return v.didMu.Len() }
+
+// LimiterCacheLen returns the live size of the per-DID limiter cache.
+// Test-only.
+func LimiterCacheLen(v *Verifier) int { return v.limiters.Len() }

@@ -742,6 +742,117 @@ func TestVerifier_PerDIDRateLimiter(t *testing.T) {
 	assert.True(t, sync.AllowResyncForTest(v, other))
 }
 
+// TestVerifier_MutexCacheBounded asserts the per-DID mutex map honors
+// MutexCapacity: after touching far more DIDs than the cap, the map
+// settles at the watermark rather than growing unboundedly. This is
+// the headline fix for review issue #3 (per-DID maps growing forever).
+func TestVerifier_MutexCacheBounded(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:     dir,
+		StateStore:    sync.NewMemStateStore(),
+		Policy:        gt.Some(sync.PolicyError),
+		MutexCapacity: gt.Some(8),
+	})
+	require.NoError(t, err)
+
+	for i := range 100 {
+		did := atmos.DID(fmt.Sprintf("did:plc:bounded%d", i))
+		// Acquire then immediately release so each entry is unpinned
+		// after the call. Without unpinning, soft-overflow would let
+		// the map grow past the cap.
+		unlock := sync.LockDIDForTest(v, did)
+		unlock()
+	}
+
+	assert.LessOrEqual(t, sync.MutexCacheLen(v), 8,
+		"cache must honor MutexCapacity once entries are unpinned")
+	assert.Equal(t, 8, sync.MutexCacheLen(v),
+		"cache should be at watermark after eviction settles")
+}
+
+// TestVerifier_HeldMutexNotEvicted is the safety property: a mutex
+// currently held by one goroutine MUST NOT be evicted, because eviction
+// would let a second goroutine acquire a fresh mutex for the same DID
+// and break the per-DID serialization guarantee. This test pins the
+// LRU at capacity by leaving one mutex held while exhausting capacity
+// with cycled entries; reacquiring the held DID's lock must recover
+// the same mutex (the second acquire must block on the first).
+func TestVerifier_HeldMutexNotEvicted(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:     dir,
+		StateStore:    sync.NewMemStateStore(),
+		Policy:        gt.Some(sync.PolicyError),
+		MutexCapacity: gt.Some(2),
+	})
+	require.NoError(t, err)
+
+	pinned := atmos.DID("did:plc:pinned")
+	unlockPinned := sync.LockDIDForTest(v, pinned)
+
+	// Touch many other DIDs to force eviction pressure. Each of these
+	// is unpinned by the time we move on, so the cache can recycle
+	// their slots — but must NOT recycle "pinned"'s slot.
+	for i := range 100 {
+		did := atmos.DID(fmt.Sprintf("did:plc:churn%d", i))
+		unlock := sync.LockDIDForTest(v, did)
+		unlock()
+	}
+
+	// Try to acquire pinned's mutex from another goroutine. If
+	// eviction had replaced it with a fresh mutex, this would acquire
+	// immediately. If the original mutex survived (correct), this
+	// goroutine must block until we release.
+	got := make(chan struct{})
+	go func() {
+		unlock := sync.LockDIDForTest(v, pinned)
+		unlock()
+		close(got)
+	}()
+
+	select {
+	case <-got:
+		t.Fatal("second lockDID returned while the first was still held — held mutex was evicted")
+	case <-time.After(50 * time.Millisecond):
+		// good: the second goroutine is blocked, proving the same mutex was returned.
+	}
+
+	unlockPinned()
+	<-got // now the second goroutine completes
+}
+
+// TestVerifier_LimiterCacheBounded mirrors MutexCacheBounded for the
+// limiter side. Limiters don't pin (eviction loses bucket state, which
+// is policy-acceptable for an inactive DID), so growth is strictly
+// capped at LimiterCapacity.
+func TestVerifier_LimiterCacheBounded(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:       dir,
+		StateStore:      sync.NewMemStateStore(),
+		Policy:          gt.Some(sync.PolicyError),
+		LimiterCapacity: gt.Some(8),
+		ResyncLimit:     gt.Some(rate.Limit(0.001)),
+		ResyncBurst:     gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	for i := range 100 {
+		did := atmos.DID(fmt.Sprintf("did:plc:lim%d", i))
+		_ = sync.AllowResyncForTest(v, did)
+	}
+
+	assert.Equal(t, 8, sync.LimiterCacheLen(v),
+		"limiter cache must honor LimiterCapacity")
+}
+
 func TestVerifier_Resync_Success(t *testing.T) {
 	t.Parallel()
 
