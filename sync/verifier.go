@@ -124,6 +124,12 @@ const (
 	// resync — not a verification failure on our end, just a PDS
 	// telling us its repo state changed out of band.
 	ReasonSyncEvent
+
+	// ReasonLegacyCommit indicates an upstream emitted a Sync-1.0-shape
+	// commit (no prevData; no op.Prev on update/delete ops) on the 1.1
+	// firehose. Distinct from ReasonChainBreak so operators can tell
+	// "non-compliant upstream" apart from genuine chain corruption.
+	ReasonLegacyCommit
 )
 
 // String returns a stable name for use in error messages and metrics labels.
@@ -135,6 +141,8 @@ func (r ResyncReason) String() string {
 		return "inversion_failure"
 	case ReasonSyncEvent:
 		return "sync_event"
+	case ReasonLegacyCommit:
+		return "legacy_commit"
 	default:
 		return fmt.Sprintf("unknown_reason(%d)", r)
 	}
@@ -221,6 +229,39 @@ func (e *ResyncFailedError) Error() string {
 }
 
 func (e *ResyncFailedError) Unwrap() error { return e.Cause }
+
+// LegacyCommitError is returned when a #commit looks like a Sync-1.0
+// shape commit on a Sync-1.1 firehose: prevData is absent AND no
+// update/delete op carries the new `prev` field. The producer is most
+// likely a PDS that hasn't been upgraded for 1.1 yet, or has a known
+// regression — the event is structurally valid by 1.0 rules but the
+// 1.1 chain-validation invariants we depend on (prevData equality,
+// MST inversion via op.Prev) cannot be checked.
+//
+// We surface this as a distinct typed error rather than letting it
+// fall through to InversionError ("missing prev CID") so operators
+// can build dashboards distinguishing "non-compliant 1.1 upstream"
+// from "actively malformed commit." The recovery is identical to a
+// chain break: under PolicyResync the verifier transparently
+// re-fetches via getRepo (Reason: ReasonLegacyCommit); under
+// PolicyError this typed error surfaces.
+//
+// Not fired on first sighting (state == nil). With no prior chain
+// state, prevData absence alone is not a reliable legacy signal — a
+// well-formed 1.1 producer simply doesn't have a previous commit to
+// reference. The first-sighting accept path is unchanged here; A4
+// in the tracker handles that case separately.
+type LegacyCommitError struct {
+	DID      atmos.DID
+	Rev      string
+	SeenRev  string   // last accepted rev for this DID
+	SeenData cbor.CID // last accepted data CID for this DID
+}
+
+func (e *LegacyCommitError) Error() string {
+	return fmt.Sprintf("sync: legacy 1.0-shape commit for %s rev=%s (seen rev=%s data=%s)",
+		e.DID, e.Rev, e.SeenRev, e.SeenData)
+}
 
 // OpCIDMismatchError is returned when a commit's ops list claims
 // CIDs (or absences) that disagree with the post-state MST. Per the
@@ -420,6 +461,14 @@ type VerifierStats struct {
 	// path present). Routed via the inversion-failure path, so under
 	// PolicyResync it triggers a transparent resync.
 	OpCIDMismatches uint64
+
+	// LegacyCommits counts events that arrived in Sync-1.0 shape (no
+	// prevData, no op.Prev on update/delete) on the 1.1 firehose.
+	// Routed through the resync path so PolicyResync recovers
+	// transparently. A persistently nonzero LegacyCommits counter
+	// alongside a high resync rate is the signature of a non-upgraded
+	// upstream PDS.
+	LegacyCommits uint64
 }
 
 // VerifierOp is the operation shape the Verifier produces. It mirrors
@@ -537,6 +586,7 @@ type Verifier struct {
 	futureRevsRejected     atomic.Uint64
 	fieldMismatches        atomic.Uint64
 	opCIDMismatches        atomic.Uint64
+	legacyCommits          atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -785,6 +835,7 @@ func (v *Verifier) Stats() VerifierStats {
 		FutureRevsRejected:     v.futureRevsRejected.Load(),
 		FieldMismatches:        v.fieldMismatches.Load(),
 		OpCIDMismatches:        v.opCIDMismatches.Load(),
+		LegacyCommits:          v.legacyCommits.Load(),
 	}
 }
 
@@ -792,6 +843,49 @@ func (v *Verifier) Stats() VerifierStats {
 // firehose. Sync 1.1 mandates v3; older v2 commits exist in archived
 // data but should not appear on a 1.1-compliant subscribeRepos stream.
 const commitVersion = 3
+
+// isLegacyCommit reports whether the commit looks like a Sync-1.0
+// shape commit: no prevData on the envelope, and no update/delete op
+// declares the new `prev` field.
+//
+// Sole-create commits trigger if prevData is absent — without
+// prevData, a 1.1-compliant chain check is impossible and every
+// 1.1 producer is supposed to emit it. Update/delete with prev
+// present is a clear 1.1 signal that overrides the prevData absence.
+//
+// Returns false on the empty-ops case: a no-op commit with no
+// prevData is just a malformed 1.1 commit, not a legacy 1.0 commit
+// (1.0 still required prevData on every commit, just under a
+// different encoding); let it surface as a chain break instead.
+func isLegacyCommit(commit *comatproto.SyncSubscribeRepos_Commit) bool {
+	if commit.PrevData.HasVal() {
+		return false
+	}
+	if len(commit.Ops) == 0 {
+		return false
+	}
+	hasMutation := false
+	for _, op := range commit.Ops {
+		if op.Action == "update" || op.Action == "delete" {
+			hasMutation = true
+			if op.Prev.HasVal() {
+				// At least one mutation op carries the new field —
+				// the producer is on 1.1, just happened to omit
+				// prevData. Surface as a chain break, not legacy.
+				return false
+			}
+		}
+	}
+	// Pure-create commit (no update/delete to inspect): treat as
+	// legacy when prevData is also absent. Without prevData we have
+	// no way to validate the chain link, and a 1.1-compliant producer
+	// would have emitted it.
+	if !hasMutation {
+		return true
+	}
+	// Has mutations and none carry prev — classic 1.0 shape.
+	return true
+}
 
 // checkOpCIDs walks the commit's ops list and asserts each op's claim
 // agrees with the post-state MST: create/update ops must declare a CID
@@ -1144,6 +1238,22 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	// Inversion + chain check (only meaningful when state is non-nil).
 	var inverted cbor.CID
 	if state != nil {
+		// Legacy 1.0-shape detection runs before InvertCommit so a
+		// non-upgraded upstream surfaces as the precise typed error
+		// rather than a misleading "missing prev CID" InversionError.
+		// First sighting (state == nil) is unaffected — without prior
+		// state we have nothing to chain against either way.
+		if isLegacyCommit(commit) {
+			v.legacyCommits.Add(1)
+			lcErr := &LegacyCommitError{
+				DID:      did,
+				Rev:      commit.Rev,
+				SeenRev:  state.Rev,
+				SeenData: state.Data,
+			}
+			return v.handleVerificationFailure(ctx, did, commit, ReasonLegacyCommit, lcErr)
+		}
+
 		inverted, err = InvertCommit(commit)
 		if err != nil {
 			v.inversionFailures.Add(1)

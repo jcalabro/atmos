@@ -2423,6 +2423,373 @@ func TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
 }
 
+// ---------------------------------------------------------------------------
+// Legacy 1.0-shape commits (A3): distinct typed error vs InversionError
+// ---------------------------------------------------------------------------
+
+// stripPrevData removes the envelope's prevData field and clears any
+// op.Prev set by the synthetic-commit builder, producing a Sync-1.0
+// shape commit on otherwise-1.1 plumbing. Used to fabricate the
+// "non-upgraded upstream PDS" scenario.
+func stripPrevData(c *comatproto.SyncSubscribeRepos_Commit) {
+	c.PrevData = gt.None[lextypes.LexCIDLink]()
+	for i := range c.Ops {
+		c.Ops[i].Prev = gt.None[lextypes.LexCIDLink]()
+	}
+}
+
+func TestLegacyCommitError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	cidA, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	err := &sync.LegacyCommitError{
+		DID:      atmos.DID("did:plc:legacy"),
+		Rev:      "3newrev",
+		SeenRev:  "3oldrev",
+		SeenData: cidA,
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "legacy 1.0-shape")
+	assert.Contains(t, msg, "did:plc:legacy")
+	assert.Contains(t, msg, "3newrev")
+	assert.Contains(t, msg, "3oldrev")
+
+	var target *sync.LegacyCommitError
+	assert.True(t, errors.As(err, &target))
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, atmos.DID("did:plc:legacy"), target.DID)
+}
+
+func TestResyncReason_Legacy(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "legacy_commit", sync.ReasonLegacyCommit.String())
+}
+
+// TestVerifyAndExpand_LegacyCommitUnderPolicyError covers the primary
+// signal: a v3-encoded commit with no prevData and no op.Prev on
+// update/delete arrives. Today this previously surfaced as a
+// confusing InversionError ("missing prev CID"); now it surfaces as
+// a precise LegacyCommitError so operators can distinguish "PDS not
+// yet on Sync 1.1" from genuine corruption.
+func TestVerifyAndExpand_LegacyCommitUnderPolicyError(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacy1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state: rec1 exists. Build a v3 commit that updates rec1, then
+	// strip prevData and op.Prev to produce the legacy shape.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	stripPrevData(commit)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	var hookErr error
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
+			hookErr = e
+		}),
+	})
+	require.NoError(t, err)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var lcErr *sync.LegacyCommitError
+	require.ErrorAs(t, vErr, &lcErr)
+	assert.Equal(t, did, lcErr.DID)
+	assert.Equal(t, "3aaaaaaaaaaaa", lcErr.SeenRev)
+	assert.True(t, lcErr.SeenData.Equal(prevData))
+
+	assert.ErrorAs(t, hookErr, &lcErr, "OnVerificationFailure must receive the typed legacy error")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.LegacyCommits)
+	assert.Equal(t, uint64(0), stats.InversionFailures, "legacy must not inflate the inversion-failure counter")
+	assert.Equal(t, uint64(0), stats.ChainBreaks, "legacy is not a chain break")
+}
+
+// TestVerifyAndExpand_LegacyCommitUnderPolicyResync asserts the
+// recovery semantics: under PolicyResync, a legacy commit triggers a
+// transparent resync (Reason: legacy_commit visible to OnResync),
+// consumers see ActionResync ops, and the resync counter increments.
+func TestVerifyAndExpand_LegacyCommitUnderPolicyResync(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacy2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	// Resync target: serve the current full repo.
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	var resyncReason sync.ResyncReason
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+		OnResync: gt.Some(func(_ atmos.DID, _, _ string, reason sync.ResyncReason) {
+			resyncReason = reason
+		}),
+	})
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	stripPrevData(commit)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	require.Greater(t, len(ops), 0)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+	assert.Equal(t, sync.ReasonLegacyCommit, resyncReason, "OnResync should receive legacy_commit, not chain_break")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.LegacyCommits)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+	assert.Equal(t, uint64(0), stats.ChainBreaks)
+	assert.Equal(t, uint64(0), stats.InversionFailures)
+}
+
+// TestVerifyAndExpand_LegacyCommitFirstSightingUnaffected asserts the
+// design choice baked into the gate: with state == nil there's no
+// prior chain to validate against, and a 1.1-compliant first commit
+// for an account legitimately has no prevData (no previous data CID
+// exists). We must not falsely flag first-sighting commits as legacy.
+func TestVerifyAndExpand_LegacyCommitFirstSightingUnaffected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacy3")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(), // empty: first sighting
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "first"},
+	}})
+	// Strip prevData even though the synthetic builder didn't add a
+	// prev for the create — this mirrors what a legitimate first
+	// commit on a 1.1 repo looks like (no previous data to reference).
+	stripPrevData(commit)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().LegacyCommits)
+	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
+}
+
+// TestVerifyAndExpand_LegacyCommitMixedPrevWins covers the boundary
+// between legacy and chain-break: a commit with no prevData but
+// where some update/delete op DOES carry prev. The producer is
+// clearly on 1.1 and just dropped prevData — surface as a chain
+// break, not legacy. Defends the helper's "any op.Prev set means
+// not legacy" rule.
+func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacy4")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	// Drop only prevData — keep the update's op.Prev set. This is the
+	// "1.1 producer that forgot prevData" case, which we want to flag
+	// as a chain break (because we genuinely cannot validate the
+	// chain link), not legacy (because the producer clearly knows
+	// about the new fields).
+	commit.PrevData = gt.None[lextypes.LexCIDLink]()
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	// With op.Prev still set, inversion proceeds normally and produces
+	// the correct pre-state root — but the missing envelope prevData
+	// (decoded as the zero CID) doesn't equal seenData, so this
+	// surfaces as ChainBreakError, not LegacyCommitError.
+	var cb *sync.ChainBreakError
+	assert.ErrorAs(t, vErr, &cb)
+	var lc *sync.LegacyCommitError
+	assert.False(t, errors.As(vErr, &lc), "1.1 producer with op.Prev must not be flagged legacy")
+	assert.Equal(t, uint64(0), v.Stats().LegacyCommits)
+	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
+}
+
+// TestVerifyAndExpand_LegacyCommitCreateOnly covers the create-only
+// commit case. With no update/delete ops to inspect, op.Prev gives
+// no signal — but a missing envelope prevData on a non-first-sighting
+// commit is still 1.0 shape (1.1 mandates prevData). Surface as legacy.
+func TestVerifyAndExpand_LegacyCommitCreateOnly(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacy5")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "newrec",
+		Record:     map[string]any{"text": "new"},
+	}})
+	stripPrevData(commit)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var lcErr *sync.LegacyCommitError
+	require.ErrorAs(t, vErr, &lcErr)
+	assert.Equal(t, uint64(1), v.Stats().LegacyCommits)
+}
+
+// TestVerifyAndExpand_LegacyCommitHappyPathUnchanged guards against a
+// regression where the new gate spuriously triggers on standard
+// 1.1-shaped commits. The synthetic builder produces compliant
+// commits by default; the counter must stay zero.
+func TestVerifyAndExpand_LegacyCommitHappyPathUnchanged(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacy6")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().LegacyCommits)
+	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
+}
+
 // TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the
 // symmetric resync path for malformed CARs: an inversion failure under
 // PolicyResync should trigger transparent resync via getRepo. The
