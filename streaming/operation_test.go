@@ -83,7 +83,7 @@ func TestOperations_CreatePost(t *testing.T) {
 	assert.Equal(t, "3abc123", ops[0].RKey)
 	assert.Equal(t, "did:plc:alice", ops[0].Repo)
 	assert.Equal(t, "3abc", ops[0].Rev)
-	assert.NotNil(t, ops[0].CID)
+	assert.True(t, ops[0].CID.Defined(), "create op CID must be defined")
 
 	var decoded bsky.FeedPost
 	require.NoError(t, ops[0].Decode(&decoded))
@@ -221,7 +221,7 @@ func TestOperations_DeleteOp(t *testing.T) {
 	require.Len(t, ops, 1)
 	assert.Equal(t, ActionDelete, ops[0].Action)
 	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
-	assert.Nil(t, ops[0].CID)
+	assert.False(t, ops[0].CID.Defined(), "delete op must have undefined CID")
 
 	var post bsky.FeedPost
 	err := ops[0].Decode(&post)
@@ -379,7 +379,7 @@ func TestOperations_SyncEvent(t *testing.T) {
 		assert.Equal(t, "app.bsky.feed.post", op.Collection)
 		assert.Equal(t, "did:plc:test123", op.Repo)
 		assert.Equal(t, "3abc", op.Rev)
-		assert.NotEmpty(t, op.CID)
+		assert.True(t, op.CID.Defined(), "resync op CID must be defined")
 		assert.NotEmpty(t, op.blockData)
 	}
 }

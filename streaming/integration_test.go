@@ -246,6 +246,6 @@ func TestIntegration_SyncEvent_EndToEnd(t *testing.T) {
 		assert.Equal(t, "app.bsky.feed.post", op.Collection)
 		assert.Equal(t, "did:plc:test123", op.Repo)
 		assert.Equal(t, "3abc", op.Rev)
-		assert.NotEmpty(t, op.CID)
+		assert.True(t, op.CID.Defined(), "resync op CID must be defined")
 	}
 }

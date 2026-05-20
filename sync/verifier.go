@@ -671,13 +671,16 @@ type VerifierStats struct {
 // VerifierOp is one operation produced by the Verifier. Mirrors
 // streaming.Operation; the streaming layer converts these when
 // populating Event.verifiedOps.
+//
+// CID is the record content hash for create/update/resync ops; the
+// zero value (use [cbor.CID.Defined] to check) on delete ops.
 type VerifierOp struct {
 	Action     string // "create", "update", "delete", "resync"
 	Collection string
 	RKey       string
 	Repo       string // DID
 	Rev        string
-	CID        []byte
+	CID        cbor.CID
 	BlockData  []byte
 }
 
@@ -972,7 +975,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 			RKey:       rkey,
 			Repo:       string(did),
 			Rev:        commit.Rev,
-			CID:        val.Bytes(),
+			CID:        val,
 			BlockData:  data,
 		})
 		return nil
@@ -1724,7 +1727,7 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 			if err != nil {
 				return nil, fmt.Errorf("op %s: parse CID: %w", op.Path, err)
 			}
-			o.CID = cid.Bytes()
+			o.CID = cid
 			if data, err := store.GetBlock(cid); err == nil {
 				o.BlockData = data
 			} else {

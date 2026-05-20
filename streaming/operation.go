@@ -10,6 +10,7 @@ import (
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/car"
+	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/repo"
 )
 
@@ -30,14 +31,20 @@ type CBORUnmarshaler interface {
 
 // Operation is a single record mutation from a #commit or #sync event,
 // with convenient access to the underlying record data.
+//
+// CID identifies the new record block for create/update/resync ops.
+// For delete ops the CID is the zero value (use [cbor.CID.Defined] to
+// check). Jetstream commits carry the CID as a base32 string in the
+// JSON payload; on parse failure the field is left undefined and an
+// error is yielded alongside the op.
 type Operation struct {
-	Action     Action // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
-	Collection string // e.g. "app.bsky.feed.post"
-	RKey       string // record key, e.g. "3abc123"
-	Repo       string // DID of the repo
-	Rev        string // commit revision
-	CID        []byte // raw CID bytes of the new record (nil for deletes)
-	blockData  []byte // CBOR bytes of the record block (nil for deletes)
+	Action     Action   // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
+	Collection string   // e.g. "app.bsky.feed.post"
+	RKey       string   // record key, e.g. "3abc123"
+	Repo       string   // DID of the repo
+	Rev        string   // commit revision
+	CID        cbor.CID // record content hash; zero for deletes
+	blockData  []byte   // CBOR bytes of the record block (nil for deletes)
 }
 
 // BlockData returns the raw CBOR bytes of the record block, or nil for
@@ -92,6 +99,10 @@ func (e *Event) Operations() iter.Seq2[Operation, error] {
 // Note: blockData is nil because Jetstream records are JSON (not CBOR), so
 // [Operation.Decode] will return an error. Use [JetstreamCommit.Record]
 // directly for the raw JSON payload.
+//
+// If the Jetstream commit's CID string fails to parse, the op is yielded
+// with an undefined CID alongside a parse error so callers can decide
+// whether to skip the event or surface it.
 func (e *Event) yieldJetstreamOp(yield func(Operation, error) bool) {
 	jc := e.Jetstream.Commit
 	op := Operation{
@@ -102,7 +113,12 @@ func (e *Event) yieldJetstreamOp(yield func(Operation, error) bool) {
 		Rev:        jc.Rev,
 	}
 	if jc.CID != "" {
-		op.CID = []byte(jc.CID)
+		cid, err := cbor.ParseCIDString(jc.CID)
+		if err != nil {
+			yield(op, fmt.Errorf("jetstream: parse CID %q: %w", jc.CID, err))
+			return
+		}
+		op.CID = cid
 	}
 	yield(op, nil)
 }
@@ -118,10 +134,10 @@ func (e *Event) yieldCommitOps(yield func(Operation, error) bool) {
 		return
 	}
 
-	// Index blocks by CID string for fast lookup.
-	blockIdx := make(map[string][]byte, len(blocks))
+	// Index blocks by CID for fast lookup.
+	blockIdx := make(map[cbor.CID][]byte, len(blocks))
 	for _, b := range blocks {
-		blockIdx[b.CID.String()] = b.Data
+		blockIdx[b.CID] = b.Data
 	}
 
 	for _, op := range commit.Ops {
@@ -136,9 +152,15 @@ func (e *Event) yieldCommitOps(yield func(Operation, error) bool) {
 		}
 
 		if op.CID.HasVal() {
-			cidLink := op.CID.Val().Link
-			o.CID = []byte(cidLink)
-			o.blockData = blockIdx[cidLink]
+			cid, err := cbor.ParseCIDString(op.CID.Val().Link)
+			if err != nil {
+				if !yield(o, fmt.Errorf("op %s: parse CID: %w", op.Path, err)) {
+					return
+				}
+				continue
+			}
+			o.CID = cid
+			o.blockData = blockIdx[cid]
 		}
 
 		if !yield(o, nil) {
@@ -175,7 +197,7 @@ func (e *Event) yieldResyncOps(yield func(Operation, error) bool) {
 			RKey:       rec.RKey,
 			Repo:       e.Sync.DID,
 			Rev:        e.Sync.Rev,
-			CID:        rec.CID.Bytes(),
+			CID:        rec.CID,
 			blockData:  rec.Data,
 		}
 
