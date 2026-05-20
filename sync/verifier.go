@@ -860,8 +860,12 @@ func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Co
 // this same commit. Reusing the pre-parsed store avoids the per-event
 // cost of re-parsing the CAR.
 func buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst.MemBlockStore) ([]VerifierOp, error) {
+	// Empty-but-non-nil so the streaming layer can distinguish a
+	// successful zero-ops verification from a rev-replay drop, both
+	// of which surface here as "no ops produced." Rev-replay returns
+	// (nil, nil) higher up; this branch returns ([]VerifierOp{}, nil).
 	if len(commit.Ops) == 0 {
-		return nil, nil
+		return []VerifierOp{}, nil
 	}
 	ops := make([]VerifierOp, 0, len(commit.Ops))
 	for _, op := range commit.Ops {

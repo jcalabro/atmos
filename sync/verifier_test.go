@@ -1163,6 +1163,58 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.EventsVerified)
 }
 
+// TestVerifyAndExpand_EmptyOpsCommit guards the streaming integration's
+// ability to distinguish a successful zero-ops verification from a
+// rev-replay drop. The verifier must return a non-nil empty slice on
+// success here, not (nil, nil).
+func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:emptyops1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	chainStore := sync.NewMemChainStore()
+	require.NoError(t, chainStore.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:   dir,
+		ChainStore:  chainStore,
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	// Zero-ops commit at a higher rev than the persisted state.
+	commit := buildSyntheticCommit(t, r, key, prevData, nil)
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ops, "empty-ops verification must return a non-nil empty slice (rev-replay returns nil)")
+	assert.Empty(t, ops)
+
+	// State must have advanced to the new commit.
+	state, err := chainStore.Load(context.Background(), did)
+	require.NoError(t, err)
+	assert.Equal(t, commit.Rev, state.Rev)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.EventsVerified)
+	assert.Equal(t, uint64(0), stats.RevReplaysDropped)
+}
+
 func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	t.Parallel()
 

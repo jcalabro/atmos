@@ -588,6 +588,53 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				evt.syncClient = c.syncClient
 			}
 
+			// Sync 1.1 verification, when configured. Skips Jetstream events
+			// (verifier operates on the firehose CAR diff format, not Jetstream JSON).
+			if c.opts.Verifier.HasVal() && (evt.Commit != nil || evt.Sync != nil) {
+				verifier := c.opts.Verifier.Val()
+				verifierOps, vErr := verifier.VerifyAndExpand(ctx, evt.Commit, evt.Sync)
+				if vErr != nil {
+					// Advance lastSeenSeq for this event before reporting the
+					// verifier error — otherwise the next event triggers a
+					// phantom GapError. The replay-drop path below intentionally
+					// does NOT advance lastSeenSeq, since replays carry
+					// seq <= already-observed.
+					if seq := evt.seqOf(); seq > 0 && !c.isJetstream {
+						lastSeenSeq = seq
+					}
+					// Flush partial batch first, then yield the error.
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+					if !yield(nil, vErr) {
+						return true
+					}
+					continue
+				}
+				if verifierOps == nil {
+					// Silent drop (rev replay). buildOpsFromCommit returns
+					// a non-nil empty slice for legitimate empty-ops commits,
+					// so a true nil here uniquely signals replay.
+					continue
+				}
+				// Convert []sync.VerifierOp to []streaming.Operation.
+				ops := make([]Operation, len(verifierOps))
+				for i, vo := range verifierOps {
+					ops[i] = Operation{
+						Action:     Action(vo.Action),
+						Collection: vo.Collection,
+						RKey:       vo.RKey,
+						Repo:       vo.Repo,
+						Rev:        vo.Rev,
+						CID:        vo.CID,
+						blockData:  vo.BlockData,
+					}
+				}
+				evt.verifiedOps = ops
+				evt.verifierRan = true
+			}
+
 			// Sequence gap detection (firehose/labels only — Jetstream uses
 			// time_us as cursor which is not sequential).
 			seq := evt.seqOf()
