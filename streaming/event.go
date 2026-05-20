@@ -99,7 +99,7 @@ func decodeFrameHeader(data []byte) (frameHeader, int, error) {
 	}
 
 	var hdr frameHeader
-	for i := uint64(0); i < count; i++ {
+	for range count {
 		key, newPos, err := cbor.ReadText(data, pos)
 		if err != nil {
 			return frameHeader{}, 0, err

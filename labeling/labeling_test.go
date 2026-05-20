@@ -179,13 +179,11 @@ func TestUnsignedBytes_Concurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 100 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			got, err := UnsignedBytes(label)
 			assert.NoError(t, err)
 			assert.Equal(t, expected, got)
-		}()
+		})
 	}
 	wg.Wait()
 }

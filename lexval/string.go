@@ -2,6 +2,7 @@ package lexval
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
@@ -23,13 +24,7 @@ func validateString(p *path, f *lexicon.Field, val any, errs *[]*ValidationError
 	}
 
 	if len(f.Enum) > 0 {
-		found := false
-		for _, e := range f.Enum {
-			if s == e {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(f.Enum, s)
 		if !found {
 			addErr(errs, p, fmt.Sprintf("value %q not in enum", s))
 		}

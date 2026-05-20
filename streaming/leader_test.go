@@ -803,9 +803,7 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 	// racing for initial lock acquisition. Use non-blocking sends so a
 	// fast relay never deadlocks the iterator.
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for batch, err := range clientA.Events(ctx) {
 			if err == nil {
 				for _, evt := range batch {
@@ -816,7 +814,7 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	// Wait for node A to become leader and consume some events.
 	for range 3 {
@@ -829,9 +827,7 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 	require.True(t, nodeABecame.Load())
 
 	// Now start node B (it will block in waitForLock since A holds the lock).
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for batch, err := range clientB.Events(ctx) {
 			if err == nil {
 				for _, evt := range batch {
@@ -842,7 +838,7 @@ func TestLeaderClient_TwoNodes_Handoff(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	// Make node A lose the lock and prevent it from re-acquiring.
 	mlA.setAcquireErr(ErrLockHeld)
@@ -897,13 +893,11 @@ func TestLeaderClient_MultiNode_OnlyOneConsumes(t *testing.T) {
 		})
 
 		idx := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range client.Events(ctx) {
 				events[idx].Add(1)
 			}
-		}()
+		})
 	}
 
 	// Wait for some events to be consumed, then stop.

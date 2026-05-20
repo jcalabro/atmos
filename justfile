@@ -12,6 +12,10 @@ install-tools:
 lint:
     golangci-lint run --timeout 1m ./...
 
+# Updates to latest go practices
+modernize:
+    modernize -w ./...
+
 # Runs the tests
 test *ARGS="./...":
     just test-long -short {{ARGS}}

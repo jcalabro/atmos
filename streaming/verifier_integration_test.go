@@ -42,7 +42,7 @@ func buildUpdateChainFrames(t *testing.T, did atmos.DID, key crypto.PrivateKey, 
 	t.Helper()
 	frames := make([][]byte, 0, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// Build each commit on a fresh repo seeded with the prior
 		// version of "shared" so the pre-state is well-defined.
 		r, _ := testutil.BuildEmptyRepo(t, did)
@@ -88,7 +88,7 @@ func buildVerifiedChainFrames(t *testing.T, did atmos.DID, key crypto.PrivateKey
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 			Action:     testutil.ActionCreate,
 			Collection: "app.bsky.feed.post",

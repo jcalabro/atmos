@@ -244,7 +244,7 @@ func TestDecode_RejectDeepNesting(t *testing.T) {
 	// Build deeply nested arrays: each byte 0x81 is a 1-element array.
 	depth := MaxDepth + 10
 	data := make([]byte, depth+1)
-	for i := 0; i < depth; i++ {
+	for i := range depth {
 		data[i] = 0x81 // array of 1
 	}
 	data[depth] = 0x00 // innermost value: integer 0

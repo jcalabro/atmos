@@ -49,12 +49,10 @@ func TestFileCursorStore_ConcurrentSafety(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_ = store.SaveCursor(ctx, int64(i*100))
 			_, _ = store.LoadCursor(ctx)
-		}()
+		})
 	}
 	wg.Wait()
 

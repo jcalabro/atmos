@@ -62,7 +62,7 @@ func (t TID) Integer() uint64 {
 		return 0
 	}
 	var v uint64
-	for i := 0; i < 13; i++ {
+	for i := range 13 {
 		v = (v << 5) | uint64(base32SortDecode(t[i]))
 	}
 	return v

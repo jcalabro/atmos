@@ -357,12 +357,12 @@ func TestJetstream_Integration_ReconnectWithCursor(t *testing.T) {
 		if cursor == "" {
 			// First connection: send 2 commit events with time_us for cursor.
 			for _, ts := range []int64{1000001, 1000002} {
-				frame := []byte(fmt.Sprintf(`{
+				frame := fmt.Appendf(nil, `{
 					"did": "did:plc:test",
 					"time_us": %d,
 					"kind": "commit",
 					"commit": {"rev": "r1", "operation": "create", "collection": "a.b.c", "rkey": "k", "record": {}}
-				}`, ts))
+				}`, ts)
 				_ = conn.Write(ctx, websocket.MessageText, frame)
 			}
 			_ = conn.CloseNow()

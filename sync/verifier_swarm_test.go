@@ -61,7 +61,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	dids := make([]atmos.DID, numDIDs)
 	keys := make([]crypto.PrivateKey, numDIDs)
 	repos := make([]*repo.Repo, numDIDs)
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		dids[i] = atmos.DID(fmt.Sprintf("did:plc:swarm%d-%d", seed, i))
 		k, err := crypto.GenerateP256()
 		require.NoError(t, err)
@@ -71,7 +71,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 
 	cs := sync.NewMemChainStore()
 	resolver := testutil.NewTrackingResolver()
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		resolver.Docs[dids[i]] = testutil.BuildDIDDoc(dids[i], keys[i].PublicKey())
 	}
 	dir := &identity.Directory{Resolver: resolver}
@@ -88,7 +88,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	// believes for that DID. Equal to repos[i].Tree.RootCID() at all
 	// times outside of a single event's processing window.
 	lastGood := make([]cbor.CID, numDIDs)
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		root, err := repos[i].Tree.WriteBlocks(repos[i].Store)
 		require.NoError(t, err)
 		lastGood[i] = root
@@ -165,7 +165,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	// compare against. Without this, the very first fault for a DID
 	// would be accepted as first-sighting and the counter
 	// invariants wouldn't hold.
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		commit := testutil.BuildSyntheticCommit(t, repos[i], keys[i], lastGood[i], []testutil.OpAction{{
 			Action:     testutil.ActionCreate,
 			Collection: "app.bsky.feed.post",
@@ -177,7 +177,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 
 	// Step 2: 50 events of random fault injection.
 	const numEvents = 50
-	for k := 0; k < numEvents; k++ {
+	for k := range numEvents {
 		didIdx := rng.Intn(numDIDs)
 		fault := rng.Intn(10)
 
@@ -278,7 +278,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 	dids := make([]atmos.DID, numDIDs)
 	keys := make([]crypto.PrivateKey, numDIDs)
 	repos := make([]*repo.Repo, numDIDs)
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		dids[i] = atmos.DID(fmt.Sprintf("did:plc:swarmrs%d-%d", seed, i))
 		k, err := crypto.GenerateP256()
 		require.NoError(t, err)
@@ -310,7 +310,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 
 	cs := sync.NewMemChainStore()
 	resolver := testutil.NewTrackingResolver()
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		resolver.Docs[dids[i]] = testutil.BuildDIDDoc(dids[i], keys[i].PublicKey())
 	}
 	dir := &identity.Directory{Resolver: resolver}
@@ -326,7 +326,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 	require.NoError(t, err)
 
 	lastGood := make([]cbor.CID, numDIDs)
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		root, err := repos[i].Tree.WriteBlocks(repos[i].Store)
 		require.NoError(t, err)
 		lastGood[i] = root
@@ -420,12 +420,12 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 	// Step 0: prime the fake server with each DID's empty-repo CAR
 	// so the first chain break / inversion can resync against
 	// well-formed authoritative state.
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		exportCAR(i)
 	}
 
 	// Step 1: seed each DID with one clean commit.
-	for i := 0; i < numDIDs; i++ {
+	for i := range numDIDs {
 		commit := testutil.BuildSyntheticCommit(t, repos[i], keys[i], lastGood[i], []testutil.OpAction{{
 			Action:     testutil.ActionCreate,
 			Collection: "app.bsky.feed.post",
@@ -437,7 +437,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 
 	// Step 2: 50 events of random fault injection.
 	const numEvents = 50
-	for k := 0; k < numEvents; k++ {
+	for k := range numEvents {
 		didIdx := rng.Intn(numDIDs)
 		fault := rng.Intn(10)
 
