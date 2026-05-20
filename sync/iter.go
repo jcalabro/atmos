@@ -36,11 +36,27 @@ type slowTransferReader struct {
 	closer     io.Closer // closed to unblock a stuck Read when transfer is too slow
 	bytesRead  int64     // bytes read since last sample
 	speedLimit int64     // bytes per tick threshold
-	ticker     *time.Ticker
-	done       chan struct{}
-	errp       atomic.Pointer[error] // set by monitor, read by Read
-	slowTicks  int                   // consecutive ticks below threshold (monitor-only)
-	maxSlow    int                   // max consecutive slow ticks before abort
+
+	// tickC delivers sampling signals. Production wires it to a
+	// time.Ticker.C; tests inject their own channel so threshold
+	// logic is asserted without wall-clock dependency.
+	tickC <-chan time.Time
+
+	// stopTicker stops the underlying time.Ticker. nil for
+	// test-driven readers whose tickC is owned by the test.
+	stopTicker func()
+
+	done chan struct{}
+	errp atomic.Pointer[error] // set by monitor, read by Read
+
+	// monitor-only state.
+	slowTicks int
+	maxSlow   int
+
+	// onSample fires after each tick is processed. nil in production;
+	// tests use it as a barrier to inject the next tick only after
+	// the previous tick's bookkeeping has settled.
+	onSample func()
 }
 
 // newSlowTransferReaderFromBody wraps an HTTP response body with slow
@@ -50,19 +66,40 @@ func newSlowTransferReaderFromBody(body io.ReadCloser) *slowTransferReader {
 	return newSlowTransferReaderWithConfig(body, body, lowSpeedLimit, int(lowSpeedTime/time.Second), time.Second)
 }
 
-// newSlowTransferReaderWithConfig creates a slowTransferReader with explicit
-// parameters for testing. speedLimit is bytes per tick, maxSlow is how many
-// consecutive slow ticks before abort, tickInterval is the sampling period.
-// closer is called to unblock a stuck Read when the transfer is too slow;
-// pass the HTTP response body or pipe closer.
+// newSlowTransferReaderWithConfig creates a production slowTransferReader
+// driven by a real time.Ticker. speedLimit is bytes per tick, maxSlow is
+// how many consecutive slow ticks before abort, tickInterval is the
+// sampling period. closer is called to unblock a stuck Read when the
+// transfer is too slow; pass the HTTP response body or pipe closer.
 func newSlowTransferReaderWithConfig(r io.Reader, closer io.Closer, speedLimit int64, maxSlow int, tickInterval time.Duration) *slowTransferReader {
+	t := time.NewTicker(tickInterval)
 	str := &slowTransferReader{
 		r:          r,
 		closer:     closer,
 		speedLimit: speedLimit,
-		ticker:     time.NewTicker(tickInterval),
+		tickC:      t.C,
+		stopTicker: t.Stop,
 		done:       make(chan struct{}),
 		maxSlow:    maxSlow,
+	}
+	go str.monitor()
+	return str
+}
+
+// newSlowTransferReaderWithTickChannel is the test entry point. The
+// caller owns tickC and drives samples deterministically. Threshold
+// logic asserted via this constructor is independent of goroutine
+// scheduling. onSample fires after each tick's bookkeeping completes
+// — tests use it to wait before injecting the next tick.
+func newSlowTransferReaderWithTickChannel(r io.Reader, closer io.Closer, speedLimit int64, maxSlow int, tickC <-chan time.Time, onSample func()) *slowTransferReader {
+	str := &slowTransferReader{
+		r:          r,
+		closer:     closer,
+		speedLimit: speedLimit,
+		tickC:      tickC,
+		done:       make(chan struct{}),
+		maxSlow:    maxSlow,
+		onSample:   onSample,
 	}
 	go str.monitor()
 	return str
@@ -71,7 +108,7 @@ func newSlowTransferReaderWithConfig(r io.Reader, closer io.Closer, speedLimit i
 func (s *slowTransferReader) monitor() {
 	for {
 		select {
-		case <-s.ticker.C:
+		case <-s.tickC:
 			bytes := atomic.LoadInt64(&s.bytesRead)
 			atomic.AddInt64(&s.bytesRead, -bytes)
 
@@ -88,7 +125,13 @@ func (s *slowTransferReader) monitor() {
 				if s.closer != nil {
 					_ = s.closer.Close()
 				}
+				if s.onSample != nil {
+					s.onSample()
+				}
 				return
+			}
+			if s.onSample != nil {
+				s.onSample()
 			}
 		case <-s.done:
 			return
@@ -108,7 +151,9 @@ func (s *slowTransferReader) Read(p []byte) (int, error) {
 }
 
 func (s *slowTransferReader) Close() {
-	s.ticker.Stop()
+	if s.stopTicker != nil {
+		s.stopTicker()
+	}
 	close(s.done)
 }
 
