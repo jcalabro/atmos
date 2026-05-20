@@ -56,6 +56,14 @@ type ListReposPage struct {
 // Options configures a sync Client.
 type Options struct {
 	// Client points at the PDS or relay. Required.
+	//
+	// Per Sync 1.1, downstream consumers fetch repos via getRepo from
+	// their sync boundary — typically the same relay they consume the
+	// firehose from. Relays respond with a 302 to the account's PDS,
+	// so the [*xrpc.Client]'s underlying [*http.Client] MUST follow
+	// redirects for resync to work. The default [xrpc.NewHTTPClient]
+	// allows up to 5 redirect hops; operators passing a custom
+	// HTTPClient should preserve that behavior.
 	Client *xrpc.Client
 
 	// Directory enables commit signature verification via DID

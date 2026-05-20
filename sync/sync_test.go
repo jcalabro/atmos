@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -600,6 +601,63 @@ func BenchmarkIterRecords(b *testing.B) {
 			}
 		})
 	}
+}
+
+// TestGetRepoStream_FollowsRelayRedirect is the regression guard for
+// the Sync 1.1 getRepo flow: relays respond to a getRepo request with
+// a 302 to the account's PDS, and the consumer's HTTP client must
+// follow the redirect transparently. We assert this end-to-end by
+// pointing sync.Client at a fake "relay" that 302s to a fake "PDS"
+// serving real CAR bytes; the client must surface the PDS-served
+// content without the caller knowing about the redirect.
+//
+// Without this test, a future change to xrpc's redirect policy
+// (e.g. setting a 0 cap, or someone wiring up a custom http.Client
+// with redirects disabled) would break resync silently and only
+// be caught against a real relay in production.
+func TestGetRepoStream_FollowsRelayRedirect(t *testing.T) {
+	t.Parallel()
+
+	carData, _ := buildTestRepo(t, 3)
+
+	var pdsHits, relayHits int
+
+	// PDS: serves the real CAR.
+	pdsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/xrpc/com.atproto.sync.getRepo", r.URL.Path)
+		require.Equal(t, "did:plc:test123", r.URL.Query().Get("did"))
+		pdsHits++
+		w.Header().Set("Content-Type", "application/vnd.ipld.car")
+		_, _ = w.Write(carData)
+	}))
+	t.Cleanup(pdsSrv.Close)
+
+	// Relay: 302s to the PDS, mimicking the production relay's getRepo
+	// behavior (see https://bsky.network/xrpc/com.atproto.sync.getRepo).
+	relaySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/xrpc/com.atproto.sync.getRepo", r.URL.Path)
+		relayHits++
+		// Preserve the query string so the PDS sees the same did=...
+		http.Redirect(w, r, pdsSrv.URL+r.URL.Path+"?"+r.URL.RawQuery, http.StatusFound)
+	}))
+	t.Cleanup(relaySrv.Close)
+
+	xc := &xrpc.Client{
+		Host:  relaySrv.URL,
+		Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+	}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	body, err := sc.GetRepoStream(context.Background(), "did:plc:test123", "")
+	require.NoError(t, err, "GetRepoStream must follow the relay→PDS redirect transparently")
+	defer func() { _ = body.Close() }()
+
+	got, err := io.ReadAll(body)
+	require.NoError(t, err)
+	assert.Equal(t, carData, got, "served bytes must come from the PDS via the relay redirect")
+
+	assert.Equal(t, 1, relayHits, "relay should have been hit exactly once")
+	assert.Equal(t, 1, pdsHits, "PDS should have been hit exactly once via the redirect")
 }
 
 // TestListRepos_StartCursor confirms a non-empty startCursor is

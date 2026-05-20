@@ -79,7 +79,7 @@ func atprotoOpts(timeout time.Duration) []jttp.Option {
 		jttp.WithIdleConnTimeout(90 * time.Second),
 		jttp.WithDialKeepAlive(30 * time.Second),
 		jttp.WithMaxResponseHeaderBytes(MaxResponseHeaderBytes),
-		jttp.WithRedirectPolicy(2),
+		jttp.WithRedirectPolicy(5),
 		jttp.WithUserAgent(defaultUserAgent),
 		jttp.WithAdditionalRetryableStatusCodes(http.StatusInternalServerError),
 		jttp.WithMaxRetryAfter(30 * time.Second),
