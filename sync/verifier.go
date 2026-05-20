@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	stdsync "sync"
 
 	"github.com/jcalabro/atmos"
@@ -74,4 +75,123 @@ func (s *MemChainStore) Save(_ context.Context, did atmos.DID, state ChainState)
 func (s *MemChainStore) Delete(_ context.Context, did atmos.DID) error {
 	s.m.Delete(did)
 	return nil
+}
+
+// ResyncReason names why a resync was triggered.
+type ResyncReason int
+
+const (
+	ReasonChainBreak ResyncReason = iota
+	ReasonInversionFailure
+	ReasonSyncEvent
+)
+
+// String returns a stable name for use in error messages and metrics labels.
+func (r ResyncReason) String() string {
+	switch r {
+	case ReasonChainBreak:
+		return "chain_break"
+	case ReasonInversionFailure:
+		return "inversion_failure"
+	case ReasonSyncEvent:
+		return "sync_event"
+	default:
+		return fmt.Sprintf("unknown_reason(%d)", r)
+	}
+}
+
+// ChainBreakError is returned when a #commit's prevData doesn't match
+// the locally-tracked data CID for the DID, or inversion produces a
+// root that doesn't match the prior state.
+type ChainBreakError struct {
+	DID          atmos.DID
+	SeenRev      string   // rev we last accepted for this DID, or "" if first sighting
+	SeenData     cbor.CID // data CID we last accepted for this DID
+	GotRev       string   // rev on the offending commit
+	GotPrevData  cbor.CID // prevData claim on the offending commit
+	InvertedData cbor.CID // CID we computed by inverting; zero if inversion itself failed
+	Cause        error
+}
+
+func (e *ChainBreakError) Error() string {
+	seen := "first-sighting"
+	if e.SeenRev != "" || e.SeenData.Defined() {
+		seen = fmt.Sprintf("rev=%s data=%s", e.SeenRev, e.SeenData)
+	}
+	inverted := "n/a"
+	if e.InvertedData.Defined() {
+		inverted = e.InvertedData.String()
+	}
+	return fmt.Sprintf("sync: chain break for %s: seen (%s), got (rev=%s prevData=%s inverted=%s)",
+		e.DID, seen, e.GotRev, e.GotPrevData, inverted)
+}
+
+func (e *ChainBreakError) Unwrap() error { return e.Cause }
+
+// InversionError is returned when MST inversion itself failed —
+// malformed CAR, op references a CID not present in the diff, etc.
+// Distinct from ChainBreakError: the commit is broken on its own
+// terms rather than failing to continue our chain.
+type InversionError struct {
+	DID   atmos.DID
+	Rev   string
+	Cause error
+}
+
+func (e *InversionError) Error() string {
+	if e.Cause == nil {
+		return fmt.Sprintf("sync: inversion failed for %s rev=%s", e.DID, e.Rev)
+	}
+	return fmt.Sprintf("sync: inversion failed for %s rev=%s: %v", e.DID, e.Rev, e.Cause)
+}
+
+func (e *InversionError) Unwrap() error { return e.Cause }
+
+// SignatureError is returned when commit signature verification fails
+// even after one identity-cache purge + re-resolution.
+type SignatureError struct {
+	DID    atmos.DID
+	Rev    string
+	KeyDID string // the resolved did:key, if any
+	Cause  error
+}
+
+func (e *SignatureError) Error() string {
+	if e.Cause == nil {
+		return fmt.Sprintf("sync: signature verification failed for %s rev=%s key=%s",
+			e.DID, e.Rev, e.KeyDID)
+	}
+	return fmt.Sprintf("sync: signature verification failed for %s rev=%s key=%s: %v",
+		e.DID, e.Rev, e.KeyDID, e.Cause)
+}
+
+func (e *SignatureError) Unwrap() error { return e.Cause }
+
+// ResyncFailedError is returned when a chain break or inversion
+// failure was detected and policy was PolicyResync, but the resync
+// itself failed (PDS unreachable, returned an invalid CAR, etc.).
+type ResyncFailedError struct {
+	DID    atmos.DID
+	Reason ResyncReason
+	Cause  error
+}
+
+func (e *ResyncFailedError) Error() string {
+	if e.Cause == nil {
+		return fmt.Sprintf("sync: resync failed for %s (reason=%s)", e.DID, e.Reason)
+	}
+	return fmt.Sprintf("sync: resync failed for %s (reason=%s): %v", e.DID, e.Reason, e.Cause)
+}
+
+func (e *ResyncFailedError) Unwrap() error { return e.Cause }
+
+// ResyncRateLimitedError is returned when a DID has hit its resync
+// rate limit. Per Sync 1.1's "abusive accounts get throttled by
+// consumers" directive.
+type ResyncRateLimitedError struct {
+	DID atmos.DID
+}
+
+func (e *ResyncRateLimitedError) Error() string {
+	return fmt.Sprintf("sync: resync rate limited for %s", e.DID)
 }
