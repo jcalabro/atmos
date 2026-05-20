@@ -2468,13 +2468,14 @@ func TestResyncReason_Legacy(t *testing.T) {
 	assert.Equal(t, "legacy_commit", sync.ReasonLegacyCommit.String())
 }
 
-// TestVerifyAndExpand_LegacyCommitUnderPolicyError covers the primary
-// signal: a v3-encoded commit with no prevData and no op.Prev on
-// update/delete arrives. Today this previously surfaced as a
-// confusing InversionError ("missing prev CID"); now it surfaces as
-// a precise LegacyCommitError so operators can distinguish "PDS not
-// yet on Sync 1.1" from genuine corruption.
-func TestVerifyAndExpand_LegacyCommitUnderPolicyError(t *testing.T) {
+// TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError covers
+// the strict-mode path: with LegacyCommitPolicy=LegacyReject and
+// VerifierPolicy=PolicyError, a v3-encoded commit with no prevData
+// and no op.Prev on update/delete surfaces as a precise
+// LegacyCommitError so operators can distinguish "PDS not yet on
+// Sync 1.1" from genuine corruption. The default LegacyAccept path
+// is exercised separately.
+func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy1")
@@ -2505,10 +2506,11 @@ func TestVerifyAndExpand_LegacyCommitUnderPolicyError(t *testing.T) {
 
 	var hookErr error
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
-		Directory:  dir,
-		ChainStore: cs,
-		Policy:     gt.Some(sync.PolicyError),
+		SyncClient:         gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:          dir,
+		ChainStore:         cs,
+		Policy:             gt.Some(sync.PolicyError),
+		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
 			hookErr = e
 		}),
@@ -2530,11 +2532,13 @@ func TestVerifyAndExpand_LegacyCommitUnderPolicyError(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.ChainBreaks, "legacy is not a chain break")
 }
 
-// TestVerifyAndExpand_LegacyCommitUnderPolicyResync asserts the
-// recovery semantics: under PolicyResync, a legacy commit triggers a
-// transparent resync (Reason: legacy_commit visible to OnResync),
-// consumers see ActionResync ops, and the resync counter increments.
-func TestVerifyAndExpand_LegacyCommitUnderPolicyResync(t *testing.T) {
+// TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync asserts
+// the strict-mode recovery semantics: with LegacyCommitPolicy=
+// LegacyReject and VerifierPolicy=PolicyResync, a legacy commit
+// triggers a transparent resync (Reason: legacy_commit visible to
+// OnResync), consumers see ActionResync ops, and the resync counter
+// increments. The default LegacyAccept path is exercised separately.
+func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy2")
@@ -2561,12 +2565,13 @@ func TestVerifyAndExpand_LegacyCommitUnderPolicyResync(t *testing.T) {
 
 	var resyncReason sync.ResyncReason
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  gt.Some(sc),
-		Directory:   dir,
-		ChainStore:  cs,
-		Policy:      gt.Some(sync.PolicyResync),
-		ResyncLimit: gt.Some(rate.Inf),
-		ResyncBurst: gt.Some(1),
+		SyncClient:         gt.Some(sc),
+		Directory:          dir,
+		ChainStore:         cs,
+		Policy:             gt.Some(sync.PolicyResync),
+		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
+		ResyncLimit:        gt.Some(rate.Inf),
+		ResyncBurst:        gt.Some(1),
 		OnResync: gt.Some(func(_ atmos.DID, _, _ string, reason sync.ResyncReason) {
 			resyncReason = reason
 		}),
@@ -2701,11 +2706,13 @@ func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
 }
 
-// TestVerifyAndExpand_LegacyCommitCreateOnly covers the create-only
-// commit case. With no update/delete ops to inspect, op.Prev gives
-// no signal — but a missing envelope prevData on a non-first-sighting
-// commit is still 1.0 shape (1.1 mandates prevData). Surface as legacy.
-func TestVerifyAndExpand_LegacyCommitCreateOnly(t *testing.T) {
+// TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject covers the
+// create-only commit case under strict mode (LegacyReject + PolicyError).
+// With no update/delete ops to inspect, op.Prev gives no signal — but
+// a missing envelope prevData on a non-first-sighting commit is still
+// 1.0 shape (1.1 mandates prevData). Strict mode surfaces it as
+// legacy. The default LegacyAccept path is exercised separately.
+func TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy5")
@@ -2732,10 +2739,11 @@ func TestVerifyAndExpand_LegacyCommitCreateOnly(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
-		Directory:  dir,
-		ChainStore: cs,
-		Policy:     gt.Some(sync.PolicyError),
+		SyncClient:         gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:          dir,
+		ChainStore:         cs,
+		Policy:             gt.Some(sync.PolicyError),
+		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
 	})
 	require.NoError(t, err)
 
@@ -2788,6 +2796,260 @@ func TestVerifyAndExpand_LegacyCommitHappyPathUnchanged(t *testing.T) {
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().LegacyCommits)
 	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
+}
+
+// ---------------------------------------------------------------------------
+// LegacyCommitPolicy: LegacyAccept (default) accepts legacy-shape commits
+// ---------------------------------------------------------------------------
+
+func TestLegacyCommitPolicy_String(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "accept", sync.LegacyAccept.String())
+	assert.Equal(t, "reject", sync.LegacyReject.String())
+	assert.Equal(t, "unknown_legacy_policy(99)", sync.LegacyCommitPolicy(99).String())
+}
+
+func TestVerifierOptions_LegacyAcceptIsDefault(t *testing.T) {
+	t.Parallel()
+	var o sync.VerifierOptions
+	assert.False(t, o.LegacyCommitPolicy.HasVal(), "zero VerifierOptions.LegacyCommitPolicy must be None")
+	assert.Equal(t, sync.LegacyAccept, o.LegacyCommitPolicy.ValOr(sync.LegacyAccept))
+}
+
+// TestVerifyAndExpand_LegacyCommitAcceptedByDefault is the headline
+// test for the new lenient default. A 1.0-shape commit that would
+// have been rejected under LegacyReject is accepted: ops flow through
+// to the consumer as normal (action=update), state advances to the
+// new data CID, and the LegacyCommits counter increments so operators
+// can still see non-upgraded upstreams. No resync is triggered.
+func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacyacc1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	stripPrevData(commit)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	// PolicyResync configured to make resync attempts visible — if the
+	// gate accidentally falls through to handleVerificationFailure we'd
+	// see resyncs > 0 and "resync" actions instead of "update".
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyResync),
+		// LegacyCommitPolicy left unset — exercises the default.
+	})
+	require.NoError(t, err)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	require.Len(t, ops, 1)
+	assert.Equal(t, "update", ops[0].Action, "ops should pass through with their original action, not be relabeled as resync")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.LegacyCommits, "counter must still tick under accept mode")
+	assert.Equal(t, uint64(1), stats.EventsVerified, "legacy commits accepted under LegacyAccept count as verified")
+	assert.Equal(t, uint64(0), stats.Resyncs, "LegacyAccept must not trigger resync")
+	assert.Equal(t, uint64(0), stats.ChainBreaks)
+	assert.Equal(t, uint64(0), stats.InversionFailures)
+
+	// State advanced to the new commit's data CID.
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	dataCID, ok := testutil.InnerCommitDataCID(commit)
+	require.True(t, ok)
+	assert.True(t, state.Data.Equal(dataCID))
+	assert.Equal(t, commit.Rev, state.Rev)
+}
+
+// TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature asserts
+// the lenient mode is lenient about the chain-link check ONLY. A
+// legacy commit signed with the wrong key still fails signature
+// verification — LegacyAccept doesn't open the door to forged commits.
+func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacyacc2")
+	signKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	wrongKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	// Sign with signKey, but the DID document advertises wrongKey.
+	commit := testutil.BuildSyntheticCommit(t, r, signKey, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	stripPrevData(commit)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, wrongKey.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+		// LegacyCommitPolicy unset → LegacyAccept default.
+	})
+	require.NoError(t, err)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var sigErr *sync.SignatureError
+	require.ErrorAs(t, vErr, &sigErr, "LegacyAccept must NOT bypass signature verification")
+	assert.Equal(t, uint64(1), v.Stats().LegacyCommits)
+	assert.Equal(t, uint64(1), v.Stats().SignatureFailures)
+}
+
+// TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs asserts
+// the same for op-CID consistency: a legacy commit whose ops list
+// disagrees with its post-state MST is still rejected via the
+// existing op-CID gate. LegacyAccept skips ONLY the chain-link
+// check, not other structural validation.
+func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacyacc3")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	stripPrevData(commit)
+	// Corrupt the op's CID claim — should be caught by the op-CID
+	// gate even under LegacyAccept.
+	bogus, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var oce *sync.OpCIDMismatchError
+	require.ErrorAs(t, vErr, &oce, "LegacyAccept must NOT bypass op-CID consistency")
+	assert.Equal(t, uint64(1), v.Stats().LegacyCommits)
+	assert.Equal(t, uint64(1), v.Stats().OpCIDMismatches)
+}
+
+// TestVerifyAndExpand_LegacyCommitAcceptChainsForward asserts that a
+// followup well-formed 1.1 commit, arriving after a legacy commit
+// was accepted, chains correctly off the legacy commit's data CID.
+// I.e. accepting the legacy commit didn't leave chain state in a
+// confused half-advanced spot.
+func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:legacyacc4")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v0"}))
+	prevData0, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData0}))
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	// Commit 1: legacy shape. Accepted, advances state to its data CID.
+	c1 := testutil.BuildSyntheticCommit(t, r, key, prevData0, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v1"},
+	}})
+	prevData1, ok := testutil.InnerCommitDataCID(c1)
+	require.True(t, ok)
+	stripPrevData(c1)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), c1, nil)
+	require.NoError(t, vErr, "first legacy commit should be accepted")
+
+	// Commit 2: a normal 1.1 commit whose prevData points at commit-1's
+	// data CID. This is the correctness check: did the verifier really
+	// advance to prevData1, or did it leave state at prevData0?
+	c2 := testutil.BuildSyntheticCommit(t, r, key, prevData1, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v2"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), c2, nil)
+	require.NoError(t, vErr, "1.1 followup must chain cleanly off the accepted legacy commit")
+	assert.Len(t, ops, 1)
+	assert.Equal(t, "update", ops[0].Action)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.LegacyCommits)
+	assert.Equal(t, uint64(2), stats.EventsVerified)
+	assert.Equal(t, uint64(0), stats.ChainBreaks)
 }
 
 // TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the

@@ -383,6 +383,63 @@ func (e *ResyncRateLimitedError) Error() string {
 	return fmt.Sprintf("sync: resync rate limited for %s", e.DID)
 }
 
+// LegacyCommitPolicy controls how the verifier handles Sync-1.0-shape
+// commits arriving on a 1.1 firehose (no envelope prevData, no op.Prev
+// on update/delete ops). The 1.1 chain-continuity check is impossible
+// on these commits — there's no prevData to compare against and no
+// op.Prev to invert with — so the choice is whether to accept what we
+// can validate or reject the whole event.
+//
+// The zero value is LegacyAccept, the lenient default: a meaningful
+// fraction of PDSes in the network are still on 1.0-shape commits
+// during the protocol transition, and a strict default would silently
+// black-hole their accounts (under PolicyError) or hammer their
+// upstream with resyncs (under PolicyResync). Most consumer
+// applications care more about liveness than about catching the
+// narrow attack window legacy commits expose, so we default to
+// accept-with-counter.
+type LegacyCommitPolicy int
+
+const (
+	// LegacyAccept (default) accepts a legacy commit when its signature
+	// validates and its ops list is consistent with the post-state MST.
+	// The chain-link check is skipped (impossible without prevData);
+	// state advances to the new commit's data CID; ops flow to the
+	// consumer as normal create/update/delete.
+	//
+	// VerifierStats.LegacyCommits still increments — operators monitor
+	// the counter as a "non-upgraded upstream" signal even though the
+	// events are passing through.
+	//
+	// Tradeoff: a misbehaving upstream that drops back to 1.0 shape on
+	// purpose can replay an old signed commit (signatures were over the
+	// inner commit, which we still verify) without our chain-continuity
+	// check catching it. Op-CID verification + signature still rule out
+	// the most worrying classes (rebroadcast under wrong DID, fabricated
+	// records). Operators who can't accept that exposure should select
+	// LegacyReject.
+	LegacyAccept LegacyCommitPolicy = iota
+
+	// LegacyReject routes legacy commits through the existing
+	// verification-failure path. VerifierPolicy then decides:
+	// PolicyResync triggers a transparent resync via getRepo
+	// (Reason: legacy_commit); PolicyError surfaces *LegacyCommitError.
+	// This is the strict mode equivalent to "treat legacy as broken."
+	LegacyReject
+)
+
+// String returns a stable name for use in error messages and metrics labels.
+func (p LegacyCommitPolicy) String() string {
+	switch p {
+	case LegacyAccept:
+		return "accept"
+	case LegacyReject:
+		return "reject"
+	default:
+		return fmt.Sprintf("unknown_legacy_policy(%d)", p)
+	}
+}
+
 // VerifierPolicy controls what happens when chain or inversion verification
 // fails. The zero value is PolicyResync. Signature failures bypass policy
 // and always surface as SignatureError, since a resync would not repair them.
@@ -556,6 +613,13 @@ type VerifierOptions struct {
 	// means [time.Now]. Primarily for deterministic tests; production
 	// callers should leave it unset.
 	Now gt.Option[func() time.Time]
+
+	// LegacyCommitPolicy selects how Sync-1.0-shape commits are
+	// handled. None means [LegacyAccept], the lenient default suitable
+	// for most consumer applications. Set to [LegacyReject] for strict
+	// mode where legacy commits are routed through the same
+	// failure-handling path as chain breaks.
+	LegacyCommitPolicy gt.Option[LegacyCommitPolicy]
 }
 
 // Verifier performs Sync 1.1 verification of firehose events. Safe
@@ -1235,16 +1299,20 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, nil
 	}
 
-	// Inversion + chain check (only meaningful when state is non-nil).
-	var inverted cbor.CID
-	if state != nil {
-		// Legacy 1.0-shape detection runs before InvertCommit so a
-		// non-upgraded upstream surfaces as the precise typed error
-		// rather than a misleading "missing prev CID" InversionError.
-		// First sighting (state == nil) is unaffected — without prior
-		// state we have nothing to chain against either way.
-		if isLegacyCommit(commit) {
-			v.legacyCommits.Add(1)
+	// Legacy 1.0-shape detection. Runs before InvertCommit so a
+	// non-upgraded upstream's commit doesn't surface as a misleading
+	// "missing prev CID" InversionError. First sighting (state == nil)
+	// is unaffected — we have no prior chain state to validate
+	// against either way.
+	legacy := state != nil && isLegacyCommit(commit)
+	if legacy {
+		v.legacyCommits.Add(1)
+		// LegacyReject: route through the existing failure path —
+		// PolicyResync resyncs, PolicyError surfaces the typed error.
+		// LegacyAccept (default): skip the chain-link check (impossible
+		// without prevData) and fall through to signature verification,
+		// op-CID consistency, and state advance.
+		if v.opts.LegacyCommitPolicy.ValOr(LegacyAccept) == LegacyReject {
 			lcErr := &LegacyCommitError{
 				DID:      did,
 				Rev:      commit.Rev,
@@ -1253,8 +1321,13 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 			}
 			return v.handleVerificationFailure(ctx, did, commit, ReasonLegacyCommit, lcErr)
 		}
+	}
 
-		inverted, err = InvertCommit(commit)
+	// Inversion + chain check. Only meaningful when state is non-nil
+	// (first sighting has nothing to chain against) and the commit
+	// has the 1.1-shape fields (`prevData`, `op.Prev` on mutations).
+	if state != nil && !legacy {
+		inverted, err := InvertCommit(commit)
 		if err != nil {
 			v.inversionFailures.Add(1)
 			return v.handleVerificationFailure(ctx, did, commit, ReasonInversionFailure, err)
