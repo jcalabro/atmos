@@ -8,6 +8,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
@@ -29,6 +30,14 @@ const (
 	DefaultResyncLimit = rate.Limit(5.0 / 60.0)
 	DefaultResyncBurst = 5
 )
+
+// DefaultFutureRevTolerance is the maximum amount the rev's TID timestamp
+// is allowed to lead the verifier's wall clock before we reject the event
+// as future-dated. Matches indigo's relay (`futureRevTolerance` at
+// `cmd/relay/relay/verify.go:22`). The spec ("inductive firehose") says
+// future-timestamped revs MUST be ignored; this constant defines what
+// counts as "future" once clock-skew slack is applied.
+const DefaultFutureRevTolerance = 5 * time.Minute
 
 // ChainState is the per-DID state the verifier tracks: the last
 // commit rev and the last MST root data CID we successfully verified.
@@ -213,6 +222,37 @@ func (e *ResyncFailedError) Error() string {
 
 func (e *ResyncFailedError) Unwrap() error { return e.Cause }
 
+// FutureRevError is returned when a #commit or #sync event carries a
+// rev whose TID timestamp is more than [VerifierOptions.FutureRevTolerance]
+// ahead of the verifier's wall clock. Per the Sync 1.1 spec, future-
+// timestamped revs MUST be ignored; this error surfaces the rejection
+// to consumers for observability.
+//
+// Like SignatureError, FutureRevError bypasses [VerifierPolicy] — the
+// event is rejected outright under both PolicyError and PolicyResync
+// because no resync can recover from a clock-broken or malicious
+// upstream. Chain state is NOT advanced (the offending rev would
+// then be persisted, starving out every legitimate event for this
+// DID until wall-clock catches up).
+//
+// Revs that fail TID parsing entirely are NOT surfaced as
+// FutureRevError; the verifier conservatively skips the future-rev
+// gate in that case and lets the rest of the pipeline (chain check,
+// signature) handle the malformed event.
+type FutureRevError struct {
+	DID       atmos.DID
+	Rev       string
+	RevTime   time.Time     // timestamp decoded from the TID
+	Now       time.Time     // verifier's wall clock at rejection time
+	Tolerance time.Duration // configured grace period
+}
+
+func (e *FutureRevError) Error() string {
+	return fmt.Sprintf("sync: future rev for %s: rev=%s revTime=%s now=%s tolerance=%s",
+		e.DID, e.Rev, e.RevTime.Format(time.RFC3339Nano),
+		e.Now.Format(time.RFC3339Nano), e.Tolerance)
+}
+
 // ResyncRateLimitedError is returned when a DID has hit its resync
 // rate limit. Per Sync 1.1's "abusive accounts get throttled by
 // consumers" directive.
@@ -286,6 +326,11 @@ type VerifierStats struct {
 	// return value, but the secondary save failure means future events
 	// for this DID may re-report the same break until state catches up.
 	ChainStateSaveFailures uint64
+
+	// FutureRevsRejected counts events whose rev's TID timestamp was more
+	// than the configured tolerance ahead of the verifier's wall clock.
+	// Spec-mandated rejection; bypasses policy.
+	FutureRevsRejected uint64
 }
 
 // VerifierOp is the operation shape the Verifier produces. It mirrors
@@ -360,6 +405,19 @@ type VerifierOptions struct {
 	// they propagate as wrapped infrastructure errors via the return value
 	// only.
 	OnVerificationFailure gt.Option[func(did atmos.DID, err error)]
+
+	// FutureRevTolerance is the grace period for clock skew between this
+	// verifier and the upstream PDS. Events whose rev's TID timestamp is
+	// more than this far ahead of [Now] are rejected with
+	// [*FutureRevError]. None means [DefaultFutureRevTolerance] (5
+	// minutes). Set to a negative duration to disable the check entirely
+	// (not recommended for production — the spec mandates rejection).
+	FutureRevTolerance gt.Option[time.Duration]
+
+	// Now overrides the wall clock used for the future-rev check. None
+	// means [time.Now]. Primarily for deterministic tests; production
+	// callers should leave it unset.
+	Now gt.Option[func() time.Time]
 }
 
 // Verifier performs Sync 1.1 verification of firehose events. Safe
@@ -387,6 +445,7 @@ type Verifier struct {
 	resyncFailures         atomic.Uint64
 	revReplaysDropped      atomic.Uint64
 	chainStateSaveFailures atomic.Uint64
+	futureRevsRejected     atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -410,6 +469,17 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	}
 	if !opts.ResyncBurst.HasVal() || opts.ResyncBurst.Val() == 0 {
 		opts.ResyncBurst = gt.Some(DefaultResyncBurst)
+	}
+	if !opts.FutureRevTolerance.HasVal() {
+		opts.FutureRevTolerance = gt.Some(DefaultFutureRevTolerance)
+	}
+	if !opts.Now.HasVal() {
+		// Explicit type arg to anchor inference: gt.Some(time.Now) would
+		// infer func() time.Time from the value, but the lint check
+		// flags it as unnecessary while still tripping on the bare
+		// time.Now. The cast keeps both lints quiet.
+		var now func() time.Time = time.Now
+		opts.Now = gt.Some(now)
 	}
 	return &Verifier{opts: opts}, nil
 }
@@ -626,6 +696,41 @@ func (v *Verifier) Stats() VerifierStats {
 		ResyncFailures:         v.resyncFailures.Load(),
 		RevReplaysDropped:      v.revReplaysDropped.Load(),
 		ChainStateSaveFailures: v.chainStateSaveFailures.Load(),
+		FutureRevsRejected:     v.futureRevsRejected.Load(),
+	}
+}
+
+// checkFutureRev tests whether rev's TID timestamp is more than the
+// configured tolerance ahead of the verifier's wall clock. Returns a
+// non-nil [*FutureRevError] iff the rev is in the rejectable future.
+//
+// Returns nil for unparseable revs: the future-rev gate is best-effort
+// in the face of malformed input, and downstream string-comparison gates
+// (rev replay, chain check) handle that case adequately.
+//
+// Returns nil when the tolerance is configured to a negative duration —
+// an explicit operator opt-out for environments where TID timestamps
+// can't be trusted as a clock at all.
+func (v *Verifier) checkFutureRev(did atmos.DID, rev string) *FutureRevError {
+	tolerance := v.opts.FutureRevTolerance.Val()
+	if tolerance < 0 {
+		return nil
+	}
+	tid, err := atmos.ParseTID(rev)
+	if err != nil {
+		return nil
+	}
+	revTime := tid.Time()
+	now := v.opts.Now.Val()()
+	if !revTime.After(now.Add(tolerance)) {
+		return nil
+	}
+	return &FutureRevError{
+		DID:       did,
+		Rev:       rev,
+		RevTime:   revTime,
+		Now:       now,
+		Tolerance: tolerance,
 	}
 }
 
@@ -775,6 +880,18 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	did, err := atmos.ParseDID(commit.Repo)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid DID %q: %w", commit.Repo, err)
+	}
+
+	// Future-rev check runs before the per-DID lock and before chain-state
+	// load: a future-dated rev that we accepted would advance state and
+	// starve out every legitimate event for this DID, so we reject before
+	// any state can be touched. Bypasses policy — no resync helps here.
+	if frErr := v.checkFutureRev(did, commit.Rev); frErr != nil {
+		v.futureRevsRejected.Add(1)
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, frErr)
+		}
+		return nil, frErr
 	}
 
 	unlock := v.lockDID(did)
@@ -1005,6 +1122,17 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	did, err := atmos.ParseDID(syncEvt.DID)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid sync DID %q: %w", syncEvt.DID, err)
+	}
+
+	// Future-rev check: same rationale as in verifyCommit. A #sync at a
+	// future rev would also advance state and starve out legitimate
+	// follow-on events.
+	if frErr := v.checkFutureRev(did, syncEvt.Rev); frErr != nil {
+		v.futureRevsRejected.Add(1)
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, frErr)
+		}
+		return nil, frErr
 	}
 
 	unlock := v.lockDID(did)

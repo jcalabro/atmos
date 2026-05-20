@@ -1379,6 +1379,373 @@ func TestVerifyAndExpand_BothNilIsNoOp(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.RevReplaysDropped)
 }
 
+// ---------------------------------------------------------------------------
+// Future-rev rejection (Sync 1.1 spec MUST: future-timestamped revs ignored)
+// ---------------------------------------------------------------------------
+
+// frozenClock returns a func() time.Time that always reports the given
+// instant. Used by the future-rev tests so they never wait on the real
+// clock and stay deterministic across CI variance.
+func frozenClock(t time.Time) func() time.Time {
+	return func() time.Time { return t }
+}
+
+// futureRevTestVerifier returns a Verifier whose wall clock is pinned
+// to `now`, with PolicyError so test assertions see typed errors
+// directly. Tests that need to drive a `verifyCommit` happy-path
+// alongside a future-rev path use the standard chain-store seeding
+// pattern in the individual tests.
+func futureRevTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, now time.Time, tolerance gt.Option[time.Duration]) *sync.Verifier {
+	t.Helper()
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:         gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:          dir,
+		ChainStore:         sync.NewMemChainStore(),
+		Policy:             gt.Some(sync.PolicyError),
+		FutureRevTolerance: tolerance,
+		Now:                gt.Some(frozenClock(now)),
+	})
+	require.NoError(t, err)
+	return v
+}
+
+// TestFutureRevError_FormatAndUnwrap exercises the typed-error contract
+// (errors.As pickup, message contents) without exercising the verifier.
+func TestFutureRevError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	revTime := now.Add(2 * time.Hour)
+	err := &sync.FutureRevError{
+		DID:       atmos.DID("did:plc:future"),
+		Rev:       "3xxxxxxxxxxxx",
+		RevTime:   revTime,
+		Now:       now,
+		Tolerance: 5 * time.Minute,
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "future rev")
+	assert.Contains(t, msg, "did:plc:future")
+	assert.Contains(t, msg, "3xxxxxxxxxxxx")
+	assert.Contains(t, msg, "5m0s")
+
+	var target *sync.FutureRevError
+	assert.True(t, errors.As(err, &target))
+	assert.Equal(t, atmos.DID("did:plc:future"), target.DID)
+
+	// Wrapping with fmt.Errorf must preserve typed pickup.
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.NotNil(t, target)
+}
+
+// TestVerifyAndExpand_FutureRevRejected covers the spec MUST: a #commit
+// whose rev's TID timestamp is more than the tolerance ahead of the
+// verifier's wall clock is rejected outright with *FutureRevError. The
+// counter increments, OnVerificationFailure fires, and chain state is
+// NOT advanced (so a real commit at a sane rev can still land
+// afterwards).
+func TestVerifyAndExpand_FutureRevRejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:future1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	// Rev one hour ahead of wall clock — well past the default 5m tolerance.
+	farFutureRev := atmos.NewTIDFromTime(now.Add(1*time.Hour), 0)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "future"},
+	}})
+	commit.Rev = string(farFutureRev)
+
+	var hookFired bool
+	var hookErr error
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	cs := sync.NewMemChainStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+		Now:        gt.Some(frozenClock(now)),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
+			hookFired = true
+			hookErr = e
+		}),
+	})
+	require.NoError(t, err)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fre *sync.FutureRevError
+	require.ErrorAs(t, vErr, &fre)
+	assert.Nil(t, ops)
+	assert.Equal(t, did, fre.DID)
+	assert.Equal(t, string(farFutureRev), fre.Rev)
+	assert.Equal(t, now, fre.Now)
+	assert.Equal(t, 5*time.Minute, fre.Tolerance)
+	assert.True(t, fre.RevTime.After(now), "rev time must be in the future relative to clock")
+
+	assert.True(t, hookFired, "OnVerificationFailure should fire for future-rev rejection")
+	assert.ErrorAs(t, hookErr, &fre, "hook should receive the typed FutureRevError")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.FutureRevsRejected)
+	assert.Equal(t, uint64(0), stats.EventsVerified, "rejected event must not count as verified")
+	assert.Equal(t, uint64(0), stats.ChainBreaks)
+	assert.Equal(t, uint64(0), stats.RevReplaysDropped)
+
+	// Chain state must NOT have been advanced — a future rev that landed in
+	// state would starve out every legitimate event for this DID.
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, state, "future-rev rejection must not advance chain state")
+}
+
+// TestVerifyAndExpand_FutureRevWithinTolerance asserts the gate's other
+// edge: a rev whose timestamp is ahead of wall clock but within the
+// tolerance window is accepted normally. Guards against a regression
+// where the comparison flips and rejects sane revs from clocks slightly
+// ahead.
+func TestVerifyAndExpand_FutureRevWithinTolerance(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:future2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	// Rev 1 minute ahead — well within the default 5m tolerance.
+	nearFutureRev := atmos.NewTIDFromTime(now.Add(1*time.Minute), 0)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "near"},
+	}})
+	commit.Rev = string(nearFutureRev)
+
+	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	require.Len(t, ops, 1)
+	assert.Equal(t, "create", ops[0].Action)
+	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
+	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
+}
+
+// TestVerifyAndExpand_FutureRevCustomTolerance checks that operators
+// can tighten or loosen the window via VerifierOptions.FutureRevTolerance.
+// A 30-second tolerance with a 1-minute-ahead rev is rejected; the same
+// rev under the default 5m tolerance would have been accepted (covered
+// in the WithinTolerance test above).
+func TestVerifyAndExpand_FutureRevCustomTolerance(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:future3")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	rev := atmos.NewTIDFromTime(now.Add(1*time.Minute), 0)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "x"},
+	}})
+	commit.Rev = string(rev)
+
+	v := futureRevTestVerifier(t, did, key, now, gt.Some(30*time.Second))
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fre *sync.FutureRevError
+	require.ErrorAs(t, vErr, &fre)
+	assert.Equal(t, 30*time.Second, fre.Tolerance)
+	assert.Equal(t, uint64(1), v.Stats().FutureRevsRejected)
+}
+
+// TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck documents the
+// best-effort behavior on malformed input: an unparseable rev does NOT
+// trigger FutureRevError; the future-rev gate yields and downstream
+// gates (chain check, signature) handle the malformed event. The
+// commit here is otherwise valid, so it lands as a first-sighting
+// accept.
+func TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:future4")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v"},
+	}})
+	// Replace with something that fails atmos.ParseTID — not 13 chars.
+	commit.Rev = "not-a-tid"
+
+	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr, "unparseable rev should be passed to downstream gates, not rejected as future-rev")
+	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
+}
+
+// TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance covers the
+// explicit operator opt-out: setting tolerance to a negative duration
+// disables the gate entirely. A far-future rev that would normally be
+// rejected lands as a first-sighting accept.
+func TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:future5")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	farFutureRev := atmos.NewTIDFromTime(now.Add(100*365*24*time.Hour), 0) // 100 years out
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "century"},
+	}})
+	commit.Rev = string(farFutureRev)
+
+	v := futureRevTestVerifier(t, did, key, now, gt.Some(-time.Second))
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr, "negative tolerance disables the future-rev gate")
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
+}
+
+// TestVerifyAndExpand_FutureRevSyncEvent asserts the same gate applies
+// to #sync events, not just #commit. A sync event at a future rev is
+// rejected outright; chain state is untouched and no resync is
+// triggered (which would have hit the sync server otherwise).
+func TestVerifyAndExpand_FutureRevSyncEvent(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:future6")
+	now := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	farFutureRev := atmos.NewTIDFromTime(now.Add(1*time.Hour), 0)
+
+	resolver := testutil.NewTrackingResolver()
+	dir := &identity.Directory{Resolver: resolver}
+	cs := sync.NewMemChainStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		// SyncClient pointing at an unreachable host — if the verifier
+		// erroneously triggered resync, the test would fail with a
+		// network error instead of FutureRevError.
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyResync),
+		Now:        gt.Some(frozenClock(now)),
+	})
+	require.NoError(t, err)
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID: string(did),
+		Rev: string(farFutureRev),
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	var fre *sync.FutureRevError
+	require.ErrorAs(t, vErr, &fre)
+	assert.Equal(t, did, fre.DID)
+	assert.Equal(t, uint64(1), v.Stats().FutureRevsRejected)
+	assert.Equal(t, uint64(0), v.Stats().Resyncs, "future-rev sync must not trigger resync")
+
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, state)
+}
+
+// TestNewVerifier_DefaultsApplyFutureRevTolerance documents that
+// NewVerifier populates the default tolerance and clock when callers
+// leave them unset. Without this guarantee the public field would be a
+// foot-gun (zero-valued tolerance would reject every future-by-any-margin
+// rev).
+func TestNewVerifier_DefaultsApplyFutureRevTolerance(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:defaults1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     gt.Some(sync.PolicyError),
+		// FutureRevTolerance and Now intentionally left unset.
+	})
+	require.NoError(t, err)
+
+	// A "now-ish" rev produced from time.Now must verify cleanly under
+	// the default tolerance.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "ok"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+}
+
 // TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the
 // symmetric resync path for malformed CARs: an inversion failure under
 // PolicyResync should trigger transparent resync via getRepo. The
