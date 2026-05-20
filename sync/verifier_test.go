@@ -28,53 +28,53 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func TestMemChainStore_LoadMissingReturnsNilNil(t *testing.T) {
+func TestMemStateStore_LoadMissingReturnsNilNil(t *testing.T) {
 	t.Parallel()
 
-	store := sync.NewMemChainStore()
-	state, err := store.Load(context.Background(), atmos.DID("did:plc:abc"))
+	store := sync.NewMemStateStore()
+	state, err := store.LoadChain(context.Background(), atmos.DID("did:plc:abc"))
 	require.NoError(t, err)
 	assert.Nil(t, state)
 }
 
-func TestMemChainStore_SaveThenLoad(t *testing.T) {
+func TestMemStateStore_SaveThenLoad(t *testing.T) {
 	t.Parallel()
 
-	store := sync.NewMemChainStore()
+	store := sync.NewMemStateStore()
 	did := atmos.DID("did:plc:abc")
 	cid, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
 	require.NoError(t, err)
 
 	want := sync.ChainState{Rev: "3l3qo2vutsw2b", Data: cid}
-	require.NoError(t, store.Save(context.Background(), did, want))
+	require.NoError(t, store.SaveChain(context.Background(), did, want))
 
-	got, err := store.Load(context.Background(), did)
+	got, err := store.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, want.Rev, got.Rev)
 	assert.True(t, got.Data.Equal(want.Data))
 }
 
-func TestMemChainStore_Delete(t *testing.T) {
+func TestMemStateStore_Delete(t *testing.T) {
 	t.Parallel()
 
-	store := sync.NewMemChainStore()
+	store := sync.NewMemStateStore()
 	did := atmos.DID("did:plc:abc")
 	cid, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
 	require.NoError(t, err)
 
-	require.NoError(t, store.Save(context.Background(), did, sync.ChainState{Rev: "r1", Data: cid}))
+	require.NoError(t, store.SaveChain(context.Background(), did, sync.ChainState{Rev: "r1", Data: cid}))
 	require.NoError(t, store.Delete(context.Background(), did))
 
-	state, err := store.Load(context.Background(), did)
+	state, err := store.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Nil(t, state)
 }
 
-func TestMemChainStore_DeleteMissingNoError(t *testing.T) {
+func TestMemStateStore_DeleteMissingNoError(t *testing.T) {
 	t.Parallel()
 
-	store := sync.NewMemChainStore()
+	store := sync.NewMemStateStore()
 	require.NoError(t, store.Delete(context.Background(), atmos.DID("did:plc:never-saved")))
 }
 
@@ -219,19 +219,19 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 	xc := &xrpc.Client{Host: "https://example.invalid"}
 	sc := sync.NewClient(sync.Options{Client: xc})
 
-	t.Run("missing ChainStore", func(t *testing.T) {
+	t.Run("missing StateStore", func(t *testing.T) {
 		_, err := sync.NewVerifier(sync.VerifierOptions{
 			SyncClient: gt.Some(sc),
 			Directory:  dir,
 		})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "ChainStore")
+		assert.Contains(t, err.Error(), "StateStore")
 	})
 
 	t.Run("missing Directory", func(t *testing.T) {
 		_, err := sync.NewVerifier(sync.VerifierOptions{
 			SyncClient: gt.Some(sc),
-			ChainStore: sync.NewMemChainStore(),
+			StateStore: sync.NewMemStateStore(),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Directory")
@@ -240,7 +240,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 	t.Run("PolicyResync requires SyncClient", func(t *testing.T) {
 		_, err := sync.NewVerifier(sync.VerifierOptions{
 			Directory:  dir,
-			ChainStore: sync.NewMemChainStore(),
+			StateStore: sync.NewMemStateStore(),
 			Policy:     gt.Some(sync.PolicyResync),
 		})
 		require.Error(t, err)
@@ -250,7 +250,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 	t.Run("PolicyError works without SyncClient", func(t *testing.T) {
 		v, err := sync.NewVerifier(sync.VerifierOptions{
 			Directory:  dir,
-			ChainStore: sync.NewMemChainStore(),
+			StateStore: sync.NewMemStateStore(),
 			Policy:     gt.Some(sync.PolicyError),
 		})
 		require.NoError(t, err)
@@ -261,7 +261,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 		v, err := sync.NewVerifier(sync.VerifierOptions{
 			SyncClient: gt.Some(sc),
 			Directory:  dir,
-			ChainStore: sync.NewMemChainStore(),
+			StateStore: sync.NewMemStateStore(),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, v)
@@ -278,7 +278,7 @@ func TestNewVerifier_StatsStartAtZero(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sc),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 	})
 	require.NoError(t, err)
 	assert.NotNil(t, v)
@@ -296,7 +296,7 @@ func TestNewVerifier_DoesNotMutateCallerOptions(t *testing.T) {
 	opts := sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  sync.NewMemChainStore(),
+		StateStore:  sync.NewMemStateStore(),
 		ResyncLimit: gt.Some(rate.Limit(0)),
 		ResyncBurst: gt.Some(0),
 	}
@@ -554,7 +554,7 @@ func TestVerifier_PerDIDLocking(t *testing.T) {
 	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -625,7 +625,7 @@ func TestVerifier_VerifySignature_Success(t *testing.T) {
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -663,7 +663,7 @@ func TestVerifier_VerifySignature_KeyRotation(t *testing.T) {
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -695,7 +695,7 @@ func TestVerifier_VerifySignature_PermanentFailure(t *testing.T) {
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -719,7 +719,7 @@ func TestVerifier_PerDIDRateLimiter(t *testing.T) {
 	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 		// Effectively no refill during the test (one token per ~17 minutes).
 		// Keeps the burst-then-deny assertion bulletproof under any CI scheduling
@@ -772,7 +772,7 @@ func TestVerifier_Resync_Success(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  sync.NewMemChainStore(),
+		StateStore:  sync.NewMemStateStore(),
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -795,7 +795,7 @@ func TestVerifier_Resync_Success(t *testing.T) {
 	assert.Equal(t, did, resyncDID)
 	assert.Equal(t, sync.ReasonSyncEvent, resyncReason)
 	assert.Empty(t, resyncOldRev, "first resync should report empty oldRev (no prior chain state)")
-	state, err := v.ChainStore().Load(context.Background(), did)
+	state, err := v.StateStore().LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	assert.Equal(t, state.Rev, resyncNewRev, "newRev should match the rev we just wrote to chain state")
@@ -822,7 +822,7 @@ func TestVerifier_Resync_RateLimited(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  sync.NewMemChainStore(),
+		StateStore:  sync.NewMemStateStore(),
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Limit(0.001)), // effectively no refill during test
 		ResyncBurst: gt.Some(1),
@@ -866,7 +866,7 @@ func TestVerifier_Resync_BadSignatureFails(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  sync.NewMemChainStore(),
+		StateStore:  sync.NewMemStateStore(),
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -878,15 +878,25 @@ func TestVerifier_Resync_BadSignatureFails(t *testing.T) {
 	require.ErrorAs(t, err, &rfe)
 }
 
+// failingChainStore wraps a real StateStore and forces every chain
+// SaveChain to fail. Hosting reads/writes pass through unchanged so
+// tests can mix chain-write-failure scenarios with normal hosting
+// behavior.
 type failingChainStore struct {
-	real sync.ChainStore
+	real sync.StateStore
 }
 
-func (s *failingChainStore) Load(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
-	return s.real.Load(ctx, did)
+func (s *failingChainStore) LoadChain(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
+	return s.real.LoadChain(ctx, did)
 }
-func (s *failingChainStore) Save(_ context.Context, _ atmos.DID, _ sync.ChainState) error {
+func (s *failingChainStore) SaveChain(_ context.Context, _ atmos.DID, _ sync.ChainState) error {
 	return errors.New("disk full")
+}
+func (s *failingChainStore) LoadHosting(ctx context.Context, did atmos.DID) (*sync.HostingState, error) {
+	return s.real.LoadHosting(ctx, did)
+}
+func (s *failingChainStore) SaveHosting(ctx context.Context, did atmos.DID, st sync.HostingState) error {
+	return s.real.SaveHosting(ctx, did, st)
 }
 func (s *failingChainStore) Delete(ctx context.Context, did atmos.DID) error {
 	return s.real.Delete(ctx, did)
@@ -908,8 +918,8 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	chainStore := sync.NewMemChainStore()
-	require.NoError(t, chainStore.Save(context.Background(), did,
+	chainStore := sync.NewMemStateStore()
+	require.NoError(t, chainStore.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	resolver := testutil.NewTrackingResolver()
@@ -919,7 +929,7 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:   dir,
-		ChainStore:  chainStore,
+		StateStore:  chainStore,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -940,7 +950,7 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
 	assert.Equal(t, "rec2", ops[0].RKey)
 
-	state, err := chainStore.Load(context.Background(), did)
+	state, err := chainStore.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Equal(t, commit.Rev, state.Rev)
 
@@ -964,8 +974,8 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	chainStore := sync.NewMemChainStore()
-	require.NoError(t, chainStore.Save(context.Background(), did,
+	chainStore := sync.NewMemStateStore()
+	require.NoError(t, chainStore.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	resolver := testutil.NewTrackingResolver()
@@ -975,7 +985,7 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:   dir,
-		ChainStore:  chainStore,
+		StateStore:  chainStore,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -991,7 +1001,7 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	assert.Empty(t, ops)
 
 	// State must have advanced to the new commit.
-	state, err := chainStore.Load(context.Background(), did)
+	state, err := chainStore.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Equal(t, commit.Rev, state.Rev)
 
@@ -1011,9 +1021,9 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	highRev := "3zzzzzzzzzzzz"
-	require.NoError(t, cs.Save(context.Background(), did,
+	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: highRev, Data: prevData}))
 
 	resolver := testutil.NewTrackingResolver()
@@ -1023,7 +1033,7 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -1055,8 +1065,8 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 
 	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
 	require.NoError(t, err)
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
 
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
@@ -1066,7 +1076,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, _ error) {
 			failureCalled = true
@@ -1112,8 +1122,8 @@ func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
 	// directly via the underlying real store so the verifier sees a
 	// non-empty state (forcing a chain break) without the failingChainStore
 	// erroring on the seed call.
-	realStore := sync.NewMemChainStore()
-	require.NoError(t, realStore.Save(context.Background(), did,
+	realStore := sync.NewMemStateStore()
+	require.NoError(t, realStore.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
 	cs := &failingChainStore{real: realStore}
 
@@ -1124,7 +1134,7 @@ func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -1157,7 +1167,7 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
@@ -1165,7 +1175,7 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -1180,7 +1190,7 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, err)
 	assert.Len(t, ops, 1)
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	assert.Equal(t, commit.Rev, state.Rev)
@@ -1200,8 +1210,8 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 
 	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
 	require.NoError(t, err)
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
 
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
@@ -1215,7 +1225,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  cs,
+		StateStore:  cs,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -1262,7 +1272,7 @@ func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  &failingChainStore{real: sync.NewMemChainStore()},
+		StateStore:  &failingChainStore{real: sync.NewMemStateStore()},
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -1304,7 +1314,7 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  sync.NewMemChainStore(),
+		StateStore:  sync.NewMemStateStore(),
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -1333,8 +1343,8 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 
 	someCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
 	require.NoError(t, err)
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did,
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3zzzzzzzzzzzz", Data: someCID}))
 
 	resolver := testutil.NewTrackingResolver()
@@ -1344,7 +1354,7 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyResync),
 	})
 	require.NoError(t, err)
@@ -1371,7 +1381,7 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 // fields the request and the test's resync counter assertions catch
 // it. PolicyResync is used so a fall-through results in a successful
 // resync (visible via the counter) rather than a typed error.
-func syncNoOpVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, r *repo.Repo) (*sync.Verifier, sync.ChainStore) {
+func syncNoOpVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, r *repo.Repo) (*sync.Verifier, sync.StateStore) {
 	t.Helper()
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
@@ -1382,11 +1392,11 @@ func syncNoOpVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, r *rep
 	dir := &identity.Directory{Resolver: resolver}
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  cs,
+		StateStore:  cs,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -1415,7 +1425,7 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 
 	// Pre-seed chain state with the data CID we'll match.
 	oldRev := string(atmos.NewTIDFromTime(time.Now().Add(-1*time.Hour), 0))
-	require.NoError(t, cs.Save(context.Background(), did,
+	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: oldRev, Data: dataCID}))
 
 	// Build a #sync event whose embedded commit asserts the same
@@ -1441,7 +1451,7 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.ResyncFailures)
 
 	// State.Rev advanced to the sync event's rev; data unchanged.
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	assert.Equal(t, newRev, state.Rev, "rev should advance to the sync event's claim")
@@ -1472,7 +1482,7 @@ func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
 	// no-op fast path can't engage.
 	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
 	require.NoError(t, err)
-	require.NoError(t, cs.Save(context.Background(), did,
+	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
 
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
@@ -1493,7 +1503,7 @@ func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 
 	// State.Data advanced to the resynced commit's data CID.
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	assert.True(t, state.Data.Equal(currentDataCID))
@@ -1554,7 +1564,7 @@ func TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough(t *testing.T) {
 	// Even with state.Data matching what the resync would return, the
 	// fast path can't engage with no Blocks to decode — assert a
 	// resync still runs.
-	require.NoError(t, cs.Save(context.Background(), did,
+	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: dataCID}))
 
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
@@ -1590,7 +1600,7 @@ func TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough(t *testing.T) {
 	require.NoError(t, err)
 
 	v, cs := syncNoOpVerifier(t, did, key, r)
-	require.NoError(t, cs.Save(context.Background(), did,
+	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: dataCID}))
 
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
@@ -1626,8 +1636,8 @@ func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Real underlying store pre-seeded with matching state.
-	realStore := sync.NewMemChainStore()
-	require.NoError(t, realStore.Save(context.Background(), did,
+	realStore := sync.NewMemStateStore()
+	require.NoError(t, realStore.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: dataCID}))
 	cs := &failingChainStore{real: realStore}
 
@@ -1638,7 +1648,7 @@ func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyResync),
 	})
 	require.NoError(t, err)
@@ -1667,7 +1677,7 @@ func TestVerifyAndExpand_BothNilIsNoOp(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -1705,7 +1715,7 @@ func futureRevTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, n
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:         gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:          dir,
-		ChainStore:         sync.NewMemChainStore(),
+		StateStore:         sync.NewMemStateStore(),
 		Policy:             gt.Some(sync.PolicyError),
 		FutureRevTolerance: tolerance,
 		Now:                gt.Some(frozenClock(now)),
@@ -1779,11 +1789,11 @@ func TestVerifyAndExpand_FutureRevRejected(t *testing.T) {
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 		Now:        gt.Some(frozenClock(now)),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
@@ -1814,7 +1824,7 @@ func TestVerifyAndExpand_FutureRevRejected(t *testing.T) {
 
 	// Chain state must NOT have been advanced — a future rev that landed in
 	// state would starve out every legitimate event for this DID.
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Nil(t, state, "future-rev rejection must not advance chain state")
 }
@@ -1990,14 +2000,14 @@ func TestVerifyAndExpand_FutureRevSyncEvent(t *testing.T) {
 
 	resolver := testutil.NewTrackingResolver()
 	dir := &identity.Directory{Resolver: resolver}
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		// SyncClient pointing at an unreachable host — if the verifier
 		// erroneously triggered resync, the test would fail with a
 		// network error instead of FutureRevError.
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyResync),
 		Now:        gt.Some(frozenClock(now)),
 	})
@@ -2015,7 +2025,7 @@ func TestVerifyAndExpand_FutureRevSyncEvent(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().FutureRevsRejected)
 	assert.Equal(t, uint64(0), v.Stats().Resyncs, "future-rev sync must not trigger resync")
 
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Nil(t, state)
 }
@@ -2039,7 +2049,7 @@ func TestNewVerifier_DefaultsApplyFutureRevTolerance(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 		// FutureRevTolerance and Now intentionally left unset.
 	})
@@ -2122,18 +2132,18 @@ func rebuildInnerCommit(t *testing.T, c *comatproto.SyncSubscribeRepos_Commit, k
 // at an unreachable sync server (a tripwire — if the field-mismatch
 // gate erroneously triggers resync, the test fails with a network
 // error rather than a clean FieldMismatchError).
-func fieldMismatchTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.ChainStore, *bool, *error) {
+func fieldMismatchTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.StateStore, *bool, *error) {
 	t.Helper()
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	hookFired := false
 	var hookErr error
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyResync),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
 			hookFired = true
@@ -2218,7 +2228,7 @@ func TestVerifyAndExpand_FieldMismatchRev(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.SignatureFailures, "field check must run before signature verify")
 	assert.Equal(t, uint64(0), stats.Resyncs, "field mismatch must not trigger resync")
 
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Nil(t, state, "field mismatch must not advance chain state")
 }
@@ -2384,16 +2394,16 @@ func TestVerifyAndExpand_FieldMismatchHappyPathUnchanged(t *testing.T) {
 // typed error surfaces directly. Resolver knows about did so signature
 // verify succeeds (we want the OpCIDMismatchError gate to be the
 // rejecting layer, not signature).
-func opCIDMismatchTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.ChainStore) {
+func opCIDMismatchTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.StateStore) {
 	t.Helper()
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -2473,7 +2483,7 @@ func TestVerifyAndExpand_OpCIDMismatchCreate(t *testing.T) {
 	// PolicyError advances state even on this failure path (matching
 	// inversion-failure semantics) when the inner data CID is decodable
 	// — which it is here, since only the ops list was corrupted.
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	assert.Equal(t, commit.Rev, state.Rev)
@@ -2506,7 +2516,7 @@ func TestVerifyAndExpand_OpCIDMismatchUpdate(t *testing.T) {
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
 	// Pre-seed chain state so the chain-check passes before reaching
 	// the op-CID gate.
-	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	var oce *sync.OpCIDMismatchError
@@ -2555,7 +2565,7 @@ func TestVerifyAndExpand_OpCIDMismatchDeletePathPresent(t *testing.T) {
 	})
 
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
-	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	var oce *sync.OpCIDMismatchError
@@ -2622,7 +2632,7 @@ func TestVerifyAndExpand_OpCIDMismatchDeleteUnexpectedCID(t *testing.T) {
 	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
 
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
-	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	var oce *sync.OpCIDMismatchError
@@ -2648,8 +2658,8 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 	realPrevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: realPrevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: realPrevData}))
 
 	// Resync target: serve the current full repo via a fake getRepo.
 	var carBuf bytes.Buffer
@@ -2664,7 +2674,7 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  cs,
+		StateStore:  cs,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -2771,7 +2781,7 @@ func TestVerifyAndExpand_OversizedBlocksRejected(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -2816,7 +2826,7 @@ func TestVerifyAndExpand_OversizedOpsRejected(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -2862,7 +2872,7 @@ func TestVerifyAndExpand_OversizedFiresHook(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
 			hookErr = e
@@ -2901,7 +2911,7 @@ func TestVerifyAndExpand_OversizedBlocksTakesPriority(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -2949,7 +2959,7 @@ func TestVerifyAndExpand_AtLimitAccepted(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -2997,16 +3007,16 @@ func TestDuplicatePathError_FormatAndUnwrap(t *testing.T) {
 // typed error surfaces directly. The duplicate-path gate runs before
 // CAR decode so the test doesn't need the chain store pre-seeded with
 // matching state.
-func duplicatePathTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.ChainStore) {
+func duplicatePathTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.StateStore) {
 	t.Helper()
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -3098,7 +3108,7 @@ func TestVerifyAndExpand_DuplicatePathDeleteThenCreate(t *testing.T) {
 	})
 
 	v, _ := duplicatePathTestVerifier(t, did, key)
-	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	var dpe *sync.DuplicatePathError
@@ -3149,8 +3159,8 @@ func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	var carBuf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&carBuf, key))
@@ -3164,7 +3174,7 @@ func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  cs,
+		StateStore:  cs,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -3262,8 +3272,8 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -3281,7 +3291,7 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:         gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:          dir,
-		ChainStore:         cs,
+		StateStore:         cs,
 		Policy:             gt.Some(sync.PolicyError),
 		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
@@ -3323,8 +3333,8 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	// Resync target: serve the current full repo.
 	var carBuf bytes.Buffer
@@ -3340,7 +3350,7 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:         gt.Some(sc),
 		Directory:          dir,
-		ChainStore:         cs,
+		StateStore:         cs,
 		Policy:             gt.Some(sync.PolicyResync),
 		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
 		ResyncLimit:        gt.Some(rate.Inf),
@@ -3397,7 +3407,7 @@ func TestVerifyAndExpand_LegacyCommitFirstSightingUnaffected(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(), // empty: first sighting
+		StateStore: sync.NewMemStateStore(), // empty: first sighting
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -3438,8 +3448,8 @@ func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -3461,7 +3471,7 @@ func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -3496,8 +3506,8 @@ func TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionCreate,
@@ -3514,7 +3524,7 @@ func TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:         gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:          dir,
-		ChainStore:         cs,
+		StateStore:         cs,
 		Policy:             gt.Some(sync.PolicyError),
 		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
 	})
@@ -3542,8 +3552,8 @@ func TestVerifyAndExpand_LegacyCommitHappyPathUnchanged(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -3559,7 +3569,7 @@ func TestVerifyAndExpand_LegacyCommitHappyPathUnchanged(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -3607,8 +3617,8 @@ func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -3628,7 +3638,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyResync),
 		// LegacyCommitPolicy left unset — exercises the default.
 	})
@@ -3647,7 +3657,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.InversionFailures)
 
 	// State advanced to the new commit's data CID.
-	state, err := cs.Load(context.Background(), did)
+	state, err := cs.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	dataCID, ok := testutil.InnerCommitDataCID(commit)
@@ -3674,8 +3684,8 @@ func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature(t *testing.T) 
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	// Sign with signKey, but the DID document advertises wrongKey.
 	commit := testutil.BuildSyntheticCommit(t, r, signKey, prevData, []testutil.OpAction{{
@@ -3693,7 +3703,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature(t *testing.T) 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 		// LegacyCommitPolicy unset → LegacyAccept default.
 	})
@@ -3723,8 +3733,8 @@ func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -3746,7 +3756,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -3775,8 +3785,8 @@ func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
 	prevData0, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData0}))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData0}))
 
 	resolver := testutil.NewTrackingResolver()
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
@@ -3785,7 +3795,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -3845,8 +3855,8 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	require.NoError(t, err)
 
 	// Pre-seed chain state.
-	cs := sync.NewMemChainStore()
-	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{
 		Rev: "3aaaaaaaaaaaa", Data: realPrevData,
 	}))
 
@@ -3863,7 +3873,7 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  cs,
+		StateStore:  cs,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -3908,8 +3918,8 @@ func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
-	chainStore := sync.NewMemChainStore()
-	require.NoError(t, chainStore.Save(context.Background(), did,
+	chainStore := sync.NewMemStateStore()
+	require.NoError(t, chainStore.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	resolver := testutil.NewTrackingResolver()
@@ -3919,7 +3929,7 @@ func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: chainStore,
+		StateStore: chainStore,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
@@ -4008,14 +4018,14 @@ func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
 	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
 	dir := &identity.Directory{Resolver: resolver}
 
-	cs := sync.NewMemChainStore()
-	require.NoError(b, cs.Save(context.Background(), did,
+	cs := sync.NewMemStateStore()
+	require.NoError(b, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(b, err)
@@ -4035,10 +4045,10 @@ func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		// Reset state every iteration so the rev-replay gate stays
-		// open. Save() on MemChainStore is a sync.Map.Store — its
+		// open. SaveChain on MemStateStore is a sync.Map.Store — its
 		// cost is constant and small relative to the verification
 		// work, so it doesn't meaningfully pollute the measurement.
-		_ = cs.Save(ctx, did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData})
+		_ = cs.SaveChain(ctx, did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData})
 		ops, err := v.VerifyAndExpand(ctx, commit, nil)
 		if err != nil {
 			b.Fatalf("verify: %v", err)
@@ -4047,4 +4057,552 @@ func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
 			b.Fatalf("expected 1 op, got %d", len(ops))
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Hosting status (A8): #account events, HostingState, HostingPolicy
+// ---------------------------------------------------------------------------
+
+func TestMemStateStore_HostingRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	store := sync.NewMemStateStore()
+	did := atmos.DID("did:plc:host1")
+
+	got, err := store.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, got, "missing hosting state should return (nil, nil)")
+
+	want := sync.HostingState{
+		Active: false,
+		Status: sync.StatusTakendown,
+		Seq:    42,
+		Time:   "2026-05-20T00:00:00Z",
+	}
+	require.NoError(t, store.SaveHosting(context.Background(), did, want))
+
+	got, err = store.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, want, *got)
+}
+
+func TestMemStateStore_DeleteClearsBoth(t *testing.T) {
+	t.Parallel()
+
+	store := sync.NewMemStateStore()
+	did := atmos.DID("did:plc:both1")
+	cid, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+
+	require.NoError(t, store.SaveChain(context.Background(), did,
+		sync.ChainState{Rev: "r1", Data: cid}))
+	require.NoError(t, store.SaveHosting(context.Background(), did,
+		sync.HostingState{Active: true, Seq: 1}))
+
+	require.NoError(t, store.Delete(context.Background(), did))
+
+	chain, err := store.LoadChain(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, chain, "Delete should clear chain state")
+
+	hosting, err := store.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, hosting, "Delete should clear hosting state")
+}
+
+func TestHostingState_IsActive(t *testing.T) {
+	t.Parallel()
+
+	var nilState *sync.HostingState
+	assert.True(t, nilState.IsActive(), "nil receiver should be treated as active (first sighting)")
+
+	active := &sync.HostingState{Active: true}
+	assert.True(t, active.IsActive())
+
+	inactive := &sync.HostingState{Active: false, Status: sync.StatusTakendown}
+	assert.False(t, inactive.IsActive())
+}
+
+func TestHostingPolicy_String(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "track", sync.HostingTrack.String())
+	assert.Equal(t, "gate", sync.HostingGate.String())
+	assert.Equal(t, "unknown_hosting_policy(99)", sync.HostingPolicy(99).String())
+}
+
+func TestResyncReason_AccountInactive(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "account_inactive", sync.ReasonAccountInactive.String())
+}
+
+func TestAccountInactiveError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	err := &sync.AccountInactiveError{
+		DID:    atmos.DID("did:plc:gone"),
+		Status: sync.StatusTakendown,
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "account inactive")
+	assert.Contains(t, msg, "did:plc:gone")
+	assert.Contains(t, msg, "takendown")
+
+	// Empty status: error message should still be coherent.
+	bare := &sync.AccountInactiveError{DID: atmos.DID("did:plc:gone")}
+	assert.Contains(t, bare.Error(), "account inactive")
+	assert.NotContains(t, bare.Error(), "status=")
+
+	var target *sync.AccountInactiveError
+	assert.True(t, errors.As(err, &target))
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, sync.StatusTakendown, target.Status)
+}
+
+// hostingTestVerifier builds a verifier with the given HostingPolicy
+// and PolicyError, plus a fake getRepo server pointed at an
+// unreachable host (so any accidental resync surfaces as a network
+// error instead of silent recovery).
+func hostingTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, policy sync.HostingPolicy) (*sync.Verifier, sync.StateStore) {
+	t.Helper()
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	ss := sync.NewMemStateStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:    gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:     dir,
+		StateStore:    ss,
+		Policy:        gt.Some(sync.PolicyError),
+		HostingPolicy: gt.Some(policy),
+	})
+	require.NoError(t, err)
+	return v, ss
+}
+
+// TestVerifier_OnAccountEvent_PersistsState exercises the basic
+// happy path: an #account event passed to OnAccountEvent ends up in
+// the StateStore and fires the callback exactly once.
+func TestVerifier_OnAccountEvent_PersistsState(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:onacc1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	ss := sync.NewMemStateStore()
+
+	var (
+		callbackDID   atmos.DID
+		callbackState sync.HostingState
+		callbackCalls int
+	)
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		StateStore: ss,
+		Policy:     gt.Some(sync.PolicyError),
+		OnAccountEvent: gt.Some(func(d atmos.DID, s sync.HostingState) {
+			callbackDID = d
+			callbackState = s
+			callbackCalls++
+		}),
+	})
+	require.NoError(t, err)
+
+	evt := &comatproto.SyncSubscribeRepos_Account{
+		DID:    string(did),
+		Active: false,
+		Status: gt.Some(sync.StatusTakendown),
+		Seq:    100,
+		Time:   "2026-05-20T00:00:00Z",
+	}
+	require.NoError(t, v.OnAccountEvent(context.Background(), evt))
+
+	got, err := ss.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.False(t, got.Active)
+	assert.Equal(t, sync.StatusTakendown, got.Status)
+	assert.Equal(t, int64(100), got.Seq)
+	assert.Equal(t, "2026-05-20T00:00:00Z", got.Time)
+
+	assert.Equal(t, 1, callbackCalls)
+	assert.Equal(t, did, callbackDID)
+	assert.Equal(t, *got, callbackState)
+}
+
+// TestVerifier_OnAccountEvent_ReplayDrop covers the seq-based replay
+// gate: an event at or below the persisted seq is silently dropped,
+// counter increments, callback does NOT fire.
+func TestVerifier_OnAccountEvent_ReplayDrop(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:onacc2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	ss := sync.NewMemStateStore()
+
+	callbackCalls := 0
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		StateStore: ss,
+		Policy:     gt.Some(sync.PolicyError),
+		OnAccountEvent: gt.Some(func(_ atmos.DID, _ sync.HostingState) {
+			callbackCalls++
+		}),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: true, Seq: 200,
+	}))
+	// Re-deliver same seq.
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 200,
+	}))
+	// Lower seq.
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 50,
+	}))
+
+	got, err := ss.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.True(t, got.Active, "state must reflect first event, not the dropped re-deliveries")
+	assert.Equal(t, int64(200), got.Seq)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(2), stats.AccountEventReplaysDropped)
+	assert.Equal(t, 1, callbackCalls, "callback must not fire on replay drops")
+}
+
+// TestVerifier_OnAccountEvent_ForwardCompatStatus asserts the
+// open-vocabulary contract: an unknown status string is preserved
+// verbatim in HostingState.
+func TestVerifier_OnAccountEvent_ForwardCompatStatus(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:fwd1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	ss := sync.NewMemStateStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		StateStore: ss,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some("future_value_not_in_spec"), Seq: 1,
+	}))
+
+	got, err := ss.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "future_value_not_in_spec", got.Status,
+		"unknown status strings must be preserved verbatim")
+}
+
+func TestVerifier_OnAccountEvent_InvalidDID(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: testutil.NewTrackingResolver()}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		StateStore: sync.NewMemStateStore(),
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	err = v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: "not-a-did", Active: true, Seq: 1,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid account DID")
+}
+
+// TestVerifyAndExpand_HostingTrackDoesNotGate is the headline assertion
+// for the default policy: even after an #account event marks the DID
+// inactive, subsequent #commit events still verify normally.
+// Consumers under HostingTrack are expected to filter on their own
+// (or use HostingGate).
+func TestVerifyAndExpand_HostingTrackDoesNotGate(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:track1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, ss := hostingTestVerifier(t, did, key, sync.HostingTrack)
+
+	// Mark inactive.
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 1,
+	}))
+
+	// Subsequent commit still verifies.
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "ignored takedown"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().AccountsInactive)
+
+	hosting, err := ss.LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, hosting)
+	assert.False(t, hosting.Active, "state was still tracked, just not gated")
+}
+
+// TestVerifyAndExpand_HostingGateDropsCommit is the headline
+// assertion for HostingGate: a #commit for a DID whose persisted
+// state is non-active returns AccountInactiveError, fires the hook,
+// increments the counter, and does not advance state.
+func TestVerifyAndExpand_HostingGateDropsCommit(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:gate1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	ss := sync.NewMemStateStore()
+
+	var hookErr error
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:    gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:     dir,
+		StateStore:    ss,
+		Policy:        gt.Some(sync.PolicyError),
+		HostingPolicy: gt.Some(sync.HostingGate),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
+			hookErr = e
+		}),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 1,
+	}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "should be dropped"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var aiErr *sync.AccountInactiveError
+	require.ErrorAs(t, vErr, &aiErr)
+	assert.Nil(t, ops)
+	assert.Equal(t, sync.StatusTakendown, aiErr.Status)
+	assert.Equal(t, did, aiErr.DID)
+
+	require.ErrorAs(t, hookErr, &aiErr)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.AccountsInactive)
+	assert.Equal(t, uint64(0), stats.EventsVerified, "gated commit must not count as verified")
+
+	chain, err := ss.LoadChain(context.Background(), did)
+	require.NoError(t, err)
+	assert.Nil(t, chain, "gated commit must not advance chain state")
+}
+
+func TestVerifyAndExpand_HostingGateDropsSync(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:gate2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	v, _ := hostingTestVerifier(t, did, key, sync.HostingGate)
+
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusSuspended), Seq: 1,
+	}))
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID: string(did),
+		Rev: string(atmos.NewTIDNow(0)),
+	}
+	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	var aiErr *sync.AccountInactiveError
+	require.ErrorAs(t, vErr, &aiErr)
+	assert.Equal(t, sync.StatusSuspended, aiErr.Status)
+	assert.Equal(t, uint64(1), v.Stats().AccountsInactive)
+}
+
+// TestVerifyAndExpand_HostingGateReactivation asserts that flipping
+// state from inactive back to active re-enables verification.
+func TestVerifyAndExpand_HostingGateReactivation(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:reactivate1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, _ := hostingTestVerifier(t, did, key, sync.HostingGate)
+
+	// Takedown.
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 1,
+	}))
+	// Reinstate.
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: true, Seq: 2,
+	}))
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "back online"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().AccountsInactive)
+}
+
+// TestVerifyAndExpand_HostingGateFirstSightingAllows guards the
+// first-sighting behavior: with no persisted state, the verifier
+// permits the event (matches indigo's relay semantics).
+func TestVerifyAndExpand_HostingGateFirstSightingAllows(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:first1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, _ := hostingTestVerifier(t, did, key, sync.HostingGate)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "first sighting"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr, "first sighting must be permitted under HostingGate")
+	assert.Len(t, ops, 1)
+}
+
+// TestVerifier_Resync_HostingGateBlocks asserts the resync gate:
+// under HostingGate, Verifier.Resync for an inactive DID returns
+// ResyncFailedError{Reason: ReasonAccountInactive} without hitting
+// getRepo. Verified by pointing the SyncClient at an unreachable
+// host — if the gate fails to engage, we'd see a network error
+// instead.
+func TestVerifier_Resync_HostingGateBlocks(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:resgate1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	v, _ := hostingTestVerifier(t, did, key, sync.HostingGate)
+
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 1,
+	}))
+
+	_, vErr := v.Resync(context.Background(), did)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, vErr, &rfe)
+	assert.Equal(t, sync.ReasonAccountInactive, rfe.Reason)
+
+	var aiErr *sync.AccountInactiveError
+	require.ErrorAs(t, rfe.Cause, &aiErr)
+	assert.Equal(t, sync.StatusTakendown, aiErr.Status)
+
+	assert.Equal(t, uint64(1), v.Stats().ResyncFailures)
+	assert.Equal(t, uint64(0), v.Stats().Resyncs)
+}
+
+// TestVerifier_Resync_HostingTrackPermits documents the use case
+// from the design doc: a moderation tool wants to fetch the repo
+// of a takendown account. Under the default HostingTrack, even a
+// DID marked inactive can be resynced.
+func TestVerifier_Resync_HostingTrackPermits(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:restrack1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "still here"}))
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:    gt.Some(sc),
+		Directory:     dir,
+		StateStore:    sync.NewMemStateStore(),
+		Policy:        gt.Some(sync.PolicyResync),
+		HostingPolicy: gt.Some(sync.HostingTrack),
+		ResyncLimit:   gt.Some(rate.Inf),
+		ResyncBurst:   gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 1,
+	}))
+
+	ops, vErr := v.Resync(context.Background(), did)
+	require.NoError(t, vErr, "HostingTrack must permit resync of inactive accounts")
+	require.NotEmpty(t, ops)
+	assert.Equal(t, uint64(1), v.Stats().Resyncs)
 }

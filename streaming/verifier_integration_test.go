@@ -131,7 +131,7 @@ func TestVerifiedStream_HappyPath(t *testing.T) {
 	verifier, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  sync.NewMemChainStore(),
+		StateStore:  sync.NewMemStateStore(),
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),
@@ -278,7 +278,7 @@ func TestVerifiedStream_VerifierErrorDoesNotTriggerSpuriousGap(t *testing.T) {
 
 	verifier, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)

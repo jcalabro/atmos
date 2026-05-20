@@ -44,61 +44,125 @@ const (
 	MaxCommitOps = 200
 )
 
-// ChainState is the per-DID state the verifier tracks: the rev and
-// MST root CID of the last commit it accepted.
+// ChainState is per-DID chain-continuity state: the rev and MST root
+// CID of the last commit accepted.
 type ChainState struct {
 	Rev  string
 	Data cbor.CID
 }
 
-// ChainStore persists per-DID chain state across firehose events.
-// Load returning (nil, nil) means "no state for this DID yet"; the
-// verifier treats that as a first sighting.
+// HostingState is per-DID hosting status, tracked from #account
+// events. Active is the visibility decision; Status is the optional
+// reason when !Active. Status is intentionally a free string: the
+// spec defines an open vocabulary, and unknown values must be
+// tolerated. See the Status* constants for well-known values.
+type HostingState struct {
+	Active bool
+	Status string // optional reason when !Active; empty when Active
+	Seq    int64  // seq of the source #account event (replay protection)
+	Time   string // event time, for diagnostics
+}
+
+// IsActive reports whether s permits commit/sync events. A nil
+// receiver is treated as active (first sighting).
+func (s *HostingState) IsActive() bool {
+	if s == nil {
+		return true
+	}
+	return s.Active
+}
+
+// Well-known #account status values. The spec's vocabulary is open;
+// callers may see other values and should preserve them verbatim.
+const (
+	StatusTakendown      = "takendown"      // host/service-initiated removal (terms violation)
+	StatusSuspended      = "suspended"      // time-limited variant of takendown
+	StatusDeactivated    = "deactivated"    // user-initiated removal; also the migration starting state
+	StatusDeleted        = "deleted"        // user/host-initiated; conventionally permanent
+	StatusDesynchronized = "desynchronized" // sync 1.1: lost sync, repair pending; can co-exist with Active=true
+	StatusThrottled      = "throttled"      // sync 1.1: rate-limited; can co-exist with Active=true
+)
+
+// StateStore persists per-DID state across firehose events. The
+// verifier reads and writes through this interface.
+//
+// Load methods return (nil, nil) when no state is recorded; the
+// verifier treats that as a first sighting and assumes safe defaults
+// (active hosting, no chain link).
 //
 // Production deployments need durable storage (pebble, sqlite, etc.).
-// The in-memory MemChainStore loses state on restart, after which the
+// The in-memory MemStateStore loses state on restart, after which the
 // next event for each DID is accepted as ground truth.
-type ChainStore interface {
-	Load(ctx context.Context, did atmos.DID) (*ChainState, error)
-	Save(ctx context.Context, did atmos.DID, state ChainState) error
+//
+// Implementations may store chain and hosting state under separate
+// keys, separate columns, or any other layout — the interface is
+// field-targeted so callers never read-modify-write on the hot path.
+// Delete removes both fields atomically.
+type StateStore interface {
+	LoadChain(ctx context.Context, did atmos.DID) (*ChainState, error)
+	SaveChain(ctx context.Context, did atmos.DID, state ChainState) error
+
+	LoadHosting(ctx context.Context, did atmos.DID) (*HostingState, error)
+	SaveHosting(ctx context.Context, did atmos.DID, state HostingState) error
+
 	Delete(ctx context.Context, did atmos.DID) error
 }
 
-// MemChainStore is an in-memory ChainStore for tests and development.
+// MemStateStore is an in-memory StateStore for tests and development.
 // State is lost on restart.
-type MemChainStore struct {
-	m sync.Map // map[atmos.DID]ChainState
+type MemStateStore struct {
+	chain   sync.Map // map[atmos.DID]ChainState
+	hosting sync.Map // map[atmos.DID]HostingState
 }
 
-// NewMemChainStore returns an empty MemChainStore.
-func NewMemChainStore() *MemChainStore {
-	return &MemChainStore{}
+// NewMemStateStore returns an empty MemStateStore.
+func NewMemStateStore() *MemStateStore {
+	return &MemStateStore{}
 }
 
-// Load returns the chain state for did, or (nil, nil) if absent.
-func (s *MemChainStore) Load(_ context.Context, did atmos.DID) (*ChainState, error) {
-	v, ok := s.m.Load(did)
+// LoadChain returns the chain state for did, or (nil, nil) if absent.
+func (s *MemStateStore) LoadChain(_ context.Context, did atmos.DID) (*ChainState, error) {
+	v, ok := s.chain.Load(did)
 	if !ok {
 		return nil, nil
 	}
 	state, ok := v.(ChainState)
 	if !ok {
-		// MemChainStore is the sole writer of this map; a wrong-typed
-		// value indicates memory corruption.
-		panic("MemChainStore: stored value is not ChainState")
+		panic("MemStateStore: stored chain value is not ChainState")
 	}
 	return &state, nil
 }
 
-// Save records the chain state for did.
-func (s *MemChainStore) Save(_ context.Context, did atmos.DID, state ChainState) error {
-	s.m.Store(did, state)
+// SaveChain records the chain state for did.
+func (s *MemStateStore) SaveChain(_ context.Context, did atmos.DID, state ChainState) error {
+	s.chain.Store(did, state)
 	return nil
 }
 
-// Delete removes any chain state for did; no-op if absent.
-func (s *MemChainStore) Delete(_ context.Context, did atmos.DID) error {
-	s.m.Delete(did)
+// LoadHosting returns the hosting state for did, or (nil, nil) if absent.
+func (s *MemStateStore) LoadHosting(_ context.Context, did atmos.DID) (*HostingState, error) {
+	v, ok := s.hosting.Load(did)
+	if !ok {
+		return nil, nil
+	}
+	state, ok := v.(HostingState)
+	if !ok {
+		panic("MemStateStore: stored hosting value is not HostingState")
+	}
+	return &state, nil
+}
+
+// SaveHosting records the hosting state for did.
+func (s *MemStateStore) SaveHosting(_ context.Context, did atmos.DID, state HostingState) error {
+	s.hosting.Store(did, state)
+	return nil
+}
+
+// Delete removes both chain and hosting state for did; no-op for
+// fields that weren't set.
+func (s *MemStateStore) Delete(_ context.Context, did atmos.DID) error {
+	s.chain.Delete(did)
+	s.hosting.Delete(did)
 	return nil
 }
 
@@ -128,6 +192,12 @@ const (
 	// Only fires under LegacyReject; under LegacyAccept the commit
 	// passes through without a resync.
 	ReasonLegacyCommit
+
+	// ReasonAccountInactive: the verifier was asked to resync a DID
+	// whose persisted hosting status is not active. Only fires under
+	// HostingGate; surfaces as the cause of a ResyncFailedError so
+	// callers can distinguish "couldn't resync" from "won't resync".
+	ReasonAccountInactive
 )
 
 // String returns a stable name for use in error messages and metrics labels.
@@ -141,6 +211,8 @@ func (r ResyncReason) String() string {
 		return "sync_event"
 	case ReasonLegacyCommit:
 		return "legacy_commit"
+	case ReasonAccountInactive:
+		return "account_inactive"
 	default:
 		return fmt.Sprintf("unknown_reason(%d)", r)
 	}
@@ -385,6 +457,26 @@ func (e *ResyncRateLimitedError) Error() string {
 	return fmt.Sprintf("sync: resync rate limited for %s", e.DID)
 }
 
+// AccountInactiveError is returned under HostingGate when a #commit
+// or #sync arrives for a DID whose persisted HostingState marks the
+// account as not active (takendown, suspended, deactivated, deleted,
+// or any other non-active status).
+//
+// Bypasses VerifierPolicy: a resync against the same upstream can't
+// undo a takedown. Status is the persisted reason string (open
+// vocabulary; see Status* constants for well-known values).
+type AccountInactiveError struct {
+	DID    atmos.DID
+	Status string
+}
+
+func (e *AccountInactiveError) Error() string {
+	if e.Status == "" {
+		return fmt.Sprintf("sync: account inactive for %s", e.DID)
+	}
+	return fmt.Sprintf("sync: account inactive for %s (status=%s)", e.DID, e.Status)
+}
+
 // LegacyCommitPolicy controls how the verifier handles Sync-1.0-shape
 // commits arriving on a 1.1 firehose (no envelope prevData, no op.Prev
 // on update/delete ops). The chain-continuity check is impossible on
@@ -421,6 +513,38 @@ func (p LegacyCommitPolicy) String() string {
 		return "reject"
 	default:
 		return fmt.Sprintf("unknown_legacy_policy(%d)", p)
+	}
+}
+
+// HostingPolicy controls whether the verifier gates #commit and
+// #sync events on the persisted HostingState for the DID.
+type HostingPolicy int
+
+const (
+	// HostingTrack (default) persists hosting state via OnAccountEvent
+	// but does not gate downstream events. Consumers can read state
+	// from StateStore.LoadHosting and apply their own filtering.
+	// Suitable for moderation tools, archivers, and any pipeline that
+	// wants to observe takendown accounts.
+	HostingTrack HostingPolicy = iota
+
+	// HostingGate persists hosting state AND drops #commit/#sync for
+	// non-active DIDs (returning *AccountInactiveError). Resyncs for
+	// non-active DIDs return ResyncFailedError with
+	// ReasonAccountInactive instead of hitting getRepo. Suitable for
+	// content-distribution pipelines that must honor takedowns.
+	HostingGate
+)
+
+// String returns a stable name suitable for metric labels.
+func (p HostingPolicy) String() string {
+	switch p {
+	case HostingTrack:
+		return "track"
+	case HostingGate:
+		return "gate"
+	default:
+		return fmt.Sprintf("unknown_hosting_policy(%d)", p)
 	}
 }
 
@@ -490,10 +614,10 @@ type VerifierStats struct {
 	// persisted rev (re-deliveries or out-of-order arrivals).
 	RevReplaysDropped uint64
 
-	// ChainStateSaveFailures counts ChainStore.Save failures during
-	// PolicyError state-advance. The primary verification error still
-	// surfaces; this counter signals that future events for the DID
-	// may re-report the same break until state catches up.
+	// ChainStateSaveFailures counts StateStore.SaveChain failures
+	// during PolicyError state-advance. The primary verification
+	// error still surfaces; this counter signals that future events
+	// for the DID may re-report the same break until state catches up.
 	ChainStateSaveFailures uint64
 
 	// FutureRevsRejected counts events whose rev TID timestamp led
@@ -532,6 +656,16 @@ type VerifierStats struct {
 	// SyncNoOps counts #sync events whose embedded data CID matched
 	// persisted state; the verifier advanced rev and skipped getRepo.
 	SyncNoOps uint64
+
+	// AccountsInactive counts events dropped because the persisted
+	// HostingState for the DID is not active. Only fires under
+	// HostingGate; under HostingTrack the verifier passes events
+	// through regardless of status.
+	AccountsInactive uint64
+
+	// AccountEventReplaysDropped counts #account events with a seq
+	// at or below the persisted seq for that DID (re-deliveries).
+	AccountEventReplaysDropped uint64
 }
 
 // VerifierOp is one operation produced by the Verifier. Mirrors
@@ -547,18 +681,18 @@ type VerifierOp struct {
 	BlockData  []byte
 }
 
-// VerifierOptions configures a Verifier. Directory and ChainStore are
-// required. SyncClient is required under PolicyResync (the default).
-// Optional fields are wrapped in gt.Option so an unset field is
-// distinguishable from a zero-valued field.
+// VerifierOptions configures a Verifier. Directory and StateStore
+// are required. SyncClient is required under PolicyResync (the
+// default). Optional fields are wrapped in gt.Option so an unset
+// field is distinguishable from a zero-valued field.
 type VerifierOptions struct {
 	// Directory resolves DIDs to signing keys. Required.
 	Directory *identity.Directory
 
-	// ChainStore persists per-DID chain state. Required. Use
-	// NewMemChainStore for tests; provide a durable implementation
-	// for production.
-	ChainStore ChainStore
+	// StateStore persists per-DID chain and hosting state. Required.
+	// Use NewMemStateStore for tests; provide a durable
+	// implementation for production.
+	StateStore StateStore
 
 	// SyncClient fetches repos via getRepo during resync. Required
 	// under PolicyResync (the default policy). Unused under
@@ -614,6 +748,20 @@ type VerifierOptions struct {
 	// LegacyCommitPolicy selects how Sync-1.0-shape commits are
 	// handled. None → LegacyAccept (lenient default).
 	LegacyCommitPolicy gt.Option[LegacyCommitPolicy]
+
+	// HostingPolicy selects whether the verifier gates #commit/#sync
+	// events on persisted hosting status. None → HostingTrack (track
+	// state, don't gate). Set to HostingGate for content-distribution
+	// pipelines that must drop events for takendown accounts.
+	HostingPolicy gt.Option[HostingPolicy]
+
+	// OnAccountEvent fires once per #account event the consumer
+	// passes to Verifier.OnAccountEvent, after the verifier has
+	// derived and persisted the new HostingState. Re-deliveries
+	// (events with seq <= persisted seq) do not fire the callback.
+	// Invoked synchronously while the per-DID mutex is held; keep
+	// the callback fast or hand off to a worker.
+	OnAccountEvent gt.Option[func(did atmos.DID, state HostingState)]
 }
 
 // Verifier performs Sync 1.1 verification of firehose events. Safe
@@ -649,14 +797,16 @@ type Verifier struct {
 	missingRecordBlocks    atomic.Uint64
 	duplicatePaths         atomic.Uint64
 	oversizedCommits       atomic.Uint64
+	accountsInactive       atomic.Uint64
+	accountEventReplays    atomic.Uint64
 }
 
 // NewVerifier constructs a Verifier. Returns an error if required
-// options are missing: ChainStore, Directory, and (under the default
+// options are missing: StateStore, Directory, and (under the default
 // PolicyResync) SyncClient.
 func NewVerifier(opts VerifierOptions) (*Verifier, error) {
-	if opts.ChainStore == nil {
-		return nil, fmt.Errorf("sync: NewVerifier: ChainStore is required")
+	if opts.StateStore == nil {
+		return nil, fmt.Errorf("sync: NewVerifier: StateStore is required")
 	}
 	if opts.Directory == nil {
 		return nil, fmt.Errorf("sync: NewVerifier: Directory is required")
@@ -764,7 +914,19 @@ func (v *Verifier) allowResync(did atmos.DID) bool {
 // as an ActionResync op. Advances chain state to the fetched
 // (rev, data). Subject to the per-DID resync rate limit. Caller must
 // hold the per-DID mutex.
+//
+// Under HostingGate, resyncs for non-active DIDs are short-circuited
+// with ResyncFailedError{Reason: ReasonAccountInactive} — the PDS
+// would refuse the getRepo anyway and we save the round-trip.
 func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReason) ([]VerifierOp, error) {
+	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+	} else if aiErr != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: ReasonAccountInactive, Cause: aiErr}
+	}
+
 	if !v.allowResync(did) {
 		return nil, &ResyncRateLimitedError{DID: did}
 	}
@@ -790,7 +952,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 	}
 
 	// Capture old state for the OnResync callback.
-	old, _ := v.opts.ChainStore.Load(ctx, did)
+	old, _ := v.opts.StateStore.LoadChain(ctx, did)
 	oldRev := ""
 	if old != nil {
 		oldRev = old.Rev
@@ -820,7 +982,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: walkErr}
 	}
 
-	if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: commit.Data}); err != nil {
+	if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: commit.Data}); err != nil {
 		v.resyncFailures.Add(1)
 		return nil, &ResyncFailedError{DID: did, Reason: reason,
 			Cause: fmt.Errorf("save chain state: %w", err)}
@@ -847,15 +1009,71 @@ func (v *Verifier) Resync(ctx context.Context, did atmos.DID) ([]VerifierOp, err
 	return v.resync(ctx, did, ReasonSyncEvent)
 }
 
-// ChainStore returns the configured chain store, for read-only
+// StateStore returns the configured state store, for read-only
 // inspection (e.g. tests, or consumers filtering events on persisted
-// state).
+// hosting status).
 //
 // Callers must not Save through the returned store; the verifier owns
 // all writes, and external writes desynchronize tracking and produce
-// spurious chain-break errors. Load is safe.
-func (v *Verifier) ChainStore() ChainStore {
-	return v.opts.ChainStore
+// spurious chain-break errors. Load methods are safe.
+func (v *Verifier) StateStore() StateStore {
+	return v.opts.StateStore
+}
+
+// OnAccountEvent processes a #account event: derives the new
+// HostingState from (Active, Status), persists it via
+// StateStore.SaveHosting, fires the OnAccountEvent callback (if
+// configured), and applies replay protection — events with seq at
+// or below the persisted seq are silently dropped (counter:
+// AccountEventReplaysDropped).
+//
+// Returns an error only on infrastructure failure (DID parse,
+// StateStore.Load/Save). Replay drops are not errors.
+//
+// Streaming consumers should call this for every #account event
+// observed on the firehose, in seq order. Per-DID locking
+// serializes account-state updates against #commit/#sync gating, so
+// the next commit for a DID sees the just-recorded HostingState.
+func (v *Verifier) OnAccountEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
+	if evt == nil {
+		return nil
+	}
+	did, err := atmos.ParseDID(evt.DID)
+	if err != nil {
+		return fmt.Errorf("verifier: invalid account DID %q: %w", evt.DID, err)
+	}
+
+	unlock := v.lockDID(did)
+	defer unlock()
+
+	// Replay drop: account events arriving at or below the persisted
+	// seq are re-deliveries from a reconnect. Idempotent in indigo's
+	// relay too (ingest.go:271 same-status no-op).
+	prev, err := v.opts.StateStore.LoadHosting(ctx, did)
+	if err != nil {
+		return fmt.Errorf("verifier: load hosting state: %w", err)
+	}
+	if prev != nil && evt.Seq <= prev.Seq {
+		v.accountEventReplays.Add(1)
+		return nil
+	}
+
+	state := HostingState{
+		Active: evt.Active,
+		Seq:    evt.Seq,
+		Time:   evt.Time,
+	}
+	if evt.Status.HasVal() {
+		state.Status = evt.Status.Val()
+	}
+
+	if err := v.opts.StateStore.SaveHosting(ctx, did, state); err != nil {
+		return fmt.Errorf("verifier: save hosting state: %w", err)
+	}
+	if v.opts.OnAccountEvent.HasVal() {
+		v.opts.OnAccountEvent.Val()(did, state)
+	}
+	return nil
 }
 
 // Stats returns a snapshot of the verifier's counters. Safe to call
@@ -863,22 +1081,24 @@ func (v *Verifier) ChainStore() ChainStore {
 // semantics.
 func (v *Verifier) Stats() VerifierStats {
 	return VerifierStats{
-		EventsVerified:         v.eventsVerified.Load(),
-		ChainBreaks:            v.chainBreaks.Load(),
-		InversionFailures:      v.inversionFailures.Load(),
-		SignatureFailures:      v.signatureFailures.Load(),
-		Resyncs:                v.resyncs.Load(),
-		ResyncFailures:         v.resyncFailures.Load(),
-		RevReplaysDropped:      v.revReplaysDropped.Load(),
-		ChainStateSaveFailures: v.chainStateSaveFailures.Load(),
-		FutureRevsRejected:     v.futureRevsRejected.Load(),
-		FieldMismatches:        v.fieldMismatches.Load(),
-		OpCIDMismatches:        v.opCIDMismatches.Load(),
-		LegacyCommits:          v.legacyCommits.Load(),
-		SyncNoOps:              v.syncNoOps.Load(),
-		MissingRecordBlocks:    v.missingRecordBlocks.Load(),
-		DuplicatePaths:         v.duplicatePaths.Load(),
-		OversizedCommits:       v.oversizedCommits.Load(),
+		EventsVerified:             v.eventsVerified.Load(),
+		ChainBreaks:                v.chainBreaks.Load(),
+		InversionFailures:          v.inversionFailures.Load(),
+		SignatureFailures:          v.signatureFailures.Load(),
+		Resyncs:                    v.resyncs.Load(),
+		ResyncFailures:             v.resyncFailures.Load(),
+		RevReplaysDropped:          v.revReplaysDropped.Load(),
+		ChainStateSaveFailures:     v.chainStateSaveFailures.Load(),
+		FutureRevsRejected:         v.futureRevsRejected.Load(),
+		FieldMismatches:            v.fieldMismatches.Load(),
+		OpCIDMismatches:            v.opCIDMismatches.Load(),
+		LegacyCommits:              v.legacyCommits.Load(),
+		SyncNoOps:                  v.syncNoOps.Load(),
+		MissingRecordBlocks:        v.missingRecordBlocks.Load(),
+		DuplicatePaths:             v.duplicatePaths.Load(),
+		OversizedCommits:           v.oversizedCommits.Load(),
+		AccountsInactive:           v.accountsInactive.Load(),
+		AccountEventReplaysDropped: v.accountEventReplays.Load(),
 	}
 }
 
@@ -900,6 +1120,28 @@ func checkCommitSize(did atmos.DID, commit *comatproto.SyncSubscribeRepos_Commit
 		}
 	}
 	return nil
+}
+
+// checkHostingGate consults persisted hosting state for did and
+// returns a non-nil *AccountInactiveError when HostingPolicy is
+// HostingGate and the persisted state is non-active. Returns nil
+// (passes through) under HostingTrack regardless of state, on first
+// sighting, or when the persisted state is active.
+//
+// Storage failures are wrapped and returned so callers can surface
+// "couldn't check" distinct from "checked and inactive".
+func (v *Verifier) checkHostingGate(ctx context.Context, did atmos.DID) (*AccountInactiveError, error) {
+	if v.opts.HostingPolicy.ValOr(HostingTrack) != HostingGate {
+		return nil, nil
+	}
+	state, err := v.opts.StateStore.LoadHosting(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("verifier: load hosting state: %w", err)
+	}
+	if state.IsActive() {
+		return nil, nil
+	}
+	return &AccountInactiveError{DID: did, Status: state.Status}, nil
 }
 
 // findDuplicateOpPath returns the first path that appears more than
@@ -1264,9 +1506,22 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	unlock := v.lockDID(did)
 	defer unlock()
 
-	state, err := v.opts.ChainStore.Load(ctx, did)
+	state, err := v.opts.StateStore.LoadChain(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: load chain state: %w", err)
+	}
+
+	// Hosting gate (HostingGate only): drop events for non-active
+	// DIDs. Bypasses VerifierPolicy. Runs under the per-DID lock so
+	// it serializes against concurrent OnAccountEvent updates.
+	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
+		return nil, err
+	} else if aiErr != nil {
+		v.accountsInactive.Add(1)
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, aiErr)
+		}
+		return nil, aiErr
 	}
 
 	// Rev-replay drop: a commit at or below persisted rev is a
@@ -1386,7 +1641,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure,
 			&InversionError{DID: did, Rev: commit.Rev, Cause: err})
 	}
-	if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
+	if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
 		return nil, fmt.Errorf("verifier: save chain state: %w", err)
 	}
 	v.eventsVerified.Add(1)
@@ -1490,7 +1745,7 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 // (rev, data) so re-deliveries don't re-report the same failure.
 // Subsequent verified events therefore chain off a commit that
 // already failed validation; consumers that want to truly stop
-// processing a misbehaving DID must call ChainStore.Delete(did)
+// processing a misbehaving DID must call StateStore.Delete(did)
 // themselves.
 //
 // A zero dataCID signals that the caller couldn't decode the inner
@@ -1517,7 +1772,7 @@ func (v *Verifier) handleVerificationFailure(
 		return ops, nil
 	case PolicyError:
 		if dataCID.Defined() {
-			if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
+			if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
 				v.chainStateSaveFailures.Add(1)
 			}
 		}
@@ -1562,7 +1817,19 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	unlock := v.lockDID(did)
 	defer unlock()
 
-	state, err := v.opts.ChainStore.Load(ctx, did)
+	// Hosting gate (HostingGate only): drop sync events for non-active
+	// DIDs. Same rationale as verifyCommit.
+	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
+		return nil, err
+	} else if aiErr != nil {
+		v.accountsInactive.Add(1)
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, aiErr)
+		}
+		return nil, aiErr
+	}
+
+	state, err := v.opts.StateStore.LoadChain(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: load chain state for sync: %w", err)
 	}
@@ -1576,7 +1843,7 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	// skip this and fall through to resync.
 	if state != nil && len(syncEvt.Blocks) > 0 {
 		if inner, decErr := decodeCommitFromSyncCAR(syncEvt); decErr == nil && inner.Data.Equal(state.Data) {
-			if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: syncEvt.Rev, Data: state.Data}); err != nil {
+			if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: syncEvt.Rev, Data: state.Data}); err != nil {
 				// Don't fall through to resync — that would try to
 				// Save and likely fail the same way. Surface so
 				// operators see the chain-store breakage.

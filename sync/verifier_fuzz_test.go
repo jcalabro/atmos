@@ -58,7 +58,7 @@ func FuzzVerifyAndExpand(f *testing.F) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(),
+		StateStore: sync.NewMemStateStore(),
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	if err != nil {

@@ -51,7 +51,7 @@ func TestVerifierSwarm(t *testing.T) {
 }
 
 // runOneSwarmIteration executes one self-contained swarm iteration with
-// its own Verifier, its own ChainStore, and its own set of DIDs. There
+// its own Verifier, its own StateStore, and its own set of DIDs. There
 // is no shared state across iterations.
 func runOneSwarmIteration(t *testing.T, seed int64) {
 	t.Helper()
@@ -69,7 +69,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 		repos[i], _ = testutil.BuildEmptyRepo(t, dids[i])
 	}
 
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	resolver := testutil.NewTrackingResolver()
 	for i := range numDIDs {
 		resolver.Docs[dids[i]] = testutil.BuildDIDDoc(dids[i], keys[i].PublicKey())
@@ -78,13 +78,13 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
-		ChainStore: cs,
+		StateStore: cs,
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
 	// lastGood[i] is the data CID of the last commit the verifier
-	// accepted for dids[i] — i.e., what the verifier's ChainStore
+	// accepted for dids[i] — i.e., what the verifier's StateStore
 	// believes for that DID. Equal to repos[i].Tree.RootCID() at all
 	// times outside of a single event's processing window.
 	lastGood := make([]cbor.CID, numDIDs)
@@ -236,7 +236,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	// PolicyError: never resyncs.
 	require.Equal(t, uint64(0), stats.Resyncs, "seed=%d", seed)
 	require.Equal(t, uint64(0), stats.ResyncFailures, "seed=%d", seed)
-	require.Equal(t, uint64(0), stats.ChainStateSaveFailures, "seed=%d MemChainStore should never fail to save", seed)
+	require.Equal(t, uint64(0), stats.ChainStateSaveFailures, "seed=%d MemStateStore should never fail to save", seed)
 }
 
 // TestVerifierSwarm_PolicyResync mirrors TestVerifierSwarm but under
@@ -308,7 +308,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		return car, ok
 	})
 
-	cs := sync.NewMemChainStore()
+	cs := sync.NewMemStateStore()
 	resolver := testutil.NewTrackingResolver()
 	for i := range numDIDs {
 		resolver.Docs[dids[i]] = testutil.BuildDIDDoc(dids[i], keys[i].PublicKey())
@@ -318,7 +318,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		SyncClient:  gt.Some(sc),
 		Directory:   dir,
-		ChainStore:  cs,
+		StateStore:  cs,
 		Policy:      gt.Some(sync.PolicyResync),
 		ResyncLimit: gt.Some(rate.Inf),
 		ResyncBurst: gt.Some(1),

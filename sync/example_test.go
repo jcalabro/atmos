@@ -23,7 +23,7 @@ func ExampleNewVerifier() {
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
-		ChainStore: sync.NewMemChainStore(), // production: durable store
+		StateStore: sync.NewMemStateStore(), // production: durable store
 		SyncClient: gt.Some(sc),
 	})
 	if err != nil {
@@ -41,7 +41,7 @@ func ExampleNewVerifier_strict() {
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:          dir,
-		ChainStore:         sync.NewMemChainStore(),
+		StateStore:         sync.NewMemStateStore(),
 		Policy:             gt.Some(sync.PolicyError),
 		LegacyCommitPolicy: gt.Some(sync.LegacyReject),
 		OnVerificationFailure: gt.Some(func(_ atmos.DID, _ error) {
