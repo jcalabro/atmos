@@ -1,14 +1,19 @@
-// Package sync implements ATProto repository sync: streaming repo
+// Package sync implements AT Protocol repository sync: streaming repo
 // downloads, record iteration, commit verification, and repo
 // enumeration.
 //
-// For consumers of the firehose (com.atproto.sync.subscribeRepos), this
-// package also provides full Sync 1.1 verification via [Verifier]:
-// per-commit MST inversion against prevData, per-DID (rev, data) chain
-// tracking, signature verification with key-rotation handling, and
-// transparent resync via getRepo when a chain break or inversion
-// failure is detected. Pass a [*Verifier] in
-// streaming.Options.Verifier to opt in.
+// For firehose consumers (com.atproto.sync.subscribeRepos), [Verifier]
+// implements the full Sync 1.1 validation pipeline: MST inversion
+// against prevData, per-DID chain tracking, signature verification
+// with key-rotation handling, op-CID consistency, and transparent
+// resync via getRepo on failure. Construct one with [NewVerifier] and
+// pass it in streaming.Options.Verifier.
+//
+// Most [VerifierOptions] fields are wrapped in gt.Option so an unset
+// option (the zero value) can be distinguished from a deliberately
+// chosen value. The defaults (PolicyResync, LegacyAccept, 5-minute
+// future-rev tolerance, 5/min resync rate limit with burst 5) are
+// suitable for most consumer applications.
 package sync
 
 import (
@@ -48,12 +53,13 @@ type ListReposPage struct {
 	NextCursor string
 }
 
-// Options configures a sync client.
+// Options configures a sync Client.
 type Options struct {
-	Client *xrpc.Client // required: points at PDS or relay
+	// Client points at the PDS or relay. Required.
+	Client *xrpc.Client
 
-	// Directory enables commit signature verification via DID resolution.
-	// None = signatures not verified.
+	// Directory enables commit signature verification via DID
+	// resolution. None disables signature checks.
 	Directory gt.Option[*identity.Directory]
 }
 

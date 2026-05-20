@@ -20,77 +20,62 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Default per-DID resync rate-limit values applied by NewVerifier when
-// ResyncLimit/ResyncBurst are left at their zero values. Five resyncs
-// per minute with a burst of five — conservative for production but
-// override-able per the Sync 1.1 directive on consumer-side throttling.
+// Default per-DID resync rate limit applied when the corresponding
+// VerifierOptions fields are unset: 5 resyncs per minute, burst 5.
 const (
 	DefaultResyncLimit = rate.Limit(5.0 / 60.0)
 	DefaultResyncBurst = 5
 )
 
-// DefaultFutureRevTolerance is the maximum amount the rev's TID timestamp
-// is allowed to lead the verifier's wall clock before we reject the event
-// as future-dated. Matches indigo's relay (`futureRevTolerance` at
-// `cmd/relay/relay/verify.go:22`). The spec ("inductive firehose") says
-// future-timestamped revs MUST be ignored; this constant defines what
-// counts as "future" once clock-skew slack is applied.
+// DefaultFutureRevTolerance is the maximum a rev's TID timestamp may
+// lead wall clock before the event is rejected as future-dated.
+// Matches indigo's relay (cmd/relay/relay/verify.go futureRevTolerance).
 const DefaultFutureRevTolerance = 5 * time.Minute
 
-// Spec-mandated resource bounds on #commit events. Matches indigo's
-// `MaxMessageBlocksBytes` and `MaxCommitOps` in
-// `cmd/relay/relay/verify.go`. The streaming layer also caps WebSocket
-// frames at 2 MB by default; these bounds are defense-in-depth against
-// a buggy or malicious upstream that bypasses streaming-layer limits
-// (e.g. via a different transport).
+// Spec-mandated resource bounds on #commit events. Match indigo's
+// MaxMessageBlocksBytes and MaxCommitOps in cmd/relay/relay/verify.go.
 const (
-	// MaxCommitBlocksBytes is the upper bound on the size of a #commit
-	// event's `blocks` field — the CAR diff. Per spec the relay-side
-	// limit is 2 MB; commits exceeding this MUST be rejected.
+	// MaxCommitBlocksBytes caps the byte size of the CAR diff in a
+	// #commit event's `blocks` field. The streaming layer also caps
+	// WebSocket frames; this is defense-in-depth.
 	MaxCommitBlocksBytes = 2_000_000
 
-	// MaxCommitOps is the upper bound on the number of repo ops a
-	// single #commit event may carry. Per spec, 200.
+	// MaxCommitOps caps the number of repo ops in a single #commit.
 	MaxCommitOps = 200
 )
 
-// ChainState is the per-DID state the verifier tracks: the last
-// commit rev and the last MST root data CID we successfully verified.
+// ChainState is the per-DID state the verifier tracks: the rev and
+// MST root CID of the last commit it accepted.
 type ChainState struct {
 	Rev  string
 	Data cbor.CID
 }
 
 // ChainStore persists per-DID chain state across firehose events.
+// Load returning (nil, nil) means "no state for this DID yet"; the
+// verifier treats that as a first sighting.
 //
-// Production consumers MUST implement this against durable storage
-// (pebble, sqlite, etc.); the in-memory default shipped with atmos is
-// suitable only for tests and dev. State loss on restart means
-// previously-verified chain links are forgotten and the next event
-// for each DID will be accepted as ground truth.
-//
-// Returning (nil, nil) from Load means "no state for this DID yet";
-// the verifier treats that as a first-sighting and accepts whatever
-// the next commit declares as ground truth, advancing state to it.
+// Production deployments need durable storage (pebble, sqlite, etc.).
+// The in-memory MemChainStore loses state on restart, after which the
+// next event for each DID is accepted as ground truth.
 type ChainStore interface {
 	Load(ctx context.Context, did atmos.DID) (*ChainState, error)
 	Save(ctx context.Context, did atmos.DID, state ChainState) error
 	Delete(ctx context.Context, did atmos.DID) error
 }
 
-// MemChainStore is a sync.Map-backed ChainStore. NOT suitable for
-// production: state is lost on restart.
+// MemChainStore is an in-memory ChainStore for tests and development.
+// State is lost on restart.
 type MemChainStore struct {
 	m sync.Map // map[atmos.DID]ChainState
 }
 
-// NewMemChainStore returns an empty in-memory ChainStore.
+// NewMemChainStore returns an empty MemChainStore.
 func NewMemChainStore() *MemChainStore {
 	return &MemChainStore{}
 }
 
-// Load returns the chain state for did, or (nil, nil) if no state
-// has been saved yet.
+// Load returns the chain state for did, or (nil, nil) if absent.
 func (s *MemChainStore) Load(_ context.Context, did atmos.DID) (*ChainState, error) {
 	v, ok := s.m.Load(did)
 	if !ok {
@@ -98,9 +83,8 @@ func (s *MemChainStore) Load(_ context.Context, did atmos.DID) (*ChainState, err
 	}
 	state, ok := v.(ChainState)
 	if !ok {
-		// We are the sole writer of this map; a non-ChainState value
-		// means memory corruption or a programming error elsewhere.
-		// Crash rather than silently lose state.
+		// MemChainStore is the sole writer of this map; a wrong-typed
+		// value indicates memory corruption.
 		panic("MemChainStore: stored value is not ChainState")
 	}
 	return &state, nil
@@ -112,34 +96,37 @@ func (s *MemChainStore) Save(_ context.Context, did atmos.DID, state ChainState)
 	return nil
 }
 
-// Delete removes any chain state for did. No-op if absent.
+// Delete removes any chain state for did; no-op if absent.
 func (s *MemChainStore) Delete(_ context.Context, did atmos.DID) error {
 	s.m.Delete(did)
 	return nil
 }
 
-// ResyncReason names why a resync was triggered.
+// ResyncReason names why a resync was triggered. Surfaced via
+// OnResync and embedded in ResyncFailedError.
 type ResyncReason int
 
 const (
-	// ReasonChainBreak indicates the verifier detected a prevData
-	// mismatch between the incoming commit and locally-tracked state.
+	// ReasonChainBreak: incoming commit's prevData (or inverted root)
+	// did not match locally-tracked state.
 	ReasonChainBreak ResyncReason = iota
 
-	// ReasonInversionFailure indicates the commit's CAR diff could not
-	// be inverted to recover the prior MST root (malformed CAR, missing
-	// blocks, structural breakage).
+	// ReasonInversionFailure: the commit's CAR diff could not be
+	// inverted (malformed CAR, missing blocks, structural breakage).
 	ReasonInversionFailure
 
-	// ReasonSyncEvent indicates an upstream #sync event triggered the
-	// resync — not a verification failure on our end, just a PDS
-	// telling us its repo state changed out of band.
+	// ReasonSyncEvent: an upstream #sync event indicated a state
+	// change. Also used for resyncs initiated via Verifier.Resync,
+	// since the operator's intent is identical (re-fetch authoritative
+	// state). To distinguish the two on metrics, use the seq on the
+	// triggering event, or call resync from a wrapper that records
+	// its own counter.
 	ReasonSyncEvent
 
-	// ReasonLegacyCommit indicates an upstream emitted a Sync-1.0-shape
-	// commit (no prevData; no op.Prev on update/delete ops) on the 1.1
-	// firehose. Distinct from ReasonChainBreak so operators can tell
-	// "non-compliant upstream" apart from genuine chain corruption.
+	// ReasonLegacyCommit: an upstream emitted a Sync-1.0-shape commit
+	// (no prevData, no op.Prev on update/delete) on the 1.1 firehose.
+	// Only fires under LegacyReject; under LegacyAccept the commit
+	// passes through without a resync.
 	ReasonLegacyCommit
 )
 
@@ -159,16 +146,17 @@ func (r ResyncReason) String() string {
 	}
 }
 
-// ChainBreakError is returned when a #commit's prevData doesn't match
-// the locally-tracked data CID for the DID, or inversion produces a
-// root that doesn't match the prior state.
+// ChainBreakError is returned when an incoming #commit fails the
+// chain-continuity check. Both the commit's declared prevData and
+// the verifier's inversion of the new commit MUST equal SeenData;
+// either disagreeing yields this error.
 type ChainBreakError struct {
 	DID          atmos.DID
-	SeenRev      string   // rev we last accepted for this DID, or "" if first sighting
-	SeenData     cbor.CID // data CID we last accepted for this DID
+	SeenRev      string   // rev last accepted for DID, or "" on first sighting
+	SeenData     cbor.CID // data CID last accepted for DID
 	GotRev       string   // rev on the offending commit
-	GotPrevData  cbor.CID // prevData claim on the offending commit
-	InvertedData cbor.CID // CID we computed by inverting; zero if inversion itself failed
+	GotPrevData  cbor.CID // prevData declared by the offending commit
+	InvertedData cbor.CID // root recomputed by inverting; zero if inversion failed
 }
 
 func (e *ChainBreakError) Error() string {
@@ -184,10 +172,11 @@ func (e *ChainBreakError) Error() string {
 		e.DID, seen, e.GotRev, e.GotPrevData, inverted)
 }
 
-// InversionError is returned when MST inversion itself failed —
-// malformed CAR, op references a CID not present in the diff, etc.
-// Distinct from ChainBreakError: the commit is broken on its own
-// terms rather than failing to continue our chain.
+// InversionError is returned when MST inversion fails on its own
+// terms: malformed CAR, op references a CID absent from the diff,
+// structurally broken partial MST. Distinct from ChainBreakError,
+// which fires when a structurally valid commit fails to continue
+// the existing chain.
 type InversionError struct {
 	DID   atmos.DID
 	Rev   string
@@ -203,12 +192,13 @@ func (e *InversionError) Error() string {
 
 func (e *InversionError) Unwrap() error { return e.Cause }
 
-// SignatureError is returned when commit signature verification fails
-// even after one identity-cache purge + re-resolution.
+// SignatureError is returned when commit signature verification
+// fails even after one identity-cache purge and re-resolution.
+// Bypasses VerifierPolicy: a resync would not repair a bad signature.
 type SignatureError struct {
 	DID    atmos.DID
 	Rev    string
-	KeyDID string // the resolved did:key, if any
+	KeyDID string // resolved did:key on the failure path, if any
 	Cause  error
 }
 
@@ -223,9 +213,9 @@ func (e *SignatureError) Error() string {
 
 func (e *SignatureError) Unwrap() error { return e.Cause }
 
-// ResyncFailedError is returned when a chain break or inversion
-// failure was detected and policy was PolicyResync, but the resync
-// itself failed (PDS unreachable, returned an invalid CAR, etc.).
+// ResyncFailedError is returned when the verifier attempted a resync
+// (under PolicyResync, or via Verifier.Resync) and the fetch or
+// validation of the served repo failed.
 type ResyncFailedError struct {
 	DID    atmos.DID
 	Reason ResyncReason
@@ -241,32 +231,20 @@ func (e *ResyncFailedError) Error() string {
 
 func (e *ResyncFailedError) Unwrap() error { return e.Cause }
 
-// LegacyCommitError is returned when a #commit looks like a Sync-1.0
-// shape commit on a Sync-1.1 firehose: prevData is absent AND no
-// update/delete op carries the new `prev` field. The producer is most
-// likely a PDS that hasn't been upgraded for 1.1 yet, or has a known
-// regression — the event is structurally valid by 1.0 rules but the
-// 1.1 chain-validation invariants we depend on (prevData equality,
-// MST inversion via op.Prev) cannot be checked.
+// LegacyCommitError signals a Sync-1.0-shape commit on the 1.1
+// firehose: no envelope prevData, no op.Prev on update/delete ops.
+// The producer is typically a PDS that hasn't deployed 1.1 yet.
 //
-// We surface this as a distinct typed error rather than letting it
-// fall through to InversionError ("missing prev CID") so operators
-// can build dashboards distinguishing "non-compliant 1.1 upstream"
-// from "actively malformed commit." The recovery is identical to a
-// chain break: under PolicyResync the verifier transparently
-// re-fetches via getRepo (Reason: ReasonLegacyCommit); under
-// PolicyError this typed error surfaces.
+// Only fires when LegacyCommitPolicy is LegacyReject. Under
+// LegacyAccept (the default) such commits pass through with the
+// chain-link check skipped; signature and op-CID checks still apply.
 //
-// Not fired on first sighting (state == nil). With no prior chain
-// state, prevData absence alone is not a reliable legacy signal — a
-// well-formed 1.1 producer simply doesn't have a previous commit to
-// reference. The first-sighting accept path is unchanged here; A4
-// in the tracker handles that case separately.
+// Not fired on first sighting (no prior state to chain against).
 type LegacyCommitError struct {
 	DID      atmos.DID
 	Rev      string
-	SeenRev  string   // last accepted rev for this DID
-	SeenData cbor.CID // last accepted data CID for this DID
+	SeenRev  string   // last accepted rev for DID
+	SeenData cbor.CID // last accepted data CID for DID
 }
 
 func (e *LegacyCommitError) Error() string {
@@ -274,18 +252,12 @@ func (e *LegacyCommitError) Error() string {
 		e.DID, e.Rev, e.SeenRev, e.SeenData)
 }
 
-// CommitTooLargeError is returned when a #commit event exceeds a
-// spec-mandated resource bound: the CAR `blocks` field exceeds
-// [MaxCommitBlocksBytes], or the ops list exceeds [MaxCommitOps].
+// CommitTooLargeError is returned when a #commit exceeds a
+// spec-mandated resource bound (MaxCommitBlocksBytes, MaxCommitOps).
+// Checked before any CAR parse so oversized payloads can't force
+// expensive processing. Bypasses VerifierPolicy.
 //
-// The check runs before any CAR parse or signature work, so an
-// adversarial upstream can't force the verifier into expensive
-// processing by shipping oversized payloads. Bypasses
-// [VerifierPolicy] — re-fetching from the same misbehaving upstream
-// would just deliver the same oversized payload.
-//
-// Field is "blocks" or "ops". For "blocks", Got is the byte length;
-// for "ops", Got is the op count. Limit is the spec-mandated maximum.
+// Field is "blocks" (Got is byte length) or "ops" (Got is op count).
 type CommitTooLargeError struct {
 	DID   atmos.DID
 	Rev   string
@@ -299,22 +271,15 @@ func (e *CommitTooLargeError) Error() string {
 		e.DID, e.Rev, e.Field, e.Got, e.Limit)
 }
 
-// DuplicatePathError is returned when a single commit contains
-// multiple ops touching the same path. Indigo's `NormalizeOps`
-// rejects this in `atproto/repo/operation.go:145-156`; atmos
-// matches.
+// DuplicatePathError is returned when a #commit's ops list contains
+// multiple ops on the same path. A well-formed commit folds
+// intra-commit duplicates into a single op (e.g. delete-then-create
+// collapses to an update); multiple ops on one path indicates a
+// producer bug or an attempt to race consumer state machines. Indigo
+// rejects this in atproto/repo/operation.go's NormalizeOps.
 //
-// A well-formed commit folds intra-commit duplicates into a single
-// op (e.g. a delete-then-create on the same path collapses into an
-// update). Multiple ops on one path indicate a producer bug or a
-// crafted attempt to confuse downstream consumers — emitting a
-// "create" for a record that the same commit already deleted
-// elsewhere would let an attacker race consumer state machines.
-//
-// Routed via the same path as InversionError and OpCIDMismatchError:
-// internally inconsistent commit, recoverable via resync. Under
-// PolicyResync the consumer sees ActionResync ops; under PolicyError
-// this typed error surfaces.
+// Routed via the inversion-failure path: PolicyResync recovers
+// transparently; PolicyError surfaces this typed error.
 type DuplicatePathError struct {
 	DID  atmos.DID
 	Rev  string
@@ -326,30 +291,20 @@ func (e *DuplicatePathError) Error() string {
 		e.DID, e.Rev, e.Path)
 }
 
-// OpCIDMismatchError is returned when a commit's ops list claims
-// CIDs (or absences) that disagree with the post-state MST. Per the
-// Sync 1.1 validation checklist, the ops list is part of what
-// "describes" the commit, and an internally inconsistent commit (ops
-// list lies about MST contents) must be rejected.
+// OpCIDMismatchError is returned when a commit's ops list disagrees
+// with the post-state MST: a create/update op's CID must equal the
+// tree value at the op's path; a delete op's path must be absent.
+// Mirrors indigo's invariants in atproto/repo/sync.go's
+// VerifyCommitMessage.
 //
-// Indigo enforces the same invariant in `atproto/repo/sync.go`'s
-// `VerifyCommitMessage`: each create/update op's CID must equal the
-// MST tree value at the op's path; each delete op's path must be
-// absent from the post-state tree. Atmos surfaces these as a typed
-// error so downstream consumers can distinguish "envelope says
-// something the MST doesn't" from a bare CAR/MST decode failure.
+// Routed via the inversion-failure path: PolicyResync recovers
+// transparently; PolicyError surfaces this typed error and advances
+// state to the offending commit's data CID.
 //
-// Routed via the same path as InversionError: the commit is
-// structurally inconsistent and a resync against authoritative state
-// is the recovery. Under PolicyResync the consumer sees ActionResync
-// ops; under PolicyError this typed error surfaces and chain state
-// advances to the offending commit's data CID (matching the existing
-// inversion-failure semantics).
-//
-// Reason describes the specific shape of the mismatch:
+// Reason values:
 //   - "create_cid_mismatch":  op.CID != tree.Get(path) on a create
 //   - "update_cid_mismatch":  op.CID != tree.Get(path) on an update
-//   - "delete_path_present":  delete op's path is still present in tree
+//   - "delete_path_present":  delete op's path is still in the tree
 //   - "create_missing_cid":   create op has no CID
 //   - "update_missing_cid":   update op has no CID
 //   - "delete_unexpected_cid": delete op carries a CID it shouldn't
@@ -359,7 +314,7 @@ type OpCIDMismatchError struct {
 	Path   string
 	Reason string
 	OpCID  cbor.CID // CID claimed by the op (zero if absent)
-	MSTCID cbor.CID // CID actually present in the post-state MST (zero if absent)
+	MSTCID cbor.CID // CID present in the post-state MST (zero if absent)
 }
 
 func (e *OpCIDMismatchError) Error() string {
@@ -374,28 +329,21 @@ func formatCIDOrMissing(c cbor.CID) string {
 	return c.String()
 }
 
-// FieldMismatchError is returned when one or more fields in the
-// firehose #commit envelope disagree with the corresponding field in
-// the signed inner commit object (decoded from commit.Blocks). Per
-// Sync 1.1's validation checklist, outer fields MUST match the signed
-// commit; mismatches indicate a malformed PDS at best and a
-// misattribution attack at worst — an attacker controlling any PDS
-// can sign a valid commit for their own DID and wrap it in an
-// envelope claiming a victim's DID, which would otherwise pass
-// signature verification (the signature is over the inner commit) and
-// land in chain state under the wrong identity.
+// FieldMismatchError is returned when a firehose #commit envelope
+// field disagrees with the corresponding field in the signed inner
+// commit. Per the Sync 1.1 validation checklist, outer fields MUST
+// match the signed commit. Mismatches indicate a misbehaving PDS
+// (or, more concerningly, a misattribution attempt: a valid commit
+// for one DID wrapped in an envelope claiming another).
 //
-// Like SignatureError and FutureRevError, FieldMismatchError bypasses
-// VerifierPolicy: a resync against the same untrustworthy upstream
-// would return the same garbage. Chain state is NOT advanced.
+// Bypasses VerifierPolicy. Chain state is not advanced.
 //
-// Field is one of "did", "rev", or "version". For "version" mismatches
-// we always require Sync 1.1's commit version 3; older versions are
-// rejected unconditionally.
+// Field is "did", "rev", or "version". For "version", Sync 1.1
+// mandates commit version 3; older versions surface here.
 type FieldMismatchError struct {
 	DID      atmos.DID
 	Field    string // "did" | "rev" | "version"
-	Envelope string // value seen on the firehose envelope
+	Envelope string // value on the firehose envelope
 	Inner    string // value decoded from the signed commit block
 }
 
@@ -404,29 +352,21 @@ func (e *FieldMismatchError) Error() string {
 		e.Field, e.DID, e.Envelope, e.Inner)
 }
 
-// FutureRevError is returned when a #commit or #sync event carries a
-// rev whose TID timestamp is more than [VerifierOptions.FutureRevTolerance]
-// ahead of the verifier's wall clock. Per the Sync 1.1 spec, future-
-// timestamped revs MUST be ignored; this error surfaces the rejection
-// to consumers for observability.
+// FutureRevError is returned when an event's rev TID timestamp leads
+// the verifier's wall clock by more than FutureRevTolerance. Per
+// spec, future-timestamped revs MUST be ignored; otherwise a malicious
+// or clock-broken upstream could persist a far-future rev and starve
+// out every legitimate follow-on event.
 //
-// Like SignatureError, FutureRevError bypasses [VerifierPolicy] — the
-// event is rejected outright under both PolicyError and PolicyResync
-// because no resync can recover from a clock-broken or malicious
-// upstream. Chain state is NOT advanced (the offending rev would
-// then be persisted, starving out every legitimate event for this
-// DID until wall-clock catches up).
-//
-// Revs that fail TID parsing entirely are NOT surfaced as
-// FutureRevError; the verifier conservatively skips the future-rev
-// gate in that case and lets the rest of the pipeline (chain check,
-// signature) handle the malformed event.
+// Bypasses VerifierPolicy. Chain state is not advanced. Unparseable
+// revs are not flagged as future-rev; the gate yields and downstream
+// gates handle them.
 type FutureRevError struct {
 	DID       atmos.DID
 	Rev       string
-	RevTime   time.Time     // timestamp decoded from the TID
-	Now       time.Time     // verifier's wall clock at rejection time
-	Tolerance time.Duration // configured grace period
+	RevTime   time.Time // timestamp decoded from the TID
+	Now       time.Time // wall clock at rejection
+	Tolerance time.Duration
 }
 
 func (e *FutureRevError) Error() string {
@@ -435,9 +375,8 @@ func (e *FutureRevError) Error() string {
 		e.Now.Format(time.RFC3339Nano), e.Tolerance)
 }
 
-// ResyncRateLimitedError is returned when a DID has hit its resync
-// rate limit. Per Sync 1.1's "abusive accounts get throttled by
-// consumers" directive.
+// ResyncRateLimitedError is returned when a DID has exceeded its
+// per-DID resync rate limit (see VerifierOptions.ResyncLimit/Burst).
 type ResyncRateLimitedError struct {
 	DID atmos.DID
 }
@@ -448,50 +387,32 @@ func (e *ResyncRateLimitedError) Error() string {
 
 // LegacyCommitPolicy controls how the verifier handles Sync-1.0-shape
 // commits arriving on a 1.1 firehose (no envelope prevData, no op.Prev
-// on update/delete ops). The 1.1 chain-continuity check is impossible
-// on these commits — there's no prevData to compare against and no
-// op.Prev to invert with — so the choice is whether to accept what we
-// can validate or reject the whole event.
-//
-// The zero value is LegacyAccept, the lenient default: a meaningful
-// fraction of PDSes in the network are still on 1.0-shape commits
-// during the protocol transition, and a strict default would silently
-// black-hole their accounts (under PolicyError) or hammer their
-// upstream with resyncs (under PolicyResync). Most consumer
-// applications care more about liveness than about catching the
-// narrow attack window legacy commits expose, so we default to
-// accept-with-counter.
+// on update/delete ops). The chain-continuity check is impossible on
+// such commits, so the choice is whether to accept what can still be
+// validated or reject the event entirely.
 type LegacyCommitPolicy int
 
 const (
-	// LegacyAccept (default) accepts a legacy commit when its signature
-	// validates and its ops list is consistent with the post-state MST.
-	// The chain-link check is skipped (impossible without prevData);
-	// state advances to the new commit's data CID; ops flow to the
-	// consumer as normal create/update/delete.
+	// LegacyAccept (default) lets a legacy commit through after
+	// signature and op-CID checks pass; chain state advances to the
+	// new commit's data CID and ops flow to the consumer normally.
+	// VerifierStats.LegacyCommits still increments so operators can
+	// see non-upgraded upstreams.
 	//
-	// VerifierStats.LegacyCommits still increments — operators monitor
-	// the counter as a "non-upgraded upstream" signal even though the
-	// events are passing through.
-	//
-	// Tradeoff: a misbehaving upstream that drops back to 1.0 shape on
-	// purpose can replay an old signed commit (signatures were over the
-	// inner commit, which we still verify) without our chain-continuity
-	// check catching it. Op-CID verification + signature still rule out
-	// the most worrying classes (rebroadcast under wrong DID, fabricated
-	// records). Operators who can't accept that exposure should select
-	// LegacyReject.
+	// Tradeoff: a misbehaving upstream that intentionally regresses
+	// to 1.0 shape can replay an old signed commit without the
+	// chain-continuity gate catching it. Signature and op-CID checks
+	// still rule out cross-DID rebroadcast and fabricated records.
+	// Use LegacyReject if that residual exposure is unacceptable.
 	LegacyAccept LegacyCommitPolicy = iota
 
-	// LegacyReject routes legacy commits through the existing
-	// verification-failure path. VerifierPolicy then decides:
-	// PolicyResync triggers a transparent resync via getRepo
-	// (Reason: legacy_commit); PolicyError surfaces *LegacyCommitError.
-	// This is the strict mode equivalent to "treat legacy as broken."
+	// LegacyReject routes legacy commits through the failure path.
+	// VerifierPolicy then decides: PolicyResync triggers a transparent
+	// resync; PolicyError surfaces *LegacyCommitError.
 	LegacyReject
 )
 
-// String returns a stable name for use in error messages and metrics labels.
+// String returns a stable name suitable for metric labels.
 func (p LegacyCommitPolicy) String() string {
 	switch p {
 	case LegacyAccept:
@@ -503,28 +424,25 @@ func (p LegacyCommitPolicy) String() string {
 	}
 }
 
-// VerifierPolicy controls what happens when chain or inversion verification
-// fails. The zero value is PolicyResync. Signature failures bypass policy
-// and always surface as SignatureError, since a resync would not repair them.
+// VerifierPolicy selects how chain breaks and inversion failures are
+// handled. SignatureError and FutureRevError bypass policy: no
+// resync against the same upstream can repair them.
 type VerifierPolicy int
 
 const (
 	// PolicyResync (default): on chain break or inversion failure,
-	// transparently fetch the repo via getRepo, diff against local
-	// state, and yield diffed ops as ActionResync. Consumers see a
-	// continuous valid stream. Signature failures still surface as
-	// SignatureError because resync would not fix them.
+	// fetch the repo via getRepo and yield diffed ops as ActionResync.
+	// Consumers see a continuous stream.
 	PolicyResync VerifierPolicy = iota
 
-	// PolicyError: on chain break or inversion failure, yield a typed
-	// error. Consumers may call Verifier.Resync(ctx, did) themselves
-	// if they want repaired ops. State still advances through the
-	// failure (matching the Bluesky relay's lenient behavior); a
-	// consumer that wants to truly stop processing must drop the DID
-	// itself.
+	// PolicyError: on chain break or inversion failure, return a
+	// typed error. State still advances through the failure
+	// (matching indigo's relay), so subsequent re-deliveries don't
+	// re-report. Consumers may call Verifier.Resync to repair.
 	PolicyError
 )
 
+// String returns a stable name suitable for metric labels.
 func (p VerifierPolicy) String() string {
 	switch p {
 	case PolicyResync:
@@ -536,92 +454,89 @@ func (p VerifierPolicy) String() string {
 	}
 }
 
-// VerifierStats is a snapshot of a Verifier's counter state at the moment
-// Stats() was called. The struct itself is a plain value — atomic load
-// semantics belong to Verifier.Stats(), which performs an atomic Load on
-// each counter before returning a snapshot. Two snapshots taken
-// concurrently may observe slightly different counter combinations, but
-// each individual counter is always coherent.
+// VerifierStats is a snapshot of a Verifier's counters. Each field
+// is loaded atomically inside Verifier.Stats; concurrent Stats calls
+// may observe different cross-counter combinations, but each
+// individual counter is always coherent.
 type VerifierStats struct {
-	EventsVerified    uint64
-	ChainBreaks       uint64
+	// EventsVerified counts #commit events accepted on the happy path.
+	EventsVerified uint64
+
+	// ChainBreaks counts events whose prevData or inverted root
+	// disagreed with persisted state. PolicyResync recovers via
+	// resync; PolicyError surfaces ChainBreakError.
+	ChainBreaks uint64
+
+	// InversionFailures counts events whose CAR diff could not be
+	// inverted (malformed CAR, missing blocks, structural breakage).
+	// PolicyResync recovers via resync.
 	InversionFailures uint64
-	// SignatureFailures counts true signature mismatches — i.e. cases
-	// where verifyCommitSignature returned a typed *SignatureError after
-	// purge+retry. Infrastructure failures during signature verification
-	// (e.g. resolver/network errors looking up the DID's signing key) do
-	// NOT increment this counter; they surface as wrapped errors from
-	// VerifyAndExpand so operators can distinguish "we couldn't check"
-	// from "we checked and it's bad."
+
+	// SignatureFailures counts typed *SignatureError outcomes only
+	// (after the purge+retry path). Resolver/network errors during
+	// signature verification do not increment this counter; they
+	// surface as wrapped infrastructure errors so "couldn't check" is
+	// distinguishable from "checked and it's bad".
 	SignatureFailures uint64
-	Resyncs           uint64
-	ResyncFailures    uint64
+
+	// Resyncs counts successful getRepo-driven resyncs.
+	Resyncs uint64
+
+	// ResyncFailures counts resync attempts that failed (network,
+	// signature on the fetched commit, etc.).
+	ResyncFailures uint64
+
+	// RevReplaysDropped counts events whose rev was at or below the
+	// persisted rev (re-deliveries or out-of-order arrivals).
 	RevReplaysDropped uint64
 
-	// ChainStateSaveFailures counts the number of times ChainStore.Save
-	// failed during PolicyError state-advance after a verification
-	// failure. The original verification error (ChainBreakError /
-	// InversionError) was reported via OnVerificationFailure and the
-	// return value, but the secondary save failure means future events
-	// for this DID may re-report the same break until state catches up.
+	// ChainStateSaveFailures counts ChainStore.Save failures during
+	// PolicyError state-advance. The primary verification error still
+	// surfaces; this counter signals that future events for the DID
+	// may re-report the same break until state catches up.
 	ChainStateSaveFailures uint64
 
-	// FutureRevsRejected counts events whose rev's TID timestamp was more
-	// than the configured tolerance ahead of the verifier's wall clock.
-	// Spec-mandated rejection; bypasses policy.
+	// FutureRevsRejected counts events whose rev TID timestamp led
+	// wall clock by more than FutureRevTolerance. Bypasses policy.
 	FutureRevsRejected uint64
 
-	// FieldMismatches counts events whose firehose envelope fields
-	// (did/rev/version) disagreed with the corresponding fields in the
-	// signed inner commit. Spec-mandated rejection; bypasses policy.
+	// FieldMismatches counts events whose envelope fields
+	// (did/rev/version) disagreed with the signed inner commit.
+	// Bypasses policy.
 	FieldMismatches uint64
 
 	// OpCIDMismatches counts events whose ops list disagreed with the
-	// post-state MST (claimed CID != tree value, or delete left the
-	// path present). Routed via the inversion-failure path, so under
-	// PolicyResync it triggers a transparent resync.
+	// post-state MST. Routed via the inversion-failure path.
 	OpCIDMismatches uint64
 
-	// LegacyCommits counts events that arrived in Sync-1.0 shape (no
-	// prevData, no op.Prev on update/delete) on the 1.1 firehose.
-	// Routed through the resync path so PolicyResync recovers
-	// transparently. A persistently nonzero LegacyCommits counter
-	// alongside a high resync rate is the signature of a non-upgraded
-	// upstream PDS.
+	// LegacyCommits counts Sync-1.0-shape events. Increments under
+	// both LegacyAccept (event passes through) and LegacyReject
+	// (event routed to the failure path).
 	LegacyCommits uint64
 
-	// MissingRecordBlocks counts create/update ops whose record blocks
-	// were missing from the firehose CAR (consumers requesting
-	// [VerifierOp.BlockData] saw nil for those ops). The verifier
-	// still emits the op with its CID so consumers can fetch the
-	// block out-of-band; this counter exists as a signal that some
-	// upstream is shipping incomplete CARs. A persistently nonzero
-	// value alongside missing-record consumer reports usually means
-	// a buggy PDS.
+	// MissingRecordBlocks counts create/update ops whose record block
+	// was absent from the CAR. The op still flows to the consumer
+	// (with empty BlockData); this counter signals upstreams shipping
+	// incomplete CARs.
 	MissingRecordBlocks uint64
 
 	// DuplicatePaths counts events whose ops list contained two or
-	// more ops on the same path. Routed through the inversion-failure
-	// path so PolicyResync recovers transparently.
+	// more ops on the same path. Routed via the inversion-failure
+	// path.
 	DuplicatePaths uint64
 
-	// OversizedCommits counts events rejected for exceeding the
-	// spec-mandated resource bounds (MaxCommitBlocksBytes,
-	// MaxCommitOps). Bypasses policy.
+	// OversizedCommits counts events rejected for exceeding
+	// MaxCommitBlocksBytes or MaxCommitOps. Bypasses policy.
 	OversizedCommits uint64
 
-	// SyncNoOps counts #sync events whose embedded commit's data CID
-	// matched our locally-tracked data CID — the upstream was just
-	// asserting current state, not signaling a desync. We advance the
-	// rev tracking and short-circuit the (otherwise expensive)
-	// getRepo call.
+	// SyncNoOps counts #sync events whose embedded data CID matched
+	// persisted state; the verifier advanced rev and skipped getRepo.
 	SyncNoOps uint64
 }
 
-// VerifierOp is the operation shape the Verifier produces. It mirrors
-// streaming.Operation but lives in this package to avoid an import
-// cycle. streaming converts these into streaming.Operation values
-// when populating Event.verifiedOps.
+// VerifierOp is one operation produced by the Verifier. Mirrors
+// streaming.Operation; the streaming layer converts these when
+// populating Event.verifiedOps.
 type VerifierOp struct {
 	Action     string // "create", "update", "delete", "resync"
 	Collection string
@@ -632,83 +547,72 @@ type VerifierOp struct {
 	BlockData  []byte
 }
 
-// VerifierOptions configures a Verifier. ChainStore and Directory are
-// always required; everything else is optional and wrapped in
-// [gt.Option] so callers can express "unset" distinctly from a zero
-// value.
+// VerifierOptions configures a Verifier. Directory and ChainStore are
+// required. SyncClient is required under PolicyResync (the default).
+// Optional fields are wrapped in gt.Option so an unset field is
+// distinguishable from a zero-valued field.
 type VerifierOptions struct {
-	// Directory is used to resolve DIDs to signing keys for
-	// signature verification. Required.
+	// Directory resolves DIDs to signing keys. Required.
 	Directory *identity.Directory
 
-	// ChainStore persists per-DID state. Required. Use
-	// NewMemChainStore() for tests; bring your own for production.
+	// ChainStore persists per-DID chain state. Required. Use
+	// NewMemChainStore for tests; provide a durable implementation
+	// for production.
 	ChainStore ChainStore
 
-	// SyncClient is used to fetch repos via getRepo during resync.
-	// Required when Policy is PolicyResync (or unset, since PolicyResync
-	// is the default). Allowed but unused under PolicyError unless the
-	// consumer calls Verifier.Resync directly.
+	// SyncClient fetches repos via getRepo during resync. Required
+	// under PolicyResync (the default policy). Unused under
+	// PolicyError unless the caller invokes Verifier.Resync directly.
 	SyncClient gt.Option[*Client]
 
-	// Policy selects the failure-handling mode. None means PolicyResync.
+	// Policy selects the failure-handling mode. None → PolicyResync.
 	Policy gt.Option[VerifierPolicy]
 
-	// ResyncLimit is the per-DID resync rate (token bucket). None means
-	// DefaultResyncLimit (5 per minute). Set to gt.Some(rate.Inf) for
-	// tests that don't care about throttling.
+	// ResyncLimit is the per-DID token-bucket refill rate. None or
+	// zero → DefaultResyncLimit. Use rate.Inf in tests.
 	ResyncLimit gt.Option[rate.Limit]
 
-	// ResyncBurst is the burst size for the per-DID rate limiter.
-	// None means DefaultResyncBurst (5).
+	// ResyncBurst is the per-DID token-bucket capacity. None or zero
+	// → DefaultResyncBurst. (A zero burst would be permanent throttling
+	// and is almost always a misconfiguration; the default is applied
+	// in that case.)
 	ResyncBurst gt.Option[int]
 
-	// OnResync, when set, fires once per successful resync, after chain
-	// state has been advanced and just before the resynced ops are returned
-	// to the caller. Invoked synchronously on the verifier's goroutine —
-	// keep the callback fast or hand off to a worker. oldRev is "" when
-	// this is the first resync we've ever performed for did (Load returned
-	// nil) or the resync was triggered by a #sync event from an upstream we
-	// hadn't seen before.
-	//
-	// Invoked while the per-DID mutex is held — a slow callback delays all
-	// verification for that DID. Keep it fast or hand off to a worker
-	// goroutine.
+	// OnResync fires once per successful resync, after state has
+	// advanced and before ops return to the caller. oldRev is "" on
+	// the first resync ever performed for did. Invoked synchronously
+	// while the per-DID mutex is held; keep it fast or hand off to a
+	// worker.
 	OnResync gt.Option[func(did atmos.DID, oldRev, newRev string, reason ResyncReason)]
 
-	// OnVerificationFailure, when set, fires once per verification failure
-	// regardless of policy AND regardless of whether a subsequent resync
-	// repaired the chain. ChainBreakError, InversionError, and
-	// SignatureError each invoke this hook before the verifier decides
-	// whether to attempt resync; ResyncFailedError and
-	// ResyncRateLimitedError do NOT — they are downstream consequences of a
-	// failure we already reported. Invoked synchronously on the verifier's
-	// goroutine.
+	// OnVerificationFailure fires once per verification failure,
+	// regardless of policy and regardless of whether a subsequent
+	// resync repaired the chain. ChainBreakError, InversionError,
+	// SignatureError, FieldMismatchError, FutureRevError,
+	// CommitTooLargeError, OpCIDMismatchError, DuplicatePathError, and
+	// LegacyCommitError (under LegacyReject) all invoke this hook;
+	// ResyncFailedError and ResyncRateLimitedError do not (they're
+	// downstream consequences of a failure already reported).
 	//
-	// Resolver/network errors that surface during signature verification
-	// (without being typed *SignatureError) also do NOT fire this hook —
-	// they propagate as wrapped infrastructure errors via the return value
-	// only.
+	// Resolver/network errors during signature verification surface as
+	// wrapped infrastructure errors via the return value only; they
+	// do not invoke this hook.
+	//
+	// Invoked synchronously on the verifier's goroutine.
 	OnVerificationFailure gt.Option[func(did atmos.DID, err error)]
 
-	// FutureRevTolerance is the grace period for clock skew between this
-	// verifier and the upstream PDS. Events whose rev's TID timestamp is
-	// more than this far ahead of [Now] are rejected with
-	// [*FutureRevError]. None means [DefaultFutureRevTolerance] (5
-	// minutes). Set to a negative duration to disable the check entirely
-	// (not recommended for production — the spec mandates rejection).
+	// FutureRevTolerance is the maximum a rev TID timestamp may lead
+	// wall clock before the event is rejected as future-dated. None →
+	// DefaultFutureRevTolerance (5 minutes). A negative value disables
+	// the check; not recommended.
 	FutureRevTolerance gt.Option[time.Duration]
 
-	// Now overrides the wall clock used for the future-rev check. None
-	// means [time.Now]. Primarily for deterministic tests; production
-	// callers should leave it unset.
+	// Now overrides the wall clock used by FutureRevTolerance. None
+	// → time.Now. For deterministic tests.
 	Now gt.Option[func() time.Time]
 
 	// LegacyCommitPolicy selects how Sync-1.0-shape commits are
-	// handled. None means [LegacyAccept], the lenient default suitable
-	// for most consumer applications. Set to [LegacyReject] for strict
-	// mode where legacy commits are routed through the same
-	// failure-handling path as chain breaks.
+	// handled. None → LegacyAccept (lenient default).
 	LegacyCommitPolicy gt.Option[LegacyCommitPolicy]
 }
 
@@ -716,7 +620,7 @@ type VerifierOptions struct {
 // for concurrent use across DIDs; per-DID work is serialized
 // internally to prevent racing chain-state advances.
 //
-// Must not be copied; use NewVerifier and pass *Verifier.
+// Construct with NewVerifier; Verifier values must not be copied.
 type Verifier struct {
 	_ noCopy
 
@@ -747,9 +651,9 @@ type Verifier struct {
 	oversizedCommits       atomic.Uint64
 }
 
-// NewVerifier returns a Verifier with the given options. Returns an
-// error if required fields are missing or inconsistent with the
-// chosen Policy.
+// NewVerifier constructs a Verifier. Returns an error if required
+// options are missing: ChainStore, Directory, and (under the default
+// PolicyResync) SyncClient.
 func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	if opts.ChainStore == nil {
 		return nil, fmt.Errorf("sync: NewVerifier: ChainStore is required")
@@ -778,23 +682,18 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	return &Verifier{opts: opts}, nil
 }
 
-// lockDID acquires the per-DID mutex for did, returning an unlock
-// function. The mutex is lazy-initialized via LoadOrStore so the first
-// caller for a DID materializes the mutex and any concurrent
-// late-arrivals reuse it.
+// lockDID acquires the per-DID mutex and returns an unlock function.
+// The mutex is lazy-initialized via LoadOrStore.
 //
-// sync.Mutex is non-reentrant — a goroutine that already holds the
-// per-DID lock for did MUST NOT call lockDID(did) again or it will
-// deadlock. Verification flows are structured to take the lock once
-// at entry and release it on return; any helper invoked under that
+// Non-reentrant. A goroutine already holding the per-DID lock for did
+// must not call lockDID(did) again, and helpers invoked under the
 // lock must not call back into lockDID for the same DID.
 func (v *Verifier) lockDID(did atmos.DID) func() {
 	val, _ := v.didMu.LoadOrStore(did, &sync.Mutex{})
 	mu, ok := val.(*sync.Mutex)
 	if !ok {
-		// We are the sole writer of this map; a non-Mutex value means
-		// memory corruption or a programming error elsewhere. Crash
-		// rather than silently lose serialization.
+		// Verifier is the sole writer of this map; a wrong-typed
+		// value indicates memory corruption.
 		panic("Verifier.lockDID: stored value is not *sync.Mutex")
 	}
 	mu.Lock()
@@ -802,29 +701,20 @@ func (v *Verifier) lockDID(did atmos.DID) func() {
 }
 
 // verifyCommitSignature looks up the DID's signing key, verifies the
-// commit's signature against it, and on first failure purges the
-// directory cache and retries once (handling key rotation).
+// commit signature, and on first failure purges the directory cache
+// and retries once (to handle key rotation).
 //
-// Returns *SignatureError on permanent failure (signature still doesn't
-// verify after purge+retry, or the post-purge re-resolution returns a
-// key the commit can't be verified against).
+// Returns *SignatureError on permanent failure (mismatch or unparseable
+// public key after the purge+retry). Resolver/network errors are
+// returned as wrapped infrastructure errors so callers can distinguish
+// "couldn't check" from "checked and it's bad".
 //
-// Errors from the directory itself (e.g. network failure during
-// resolution) are wrapped without a typed error to distinguish "we
-// couldn't check" from "we checked and it's bad."
+// When the directory has no cache configured, Purge is a no-op and the
+// retry sees the same data as the first pass; cacheless deployments
+// double their resolver load on signature failures but cannot recover
+// from a key rotation via this path.
 //
-// A first-pass PublicKey() parse failure is treated identically to a
-// signature mismatch: we purge and retry. Only the second-pass
-// PublicKey() parse failure surfaces as *SignatureError.
-//
-// When the directory has no cache configured, Purge is a no-op and
-// the retry will see the same data as the first pass — key rotation
-// won't be detected. Cacheless deployments will double their resolver
-// load on every signature failure but cannot recover via this path.
-//
-// Does not fire OnVerificationFailure; the orchestrating caller is
-// responsible for that, in line with the callback contract documented
-// on VerifierOptions.
+// Does not fire OnVerificationFailure; the orchestrating caller does.
 func (v *Verifier) verifyCommitSignature(ctx context.Context, did atmos.DID, c *repo.Commit) error {
 	id, err := v.opts.Directory.LookupDID(ctx, did)
 	if err != nil {
@@ -854,30 +744,26 @@ func (v *Verifier) verifyCommitSignature(ctx context.Context, did atmos.DID, c *
 	return nil
 }
 
-// allowResync returns true if a resync for did is allowed under the
-// per-DID rate limit. The limiter is lazy-initialized: the very first
-// call for a given DID materializes a fresh token bucket already full
-// to ResyncBurst, so the first ResyncBurst calls succeed immediately
-// without waiting for the bucket to refill.
+// allowResync reports whether a resync for did is permitted under
+// the per-DID rate limit. The limiter is lazy-initialized full to
+// ResyncBurst, so the first ResyncBurst calls succeed immediately.
 func (v *Verifier) allowResync(did atmos.DID) bool {
 	val, _ := v.limiters.LoadOrStore(did,
 		rate.NewLimiter(v.opts.ResyncLimit.Val(), v.opts.ResyncBurst.Val()))
 	lim, ok := val.(*rate.Limiter)
 	if !ok {
-		// We are the sole writer of this map; a non-*rate.Limiter value
-		// means memory corruption or a programming error elsewhere.
-		// Crash rather than silently mis-throttle.
+		// Verifier is the sole writer of this map; a wrong-typed
+		// value indicates memory corruption.
 		panic("Verifier.allowResync: stored value is not *rate.Limiter")
 	}
 	return lim.Allow()
 }
 
-// resync fetches the repo via getRepo, verifies the signature of the
-// fetched commit, walks the MST, and yields all current records as
-// ActionResync ops. Advances chain state to the fetched (rev, data).
-//
-// Subject to the per-DID resync rate limit. Caller must hold the
-// per-DID mutex.
+// resync fetches the authoritative repo via getRepo, verifies the
+// fetched commit's signature, walks its MST, and yields every record
+// as an ActionResync op. Advances chain state to the fetched
+// (rev, data). Subject to the per-DID resync rate limit. Caller must
+// hold the per-DID mutex.
 func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReason) ([]VerifierOp, error) {
 	if !v.allowResync(did) {
 		return nil, &ResyncRateLimitedError{DID: did}
@@ -896,9 +782,8 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
 	}
 
-	// Verify signature on fetched commit. We do NOT chain-check against
-	// the old state — the whole point of resync is that the chain is
-	// broken.
+	// Verify the fetched commit's signature. No chain check: the
+	// whole point of resync is that the chain is broken.
 	if err := v.verifyCommitSignature(ctx, did, commit); err != nil {
 		v.resyncFailures.Add(1)
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
@@ -949,37 +834,33 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 }
 
 // Resync forces an immediate resync of one DID. Useful for consumers
-// running PolicyError that have decided to repair a chain break or
-// inversion failure themselves.
+// running PolicyError that want to repair a chain break or inversion
+// failure themselves. Subject to the per-DID resync rate limit and
+// per-DID mutex.
 //
-// Subject to the per-DID resync rate limit and the per-DID mutex (so
-// concurrent VerifyAndExpand calls for the same DID will not race).
-//
-// Resyncs initiated through this method use ReasonSyncEvent for callback /
-// metrics labeling, since the operator's intent is identical to acting on
-// an upstream #sync event (re-fetch authoritative state).
+// Reports ReasonSyncEvent to OnResync, conflated with upstream-driven
+// #sync events: the operator's intent (re-fetch authoritative state)
+// is identical.
 func (v *Verifier) Resync(ctx context.Context, did atmos.DID) ([]VerifierOp, error) {
 	unlock := v.lockDID(did)
 	defer unlock()
 	return v.resync(ctx, did, ReasonSyncEvent)
 }
 
-// ChainStore returns the configured chain store. Useful for inspection
-// from tests and for consumers that need to read state outside the
-// verifier (e.g. to filter events on hosting status).
+// ChainStore returns the configured chain store, for read-only
+// inspection (e.g. tests, or consumers filtering events on persisted
+// state).
 //
-// Consumers MUST NOT call Save on the returned store; the verifier
-// owns all writes. Calling Save externally will desynchronize the
-// in-memory rev/data tracking the verifier maintains and produce
-// spurious chain-break errors. Read-only access (Load) is safe.
+// Callers must not Save through the returned store; the verifier owns
+// all writes, and external writes desynchronize tracking and produce
+// spurious chain-break errors. Load is safe.
 func (v *Verifier) ChainStore() ChainStore {
 	return v.opts.ChainStore
 }
 
-// Stats returns a snapshot of this verifier's counters. Safe to call
-// concurrently with verification. See VerifierStats for the across-counter
-// coherence caveat: each individual counter Load is atomic, but two
-// counters may not be simultaneously consistent.
+// Stats returns a snapshot of the verifier's counters. Safe to call
+// concurrently. See VerifierStats for cross-counter coherence
+// semantics.
 func (v *Verifier) Stats() VerifierStats {
 	return VerifierStats{
 		EventsVerified:         v.eventsVerified.Load(),
@@ -1001,15 +882,10 @@ func (v *Verifier) Stats() VerifierStats {
 	}
 }
 
-// checkCommitSize enforces the spec-mandated resource bounds on a
-// #commit envelope: blocks ≤ MaxCommitBlocksBytes, ops ≤
-// MaxCommitOps. Returns a non-nil [*CommitTooLargeError] iff one
-// limit is exceeded; the blocks check runs first so oversized CARs
-// surface as a "blocks" failure even when the ops list is also
-// over-limit (deterministic for metric labels).
-//
-// Caller is responsible for incrementing counters and invoking
-// hooks.
+// checkCommitSize enforces the spec-mandated bounds on a #commit
+// envelope. Blocks is checked first so oversized CARs surface as
+// "blocks" even when ops is also over-limit (deterministic metric
+// labels). Caller increments counters and fires hooks.
 func checkCommitSize(did atmos.DID, commit *comatproto.SyncSubscribeRepos_Commit) *CommitTooLargeError {
 	if n := len(commit.Blocks); n > MaxCommitBlocksBytes {
 		return &CommitTooLargeError{
@@ -1026,11 +902,9 @@ func checkCommitSize(did atmos.DID, commit *comatproto.SyncSubscribeRepos_Commit
 	return nil
 }
 
-// findDuplicateOpPath scans the commit's ops list for any path that
-// appears more than once. Returns the first duplicated path (the
-// second occurrence is what triggers detection) or "" when every
-// path is unique. O(n) with a small map; ops are capped at 200 by
-// spec so the map never grows unbounded.
+// findDuplicateOpPath returns the first path that appears more than
+// once in commit.Ops, or "" if every path is unique. O(n) with a map;
+// MaxCommitOps caps the map at 200 entries.
 func findDuplicateOpPath(commit *comatproto.SyncSubscribeRepos_Commit) string {
 	if len(commit.Ops) < 2 {
 		return ""
@@ -1045,24 +919,16 @@ func findDuplicateOpPath(commit *comatproto.SyncSubscribeRepos_Commit) string {
 	return ""
 }
 
-// commitVersion is the only repo-commit version atmos accepts on the
-// firehose. Sync 1.1 mandates v3; older v2 commits exist in archived
-// data but should not appear on a 1.1-compliant subscribeRepos stream.
+// commitVersion is the repo-commit version atmos accepts on the
+// firehose. Sync 1.1 mandates v3.
 const commitVersion = 3
 
-// isLegacyCommit reports whether the commit looks like a Sync-1.0
-// shape commit: no prevData on the envelope, and no update/delete op
-// declares the new `prev` field.
-//
-// Sole-create commits trigger if prevData is absent — without
-// prevData, a 1.1-compliant chain check is impossible and every
-// 1.1 producer is supposed to emit it. Update/delete with prev
-// present is a clear 1.1 signal that overrides the prevData absence.
-//
-// Returns false on the empty-ops case: a no-op commit with no
-// prevData is just a malformed 1.1 commit, not a legacy 1.0 commit
-// (1.0 still required prevData on every commit, just under a
-// different encoding); let it surface as a chain break instead.
+// isLegacyCommit reports whether commit has the Sync-1.0 shape:
+// envelope prevData absent and no update/delete op carries op.Prev.
+// Returns false for empty-ops commits (let them surface as a chain
+// break) and for commits where any update/delete op has op.Prev set
+// (the producer is clearly on 1.1; the missing prevData is a chain
+// break, not a legacy signal).
 func isLegacyCommit(commit *comatproto.SyncSubscribeRepos_Commit) bool {
 	if commit.PrevData.HasVal() {
 		return false
@@ -1070,42 +936,22 @@ func isLegacyCommit(commit *comatproto.SyncSubscribeRepos_Commit) bool {
 	if len(commit.Ops) == 0 {
 		return false
 	}
-	hasMutation := false
 	for _, op := range commit.Ops {
-		if op.Action == "update" || op.Action == "delete" {
-			hasMutation = true
-			if op.Prev.HasVal() {
-				// At least one mutation op carries the new field —
-				// the producer is on 1.1, just happened to omit
-				// prevData. Surface as a chain break, not legacy.
-				return false
-			}
+		if (op.Action == "update" || op.Action == "delete") && op.Prev.HasVal() {
+			return false
 		}
 	}
-	// Pure-create commit (no update/delete to inspect): treat as
-	// legacy when prevData is also absent. Without prevData we have
-	// no way to validate the chain link, and a 1.1-compliant producer
-	// would have emitted it.
-	if !hasMutation {
-		return true
-	}
-	// Has mutations and none carry prev — classic 1.0 shape.
 	return true
 }
 
-// checkOpCIDs walks the commit's ops list and asserts each op's claim
-// agrees with the post-state MST: create/update ops must declare a CID
-// equal to the tree value at the op's path, delete ops must reference
-// a path that is absent from the tree. Returns the first mismatch as
-// a typed [*OpCIDMismatchError] (caller decides on counters and
-// hooks); returns nil if every op is consistent.
+// checkOpCIDs asserts every op in commit agrees with the post-state
+// MST: create/update CIDs must equal tree.Get(path); delete paths
+// must be absent. Returns the first mismatch or nil on success.
+// Caller increments counters and fires hooks.
 //
-// store and dataCID are the post-state block store and MST root that
-// callers already have decoded — reusing them avoids a redundant CAR
-// parse on the happy path.
-//
-// Mirrors indigo's invariants in `atproto/repo/sync.go`'s
-// `VerifyCommitMessage`.
+// store and dataCID are the pre-decoded block store and post-state
+// root from decodeCommitFromCAR; passing them avoids re-parsing the
+// CAR. Mirrors indigo's atproto/repo/sync.go VerifyCommitMessage.
 func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID, store *mst.MemBlockStore) *OpCIDMismatchError {
 	if len(commit.Ops) == 0 {
 		return nil
@@ -1126,10 +972,9 @@ func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID,
 			}
 			claimed, err := cidFromLink(op.CID.Val())
 			if err != nil {
-				// Malformed CID surfaces as missing — caller's typed
-				// error reporting is more useful than a parse-error
-				// detail here, since this gate's job is structural
-				// consistency, not parsing.
+				// Malformed CID is surfaced as a structural mismatch
+				// rather than a parse error: the caller's recovery
+				// path (resync) is the same.
 				return &OpCIDMismatchError{
 					DID: did, Rev: commit.Rev, Path: op.Path,
 					Reason: op.Action + "_cid_mismatch",
@@ -1137,9 +982,7 @@ func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID,
 			}
 			treeVal, err := tree.Get(op.Path)
 			if err != nil {
-				// Tree load error — surface as a structural mismatch
-				// rather than a tree error, since the caller's
-				// recovery path (resync) is the same.
+				// Tree load error — same recovery as a real mismatch.
 				return &OpCIDMismatchError{
 					DID: did, Rev: commit.Rev, Path: op.Path,
 					Reason: op.Action + "_cid_mismatch", OpCID: claimed,
@@ -1170,8 +1013,8 @@ func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID,
 				}
 			}
 			if op.CID.HasVal() {
-				// Spec: delete ops have no CID. Indigo's parseCommitOps
-				// rejects this; we surface it as a structural mismatch.
+				// Per spec, delete ops have no CID; indigo's
+				// parseCommitOps rejects this.
 				claimed, _ := cidFromLink(op.CID.Val())
 				return &OpCIDMismatchError{
 					DID: did, Rev: commit.Rev, Path: op.Path,
@@ -1179,26 +1022,22 @@ func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID,
 				}
 			}
 		default:
-			// Unknown action — let buildOpsFromCommit handle (it'll
-			// emit the op verbatim, downstream consumers ignore).
-			// Inversion already rejects unknown actions, so any commit
-			// reaching this gate has a known action set.
+			// Unknown actions are rejected upstream by inversion;
+			// any commit reaching this gate has a known action set.
 		}
 	}
 	return nil
 }
 
-// checkCommitFields enforces the spec MUST that firehose envelope
-// fields agree with the signed inner commit. Returns a non-nil
-// [*FieldMismatchError] iff a mismatch is found, naming the first
-// offending field in the order: version, did, rev. Caller is
-// responsible for incrementing counters and invoking hooks.
+// checkCommitFields asserts the firehose envelope and signed inner
+// commit agree on did, rev, and version. Returns the first mismatch
+// in priority order (version → did → rev) or nil. Caller increments
+// counters and fires hooks.
 //
-// The version check is asymmetric: we don't compare envelope-vs-inner
-// (the envelope has no version field) — we just require the inner
-// commit's version to be the Sync-1.1 commitVersion. A v2 commit
-// surfaces as a "version" mismatch with envelope="3" so consumers see
-// a consistent error shape.
+// The version check is one-sided: the envelope carries no version
+// field, so we require the inner commit's version to equal
+// commitVersion (3). A v2 commit surfaces as Field="version" with
+// Envelope="3" so the error shape stays consistent.
 func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *repo.Commit) *FieldMismatchError {
 	did := atmos.DID(envelope.Repo)
 	if inner.Version != commitVersion {
@@ -1228,17 +1067,10 @@ func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *re
 	return nil
 }
 
-// checkFutureRev tests whether rev's TID timestamp is more than the
-// configured tolerance ahead of the verifier's wall clock. Returns a
-// non-nil [*FutureRevError] iff the rev is in the rejectable future.
-//
-// Returns nil for unparseable revs: the future-rev gate is best-effort
-// in the face of malformed input, and downstream string-comparison gates
-// (rev replay, chain check) handle that case adequately.
-//
-// Returns nil when the tolerance is configured to a negative duration —
-// an explicit operator opt-out for environments where TID timestamps
-// can't be trusted as a clock at all.
+// checkFutureRev returns a non-nil *FutureRevError when rev's TID
+// timestamp leads wall clock by more than FutureRevTolerance.
+// Returns nil for unparseable revs (downstream gates handle them)
+// and when tolerance is negative (operator opt-out).
 func (v *Verifier) checkFutureRev(did atmos.DID, rev string) *FutureRevError {
 	tolerance := v.opts.FutureRevTolerance.Val()
 	if tolerance < 0 {
@@ -1246,10 +1078,8 @@ func (v *Verifier) checkFutureRev(did atmos.DID, rev string) *FutureRevError {
 	}
 	tid, parseErr := atmos.ParseTID(rev)
 	if parseErr != nil {
-		// Best-effort gate: malformed revs are deliberately skipped here
-		// and handled by downstream gates (rev-replay, chain check,
-		// field consistency). nilerr lint suppressed: the discarded
-		// error is the documented intent, not a bug.
+		// Malformed revs are intentionally not treated as future-rev;
+		// downstream gates handle them.
 		return nil //nolint:nilerr
 	}
 	revTime := tid.Time()
@@ -1266,29 +1096,35 @@ func (v *Verifier) checkFutureRev(did atmos.DID, rev string) *FutureRevError {
 	}
 }
 
-// noCopy is a zero-size sentinel that go vet's copylocks pass treats as
-// non-copyable. Embed it in types whose state must not be duplicated
-// (sync.Map / atomic.Uint64 fields). See https://golang.org/issues/8005.
+// noCopy is a zero-size sentinel that go vet's copylocks pass treats
+// as non-copyable. Embed in types holding non-copyable state.
+// See https://golang.org/issues/8005.
 type noCopy struct{}
 
 func (*noCopy) Lock()   {}
 func (*noCopy) Unlock() {}
 
-// InvertCommit applies the inverse of every op in commit against the
-// partial MST in commit.Blocks (the CAR diff), starting from the
-// commit's post-state MST root (read from the commit block referenced
-// by commit.Commit). Returns the resulting MST root CID, which — for a
-// structurally valid commit — equals the previous commit's data CID.
+// InvertCommit recovers the previous commit's MST root by inverting
+// every op in commit against the partial MST in commit.Blocks.
+// Starts from the post-state root (decoded from the commit block
+// referenced by commit.Commit). For a structurally valid commit, the
+// returned CID equals the previous commit's data CID.
 //
-// Returns *InversionError if the CAR is malformed, the commit block is
-// missing or undecodable, an op references a CID not present in the
-// diff, or the partial MST is structurally broken. Does NOT error on a
-// non-matching root: that's a chain break, detected by the caller
-// comparing the returned CID against the expected prevData.
+// Returns *InversionError on a malformed CAR, missing commit block,
+// op referencing a CID absent from the diff, or structurally broken
+// partial MST. Does NOT error on a non-matching root: that's a chain
+// break, detected by the caller comparing the returned CID against
+// the expected prevData.
 //
-// Public API. Verifier internals call invertCommitFromStore directly
-// to share an already-parsed CAR with downstream stages on the hot
-// path.
+// Order semantics: ops are applied in commit-list order. MST inverse
+// operations are individually commutative on disjoint paths, so the
+// result is order-independent for well-formed commits. Commits with
+// multiple ops on the same path are caught earlier by the
+// duplicate-path gate; if invoked here directly with such a commit,
+// the result is undefined.
+//
+// Verifier internals call invertCommitFromStore directly with a
+// pre-decoded CAR.
 func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error) {
 	if commit == nil {
 		return cbor.CID{}, &InversionError{Cause: fmt.Errorf("nil commit")}
@@ -1301,22 +1137,14 @@ func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error
 	return invertCommitFromStore(commit, innerCommit, store)
 }
 
-// invertCommitFromStore is the inversion routine without the CAR-parse
-// + commit-decode prologue. Callers that have already parsed the CAR
-// (e.g. verifyCommit, which needs the inner commit for signature
-// verification anyway) pass the pre-decoded inner commit and block
-// store to avoid the duplicate work.
-//
-// Same error contract as InvertCommit beyond the prologue: returns
-// *InversionError on op-list breakage or partial-MST structural
-// problems, never on a non-matching root.
+// invertCommitFromStore is InvertCommit with a pre-decoded CAR, used
+// by verifyCommit (which already has innerCommit and store from
+// signature verification) to avoid re-parsing.
 func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCommit *repo.Commit, store *mst.MemBlockStore) (cbor.CID, error) {
 	did := atmos.DID(commit.Repo)
 
-	// Load partial MST rooted at the post-state data CID.
 	tree := mst.LoadTree(store, innerCommit.Data)
 
-	// Apply inverse of each op.
 	for _, op := range commit.Ops {
 		key := op.Path
 		switch op.Action {
@@ -1340,7 +1168,6 @@ func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCo
 		}
 	}
 
-	// Compute new root.
 	newRoot, err := tree.RootCID()
 	if err != nil {
 		return cbor.CID{}, newInversionErr(did, commit.Rev, "compute inverted root: %w", err)
@@ -1348,39 +1175,35 @@ func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCo
 	return newRoot, nil
 }
 
-// newInversionErr is the free-function equivalent of the inline
-// wrapErr closure invertCommitFromStore previously used. Avoids heap-
-// allocating a closure on every invertCommitFromStore call (this
-// function is on the verifyCommit hot path), at the cost of taking
-// did and rev as explicit arguments.
+// newInversionErr wraps a formatted error in *InversionError.
+// Free-function rather than an inline closure to avoid the per-call
+// closure heap allocation on the verifyCommit hot path.
 func newInversionErr(did atmos.DID, rev, format string, args ...any) error {
 	return &InversionError{DID: did, Rev: rev, Cause: fmt.Errorf(format, args...)}
 }
 
-// cidFromLink converts a LexCIDLink to a cbor.CID. The link's
-// underlying string is the CID's string form.
+// cidFromLink parses a lextypes.LexCIDLink as a cbor.CID.
 func cidFromLink(link lextypes.LexCIDLink) (cbor.CID, error) {
 	return cbor.ParseCIDString(link.Link)
 }
 
-// VerifyAndExpand runs Sync 1.1 verification on a single firehose
-// event. Called by the streaming layer once per #commit or #sync
-// event before the event reaches the consumer's batch.
-//
-// Exactly one of commitEvt or syncEvt should be non-nil per call;
-// passing both nil is a no-op returning (nil, nil). The split
-// signature avoids a streaming->sync->streaming import cycle: the
-// streaming layer already has the decoded `evt.Commit` and `evt.Sync`
-// fields available and passes them in directly.
+// VerifyAndExpand runs Sync 1.1 verification on one firehose event.
+// Pass exactly one of commitEvt or syncEvt; passing both nil returns
+// (nil, nil). The split signature avoids a streaming↔sync import
+// cycle.
 //
 // Returns the operations the consumer should observe, or:
-//   - (nil, nil) for silent drops (rev replay).
-//   - (nil, *ChainBreakError|*InversionError|*SignatureError|*ResyncFailedError|*ResyncRateLimitedError)
-//     under PolicyError, or for failures even PolicyResync can't recover from.
-//
-// Under PolicyResync, chain breaks and inversion failures trigger
-// transparent resync; only resync failures or signature failures
-// reach the consumer.
+//   - (nil, nil) for silent drops (rev replay; #sync no-op).
+//   - (nil, typed error) for rejections that bypass policy
+//     (signature, future-rev, field mismatch, oversized commit).
+//   - Under PolicyResync, chain breaks and inversion failures
+//     trigger transparent resync; ResyncFailedError or
+//     ResyncRateLimitedError surface only when the resync itself
+//     fails.
+//   - Under PolicyError, chain breaks and inversion failures yield a
+//     typed error (ChainBreakError, InversionError,
+//     OpCIDMismatchError, DuplicatePathError, or LegacyCommitError
+//     under LegacyReject).
 func (v *Verifier) VerifyAndExpand(
 	ctx context.Context,
 	commitEvt *comatproto.SyncSubscribeRepos_Commit,
@@ -1395,20 +1218,31 @@ func (v *Verifier) VerifyAndExpand(
 	return nil, nil
 }
 
-// verifyCommit handles the #commit branch of VerifyAndExpand: parses
-// the DID, takes the per-DID lock, runs rev-replay/inversion/chain
-// checks, signature checks, and on success advances chain state and
-// emits per-op VerifierOp values.
+// verifyCommit handles the #commit branch of VerifyAndExpand. Runs
+// the gate sequence:
+//
+//  1. Parse DID
+//  2. Future-rev check (bypasses policy, before per-DID lock)
+//  3. Size limits  (bypasses policy, before per-DID lock)
+//  4. Per-DID lock acquired
+//  5. Rev-replay drop
+//  6. Duplicate-path check
+//  7. CAR decode (single parse, reused below)
+//  8. Legacy-commit detection (route via policy if LegacyReject)
+//  9. Inversion + chain check
+//  10. Outer/inner field consistency (bypasses policy)
+//  11. Signature verification
+//  12. Op-CID consistency
+//  13. State advance and op emission.
 func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubscribeRepos_Commit) ([]VerifierOp, error) {
 	did, err := atmos.ParseDID(commit.Repo)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid DID %q: %w", commit.Repo, err)
 	}
 
-	// Future-rev check runs before the per-DID lock and before chain-state
-	// load: a future-dated rev that we accepted would advance state and
-	// starve out every legitimate event for this DID, so we reject before
-	// any state can be touched. Bypasses policy — no resync helps here.
+	// Future-rev check runs before the per-DID lock and before chain
+	// load. Accepting a future-dated rev would advance state and
+	// starve out legitimate follow-on events. Bypasses policy.
 	if frErr := v.checkFutureRev(did, commit.Rev); frErr != nil {
 		v.futureRevsRejected.Add(1)
 		if v.opts.OnVerificationFailure.HasVal() {
@@ -1417,10 +1251,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, frErr
 	}
 
-	// Size limits (spec MUST). Reject before per-DID lock so oversized
-	// commits can't block other events for the same DID. Bypasses
-	// policy — re-fetching from a misbehaving upstream that ships
-	// oversized payloads gets the same garbage.
+	// Size limits run before the per-DID lock so oversized commits
+	// can't block other events for the same DID. Bypasses policy.
 	if tlErr := checkCommitSize(did, commit); tlErr != nil {
 		v.oversizedCommits.Add(1)
 		if v.opts.OnVerificationFailure.HasVal() {
@@ -1437,30 +1269,24 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, fmt.Errorf("verifier: load chain state: %w", err)
 	}
 
-	// Rev-replay drop: any commit at or below the persisted rev is a
+	// Rev-replay drop: a commit at or below persisted rev is a
 	// re-delivery (or out-of-order) and silently dropped.
 	if state != nil && commit.Rev <= state.Rev {
 		v.revReplaysDropped.Add(1)
 		return nil, nil
 	}
 
-	// Duplicate-path check: detectable from the ops list alone, no
-	// CAR parse needed. Earliest reject for malformed/malicious input.
-	// Routed via inversion-failure path so PolicyResync recovers
-	// transparently (an internally-inconsistent ops list is just as
-	// broken as a bad CAR diff). dataCID isn't available yet, so we
-	// pass the zero CID — handleVerificationFailure skips the
-	// state-advance, which is the right call for a commit we can't
-	// trust to begin with.
+	// Duplicate-path check uses only the ops list, no CAR parse.
+	// Earliest reject for malformed/malicious input. Pass zero
+	// dataCID; handleVerificationFailure skips state-advance for a
+	// commit we can't trust.
 	if dupPath := findDuplicateOpPath(commit); dupPath != "" {
 		v.duplicatePaths.Add(1)
 		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure,
 			&DuplicatePathError{DID: did, Rev: commit.Rev, Path: dupPath})
 	}
 
-	// Decode the CAR once. Every downstream stage (inversion, field
-	// consistency, signature, op-CID, ops emission) reuses this single
-	// parse, halving CAR processing on the happy path.
+	// Decode the CAR once; every downstream stage reuses this parse.
 	innerCommit, store, decErr := decodeCommitFromCAR(commit)
 	if decErr != nil {
 		v.inversionFailures.Add(1)
@@ -1469,19 +1295,13 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	}
 	dataCID := innerCommit.Data
 
-	// Legacy 1.0-shape detection. Runs before inversion so a
-	// non-upgraded upstream's commit doesn't surface as a misleading
-	// "missing prev CID" InversionError. First sighting (state == nil)
-	// is unaffected — we have no prior chain state to validate
-	// against either way.
+	// Legacy 1.0-shape detection runs before inversion so a
+	// non-upgraded upstream surfaces as the precise typed error
+	// rather than a misleading "missing prev CID" InversionError.
+	// First sighting is unaffected.
 	legacy := state != nil && isLegacyCommit(commit)
 	if legacy {
 		v.legacyCommits.Add(1)
-		// LegacyReject: route through the existing failure path —
-		// PolicyResync resyncs, PolicyError surfaces the typed error.
-		// LegacyAccept (default): skip the chain-link check (impossible
-		// without prevData) and fall through to signature verification,
-		// op-CID consistency, and state advance.
 		if v.opts.LegacyCommitPolicy.ValOr(LegacyAccept) == LegacyReject {
 			lcErr := &LegacyCommitError{
 				DID:      did,
@@ -1491,11 +1311,13 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 			}
 			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonLegacyCommit, lcErr)
 		}
+		// LegacyAccept: fall through; the chain-link check below is
+		// skipped (impossible without prevData), but signature and
+		// op-CID checks still apply.
 	}
 
-	// Inversion + chain check. Only meaningful when state is non-nil
-	// (first sighting has nothing to chain against) and the commit
-	// has the 1.1-shape fields (`prevData`, `op.Prev` on mutations).
+	// Inversion + chain check. Skipped on first sighting (nothing to
+	// chain against) and on legacy-accepted commits (no prevData).
 	if state != nil && !legacy {
 		inverted, err := invertCommitFromStore(commit, innerCommit, store)
 		if err != nil {
@@ -1507,9 +1329,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		if commit.PrevData.HasVal() {
 			prevDataCID, _ = cidFromLink(commit.PrevData.Val())
 		}
-		// Both the inverted post-state and the commit's declared
-		// prevData must agree with locally-tracked state. Either one
-		// disagreeing is a chain break.
+		// Both the inverted root and the declared prevData MUST equal
+		// SeenData; either disagreeing is a chain break.
 		if !inverted.Equal(state.Data) || !prevDataCID.Equal(state.Data) {
 			v.chainBreaks.Add(1)
 			cbErr := &ChainBreakError{
@@ -1524,12 +1345,9 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		}
 	}
 
-	// Outer/inner field consistency. Runs before signature verification:
-	// a relabeled envelope rev (e.g. to bypass our rev-replay drop) is
-	// cheaper to reject here than after a P-256 verify, and a "did" or
-	// "version" mismatch is a definite reject regardless of signature.
-	// Bypasses policy — a misbehaving upstream cannot be repaired by
-	// re-fetching from the same upstream.
+	// Outer/inner field consistency runs before signature verify so a
+	// relabeled envelope is rejected without paying the P-256 cost.
+	// Bypasses policy.
 	if fmErr := checkCommitFields(commit, innerCommit); fmErr != nil {
 		v.fieldMismatches.Add(1)
 		if v.opts.OnVerificationFailure.HasVal() {
@@ -1538,9 +1356,10 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, fmErr
 	}
 	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
-		// Only count true signature mismatches (typed *SignatureError).
-		// Wrapped resolver/network errors are infrastructure failures, not
-		// signature failures, and would otherwise pollute the counter.
+		// Count true signature mismatches only. Resolver/network
+		// errors are infrastructure failures and surface as wrapped
+		// errors so operators can distinguish "couldn't check" from
+		// "checked and it's bad".
 		var sigErr *SignatureError
 		if errors.As(err, &sigErr) {
 			v.signatureFailures.Add(1)
@@ -1549,24 +1368,18 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 			}
 			return nil, sigErr
 		}
-		// Non-typed (e.g. resolver network error) — wrap and return; not a
-		// signature failure.
 		return nil, fmt.Errorf("verifier: signature verification: %w", err)
 	}
 
-	// Op-CID consistency: each create/update op must declare a CID
-	// equal to the post-state MST tree value at the op's path; deletes
-	// must reference an absent path. Reuses the already-decoded MST
-	// root + block store. Routed via handleVerificationFailure with
-	// ReasonInversionFailure so PolicyResync recovers transparently —
-	// an internally-inconsistent commit is just as broken as a bad
-	// CAR diff and the same recovery applies.
+	// Op-CID consistency: ops list must agree with the post-state MST.
+	// Routed via the inversion-failure path so PolicyResync recovers
+	// transparently.
 	if opErr := checkOpCIDs(commit, dataCID, store); opErr != nil {
 		v.opCIDMismatches.Add(1)
 		return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, opErr)
 	}
 
-	// Success: build verified ops, advance state.
+	// Success: build verified ops and advance state.
 	ops, err := v.buildOpsFromCommit(commit, store)
 	if err != nil {
 		v.inversionFailures.Add(1)
@@ -1580,14 +1393,9 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	return ops, nil
 }
 
-// decodeCommitFromCAR loads the commit's CAR diff, looks up the
-// commit block by commit.Commit's CID, and decodes it into a
-// *repo.Commit. Used both for signature verification and for
-// extracting the post-state MST data CID.
-//
-// Also returns the parsed block store so callers that subsequently
-// need the CAR's record blocks (e.g. buildOpsFromCommit) can reuse it
-// rather than parsing the CAR a second time.
+// decodeCommitFromCAR loads the CAR diff, decodes the commit block
+// referenced by commit.Commit, and returns the inner commit and the
+// parsed block store. Callers reuse the store to avoid re-parsing.
 func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Commit, *mst.MemBlockStore, error) {
 	commitCID, err := cidFromLink(commit.Commit)
 	if err != nil {
@@ -1608,16 +1416,10 @@ func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Co
 	return c, store, nil
 }
 
-// decodeCommitFromSyncCAR decodes a #sync event's embedded commit
-// block. Per the lexicon (`com.atproto.sync.subscribeRepos#sync`) the
-// CAR header's first root IS the commit block CID — there's no
-// separate Commit-link field on the envelope to dereference. The CAR
-// is intentionally minimal (commit block only; no MST nodes, no
-// records) so this is much cheaper than the #commit equivalent.
-//
-// Returns nil store on intent: callers don't need the block store for
-// anything else (the embedded Blocks have nothing else to read), so
-// not allocating + returning a parsed map saves the bookkeeping.
+// decodeCommitFromSyncCAR decodes a #sync event's embedded commit.
+// Per com.atproto.sync.subscribeRepos#sync the CAR's first root is
+// the commit CID; the CAR contains only the commit block (no MST,
+// no records), so this is cheaper than decodeCommitFromCAR.
 func decodeCommitFromSyncCAR(syncEvt *comatproto.SyncSubscribeRepos_Sync) (*repo.Commit, error) {
 	if len(syncEvt.Blocks) == 0 {
 		return nil, errors.New("sync event has no blocks")
@@ -1637,25 +1439,18 @@ func decodeCommitFromSyncCAR(syncEvt *comatproto.SyncSubscribeRepos_Sync) (*repo
 	return c, nil
 }
 
-// buildOpsFromCommit decodes the commit's ops list into VerifierOp
-// values. For non-delete ops with a CID, the corresponding record
-// block is pulled from the CAR diff if present; missing blocks are
-// not an error here (deletes legitimately have no CID, and partial
-// CARs may legitimately omit blocks the consumer doesn't need).
-//
-// Bumps [VerifierStats.MissingRecordBlocks] for each create/update
-// op whose CID is well-formed but whose block isn't present in the
-// CAR. Operators monitoring this counter can spot upstreams that
-// ship incomplete CARs.
+// buildOpsFromCommit decodes commit.Ops into VerifierOp values.
+// Record blocks are pulled from store when present; missing blocks
+// are not a failure (deletes have no CID, and partial CARs are
+// permitted) but increment Stats.MissingRecordBlocks so operators
+// can spot upstreams shipping incomplete CARs.
 //
 // store must be the block store returned by decodeCommitFromCAR for
-// this same commit. Reusing the pre-parsed store avoids the per-event
-// cost of re-parsing the CAR.
+// this same commit.
 func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Commit, store *mst.MemBlockStore) ([]VerifierOp, error) {
 	// Empty-but-non-nil so the streaming layer can distinguish a
-	// successful zero-ops verification from a rev-replay drop, both
-	// of which surface here as "no ops produced." Rev-replay returns
-	// (nil, nil) higher up; this branch returns ([]VerifierOp{}, nil).
+	// successful zero-ops verification (returns []VerifierOp{}) from
+	// a rev-replay drop (returns nil at a higher level).
 	if len(commit.Ops) == 0 {
 		return []VerifierOp{}, nil
 	}
@@ -1686,21 +1481,21 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 	return ops, nil
 }
 
-// handleVerificationFailure dispatches a chain-break or inversion
-// failure per the verifier's policy. Caller must hold the per-DID
-// mutex.
+// handleVerificationFailure dispatches a chain-break, inversion, or
+// equivalent failure per the verifier's policy. Caller must hold the
+// per-DID mutex. Invokes OnVerificationFailure unconditionally before
+// consulting policy.
 //
-// Always invokes OnVerificationFailure with the original typed error
-// before consulting policy — consumers see every break, regardless of
-// whether the verifier subsequently repairs it via resync.
+// Under PolicyError, state advances to the offending commit's
+// (rev, data) so re-deliveries don't re-report the same failure.
+// Subsequent verified events therefore chain off a commit that
+// already failed validation; consumers that want to truly stop
+// processing a misbehaving DID must call ChainStore.Delete(did)
+// themselves.
 //
-// PolicyError advances state to the offending commit's (rev, data)
-// so we don't perpetually re-report the same break for re-deliveries.
-// dataCID is the pre-decoded post-state MST root, threaded in by the
-// caller to avoid re-parsing the CAR on the failure path. A zero CID
-// means "the caller couldn't decode it" — we skip the advance because
-// a malformed commit can't be replayed identically and we'd rather
-// leave state untouched than corrupt it.
+// A zero dataCID signals that the caller couldn't decode the inner
+// commit (malformed CAR, etc.); state-advance is skipped to avoid
+// corrupting state with a value we don't trust.
 func (v *Verifier) handleVerificationFailure(
 	ctx context.Context,
 	did atmos.DID,
@@ -1732,38 +1527,30 @@ func (v *Verifier) handleVerificationFailure(
 	}
 }
 
-// verifySync handles the #sync branch of VerifyAndExpand. A #sync event
-// from upstream is a directive to re-fetch authoritative state — the
-// upstream is asserting its current rev/data without claiming a
-// continuous chain to whatever we last saw.
+// verifySync handles the #sync branch of VerifyAndExpand. A #sync
+// event is a directive to re-fetch authoritative state.
 //
-// We optimize the common case where the upstream is just confirming
-// already-known state: if the embedded commit's data CID matches what
-// we have in chain state, we advance the persisted rev and skip the
-// (expensive) getRepo round-trip. Otherwise we fall through to a full
-// resync. Indigo's tap takes the same approach
-// (`cmd/tap/firehose.go:252`).
+// Fast path: when the embedded commit's data CID matches persisted
+// state, the upstream is just confirming current state. Advance the
+// persisted rev and skip getRepo. Indigo's tap takes the same
+// approach (cmd/tap/firehose.go).
 //
-// The signature on the embedded commit is not separately verified for
-// the no-op fast path: the only state we mutate is the rev field
-// (moving it forward to match the upstream's claim while data stays
-// pinned), and a forged data CID would be caught by the equality check
-// against our authoritative SeenData. A forged rev advances rev only,
-// which is the same effect that a legitimate matching-rev #sync would
-// have. Sync events that actually trigger resync go through full
-// signature verification on the fetched commit inside resync().
+// The fast path does not separately verify the embedded commit's
+// signature. The only state mutation is the rev field; a forged
+// data CID is caught by the equality check against authoritative
+// SeenData, and a forged rev advances rev only (same outcome as a
+// legitimate matching-data #sync). Resyncs triggered through the
+// slow path go through full signature verification on the fetched
+// commit inside resync.
 //
-// Replays (rev <= persisted rev) are silently dropped, mirroring the
-// rev-replay gate on #commit.
+// Replays (rev ≤ persisted rev) are silently dropped.
 func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
 	did, err := atmos.ParseDID(syncEvt.DID)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid sync DID %q: %w", syncEvt.DID, err)
 	}
 
-	// Future-rev check: same rationale as in verifyCommit. A #sync at a
-	// future rev would also advance state and starve out legitimate
-	// follow-on events.
+	// Future-rev check: same rationale as verifyCommit.
 	if frErr := v.checkFutureRev(did, syncEvt.Rev); frErr != nil {
 		v.futureRevsRejected.Add(1)
 		if v.opts.OnVerificationFailure.HasVal() {
@@ -1784,31 +1571,23 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 		return nil, nil
 	}
 
-	// No-op fast path: when we already have state and the embedded
-	// commit's data CID matches what we've persisted, the upstream is
-	// just asserting current state. Advance rev (sync events with a
-	// later rev but unchanged data legitimately happen — e.g. PDS
-	// reaffirming after an account-lifecycle event) and return without
-	// doing a getRepo. First sighting (state == nil) skips the fast
-	// path because we have no SeenData to compare against.
+	// No-op fast path: state non-nil + embedded data CID matches
+	// persisted SeenData. First sighting and empty-Blocks events
+	// skip this and fall through to resync.
 	if state != nil && len(syncEvt.Blocks) > 0 {
 		if inner, decErr := decodeCommitFromSyncCAR(syncEvt); decErr == nil && inner.Data.Equal(state.Data) {
 			if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: syncEvt.Rev, Data: state.Data}); err != nil {
-				// Save failure here is non-fatal for the consumer: we
-				// already had the right data CID; just couldn't push the
-				// rev forward. Surface as an error so operators can spot
-				// chain-store breakage, but don't fall through to resync
-				// (which would also try to Save and most likely fail
-				// the same way).
+				// Don't fall through to resync — that would try to
+				// Save and likely fail the same way. Surface so
+				// operators see the chain-store breakage.
 				return nil, fmt.Errorf("verifier: save chain state on sync no-op: %w", err)
 			}
 			v.syncNoOps.Add(1)
 			return nil, nil
 		}
-		// Decode failed or data CID mismatched — fall through to resync.
-		// We deliberately don't error on decode failure here: a malformed
-		// embedded commit just means we can't take the fast path; the
-		// authoritative state from getRepo is still the right answer.
+		// Decode failure or data CID mismatch: fall through to
+		// resync. A malformed embedded commit isn't fatal — getRepo
+		// is the authoritative recovery.
 	}
 
 	return v.resync(ctx, did, ReasonSyncEvent)
