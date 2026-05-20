@@ -2075,6 +2075,354 @@ func TestVerifyAndExpand_FieldMismatchHappyPathUnchanged(t *testing.T) {
 	assert.Equal(t, uint64(0), v.Stats().FieldMismatches)
 }
 
+// ---------------------------------------------------------------------------
+// Op-CID consistency: ops list must agree with post-state MST (C4)
+// ---------------------------------------------------------------------------
+
+// opCIDMismatchTestVerifier builds a verifier with PolicyError so the
+// typed error surfaces directly. Resolver knows about did so signature
+// verify succeeds (we want the OpCIDMismatchError gate to be the
+// rejecting layer, not signature).
+func opCIDMismatchTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.ChainStore) {
+	t.Helper()
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	cs := sync.NewMemChainStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	return v, cs
+}
+
+func TestOpCIDMismatchError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	cidA, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	err := &sync.OpCIDMismatchError{
+		DID:    atmos.DID("did:plc:opcid"),
+		Rev:    "3aaaaaaaaaaaa",
+		Path:   "app.bsky.feed.post/abc",
+		Reason: "create_cid_mismatch",
+		OpCID:  cidA,
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "op cid mismatch")
+	assert.Contains(t, msg, "did:plc:opcid")
+	assert.Contains(t, msg, "app.bsky.feed.post/abc")
+	assert.Contains(t, msg, "create_cid_mismatch")
+	assert.Contains(t, msg, "<missing>", "MSTCID is zero in this fixture; format must show <missing>, not bare CID zero")
+
+	var target *sync.OpCIDMismatchError
+	assert.True(t, errors.As(err, &target))
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, "create_cid_mismatch", target.Reason)
+}
+
+// TestVerifyAndExpand_OpCIDMismatchCreate covers the most direct
+// attack: a create op declares a CID that doesn't match what the
+// post-state MST holds at that path. Without this gate, the verifier
+// would emit the wrong CID to consumers — they'd fetch records by the
+// envelope's CID, which the PDS may not even host.
+func TestVerifyAndExpand_OpCIDMismatchCreate(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "real"},
+	}})
+	// Swap the create's claimed CID to something unrelated. The MST
+	// still holds the actual record CID at path "app.bsky.feed.post/rec1".
+	bogus, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
+
+	v, cs := opCIDMismatchTestVerifier(t, did, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var oce *sync.OpCIDMismatchError
+	require.ErrorAs(t, vErr, &oce)
+	assert.Equal(t, "create_cid_mismatch", oce.Reason)
+	assert.Equal(t, "app.bsky.feed.post/rec1", oce.Path)
+	assert.True(t, oce.OpCID.Equal(bogus), "OpCID should report the claimed (bogus) CID")
+	assert.True(t, oce.MSTCID.Defined(), "MSTCID should be populated with the real tree value")
+	assert.False(t, oce.MSTCID.Equal(bogus), "MSTCID should differ from the bogus claim")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.OpCIDMismatches)
+	assert.Equal(t, uint64(0), stats.EventsVerified)
+
+	// PolicyError advances state even on this failure path (matching
+	// inversion-failure semantics) when the inner data CID is decodable
+	// — which it is here, since only the ops list was corrupted.
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, commit.Rev, state.Rev)
+}
+
+// TestVerifyAndExpand_OpCIDMismatchUpdate covers the same shape on an
+// update op: claimed CID disagrees with MST tree value.
+func TestVerifyAndExpand_OpCIDMismatchUpdate(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "new"},
+	}})
+	bogus, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
+
+	v, _ := opCIDMismatchTestVerifier(t, did, key)
+	// Pre-seed chain state so the chain-check passes before reaching
+	// the op-CID gate.
+	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var oce *sync.OpCIDMismatchError
+	require.ErrorAs(t, vErr, &oce)
+	assert.Equal(t, "update_cid_mismatch", oce.Reason)
+	assert.Equal(t, "app.bsky.feed.post/rec1", oce.Path)
+}
+
+// TestVerifyAndExpand_OpCIDMismatchDeletePathPresent covers a delete
+// op whose path is still present in the post-state MST — i.e. the
+// commit claims to delete something but never actually removed it
+// from the tree. Concrete attack shape: emit a delete op for a record
+// the consumer cares about, hoping the consumer purges its index
+// while the PDS still has the record.
+func TestVerifyAndExpand_OpCIDMismatchDeletePathPresent(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid3")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state: rec1 exists. Build a real Create commit on rec2 — the
+	// post-state MST contains both rec1 and rec2.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "alive"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec2",
+		Record:     map[string]any{"text": "new"},
+	}})
+	// Inject a phony delete op for rec1 — its path is still in the
+	// post-state tree, so the gate must reject. Inversion would also
+	// catch a malformed delete (it requires Prev), so we set Prev to
+	// the real pre-state CID to ensure inversion alone wouldn't have
+	// rejected — making the op-CID gate the actual rejecting layer.
+	rec1CID, _, err := r.Get("app.bsky.feed.post", "rec1")
+	require.NoError(t, err)
+	commit.Ops = append(commit.Ops, comatproto.SyncSubscribeRepos_RepoOp{
+		Action: testutil.ActionDelete,
+		Path:   "app.bsky.feed.post/rec1",
+		Prev:   gt.Some(lextypes.LexCIDLink{Link: rec1CID.String()}),
+	})
+
+	v, _ := opCIDMismatchTestVerifier(t, did, key)
+	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var oce *sync.OpCIDMismatchError
+	require.ErrorAs(t, vErr, &oce)
+	assert.Equal(t, "delete_path_present", oce.Reason)
+	assert.Equal(t, "app.bsky.feed.post/rec1", oce.Path)
+	assert.True(t, oce.MSTCID.Defined(), "MSTCID should report the value still present at the deleted path")
+}
+
+// TestVerifyAndExpand_OpCIDMismatchCreateMissingCID covers a create
+// op with no CID. The lexicon allows op.CID to be optional but a
+// create without one is structurally meaningless; we reject.
+func TestVerifyAndExpand_OpCIDMismatchCreateMissingCID(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid4")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "real"},
+	}})
+	commit.Ops[0].CID = gt.None[lextypes.LexCIDLink]()
+
+	v, _ := opCIDMismatchTestVerifier(t, did, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var oce *sync.OpCIDMismatchError
+	require.ErrorAs(t, vErr, &oce)
+	assert.Equal(t, "create_missing_cid", oce.Reason)
+	assert.False(t, oce.OpCID.Defined())
+}
+
+// TestVerifyAndExpand_OpCIDMismatchDeleteUnexpectedCID covers a
+// delete op that carries a CID it shouldn't. Indigo's parseCommitOps
+// rejects this; we surface as a structural mismatch.
+func TestVerifyAndExpand_OpCIDMismatchDeleteUnexpectedCID(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid5")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "doomed"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionDelete,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+	}})
+	// Sneak a CID onto the delete op.
+	bogus, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
+
+	v, _ := opCIDMismatchTestVerifier(t, did, key)
+	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var oce *sync.OpCIDMismatchError
+	require.ErrorAs(t, vErr, &oce)
+	assert.Equal(t, "delete_unexpected_cid", oce.Reason)
+	assert.True(t, oce.OpCID.Equal(bogus))
+}
+
+// TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync asserts the
+// recovery semantics: under PolicyResync, an op-CID mismatch triggers
+// transparent resync (same path as inversion failure) and the
+// consumer sees ActionResync ops rather than the typed error.
+func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid6")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state: a small repo for the resync target.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	realPrevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: realPrevData}))
+
+	// Resync target: serve the current full repo via a fake getRepo.
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	// Build a commit, then corrupt the op CID to force op-CID mismatch.
+	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "y",
+		Record:     map[string]any{"text": "y"},
+	}})
+	bogus, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	require.Greater(t, len(ops), 0)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.OpCIDMismatches)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
+// TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged asserts the new
+// gate doesn't spuriously reject standard commits. Synthetic commits
+// from the test helper are always self-consistent; the counter must
+// stay zero.
+func TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:opcid7")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "real"},
+	}})
+
+	v, _ := opCIDMismatchTestVerifier(t, did, key)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().OpCIDMismatches)
+	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
+}
+
 // TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the
 // symmetric resync path for malformed CARs: an inversion failure under
 // PolicyResync should trigger transparent resync via getRepo. The

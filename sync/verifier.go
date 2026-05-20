@@ -222,6 +222,54 @@ func (e *ResyncFailedError) Error() string {
 
 func (e *ResyncFailedError) Unwrap() error { return e.Cause }
 
+// OpCIDMismatchError is returned when a commit's ops list claims
+// CIDs (or absences) that disagree with the post-state MST. Per the
+// Sync 1.1 validation checklist, the ops list is part of what
+// "describes" the commit, and an internally inconsistent commit (ops
+// list lies about MST contents) must be rejected.
+//
+// Indigo enforces the same invariant in `atproto/repo/sync.go`'s
+// `VerifyCommitMessage`: each create/update op's CID must equal the
+// MST tree value at the op's path; each delete op's path must be
+// absent from the post-state tree. Atmos surfaces these as a typed
+// error so downstream consumers can distinguish "envelope says
+// something the MST doesn't" from a bare CAR/MST decode failure.
+//
+// Routed via the same path as InversionError: the commit is
+// structurally inconsistent and a resync against authoritative state
+// is the recovery. Under PolicyResync the consumer sees ActionResync
+// ops; under PolicyError this typed error surfaces and chain state
+// advances to the offending commit's data CID (matching the existing
+// inversion-failure semantics).
+//
+// Reason describes the specific shape of the mismatch:
+//   - "create_cid_mismatch":  op.CID != tree.Get(path) on a create
+//   - "update_cid_mismatch":  op.CID != tree.Get(path) on an update
+//   - "delete_path_present":  delete op's path is still present in tree
+//   - "create_missing_cid":   create op has no CID
+//   - "update_missing_cid":   update op has no CID
+//   - "delete_unexpected_cid": delete op carries a CID it shouldn't
+type OpCIDMismatchError struct {
+	DID    atmos.DID
+	Rev    string
+	Path   string
+	Reason string
+	OpCID  cbor.CID // CID claimed by the op (zero if absent)
+	MSTCID cbor.CID // CID actually present in the post-state MST (zero if absent)
+}
+
+func (e *OpCIDMismatchError) Error() string {
+	return fmt.Sprintf("sync: op cid mismatch for %s rev=%s path=%q reason=%s op=%s mst=%s",
+		e.DID, e.Rev, e.Path, e.Reason, formatCIDOrMissing(e.OpCID), formatCIDOrMissing(e.MSTCID))
+}
+
+func formatCIDOrMissing(c cbor.CID) string {
+	if !c.Defined() {
+		return "<missing>"
+	}
+	return c.String()
+}
+
 // FieldMismatchError is returned when one or more fields in the
 // firehose #commit envelope disagree with the corresponding field in
 // the signed inner commit object (decoded from commit.Blocks). Per
@@ -366,6 +414,12 @@ type VerifierStats struct {
 	// (did/rev/version) disagreed with the corresponding fields in the
 	// signed inner commit. Spec-mandated rejection; bypasses policy.
 	FieldMismatches uint64
+
+	// OpCIDMismatches counts events whose ops list disagreed with the
+	// post-state MST (claimed CID != tree value, or delete left the
+	// path present). Routed via the inversion-failure path, so under
+	// PolicyResync it triggers a transparent resync.
+	OpCIDMismatches uint64
 }
 
 // VerifierOp is the operation shape the Verifier produces. It mirrors
@@ -482,6 +536,7 @@ type Verifier struct {
 	chainStateSaveFailures atomic.Uint64
 	futureRevsRejected     atomic.Uint64
 	fieldMismatches        atomic.Uint64
+	opCIDMismatches        atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -734,6 +789,7 @@ func (v *Verifier) Stats() VerifierStats {
 		ChainStateSaveFailures: v.chainStateSaveFailures.Load(),
 		FutureRevsRejected:     v.futureRevsRejected.Load(),
 		FieldMismatches:        v.fieldMismatches.Load(),
+		OpCIDMismatches:        v.opCIDMismatches.Load(),
 	}
 }
 
@@ -741,6 +797,101 @@ func (v *Verifier) Stats() VerifierStats {
 // firehose. Sync 1.1 mandates v3; older v2 commits exist in archived
 // data but should not appear on a 1.1-compliant subscribeRepos stream.
 const commitVersion = 3
+
+// checkOpCIDs walks the commit's ops list and asserts each op's claim
+// agrees with the post-state MST: create/update ops must declare a CID
+// equal to the tree value at the op's path, delete ops must reference
+// a path that is absent from the tree. Returns the first mismatch as
+// a typed [*OpCIDMismatchError] (caller decides on counters and
+// hooks); returns nil if every op is consistent.
+//
+// store and dataCID are the post-state block store and MST root that
+// callers already have decoded — reusing them avoids a redundant CAR
+// parse on the happy path.
+//
+// Mirrors indigo's invariants in `atproto/repo/sync.go`'s
+// `VerifyCommitMessage`.
+func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID, store *mst.MemBlockStore) *OpCIDMismatchError {
+	if len(commit.Ops) == 0 {
+		return nil
+	}
+	tree := mst.LoadTree(store, dataCID)
+	did := atmos.DID(commit.Repo)
+	for _, op := range commit.Ops {
+		switch op.Action {
+		case "create", "update":
+			if !op.CID.HasVal() {
+				reason := "create_missing_cid"
+				if op.Action == "update" {
+					reason = "update_missing_cid"
+				}
+				return &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path, Reason: reason,
+				}
+			}
+			claimed, err := cidFromLink(op.CID.Val())
+			if err != nil {
+				// Malformed CID surfaces as missing — caller's typed
+				// error reporting is more useful than a parse-error
+				// detail here, since this gate's job is structural
+				// consistency, not parsing.
+				return &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path,
+					Reason: op.Action + "_cid_mismatch",
+				}
+			}
+			treeVal, err := tree.Get(op.Path)
+			if err != nil {
+				// Tree load error — surface as a structural mismatch
+				// rather than a tree error, since the caller's
+				// recovery path (resync) is the same.
+				return &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path,
+					Reason: op.Action + "_cid_mismatch", OpCID: claimed,
+				}
+			}
+			if treeVal == nil || !treeVal.Equal(claimed) {
+				e := &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path,
+					Reason: op.Action + "_cid_mismatch", OpCID: claimed,
+				}
+				if treeVal != nil {
+					e.MSTCID = *treeVal
+				}
+				return e
+			}
+		case "delete":
+			treeVal, err := tree.Get(op.Path)
+			if err != nil {
+				return &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path,
+					Reason: "delete_path_present",
+				}
+			}
+			if treeVal != nil {
+				return &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path,
+					Reason: "delete_path_present", MSTCID: *treeVal,
+				}
+			}
+			if op.CID.HasVal() {
+				// Spec: delete ops have no CID. Indigo's parseCommitOps
+				// rejects this; we surface it as a structural mismatch.
+				claimed, _ := cidFromLink(op.CID.Val())
+				return &OpCIDMismatchError{
+					DID: did, Rev: commit.Rev, Path: op.Path,
+					Reason: "delete_unexpected_cid", OpCID: claimed,
+				}
+			}
+		default:
+			// Unknown action — let buildOpsFromCommit handle (it'll
+			// emit the op verbatim, downstream consumers ignore).
+			// Inversion already rejects unknown actions, so any commit
+			// reaching this gate has a known action set.
+		}
+	}
+	return nil
+}
 
 // checkCommitFields enforces the spec MUST that firehose envelope
 // fields agree with the signed inner commit. Returns a non-nil
@@ -1059,6 +1210,18 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		// Non-typed (e.g. resolver network error) — wrap and return; not a
 		// signature failure.
 		return nil, fmt.Errorf("verifier: signature verification: %w", err)
+	}
+
+	// Op-CID consistency: each create/update op must declare a CID
+	// equal to the post-state MST tree value at the op's path; deletes
+	// must reference an absent path. Reuses the already-decoded MST
+	// root + block store. Routed via handleVerificationFailure with
+	// ReasonInversionFailure so PolicyResync recovers transparently —
+	// an internally-inconsistent commit is just as broken as a bad
+	// CAR diff and the same recovery applies.
+	if opErr := checkOpCIDs(commit, innerCommit.Data, store); opErr != nil {
+		v.opCIDMismatches.Add(1)
+		return v.handleVerificationFailure(ctx, did, commit, ReasonInversionFailure, opErr)
 	}
 
 	// Success: build verified ops, advance state.
