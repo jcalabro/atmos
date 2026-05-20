@@ -19,6 +19,7 @@ import (
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/internal/testutil"
+	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
@@ -987,6 +988,366 @@ func TestVerifier_Resync_BadSignatureFails(t *testing.T) {
 	_, err = v.Resync(context.Background(), did)
 	var rfe *sync.ResyncFailedError
 	require.ErrorAs(t, err, &rfe)
+}
+
+// buildCustomServedCAR constructs a CAR containing a single record at
+// "app.bsky.feed.post/x" plus a signed commit whose envelope fields
+// can be tuned per call. mutate runs against the inner commit just
+// before signing — useful for fabricating served-state shapes the
+// regular ExportCAR path would never produce (wrong DID, wrong
+// version, manually-set rev). Used only by the resync-validation
+// tests below.
+func buildCustomServedCAR(t *testing.T, key crypto.PrivateKey, declaredDID atmos.DID, mutate func(*repo.Commit)) []byte {
+	t.Helper()
+	r, _ := testutil.BuildEmptyRepo(t, declaredDID)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	rootCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	// Build a commit by hand so we control every field.
+	c := &repo.Commit{
+		DID:     string(declaredDID),
+		Version: 3,
+		Data:    rootCID,
+		Rev:     string(r.Clock.Next()),
+	}
+	mutate(c)
+	require.NoError(t, c.Sign(key))
+	commitBytes, err := c.EncodeCBOR()
+	require.NoError(t, err)
+	commitCID := cbor.ComputeCID(cbor.CodecDagCBOR, commitBytes)
+	require.NoError(t, r.Store.PutBlock(commitCID, commitBytes))
+
+	// CAR write: every block in the store + commit as root.
+	memStore, ok := r.Store.(*mst.MemBlockStore)
+	require.True(t, ok)
+	var carBuf bytes.Buffer
+	cw, err := car.NewWriter(&carBuf, []cbor.CID{commitCID})
+	require.NoError(t, err)
+	for cid, data := range memStore.All() {
+		require.NoError(t, cw.WriteBlock(cid, data))
+	}
+	return carBuf.Bytes()
+}
+
+// TestVerifier_Resync_ServedDIDMismatchRejected covers the
+// misattribution defense: a fake getRepo that returns a CAR signed by
+// the requested DID's key but with a different DID embedded in the
+// inner commit must be rejected. The signature step alone wouldn't
+// catch this (we resolve the requested DID's key, and the commit was
+// signed with that key) — validateFetchedCommit's DID check is the
+// guard.
+func TestVerifier_Resync_ServedDIDMismatchRejected(t *testing.T) {
+	t.Parallel()
+
+	requestedDID := atmos.DID("did:plc:requested")
+	otherDID := atmos.DID("did:plc:other")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Served CAR: signed by `key` (the requested DID's key per the
+	// resolver below) but inner.DID = otherDID.
+	carBytes := buildCustomServedCAR(t, key, requestedDID, func(c *repo.Commit) {
+		c.DID = string(otherDID)
+	})
+
+	xc := testutil.NewFakeSyncServer(t, requestedDID, carBytes)
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[requestedDID] = testutil.BuildDIDDoc(requestedDID, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  sync.NewMemStateStore(),
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), requestedDID)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, err, &rfe)
+
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, rfe.Cause, &fme,
+		"resync DID mismatch should surface as FieldMismatchError wrapped in ResyncFailedError")
+	assert.Equal(t, "did", fme.Field)
+	assert.Equal(t, string(requestedDID), fme.Envelope)
+	assert.Equal(t, string(otherDID), fme.Inner)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.Resyncs, "rejected resync must not count as success")
+	assert.Equal(t, uint64(1), stats.ResyncFailures)
+}
+
+// TestVerifier_Resync_ServedVersionV2Rejected covers the spec-mandated
+// commit version check. Sync 1.1 mandates v3; a v2 commit served by a
+// non-upgraded PDS must be rejected at resync time, mirroring the
+// firehose-side checkCommitFields gate.
+func TestVerifier_Resync_ServedVersionV2Rejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:v2srv")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	carBytes := buildCustomServedCAR(t, key, did, func(c *repo.Commit) {
+		c.Version = 2
+	})
+
+	xc := testutil.NewFakeSyncServer(t, did, carBytes)
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  sync.NewMemStateStore(),
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), did)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, err, &rfe)
+
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, rfe.Cause, &fme)
+	assert.Equal(t, "version", fme.Field)
+	assert.Equal(t, "3", fme.Envelope)
+	assert.Equal(t, "2", fme.Inner)
+}
+
+// TestVerifier_Resync_RevRegressionRejected is the substantive guard:
+// pre-seed chain state at a high rev, fake server returns a commit at
+// a strictly lower rev. Without this check we'd silently roll the
+// chain backward and reject every legitimate follow-on commit.
+func TestVerifier_Resync_RevRegressionRejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:revreg1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Served commit with a hand-set low rev.
+	lowRev := "3aaaaaaaaaaaa"
+	carBytes := buildCustomServedCAR(t, key, did, func(c *repo.Commit) {
+		c.Rev = lowRev
+	})
+
+	xc := testutil.NewFakeSyncServer(t, did, carBytes)
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	cs := sync.NewMemStateStore()
+	// Pre-seed with a HIGHER rev.
+	priorCID, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, cs.SaveChain(context.Background(), did,
+		sync.ChainState{Rev: "3zzzzzzzzzzzz", Data: priorCID}))
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), did)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, err, &rfe)
+
+	var rre *sync.RevRegressionError
+	require.ErrorAs(t, rfe.Cause, &rre)
+	assert.Equal(t, did, rre.DID)
+	assert.Equal(t, "3zzzzzzzzzzzz", rre.SeenRev)
+	assert.Equal(t, lowRev, rre.GotRev)
+
+	// State must NOT have been advanced (otherwise the next legitimate
+	// commit would chain off the regressed root).
+	got, err := cs.LoadChain(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "3zzzzzzzzzzzz", got.Rev, "chain state must be unchanged after rejected regression")
+}
+
+// TestVerifier_Resync_SameRevDifferentDataRejected covers the
+// "contradiction at equal rev" branch: the upstream serves a commit
+// at the same rev we already have, but its data CID differs. Either
+// our state is wrong or the upstream is corrupt; rolling forward
+// without distinguishing risks corrupting the consumer's view.
+func TestVerifier_Resync_SameRevDifferentDataRejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:samerev1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pin the served rev to a known value.
+	servedRev := "3bbbbbbbbbbbb"
+	carBytes := buildCustomServedCAR(t, key, did, func(c *repo.Commit) {
+		c.Rev = servedRev
+	})
+
+	xc := testutil.NewFakeSyncServer(t, did, carBytes)
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	cs := sync.NewMemStateStore()
+	// Pre-seed with the same rev but a DIFFERENT data CID.
+	bogusData, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, cs.SaveChain(context.Background(), did,
+		sync.ChainState{Rev: servedRev, Data: bogusData}))
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), did)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, err, &rfe)
+
+	var rre *sync.RevRegressionError
+	require.ErrorAs(t, rfe.Cause, &rre)
+	assert.Equal(t, servedRev, rre.SeenRev)
+	assert.Equal(t, servedRev, rre.GotRev)
+	assert.False(t, rre.SeenData.Equal(rre.GotData),
+		"contradiction is precisely 'same rev, different data'")
+}
+
+// TestVerifier_Resync_FirstSightingAcceptsAnyRev guards the
+// no-prior-state path: with no SeenRev, there's no monotonicity
+// invariant to enforce. A first-sighting resync at any rev must land.
+func TestVerifier_Resync_FirstSightingAcceptsAnyRev(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:firstresync1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "y",
+		map[string]any{"text": "y"}))
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  sync.NewMemStateStore(),
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	ops, err := v.Resync(context.Background(), did)
+	require.NoError(t, err)
+	require.NotEmpty(t, ops)
+	assert.Equal(t, uint64(1), v.Stats().Resyncs)
+}
+
+// TestVerifier_Resync_IdempotentSameRevSameData covers the inverse of
+// SameRevDifferentDataRejected: when the served commit matches the
+// persisted state exactly, the resync is benign and accepted. Without
+// this branch a benign state-confirmation would surface as a regression
+// error, which is unfriendly to consumers running periodic refresh.
+func TestVerifier_Resync_IdempotentSameRevSameData(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:idem1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// First resync with no prior state — establishes a baseline.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "z",
+		map[string]any{"text": "z"}))
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  sync.NewMemStateStore(),
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(2), // need 2 resyncs in this test
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), did)
+	require.NoError(t, err, "first resync establishes baseline")
+
+	// Second resync against the same fake server — same rev, same data.
+	// Must not fire RevRegressionError; the state is unchanged.
+	_, err = v.Resync(context.Background(), did)
+	require.NoError(t, err, "idempotent resync must be permitted")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(2), stats.Resyncs)
+	assert.Equal(t, uint64(0), stats.ResyncFailures)
+}
+
+// TestRevRegressionError_FormatAndUnwrap covers the typed-error
+// contract for RevRegressionError, mirroring the FormatAndUnwrap
+// tests for the other typed errors in this package.
+func TestRevRegressionError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	cidA, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	err := &sync.RevRegressionError{
+		DID:      atmos.DID("did:plc:regret"),
+		SeenRev:  "3zzzzzzzzzzzz",
+		SeenData: cidA,
+		GotRev:   "3aaaaaaaaaaaa",
+		GotData:  cidA,
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "rev regression")
+	assert.Contains(t, msg, "did:plc:regret")
+	assert.Contains(t, msg, "3zzzzzzzzzzzz")
+	assert.Contains(t, msg, "3aaaaaaaaaaaa")
+
+	var target *sync.RevRegressionError
+	assert.True(t, errors.As(err, &target))
+	assert.Equal(t, atmos.DID("did:plc:regret"), target.DID)
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.NotNil(t, target)
 }
 
 // failingChainStore wraps a real StateStore and forces every chain

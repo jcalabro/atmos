@@ -473,6 +473,34 @@ func (e *ResyncRateLimitedError) Error() string {
 	return fmt.Sprintf("sync: resync rate limited for %s", e.DID)
 }
 
+// RevRegressionError is returned (wrapped in [ResyncFailedError]) when
+// a resync's served commit has a rev that regresses or contradicts
+// the locally-tracked state for the DID:
+//
+//   - GotRev < SeenRev: a strict regression. Accepting would mean
+//     subsequent legitimate #commit events get rejected as rev replays
+//     or chain breaks against state we just rolled backward.
+//   - GotRev == SeenRev with GotData != SeenData: the upstream is
+//     serving a different commit at the same rev. Either the upstream
+//     is corrupt or our persisted SeenData is. Either way, rolling
+//     forward without distinguishing them risks state corruption.
+//
+// First sighting (no SeenRev) is permitted: there's no prior state
+// to regress against. Equal rev with equal data is also permitted —
+// the resync is idempotent.
+type RevRegressionError struct {
+	DID      atmos.DID
+	SeenRev  string
+	SeenData cbor.CID
+	GotRev   string
+	GotData  cbor.CID
+}
+
+func (e *RevRegressionError) Error() string {
+	return fmt.Sprintf("sync: resync rev regression for %s: seen (rev=%s data=%s), got (rev=%s data=%s)",
+		e.DID, e.SeenRev, e.SeenData, e.GotRev, e.GotData)
+}
+
 // AccountInactiveError is returned under HostingGate when a #commit
 // or #sync arrives for a DID whose persisted HostingState marks the
 // account as not active (takendown, suspended, deactivated, deleted,
@@ -998,11 +1026,23 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
 	}
 
-	// Capture old state for the OnResync callback.
+	// Load prior state for both the OnResync callback (oldRev) and the
+	// validation gates below (rev-regression check).
 	old, _ := v.opts.StateStore.LoadChain(ctx, did)
 	oldRev := ""
 	if old != nil {
 		oldRev = old.Rev
+	}
+
+	// Defense-in-depth gates on the served commit. A misconfigured or
+	// hostile PDS that serves the wrong DID's repo, an old (v2)
+	// commit, or a strictly older rev would otherwise corrupt our
+	// chain state. Signature verify already rules out commits signed
+	// by some other key, so DID/version checks are belt-and-suspenders;
+	// the rev-regression check is the substantive guard.
+	if err := validateFetchedCommit(did, commit, old); err != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
 	}
 
 	// Walk MST, build ops.
@@ -1351,6 +1391,62 @@ func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *re
 			Field:    "rev",
 			Envelope: envelope.Rev,
 			Inner:    inner.Rev,
+		}
+	}
+	return nil
+}
+
+// validateFetchedCommit applies the resync-time invariants on an
+// already signature-verified commit served by getRepo:
+//
+//   - inner.Version == commitVersion (Sync 1.1 mandates v3)
+//   - inner.DID matches the DID we requested (defense in depth: a
+//     misconfigured PDS that serves another account's repo passes the
+//     signature check only if we'd resolved the served DID's key,
+//     which we don't, so signature verify already catches the obvious
+//     case — but this surfaces the failure as a precise typed error)
+//   - inner.Rev does not regress (or contradict at equal rev) the
+//     locally-tracked state
+//
+// Returns nil on success, or a typed cause suitable for wrapping in
+// [ResyncFailedError]. prev may be nil (first sighting); regression
+// checks are skipped in that case.
+func validateFetchedCommit(did atmos.DID, inner *repo.Commit, prev *ChainState) error {
+	if inner.Version != commitVersion {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "version",
+			Envelope: fmt.Sprintf("%d", commitVersion),
+			Inner:    fmt.Sprintf("%d", inner.Version),
+		}
+	}
+	if inner.DID != string(did) {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "did",
+			Envelope: string(did),
+			Inner:    inner.DID,
+		}
+	}
+	if prev == nil {
+		return nil
+	}
+	if inner.Rev < prev.Rev {
+		return &RevRegressionError{
+			DID:      did,
+			SeenRev:  prev.Rev,
+			SeenData: prev.Data,
+			GotRev:   inner.Rev,
+			GotData:  inner.Data,
+		}
+	}
+	if inner.Rev == prev.Rev && !inner.Data.Equal(prev.Data) {
+		return &RevRegressionError{
+			DID:      did,
+			SeenRev:  prev.Rev,
+			SeenData: prev.Data,
+			GotRev:   inner.Rev,
+			GotData:  inner.Data,
 		}
 	}
 	return nil
