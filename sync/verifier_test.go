@@ -755,6 +755,153 @@ func TestVerifier_PerDIDLocking(t *testing.T) {
 	})
 }
 
+// trackingResolver returns canned DID documents. It also tracks how
+// many times each DID was resolved so we can assert key-rotation
+// logic. (Distinct from sync_test.go's fakeResolver which is single-DID
+// and doesn't track hits.)
+type trackingResolver struct {
+	docs        map[atmos.DID]*identity.DIDDocument
+	resolveHits map[atmos.DID]int
+	mu          stdsync.Mutex
+}
+
+func newTrackingResolver() *trackingResolver {
+	return &trackingResolver{
+		docs:        make(map[atmos.DID]*identity.DIDDocument),
+		resolveHits: make(map[atmos.DID]int),
+	}
+}
+
+func (f *trackingResolver) ResolveDID(_ context.Context, did atmos.DID) (*identity.DIDDocument, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resolveHits[did]++
+	doc, ok := f.docs[did]
+	if !ok {
+		return nil, fmt.Errorf("not found: %s", did)
+	}
+	return doc, nil
+}
+
+func (f *trackingResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
+// buildDIDDoc constructs a minimal DID document for did with the given
+// signing key as the "atproto" verification method.
+func buildDIDDoc(did atmos.DID, key crypto.PublicKey) *identity.DIDDocument {
+	return &identity.DIDDocument{
+		ID: string(did),
+		VerificationMethod: []identity.VerificationMethod{{
+			ID:                 string(did) + "#atproto",
+			Type:               "Multikey",
+			Controller:         string(did),
+			PublicKeyMultibase: key.Multibase(),
+		}},
+	}
+}
+
+func TestVerifier_VerifySignature_Success(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:sig1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	rev := atmos.NewTIDClock(0).Next()
+	cidA, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	c := &repo.Commit{DID: string(did), Version: 3, Data: cidA, Rev: string(rev)}
+	require.NoError(t, c.Sign(key))
+
+	require.NoError(t, sync.VerifyCommitSignatureForTest(v, context.Background(), did, c))
+}
+
+func TestVerifier_VerifySignature_KeyRotation(t *testing.T) {
+	t.Parallel()
+	// First resolution returns an outdated key (verification fails);
+	// second resolution (after Purge) returns the correct key.
+
+	did := atmos.DID("did:plc:rot1")
+	oldKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	newKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, oldKey.PublicKey())
+	cache := identity.NewLRUCache(64, time.Hour)
+	dir := &identity.Directory{Resolver: resolver, Cache: cache}
+
+	// Warm cache with the wrong key.
+	_, err = dir.LookupDID(context.Background(), did)
+	require.NoError(t, err)
+
+	// Now flip the resolver to return the new key.
+	resolver.docs[did] = buildDIDDoc(did, newKey.PublicKey())
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	rev := atmos.NewTIDClock(0).Next()
+	cidA, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	c := &repo.Commit{DID: string(did), Version: 3, Data: cidA, Rev: string(rev)}
+	require.NoError(t, c.Sign(newKey))
+
+	// First verify should fail with the cached old key, then verifier
+	// purges and retries, getting the new key, and succeeds.
+	require.NoError(t, sync.VerifyCommitSignatureForTest(v, context.Background(), did, c))
+	assert.GreaterOrEqual(t, resolver.resolveHits[did], 2,
+		"expected at least one re-resolution after Purge")
+}
+
+func TestVerifier_VerifySignature_PermanentFailure(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:badsig")
+	correctKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	wrongKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, wrongKey.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	rev := atmos.NewTIDClock(0).Next()
+	cidA, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	c := &repo.Commit{DID: string(did), Version: 3, Data: cidA, Rev: string(rev)}
+	require.NoError(t, c.Sign(correctKey))
+
+	err = sync.VerifyCommitSignatureForTest(v, context.Background(), did, c)
+	var sigErr *sync.SignatureError
+	require.ErrorAs(t, err, &sigErr)
+	assert.Equal(t, did, sigErr.DID)
+	assert.Equal(t, wrongKey.PublicKey().DIDKey(), sigErr.KeyDID,
+		"expected SignatureError.KeyDID to be populated with the resolved key on the failure path")
+}
+
 func TestVerifier_PerDIDRateLimiter(t *testing.T) {
 	t.Parallel()
 

@@ -387,6 +387,59 @@ func (v *Verifier) lockDID(did atmos.DID) func() {
 	return mu.Unlock
 }
 
+// verifyCommitSignature looks up the DID's signing key, verifies the
+// commit's signature against it, and on first failure purges the
+// directory cache and retries once (handling key rotation).
+//
+// Returns *SignatureError on permanent failure (signature still doesn't
+// verify after purge+retry, or the post-purge re-resolution returns a
+// key the commit can't be verified against).
+//
+// Errors from the directory itself (e.g. network failure during
+// resolution) are wrapped without a typed error to distinguish "we
+// couldn't check" from "we checked and it's bad."
+//
+// A first-pass PublicKey() parse failure is treated identically to a
+// signature mismatch: we purge and retry. Only the second-pass
+// PublicKey() parse failure surfaces as *SignatureError.
+//
+// When the directory has no cache configured, Purge is a no-op and
+// the retry will see the same data as the first pass — key rotation
+// won't be detected. Cacheless deployments will double their resolver
+// load on every signature failure but cannot recover via this path.
+//
+// Does not fire OnVerificationFailure; the orchestrating caller is
+// responsible for that, in line with the callback contract documented
+// on VerifierOptions.
+func (v *Verifier) verifyCommitSignature(ctx context.Context, did atmos.DID, c *repo.Commit) error {
+	id, err := v.opts.Directory.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("verifier: resolve %s: %w", did, err)
+	}
+	pubkey, keyErr := id.PublicKey()
+	if keyErr == nil {
+		if sigErr := c.VerifySignature(pubkey); sigErr == nil {
+			return nil
+		}
+	}
+
+	// First check failed; purge cache and retry once for key rotation.
+	v.opts.Directory.Purge(ctx, did)
+	id2, err := v.opts.Directory.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("verifier: re-resolve %s after purge: %w", did, err)
+	}
+	pubkey2, keyErr2 := id2.PublicKey()
+	if keyErr2 != nil {
+		return &SignatureError{DID: did, Rev: c.Rev, Cause: keyErr2}
+	}
+	if err := c.VerifySignature(pubkey2); err != nil {
+		return &SignatureError{DID: did, Rev: c.Rev,
+			KeyDID: pubkey2.DIDKey(), Cause: err}
+	}
+	return nil
+}
+
 // allowResync returns true if a resync for did is allowed under the
 // per-DID rate limit. The limiter is lazy-initialized: the very first
 // call for a given DID materializes a fresh token bucket already full
