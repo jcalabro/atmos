@@ -331,7 +331,7 @@ type Verifier struct {
 	didMu stdsync.Map // map[atmos.DID]*sync.Mutex
 
 	// per-DID resync rate limiter. Lazy-initialized.
-	limiters stdsync.Map //nolint:unused // wired up in subsequent tasks (per-DID rate limiter)
+	limiters stdsync.Map // map[atmos.DID]*rate.Limiter
 
 	eventsVerified    atomic.Uint64
 	chainBreaks       atomic.Uint64
@@ -385,6 +385,24 @@ func (v *Verifier) lockDID(did atmos.DID) func() {
 	}
 	mu.Lock()
 	return mu.Unlock
+}
+
+// allowResync returns true if a resync for did is allowed under the
+// per-DID rate limit. The limiter is lazy-initialized: the very first
+// call for a given DID materializes a fresh token bucket already full
+// to ResyncBurst, so the first ResyncBurst calls succeed immediately
+// without waiting for the bucket to refill.
+func (v *Verifier) allowResync(did atmos.DID) bool {
+	val, _ := v.limiters.LoadOrStore(did,
+		rate.NewLimiter(v.opts.ResyncLimit, v.opts.ResyncBurst))
+	lim, ok := val.(*rate.Limiter)
+	if !ok {
+		// We are the sole writer of this map; a non-*rate.Limiter value
+		// means memory corruption or a programming error elsewhere.
+		// Crash rather than silently mis-throttle.
+		panic("Verifier.allowResync: stored value is not *rate.Limiter")
+	}
+	return lim.Allow()
 }
 
 // Stats returns a snapshot of this verifier's counters. Safe to call

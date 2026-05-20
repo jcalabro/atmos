@@ -7,3 +7,8 @@ import "github.com/jcalabro/atmos"
 func LockDIDForTest(v *Verifier, did atmos.DID) func() {
 	return v.lockDID(did)
 }
+
+// AllowResyncForTest exposes the per-DID rate limiter for testing.
+func AllowResyncForTest(v *Verifier, did atmos.DID) bool {
+	return v.allowResync(did)
+}

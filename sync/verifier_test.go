@@ -754,3 +754,32 @@ func TestVerifier_PerDIDLocking(t *testing.T) {
 		close(release)
 	})
 }
+
+func TestVerifier_PerDIDRateLimiter(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     sync.PolicyError,
+		// Effectively no refill during the test (one token per ~17 minutes).
+		// Keeps the burst-then-deny assertion bulletproof under any CI scheduling
+		// delay; the test never waits, just calls Allow() four times.
+		ResyncLimit: rate.Limit(0.001),
+		ResyncBurst: 2,
+	})
+	require.NoError(t, err)
+
+	did := atmos.DID("did:plc:throttle")
+
+	// First two should succeed (burst=2).
+	assert.True(t, sync.AllowResyncForTest(v, did))
+	assert.True(t, sync.AllowResyncForTest(v, did))
+	// Third should be denied.
+	assert.False(t, sync.AllowResyncForTest(v, did))
+
+	// Different DID has its own bucket.
+	other := atmos.DID("did:plc:other")
+	assert.True(t, sync.AllowResyncForTest(v, other))
+}
