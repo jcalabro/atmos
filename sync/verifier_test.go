@@ -8,6 +8,7 @@ import (
 	"io"
 	mathrand "math/rand"
 	stdsync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1371,6 +1372,38 @@ func (s *failingChainStore) SaveHosting(ctx context.Context, did atmos.DID, st s
 	return s.real.SaveHosting(ctx, did, st)
 }
 func (s *failingChainStore) Delete(ctx context.Context, did atmos.DID) error {
+	return s.real.Delete(ctx, did)
+}
+
+// countingChainStore wraps a real StateStore and increments atomic
+// counters per method call. Used by tests that assert the verifier's
+// gate ordering — e.g. "the chain store is not consulted when the
+// hosting gate would reject" (issue #7 from the review).
+type countingChainStore struct {
+	real        sync.StateStore
+	loadChain   atomic.Int64
+	saveChain   atomic.Int64
+	loadHosting atomic.Int64
+	saveHosting atomic.Int64
+}
+
+func (s *countingChainStore) LoadChain(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
+	s.loadChain.Add(1)
+	return s.real.LoadChain(ctx, did)
+}
+func (s *countingChainStore) SaveChain(ctx context.Context, did atmos.DID, st sync.ChainState) error {
+	s.saveChain.Add(1)
+	return s.real.SaveChain(ctx, did, st)
+}
+func (s *countingChainStore) LoadHosting(ctx context.Context, did atmos.DID) (*sync.HostingState, error) {
+	s.loadHosting.Add(1)
+	return s.real.LoadHosting(ctx, did)
+}
+func (s *countingChainStore) SaveHosting(ctx context.Context, did atmos.DID, st sync.HostingState) error {
+	s.saveHosting.Add(1)
+	return s.real.SaveHosting(ctx, did, st)
+}
+func (s *countingChainStore) Delete(ctx context.Context, did atmos.DID) error {
 	return s.real.Delete(ctx, did)
 }
 
@@ -4913,6 +4946,67 @@ func TestVerifyAndExpand_HostingGateDropsCommit(t *testing.T) {
 	chain, err := ss.LoadChain(context.Background(), did)
 	require.NoError(t, err)
 	assert.Nil(t, chain, "gated commit must not advance chain state")
+}
+
+// TestVerifyAndExpand_HostingGateSkipsChainLoad asserts gate ordering:
+// when HostingGate rejects, the verifier must not have consulted the
+// chain store. Issue #7 from the review: a takedown-heavy upstream
+// otherwise pays a chain-store round trip per gated event for state
+// it never uses.
+//
+// Wraps a real MemStateStore in countingChainStore so the test can
+// assert LoadChain count == 0 across the gated event. Hosting reads
+// (one for the gate's lookup) are expected and not asserted on.
+func TestVerifyAndExpand_HostingGateSkipsChainLoad(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:gateorder1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	cs := &countingChainStore{real: sync.NewMemStateStore()}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:    gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:     dir,
+		StateStore:    cs,
+		Policy:        gt.Some(sync.PolicyError),
+		HostingPolicy: gt.Some(sync.HostingGate),
+	})
+	require.NoError(t, err)
+
+	// Mark inactive. OnAccountEvent itself touches LoadHosting (read
+	// before write for replay protection) and SaveHosting; we don't
+	// care about those counts here.
+	require.NoError(t, v.OnAccountEvent(context.Background(), &comatproto.SyncSubscribeRepos_Account{
+		DID: string(did), Active: false, Status: gt.Some(sync.StatusTakendown), Seq: 1,
+	}))
+
+	// Reset chain counters specifically — hosting counters can carry
+	// values from OnAccountEvent's read-then-write.
+	cs.loadChain.Store(0)
+	cs.saveChain.Store(0)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec1",
+		Record: map[string]any{"text": "should be gated"},
+	}})
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var aiErr *sync.AccountInactiveError
+	require.ErrorAs(t, vErr, &aiErr)
+
+	assert.Equal(t, int64(0), cs.loadChain.Load(),
+		"gated commit must not consult the chain store for state load")
+	assert.Equal(t, int64(0), cs.saveChain.Load(),
+		"gated commit must not advance chain state")
 }
 
 func TestVerifyAndExpand_HostingGateDropsSync(t *testing.T) {

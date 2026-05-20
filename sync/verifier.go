@@ -1649,14 +1649,12 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	unlock := v.lockDID(did)
 	defer unlock()
 
-	state, err := v.opts.StateStore.LoadChain(ctx, did)
-	if err != nil {
-		return nil, fmt.Errorf("verifier: load chain state: %w", err)
-	}
-
 	// Hosting gate (HostingGate only): drop events for non-active
-	// DIDs. Bypasses VerifierPolicy. Runs under the per-DID lock so
-	// it serializes against concurrent OnAccountEvent updates.
+	// DIDs before any chain-state I/O. Bypasses VerifierPolicy. Runs
+	// under the per-DID lock so it serializes against concurrent
+	// OnAccountEvent updates. Ordered ahead of LoadChain so a
+	// takedown-heavy upstream doesn't pay a chain-store round trip
+	// per gated event.
 	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
 		return nil, err
 	} else if aiErr != nil {
@@ -1665,6 +1663,11 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 			v.opts.OnVerificationFailure.Val()(did, aiErr)
 		}
 		return nil, aiErr
+	}
+
+	state, err := v.opts.StateStore.LoadChain(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("verifier: load chain state: %w", err)
 	}
 
 	// Rev-replay drop: a commit at or below persisted rev is a
