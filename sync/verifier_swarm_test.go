@@ -37,10 +37,11 @@ import (
 func TestVerifierSwarm(t *testing.T) {
 	t.Parallel()
 
-	iters := 1000
-	if testing.Short() {
-		iters = 10
+	iters := 10
+	if !testing.Short() {
+		iters = 1000
 	}
+
 	for i := 0; i < iters; i++ {
 		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
 			t.Parallel()
@@ -256,10 +257,11 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 func TestVerifierSwarm_PolicyResync(t *testing.T) {
 	t.Parallel()
 
-	iters := 1000
-	if testing.Short() {
-		iters = 10
+	iters := 10
+	if !testing.Short() {
+		iters = 1000
 	}
+
 	for i := 0; i < iters; i++ {
 		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
 			t.Parallel()
