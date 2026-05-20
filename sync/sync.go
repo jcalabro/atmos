@@ -1,5 +1,14 @@
-// Package sync implements ATProto repository sync: streaming repo downloads,
-// record iteration, commit verification, and repo enumeration.
+// Package sync implements ATProto repository sync: streaming repo
+// downloads, record iteration, commit verification, and repo
+// enumeration.
+//
+// For consumers of the firehose (com.atproto.sync.subscribeRepos), this
+// package also provides full Sync 1.1 verification via [Verifier]:
+// per-commit MST inversion against prevData, per-DID (rev, data) chain
+// tracking, signature verification with key-rotation handling, and
+// transparent resync via getRepo when a chain break or inversion
+// failure is detected. Pass a [*Verifier] in
+// streaming.Options.Verifier to opt in.
 package sync
 
 import (
