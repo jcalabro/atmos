@@ -79,7 +79,7 @@ func (c *Cache[K, V]) getLocked(key K) (V, bool) {
 	if !ok {
 		return zero, false
 	}
-	e := el.Value.(*entry[K, V])
+	e := entryOf[K, V](el)
 	if c.expired(e) {
 		c.removeLocked(el)
 		return zero, false
@@ -99,7 +99,7 @@ func (c *Cache[K, V]) Set(key K, val V) {
 	defer c.mu.Unlock()
 
 	if el, ok := c.items[key]; ok {
-		e := el.Value.(*entry[K, V])
+		e := entryOf[K, V](el)
 		e.val = val
 		e.expires = c.expiryLocked()
 		c.order.MoveToFront(el)
@@ -155,7 +155,7 @@ func (c *Cache[K, V]) Pin(key K) (V, bool) {
 	if !ok {
 		return zero, false
 	}
-	e := el.Value.(*entry[K, V])
+	e := entryOf[K, V](el)
 	if c.expired(e) {
 		c.removeLocked(el)
 		return zero, false
@@ -172,7 +172,7 @@ func (c *Cache[K, V]) PinOrAdd(key K, factory func() V) (V, bool) {
 	defer c.mu.Unlock()
 
 	if el, ok := c.items[key]; ok {
-		e := el.Value.(*entry[K, V])
+		e := entryOf[K, V](el)
 		if !c.expired(e) {
 			c.order.MoveToFront(el)
 			e.refs++
@@ -205,7 +205,7 @@ func (c *Cache[K, V]) Unpin(key K) {
 		// pinned entries. If we get here it's a Pin/Unpin mismatch.
 		panic("lru: Unpin of unknown key")
 	}
-	e := el.Value.(*entry[K, V])
+	e := entryOf[K, V](el)
 	if e.refs <= 0 {
 		panic("lru: Unpin without matching Pin")
 	}
@@ -240,7 +240,7 @@ func (c *Cache[K, V]) evictLocked() {
 		// Walk back→front, evict first unpinned candidate.
 		var victim *list.Element
 		for el := c.order.Back(); el != nil; el = el.Prev() {
-			e := el.Value.(*entry[K, V])
+			e := entryOf[K, V](el)
 			if e.refs == 0 {
 				victim = el
 				break
@@ -256,9 +256,20 @@ func (c *Cache[K, V]) evictLocked() {
 
 // removeLocked drops el from both the order list and the items map.
 func (c *Cache[K, V]) removeLocked(el *list.Element) {
-	e := el.Value.(*entry[K, V])
-	delete(c.items, e.key)
+	delete(c.items, entryOf[K, V](el).key)
 	c.order.Remove(el)
+}
+
+// entryOf extracts the typed entry from a list element. Cache is the
+// sole writer of the underlying list, so a wrong-typed value indicates
+// memory corruption; the explicit panic gives a useful error if that
+// invariant is ever violated.
+func entryOf[K comparable, V any](el *list.Element) *entry[K, V] {
+	e, ok := el.Value.(*entry[K, V])
+	if !ok {
+		panic("lru: corrupt list element")
+	}
+	return e
 }
 
 // expired reports whether e has passed its TTL. Always false when
