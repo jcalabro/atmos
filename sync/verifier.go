@@ -261,6 +261,13 @@ type VerifierStats struct {
 	EventsVerified    uint64
 	ChainBreaks       uint64
 	InversionFailures uint64
+	// SignatureFailures counts true signature mismatches — i.e. cases
+	// where verifyCommitSignature returned a typed *SignatureError after
+	// purge+retry. Infrastructure failures during signature verification
+	// (e.g. resolver/network errors looking up the DID's signing key) do
+	// NOT increment this counter; they surface as wrapped errors from
+	// VerifyAndExpand so operators can distinguish "we couldn't check"
+	// from "we checked and it's bad."
 	SignatureFailures uint64
 	Resyncs           uint64
 	ResyncFailures    uint64
@@ -806,15 +813,19 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 			&InversionError{DID: did, Rev: commit.Rev, Cause: decErr})
 	}
 	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
-		v.signatureFailures.Add(1)
+		// Only count true signature mismatches (typed *SignatureError).
+		// Wrapped resolver/network errors are infrastructure failures, not
+		// signature failures, and would otherwise pollute the counter.
 		var sigErr *SignatureError
 		if errors.As(err, &sigErr) {
+			v.signatureFailures.Add(1)
 			if v.opts.OnVerificationFailure != nil {
 				v.opts.OnVerificationFailure(did, sigErr)
 			}
 			return nil, sigErr
 		}
-		// Non-typed (e.g. resolver network error) — wrap and return.
+		// Non-typed (e.g. resolver network error) — wrap and return; not a
+		// signature failure.
 		return nil, fmt.Errorf("verifier: signature verification: %w", err)
 	}
 

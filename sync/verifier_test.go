@@ -1359,3 +1359,89 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 	assert.Nil(t, ops)
 	assert.Equal(t, uint64(1), v.Stats().RevReplaysDropped)
 }
+
+func TestVerifyAndExpand_BothNilIsNoOp(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: testutil.NewTrackingResolver()}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	ops, err := v.VerifyAndExpand(context.Background(), nil, nil)
+	require.NoError(t, err)
+	assert.Nil(t, ops)
+	// Counters remain zero.
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.EventsVerified)
+	assert.Equal(t, uint64(0), stats.RevReplaysDropped)
+}
+
+// TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the
+// symmetric resync path for malformed CARs: an inversion failure under
+// PolicyResync should trigger transparent resync via getRepo. The
+// consumer sees ActionResync ops, and counters reflect both the
+// inversion failure and the resync. (Only chain-break-under-PolicyResync
+// was previously covered.)
+func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:invres1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state: a small repo for the resync target.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	realPrevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	// Pre-seed chain state.
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{
+		Rev: "3aaaaaaaaaaaa", Data: realPrevData,
+	}))
+
+	// Build a getRepo-able CAR for resync.
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	// Build a commit, then corrupt its Blocks to force an inversion failure.
+	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "y",
+		Record:     map[string]any{"text": "y"},
+	}})
+	commit.Blocks = []byte{0xff, 0xff, 0xff} // garbage CAR
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	require.Greater(t, len(ops), 0)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.InversionFailures)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
