@@ -537,12 +537,23 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 			if err != nil {
 				return nil, err
 			}
+			// Invariant: the parent must propagate the child's dirty
+			// state. The recursive removeNode may mutate the child in
+			// place (e.g. removing one of multiple entries) and return
+			// the same pointer; in that case our pointer comparison
+			// alone would miss the change and our cached CID would go
+			// stale. Marking dirty if the child is dirty (or if the
+			// pointer changed) keeps RootCID() correct without
+			// recomputing eagerly. Insert follows the same pattern in
+			// insertBelow.
 			if newChild != child {
 				if idx == 0 {
 					n.left = newChild
 				} else {
 					n.entries[idx-1].right = newChild
 				}
+				n.dirty = true
+			} else if newChild != nil && newChild.dirty {
 				n.dirty = true
 			}
 			return n, nil
@@ -560,6 +571,8 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 		if newChild != child {
 			n.entries[last].right = newChild
 			n.dirty = true
+		} else if newChild != nil && newChild.dirty {
+			n.dirty = true
 		}
 	} else if n.left != nil {
 		child := n.left
@@ -569,6 +582,8 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 		}
 		if newChild != child {
 			n.left = newChild
+			n.dirty = true
+		} else if newChild != nil && newChild.dirty {
 			n.dirty = true
 		}
 	}

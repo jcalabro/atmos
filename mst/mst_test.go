@@ -538,6 +538,80 @@ func TestRemoveNonexistent(t *testing.T) {
 	require.NotNil(t, got)
 }
 
+// TestRemoveSubtreeDirtyPropagation guards against a regression where
+// Tree.Remove descended into a child subtree, mutated the child in place,
+// and returned the same pointer; the parent did not mark itself dirty,
+// so a subsequent RootCID() returned a stale cached CID. This silently
+// broke sync.InvertCommit of Create-only commits on multi-record repos:
+// the inverted root would equal the post-state root rather than the
+// pre-state, falsely flagging legitimate firehose events as chain breaks.
+//
+// The trigger requires a parent node with a multi-entry child subtree,
+// where Remove targets one of the multiple entries: the child's
+// removeNode finds and edits the entry in place, returns the same node
+// pointer (since len(entries) is still > 0), and the buggy parent only
+// marked itself dirty when newChild != child.
+func TestRemoveSubtreeDirtyPropagation(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	// These keys use a known interop fixture set whose MST shape places
+	// 3fs2j at height 1 as the root entry, while 3ft2j and 3fu2j are
+	// height-0 keys that both live in the right subtree. Removing one of
+	// them while the other remains exercises the parent-doesn't-mark-
+	// dirty path: the right subtree mutates in place, returns the same
+	// pointer, and the root's cached CID would be stale.
+	store := NewMemBlockStore()
+	tree := NewTree(store)
+	keys := []string{
+		"com.example.record/3jqfcqzm3fn2j", // height 0, in left subtree
+		"com.example.record/3jqfcqzm3fo2j", // height 0, in left subtree
+		"com.example.record/3jqfcqzm3fs2j", // height 1, root entry
+		"com.example.record/3jqfcqzm3ft2j", // height 0, in right subtree
+		"com.example.record/3jqfcqzm3fu2j", // height 0, in right subtree
+	}
+	for _, k := range keys {
+		require.NoError(t, tree.Insert(k, val))
+	}
+
+	// Cache the root CID and all child CIDs by writing blocks.
+	rootBefore, err := tree.WriteBlocks(store)
+	require.NoError(t, err)
+
+	// Sanity: re-asking for RootCID yields the cached value.
+	cached, err := tree.RootCID()
+	require.NoError(t, err)
+	require.True(t, rootBefore.Equal(cached))
+
+	// Remove a key that lives in the right subtree alongside a sibling.
+	// The subtree mutates in place; the buggy code does not mark the root
+	// dirty, so RootCID() returns the stale cached rootBefore.
+	require.NoError(t, tree.Remove("com.example.record/3jqfcqzm3fu2j"))
+
+	rootAfterRemove, err := tree.RootCID()
+	require.NoError(t, err)
+	require.False(t, rootBefore.Equal(rootAfterRemove),
+		"after removing a record from a sibling-bearing subtree, RootCID "+
+			"returned the stale cached root: %s. The parent node did not "+
+			"propagate its child's dirty flag.", rootAfterRemove.String())
+
+	// Independent oracle: build the expected post-remove tree from scratch
+	// and compare its root CID. They must agree.
+	expectedStore := NewMemBlockStore()
+	expectedTree := NewTree(expectedStore)
+	for _, k := range keys {
+		if k == "com.example.record/3jqfcqzm3fu2j" {
+			continue
+		}
+		require.NoError(t, expectedTree.Insert(k, val))
+	}
+	expectedRoot, err := expectedTree.RootCID()
+	require.NoError(t, err)
+	assert.True(t, expectedRoot.Equal(rootAfterRemove),
+		"post-remove root CID disagrees with from-scratch oracle: want %s, got %s",
+		expectedRoot.String(), rootAfterRemove.String())
+}
+
 func TestGetFromEmptyTree(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()
