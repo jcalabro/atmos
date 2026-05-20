@@ -2725,6 +2725,478 @@ func TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Size limits (C5): blocks ≤ MaxCommitBlocksBytes, ops ≤ MaxCommitOps
+// ---------------------------------------------------------------------------
+
+func TestCommitTooLargeError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	err := &sync.CommitTooLargeError{
+		DID:   atmos.DID("did:plc:big"),
+		Rev:   "3aaaaaaaaaaaa",
+		Field: "blocks",
+		Got:   3_000_000,
+		Limit: sync.MaxCommitBlocksBytes,
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "commit too large")
+	assert.Contains(t, msg, "did:plc:big")
+	assert.Contains(t, msg, "blocks=3000000")
+
+	var target *sync.CommitTooLargeError
+	assert.True(t, errors.As(err, &target))
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, "blocks", target.Field)
+}
+
+// TestVerifyAndExpand_OversizedBlocksRejected exercises the
+// MaxCommitBlocksBytes gate. The Blocks field is filled with bogus
+// bytes — the gate runs before any CAR parse, so we don't need
+// valid contents to test the size check, just enough bytes to
+// exceed the limit.
+func TestVerifyAndExpand_OversizedBlocksRejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:big1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	// One byte over the limit. We don't bother with valid CAR
+	// contents because the size gate runs first; this proves we
+	// reject without ever calling into the CAR parser.
+	oversized := make([]byte, sync.MaxCommitBlocksBytes+1)
+	commit := &comatproto.SyncSubscribeRepos_Commit{
+		Repo:   string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: oversized,
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var tlErr *sync.CommitTooLargeError
+	require.ErrorAs(t, vErr, &tlErr)
+	assert.Equal(t, "blocks", tlErr.Field)
+	assert.Equal(t, sync.MaxCommitBlocksBytes+1, tlErr.Got)
+	assert.Equal(t, sync.MaxCommitBlocksBytes, tlErr.Limit)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.OversizedCommits)
+	assert.Equal(t, uint64(0), stats.InversionFailures, "size gate must run before CAR parse")
+}
+
+// TestVerifyAndExpand_OversizedOpsRejected exercises the MaxCommitOps
+// gate. We construct a commit with 201 ops on distinct paths (so the
+// duplicate-path gate doesn't engage instead). Ops have empty CIDs;
+// the size check runs before any CID work.
+func TestVerifyAndExpand_OversizedOpsRejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:big2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	ops := make([]comatproto.SyncSubscribeRepos_RepoOp, sync.MaxCommitOps+1)
+	for i := range ops {
+		ops[i] = comatproto.SyncSubscribeRepos_RepoOp{
+			Action: testutil.ActionCreate,
+			Path:   fmt.Sprintf("app.bsky.feed.post/rec%d", i),
+		}
+	}
+	commit := &comatproto.SyncSubscribeRepos_Commit{
+		Repo: string(did),
+		Rev:  string(atmos.NewTIDNow(0)),
+		Ops:  ops,
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var tlErr *sync.CommitTooLargeError
+	require.ErrorAs(t, vErr, &tlErr)
+	assert.Equal(t, "ops", tlErr.Field)
+	assert.Equal(t, sync.MaxCommitOps+1, tlErr.Got)
+	assert.Equal(t, sync.MaxCommitOps, tlErr.Limit)
+	assert.Equal(t, uint64(1), v.Stats().OversizedCommits)
+}
+
+// TestVerifyAndExpand_OversizedFiresHook asserts OnVerificationFailure
+// is invoked for size-limit rejections — the typed error is rare
+// enough in production that a callback-only consumer might miss it
+// otherwise.
+func TestVerifyAndExpand_OversizedFiresHook(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:big3")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	var hookErr error
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     gt.Some(sync.PolicyError),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, e error) {
+			hookErr = e
+		}),
+	})
+	require.NoError(t, err)
+
+	commit := &comatproto.SyncSubscribeRepos_Commit{
+		Repo:   string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: make([]byte, sync.MaxCommitBlocksBytes+1),
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.Error(t, vErr)
+	var tlErr *sync.CommitTooLargeError
+	require.ErrorAs(t, hookErr, &tlErr, "hook must receive the typed CommitTooLargeError")
+}
+
+// TestVerifyAndExpand_OversizedBlocksTakesPriority asserts the gate's
+// ordering: when both blocks and ops exceed limits, "blocks" is
+// reported first. Ordering is part of the contract because metrics
+// labeled by Field need consistent labels for identical underlying
+// conditions.
+func TestVerifyAndExpand_OversizedBlocksTakesPriority(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:big4")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	ops := make([]comatproto.SyncSubscribeRepos_RepoOp, sync.MaxCommitOps+1)
+	for i := range ops {
+		ops[i] = comatproto.SyncSubscribeRepos_RepoOp{
+			Action: testutil.ActionCreate,
+			Path:   fmt.Sprintf("app.bsky.feed.post/rec%d", i),
+		}
+	}
+	commit := &comatproto.SyncSubscribeRepos_Commit{
+		Repo:   string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: make([]byte, sync.MaxCommitBlocksBytes+1),
+		Ops:    ops,
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var tlErr *sync.CommitTooLargeError
+	require.ErrorAs(t, vErr, &tlErr)
+	assert.Equal(t, "blocks", tlErr.Field, "blocks takes priority when both exceed limits")
+}
+
+// TestVerifyAndExpand_AtLimitAccepted guards against an off-by-one
+// regression: a commit at exactly the limit (not over) should pass
+// the size gate. We use a synthetic commit that's well-formed up to
+// the size check; later gates may reject for other reasons but the
+// size counter must stay zero.
+func TestVerifyAndExpand_AtLimitAccepted(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:big5")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "ok"},
+	}})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, uint64(0), v.Stats().OversizedCommits)
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate op paths (C3): single commit with multiple ops on one path
+// ---------------------------------------------------------------------------
+
+func TestDuplicatePathError_FormatAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	err := &sync.DuplicatePathError{
+		DID:  atmos.DID("did:plc:dup"),
+		Rev:  "3aaaaaaaaaaaa",
+		Path: "app.bsky.feed.post/rec1",
+	}
+	msg := err.Error()
+	assert.Contains(t, msg, "duplicate op path")
+	assert.Contains(t, msg, "did:plc:dup")
+	assert.Contains(t, msg, "app.bsky.feed.post/rec1")
+
+	var target *sync.DuplicatePathError
+	assert.True(t, errors.As(err, &target))
+
+	wrapped := fmt.Errorf("verifier: %w", err)
+	target = nil
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, "app.bsky.feed.post/rec1", target.Path)
+}
+
+// duplicatePathTestVerifier wires a verifier with PolicyError so the
+// typed error surfaces directly. The duplicate-path gate runs before
+// CAR decode so the test doesn't need the chain store pre-seeded with
+// matching state.
+func duplicatePathTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey) (*sync.Verifier, sync.ChainStore) {
+	t.Helper()
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	cs := sync.NewMemChainStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	return v, cs
+}
+
+// TestVerifyAndExpand_DuplicatePathTwoCreates is the headline C3
+// test: a commit's ops list contains two creates on the same path.
+// A well-formed producer would have folded these. Our gate rejects
+// before any CAR work so an attacker can't use duplicate-path
+// commits as a way to confuse downstream consumer state machines.
+func TestVerifyAndExpand_DuplicatePathTwoCreates(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:duppath1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "first"},
+	}})
+	// Inject a duplicate op directly — the synthetic builder won't
+	// produce duplicates on its own.
+	commit.Ops = append(commit.Ops, comatproto.SyncSubscribeRepos_RepoOp{
+		Action: testutil.ActionCreate,
+		Path:   "app.bsky.feed.post/rec1",
+		CID:    commit.Ops[0].CID,
+	})
+
+	v, _ := duplicatePathTestVerifier(t, did, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var dpe *sync.DuplicatePathError
+	require.ErrorAs(t, vErr, &dpe)
+	assert.Equal(t, "app.bsky.feed.post/rec1", dpe.Path)
+	assert.Equal(t, did, dpe.DID)
+	assert.Equal(t, commit.Rev, dpe.Rev)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.DuplicatePaths)
+	// Gate runs before CAR decode, so neither inversion nor op-CID
+	// counters should have ticked — proves the early-rejection
+	// ordering hasn't drifted.
+	assert.Equal(t, uint64(0), stats.InversionFailures)
+	assert.Equal(t, uint64(0), stats.OpCIDMismatches)
+}
+
+// TestVerifyAndExpand_DuplicatePathDeleteThenCreate covers the
+// race-state-machines scenario flagged in the typed error's doc:
+// a delete and a create on the same path within one commit. A
+// careless consumer could observe the create first (record now
+// exists in their index) then process the delete (record gone),
+// or vice versa — depending on iteration order. Rejecting the
+// commit closes the ambiguity.
+func TestVerifyAndExpand_DuplicatePathDeleteThenCreate(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:duppath2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state: rec1 exists.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	rec1CID, _, err := r.Get("app.bsky.feed.post", "rec1")
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionDelete,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+	}})
+	// Append a create on the same path. CID can be anything since the
+	// gate runs before any CID validation.
+	commit.Ops = append(commit.Ops, comatproto.SyncSubscribeRepos_RepoOp{
+		Action: testutil.ActionCreate,
+		Path:   "app.bsky.feed.post/rec1",
+		CID:    gt.Some(lextypes.LexCIDLink{Link: rec1CID.String()}),
+	})
+
+	v, _ := duplicatePathTestVerifier(t, did, key)
+	require.NoError(t, v.ChainStore().Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var dpe *sync.DuplicatePathError
+	require.ErrorAs(t, vErr, &dpe)
+	assert.Equal(t, uint64(1), v.Stats().DuplicatePaths)
+}
+
+// TestVerifyAndExpand_DuplicatePathHappyPathUnchanged guards against
+// a regression where the new gate spuriously triggers on standard
+// commits. Two ops on DIFFERENT paths must verify cleanly.
+func TestVerifyAndExpand_DuplicatePathHappyPathUnchanged(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:duphappy1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{
+		{Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec1", Record: map[string]any{"text": "a"}},
+		{Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec2", Record: map[string]any{"text": "b"}},
+	})
+
+	v, _ := duplicatePathTestVerifier(t, did, key)
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	assert.Len(t, ops, 2)
+	assert.Equal(t, uint64(0), v.Stats().DuplicatePaths)
+}
+
+// TestVerifyAndExpand_DuplicatePathUnderPolicyResync asserts
+// transparent recovery: a duplicate-path commit under PolicyResync
+// triggers a getRepo. The fake server returns the current authoritative
+// state; the consumer sees ActionResync ops.
+func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:dupresync1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
+
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionCreate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "y",
+		Record:     map[string]any{"text": "y"},
+	}})
+	// Inject duplicate path.
+	commit.Ops = append(commit.Ops, comatproto.SyncSubscribeRepos_RepoOp{
+		Action: testutil.ActionCreate,
+		Path:   "app.bsky.feed.post/y",
+		CID:    commit.Ops[0].CID,
+	})
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, vErr)
+	require.NotEmpty(t, ops)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.DuplicatePaths)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
+// ---------------------------------------------------------------------------
 // Legacy 1.0-shape commits (A3): distinct typed error vs InversionError
 // ---------------------------------------------------------------------------
 

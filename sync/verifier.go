@@ -37,6 +37,23 @@ const (
 // counts as "future" once clock-skew slack is applied.
 const DefaultFutureRevTolerance = 5 * time.Minute
 
+// Spec-mandated resource bounds on #commit events. Matches indigo's
+// `MaxMessageBlocksBytes` and `MaxCommitOps` in
+// `cmd/relay/relay/verify.go`. The streaming layer also caps WebSocket
+// frames at 2 MB by default; these bounds are defense-in-depth against
+// a buggy or malicious upstream that bypasses streaming-layer limits
+// (e.g. via a different transport).
+const (
+	// MaxCommitBlocksBytes is the upper bound on the size of a #commit
+	// event's `blocks` field — the CAR diff. Per spec the relay-side
+	// limit is 2 MB; commits exceeding this MUST be rejected.
+	MaxCommitBlocksBytes = 2_000_000
+
+	// MaxCommitOps is the upper bound on the number of repo ops a
+	// single #commit event may carry. Per spec, 200.
+	MaxCommitOps = 200
+)
+
 // ChainState is the per-DID state the verifier tracks: the last
 // commit rev and the last MST root data CID we successfully verified.
 type ChainState struct {
@@ -255,6 +272,58 @@ type LegacyCommitError struct {
 func (e *LegacyCommitError) Error() string {
 	return fmt.Sprintf("sync: legacy 1.0-shape commit for %s rev=%s (seen rev=%s data=%s)",
 		e.DID, e.Rev, e.SeenRev, e.SeenData)
+}
+
+// CommitTooLargeError is returned when a #commit event exceeds a
+// spec-mandated resource bound: the CAR `blocks` field exceeds
+// [MaxCommitBlocksBytes], or the ops list exceeds [MaxCommitOps].
+//
+// The check runs before any CAR parse or signature work, so an
+// adversarial upstream can't force the verifier into expensive
+// processing by shipping oversized payloads. Bypasses
+// [VerifierPolicy] — re-fetching from the same misbehaving upstream
+// would just deliver the same oversized payload.
+//
+// Field is "blocks" or "ops". For "blocks", Got is the byte length;
+// for "ops", Got is the op count. Limit is the spec-mandated maximum.
+type CommitTooLargeError struct {
+	DID   atmos.DID
+	Rev   string
+	Field string // "blocks" | "ops"
+	Got   int
+	Limit int
+}
+
+func (e *CommitTooLargeError) Error() string {
+	return fmt.Sprintf("sync: commit too large for %s rev=%s: %s=%d exceeds limit=%d",
+		e.DID, e.Rev, e.Field, e.Got, e.Limit)
+}
+
+// DuplicatePathError is returned when a single commit contains
+// multiple ops touching the same path. Indigo's `NormalizeOps`
+// rejects this in `atproto/repo/operation.go:145-156`; atmos
+// matches.
+//
+// A well-formed commit folds intra-commit duplicates into a single
+// op (e.g. a delete-then-create on the same path collapses into an
+// update). Multiple ops on one path indicate a producer bug or a
+// crafted attempt to confuse downstream consumers — emitting a
+// "create" for a record that the same commit already deleted
+// elsewhere would let an attacker race consumer state machines.
+//
+// Routed via the same path as InversionError and OpCIDMismatchError:
+// internally inconsistent commit, recoverable via resync. Under
+// PolicyResync the consumer sees ActionResync ops; under PolicyError
+// this typed error surfaces.
+type DuplicatePathError struct {
+	DID  atmos.DID
+	Rev  string
+	Path string // the path that appeared more than once
+}
+
+func (e *DuplicatePathError) Error() string {
+	return fmt.Sprintf("sync: duplicate op path in commit for %s rev=%s path=%q",
+		e.DID, e.Rev, e.Path)
 }
 
 // OpCIDMismatchError is returned when a commit's ops list claims
@@ -531,6 +600,16 @@ type VerifierStats struct {
 	// a buggy PDS.
 	MissingRecordBlocks uint64
 
+	// DuplicatePaths counts events whose ops list contained two or
+	// more ops on the same path. Routed through the inversion-failure
+	// path so PolicyResync recovers transparently.
+	DuplicatePaths uint64
+
+	// OversizedCommits counts events rejected for exceeding the
+	// spec-mandated resource bounds (MaxCommitBlocksBytes,
+	// MaxCommitOps). Bypasses policy.
+	OversizedCommits uint64
+
 	// SyncNoOps counts #sync events whose embedded commit's data CID
 	// matched our locally-tracked data CID — the upstream was just
 	// asserting current state, not signaling a desync. We advance the
@@ -664,6 +743,8 @@ type Verifier struct {
 	legacyCommits          atomic.Uint64
 	syncNoOps              atomic.Uint64
 	missingRecordBlocks    atomic.Uint64
+	duplicatePaths         atomic.Uint64
+	oversizedCommits       atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -915,7 +996,53 @@ func (v *Verifier) Stats() VerifierStats {
 		LegacyCommits:          v.legacyCommits.Load(),
 		SyncNoOps:              v.syncNoOps.Load(),
 		MissingRecordBlocks:    v.missingRecordBlocks.Load(),
+		DuplicatePaths:         v.duplicatePaths.Load(),
+		OversizedCommits:       v.oversizedCommits.Load(),
 	}
+}
+
+// checkCommitSize enforces the spec-mandated resource bounds on a
+// #commit envelope: blocks ≤ MaxCommitBlocksBytes, ops ≤
+// MaxCommitOps. Returns a non-nil [*CommitTooLargeError] iff one
+// limit is exceeded; the blocks check runs first so oversized CARs
+// surface as a "blocks" failure even when the ops list is also
+// over-limit (deterministic for metric labels).
+//
+// Caller is responsible for incrementing counters and invoking
+// hooks.
+func checkCommitSize(did atmos.DID, commit *comatproto.SyncSubscribeRepos_Commit) *CommitTooLargeError {
+	if n := len(commit.Blocks); n > MaxCommitBlocksBytes {
+		return &CommitTooLargeError{
+			DID: did, Rev: commit.Rev,
+			Field: "blocks", Got: n, Limit: MaxCommitBlocksBytes,
+		}
+	}
+	if n := len(commit.Ops); n > MaxCommitOps {
+		return &CommitTooLargeError{
+			DID: did, Rev: commit.Rev,
+			Field: "ops", Got: n, Limit: MaxCommitOps,
+		}
+	}
+	return nil
+}
+
+// findDuplicateOpPath scans the commit's ops list for any path that
+// appears more than once. Returns the first duplicated path (the
+// second occurrence is what triggers detection) or "" when every
+// path is unique. O(n) with a small map; ops are capped at 200 by
+// spec so the map never grows unbounded.
+func findDuplicateOpPath(commit *comatproto.SyncSubscribeRepos_Commit) string {
+	if len(commit.Ops) < 2 {
+		return ""
+	}
+	seen := make(map[string]struct{}, len(commit.Ops))
+	for _, op := range commit.Ops {
+		if _, dup := seen[op.Path]; dup {
+			return op.Path
+		}
+		seen[op.Path] = struct{}{}
+	}
+	return ""
 }
 
 // commitVersion is the only repo-commit version atmos accepts on the
@@ -1290,6 +1417,18 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, frErr
 	}
 
+	// Size limits (spec MUST). Reject before per-DID lock so oversized
+	// commits can't block other events for the same DID. Bypasses
+	// policy — re-fetching from a misbehaving upstream that ships
+	// oversized payloads gets the same garbage.
+	if tlErr := checkCommitSize(did, commit); tlErr != nil {
+		v.oversizedCommits.Add(1)
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, tlErr)
+		}
+		return nil, tlErr
+	}
+
 	unlock := v.lockDID(did)
 	defer unlock()
 
@@ -1303,6 +1442,20 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	if state != nil && commit.Rev <= state.Rev {
 		v.revReplaysDropped.Add(1)
 		return nil, nil
+	}
+
+	// Duplicate-path check: detectable from the ops list alone, no
+	// CAR parse needed. Earliest reject for malformed/malicious input.
+	// Routed via inversion-failure path so PolicyResync recovers
+	// transparently (an internally-inconsistent ops list is just as
+	// broken as a bad CAR diff). dataCID isn't available yet, so we
+	// pass the zero CID — handleVerificationFailure skips the
+	// state-advance, which is the right call for a commit we can't
+	// trust to begin with.
+	if dupPath := findDuplicateOpPath(commit); dupPath != "" {
+		v.duplicatePaths.Add(1)
+		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure,
+			&DuplicatePathError{DID: did, Rev: commit.Rev, Path: dupPath})
 	}
 
 	// Decode the CAR once. Every downstream stage (inversion, field

@@ -3,10 +3,12 @@
 package sync_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	mathrand "math/rand"
+	stdsync "sync"
 	"testing"
 
 	"github.com/jcalabro/atmos"
@@ -22,6 +24,7 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
 )
 
 // TestVerifierSwarm drives the Verifier with random fault injection
@@ -233,4 +236,261 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	require.Equal(t, uint64(0), stats.Resyncs, "seed=%d", seed)
 	require.Equal(t, uint64(0), stats.ResyncFailures, "seed=%d", seed)
 	require.Equal(t, uint64(0), stats.ChainStateSaveFailures, "seed=%d MemChainStore should never fail to save", seed)
+}
+
+// TestVerifierSwarm_PolicyResync mirrors TestVerifierSwarm but under
+// PolicyResync: chain breaks and inversion failures trigger
+// transparent resyncs that must yield ActionResync ops to the
+// consumer while leaving chain state at the authoritative current
+// state. Counter invariants:
+//
+//	emitted == accepted + dropped + chainBreaks + inversionErrs
+//	stats.Resyncs == chainBreaks + inversionErrs   (one resync per failure)
+//
+// The fake getRepo server is wired up dynamically: each clean accept
+// re-exports the repo's current CAR and stashes it in a shared map so
+// that any subsequent resync for that DID sees the up-to-date state.
+//
+// Like the PolicyError swarm, every commit is signed with the
+// matching key, so SignatureFailures must stay zero.
+func TestVerifierSwarm_PolicyResync(t *testing.T) {
+	t.Parallel()
+
+	iters := 1000
+	if testing.Short() {
+		iters = 10
+	}
+	for i := 0; i < iters; i++ {
+		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
+			t.Parallel()
+			runOneSwarmIterationPolicyResync(t, int64(i)+1)
+		})
+	}
+}
+
+func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
+	t.Helper()
+	rng := mathrand.New(mathrand.NewSource(seed))
+
+	const numDIDs = 4
+	dids := make([]atmos.DID, numDIDs)
+	keys := make([]crypto.PrivateKey, numDIDs)
+	repos := make([]*repo.Repo, numDIDs)
+	for i := 0; i < numDIDs; i++ {
+		dids[i] = atmos.DID(fmt.Sprintf("did:plc:swarmrs%d-%d", seed, i))
+		k, err := crypto.GenerateP256()
+		require.NoError(t, err)
+		keys[i] = k
+		repos[i], _ = testutil.BuildEmptyRepo(t, dids[i])
+	}
+
+	// carForDID is the per-DID CAR the fake getRepo server returns.
+	// Updated every time a clean commit advances the verifier's state
+	// so a subsequent resync yields the up-to-date authoritative repo.
+	var carMu stdsync.Mutex
+	cars := make(map[atmos.DID][]byte, numDIDs)
+
+	// Helper: re-export the current repo state and stash the CAR.
+	exportCAR := func(didIdx int) {
+		var buf bytes.Buffer
+		require.NoError(t, repos[didIdx].ExportCAR(&buf, keys[didIdx]))
+		carMu.Lock()
+		cars[dids[didIdx]] = buf.Bytes()
+		carMu.Unlock()
+	}
+
+	xc := testutil.NewFakeSyncServerMulti(t, func(did atmos.DID) ([]byte, bool) {
+		carMu.Lock()
+		defer carMu.Unlock()
+		car, ok := cars[did]
+		return car, ok
+	})
+
+	cs := sync.NewMemChainStore()
+	resolver := testutil.NewTrackingResolver()
+	for i := 0; i < numDIDs; i++ {
+		resolver.Docs[dids[i]] = testutil.BuildDIDDoc(dids[i], keys[i].PublicKey())
+	}
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+
+	lastGood := make([]cbor.CID, numDIDs)
+	for i := 0; i < numDIDs; i++ {
+		root, err := repos[i].Tree.WriteBlocks(repos[i].Store)
+		require.NoError(t, err)
+		lastGood[i] = root
+	}
+
+	var (
+		emitted       int
+		accepted      int
+		dropped       int
+		chainBreaks   int
+		inversionErrs int
+	)
+
+	emit := func(t *testing.T, didIdx int, commit *comatproto.SyncSubscribeRepos_Commit) {
+		t.Helper()
+		emitted++
+		ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+		require.NoError(t, vErr,
+			"PolicyResync should never surface a typed error for chain/inversion faults — got %T %v",
+			vErr, vErr)
+		if ops == nil {
+			// Silent rev-replay drop. State unchanged. Rebuild from the
+			// served CAR (same reason as the resync path: avoid
+			// store-pollution carrying over across faults).
+			dropped++
+			carMu.Lock()
+			carBytes := cars[dids[didIdx]]
+			carMu.Unlock()
+			rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
+			require.NoError(t, err, "rebuild store from served CAR")
+			repos[didIdx].Store = rebuiltStore
+			repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
+			return
+		}
+
+		// Distinguish a clean-accept (op actions inherit from commit:
+		// "create", "update", or "delete") from a resync (every op is
+		// "resync"). Mixed shouldn't happen — the verifier emits one
+		// or the other per event.
+		isResync := false
+		for _, op := range ops {
+			if op.Action == "resync" {
+				isResync = true
+				break
+			}
+		}
+
+		if isResync {
+			// Resync triggered by chain break or inversion failure.
+			// Classify by reconstructing what the fault must have been
+			// from the commit shape: inversion fault is the exact
+			// [0xff, 0xff, 0xff] sentinel the random-fault loop sets
+			// on commit.Blocks; everything else is a chain break (the
+			// other resync-triggering fault path).
+			if bytes.Equal(commit.Blocks, []byte{0xff, 0xff, 0xff}) {
+				inversionErrs++
+			} else {
+				chainBreaks++
+			}
+			// Both fault classes leave the verifier's state at the
+			// served data CID, which equals lastGood. Rebuild our
+			// local repo from the served CAR so subsequent
+			// BuildSyntheticCommit calls operate on a consistent
+			// state — using mst.LoadTree alone left subtle store
+			// pollution that broke inversion of follow-on commits.
+			carMu.Lock()
+			carBytes := cars[dids[didIdx]]
+			carMu.Unlock()
+			rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
+			require.NoError(t, err, "rebuild store from served CAR")
+			repos[didIdx].Store = rebuiltStore
+			repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
+			// Every resync op should reference the fetched commit.
+			for _, op := range ops {
+				require.Equal(t, "resync", op.Action,
+					"seed=%d resync batch must contain only ActionResync ops", seed)
+				require.Equal(t, string(dids[didIdx]), op.Repo)
+			}
+			return
+		}
+
+		// Clean accept: state advanced to the new commit's data CID.
+		accepted++
+		dataCID, ok := testutil.InnerCommitDataCID(commit)
+		require.True(t, ok, "couldn't extract data CID from accepted commit")
+		lastGood[didIdx] = dataCID
+		// Refresh the served CAR so a future resync sees this state.
+		exportCAR(didIdx)
+	}
+
+	// Step 0: prime the fake server with each DID's empty-repo CAR
+	// so the first chain break / inversion can resync against
+	// well-formed authoritative state.
+	for i := 0; i < numDIDs; i++ {
+		exportCAR(i)
+	}
+
+	// Step 1: seed each DID with one clean commit.
+	for i := 0; i < numDIDs; i++ {
+		commit := testutil.BuildSyntheticCommit(t, repos[i], keys[i], lastGood[i], []testutil.OpAction{{
+			Action:     testutil.ActionCreate,
+			Collection: "app.bsky.feed.post",
+			RKey:       fmt.Sprintf("seed%d", i),
+			Record:     map[string]any{"text": "seed"},
+		}})
+		emit(t, i, commit)
+	}
+
+	// Step 2: 50 events of random fault injection.
+	const numEvents = 50
+	for k := 0; k < numEvents; k++ {
+		didIdx := rng.Intn(numDIDs)
+		fault := rng.Intn(10)
+
+		var commit *comatproto.SyncSubscribeRepos_Commit
+		switch {
+		case fault < 7: // 70% clean
+			commit = testutil.BuildSyntheticCommit(t, repos[didIdx], keys[didIdx], lastGood[didIdx], []testutil.OpAction{{
+				Action:     testutil.ActionCreate,
+				Collection: "app.bsky.feed.post",
+				RKey:       fmt.Sprintf("ev%d-%d", k, didIdx),
+				Record:     map[string]any{"text": "x"},
+			}})
+		case fault == 7: // rev-replay
+			commit = testutil.BuildSyntheticCommit(t, repos[didIdx], keys[didIdx], lastGood[didIdx], []testutil.OpAction{{
+				Action:     testutil.ActionCreate,
+				Collection: "app.bsky.feed.post",
+				RKey:       fmt.Sprintf("dup%d-%d", k, didIdx),
+				Record:     map[string]any{"text": "y"},
+			}})
+			commit.Rev = "2222222222222"
+		case fault == 8: // chain break (bogus prevData claim)
+			commit = testutil.BuildSyntheticCommit(t, repos[didIdx], keys[didIdx], lastGood[didIdx], []testutil.OpAction{{
+				Action:     testutil.ActionCreate,
+				Collection: "app.bsky.feed.post",
+				RKey:       fmt.Sprintf("brk%d-%d", k, didIdx),
+				Record:     map[string]any{"text": "z"},
+			}})
+			bogusCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+			require.NoError(t, err)
+			commit.PrevData = gt.Some(lextypes.LexCIDLink{Link: bogusCID.String()})
+		case fault == 9: // malformed CAR
+			commit = testutil.BuildSyntheticCommit(t, repos[didIdx], keys[didIdx], lastGood[didIdx], []testutil.OpAction{{
+				Action:     testutil.ActionCreate,
+				Collection: "app.bsky.feed.post",
+				RKey:       fmt.Sprintf("bad%d-%d", k, didIdx),
+				Record:     map[string]any{"text": "w"},
+			}})
+			commit.Blocks = []byte{0xff, 0xff, 0xff}
+		}
+
+		emit(t, didIdx, commit)
+	}
+
+	stats := v.Stats()
+	require.Equal(t, emitted, accepted+dropped+chainBreaks+inversionErrs,
+		"seed=%d emit=%d acc=%d drop=%d cb=%d ie=%d",
+		seed, emitted, accepted, dropped, chainBreaks, inversionErrs)
+	require.Equal(t, uint64(accepted), stats.EventsVerified, "seed=%d", seed)
+	require.Equal(t, uint64(dropped), stats.RevReplaysDropped, "seed=%d", seed)
+	require.Equal(t, uint64(chainBreaks), stats.ChainBreaks, "seed=%d", seed)
+	require.Equal(t, uint64(inversionErrs), stats.InversionFailures, "seed=%d", seed)
+	// Every chain break and inversion failure under PolicyResync
+	// triggers exactly one successful resync.
+	require.Equal(t, uint64(chainBreaks+inversionErrs), stats.Resyncs, "seed=%d", seed)
+	require.Equal(t, uint64(0), stats.ResyncFailures, "seed=%d", seed)
+	require.Equal(t, uint64(0), stats.SignatureFailures, "seed=%d", seed)
+	require.Equal(t, uint64(0), stats.ChainStateSaveFailures, "seed=%d", seed)
 }

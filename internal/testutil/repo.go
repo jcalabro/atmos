@@ -273,6 +273,38 @@ func (r *TrackingResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atm
 	return "", fmt.Errorf("not implemented")
 }
 
+// NewFakeSyncServerMulti returns an *xrpc.Client whose getRepo
+// endpoint dispatches to a caller-provided lookup. carFor is invoked
+// per request with the requested DID; returning ok=false yields a
+// 404 to the caller. Useful when a single test exercises many DIDs
+// or when the served CAR changes over time (e.g. a swarm test where
+// the verifier's idea of "current state" advances per event).
+//
+// carFor MUST be safe for concurrent use; the verifier's per-DID
+// resync work runs on whichever goroutine triggered the fault.
+func NewFakeSyncServerMulti(t testing.TB, carFor func(atmos.DID) ([]byte, bool)) *xrpc.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/xrpc/com.atproto.sync.getRepo" {
+			w.WriteHeader(404)
+			return
+		}
+		did := atmos.DID(r.URL.Query().Get("did"))
+		carBytes, ok := carFor(did)
+		if !ok {
+			w.WriteHeader(404)
+			return
+		}
+		w.Header().Set("Content-Type", "application/vnd.ipld.car")
+		_, _ = w.Write(carBytes)
+	}))
+	t.Cleanup(srv.Close)
+	return &xrpc.Client{
+		Host:  srv.URL,
+		Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+	}
+}
+
 // NewFakeSyncServer returns an *xrpc.Client whose getRepo endpoint
 // returns the given CAR bytes for the matching DID.
 func NewFakeSyncServer(t *testing.T, did atmos.DID, carBytes []byte) *xrpc.Client {
