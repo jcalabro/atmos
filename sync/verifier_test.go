@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	mathrand "math/rand"
+	stdsync "sync"
 	"testing"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
@@ -684,4 +686,71 @@ func TestInvertCommit_PropertyRandomOps(t *testing.T) {
 			assert.True(t, got.Equal(prevData), "iter %d: ops=%v got %s want %s", i, ops, got, prevData)
 		})
 	}
+}
+
+// TestVerifier_PerDIDLocking asserts that two concurrent calls for the
+// same DID do not interleave (per-DID serialization), and that calls
+// for different DIDs do not block each other.
+func TestVerifier_PerDIDLocking(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	did := atmos.DID("did:plc:abc")
+
+	var counter int
+	var racy bool
+	wg := stdsync.WaitGroup{}
+	wg.Add(2)
+	for range 2 {
+		go func() {
+			defer wg.Done()
+			unlock := sync.LockDIDForTest(v, did)
+			defer unlock()
+			start := counter
+			time.Sleep(5 * time.Millisecond)
+			if counter != start {
+				racy = true
+			}
+			counter = start + 1
+		}()
+	}
+	wg.Wait()
+	assert.False(t, racy, "per-DID mutex did not serialize work")
+	assert.Equal(t, 2, counter)
+
+	// Different DIDs must NOT serialize.
+	t.Run("different DIDs run in parallel", func(t *testing.T) {
+		didA := atmos.DID("did:plc:a")
+		didB := atmos.DID("did:plc:b")
+		ready := make(chan struct{})
+		release := make(chan struct{})
+		go func() {
+			unlock := sync.LockDIDForTest(v, didA)
+			close(ready)
+			<-release
+			unlock()
+		}()
+		<-ready
+		// didB should lock immediately.
+		done := make(chan struct{})
+		go func() {
+			unlock := sync.LockDIDForTest(v, didB)
+			unlock()
+			close(done)
+		}()
+		select {
+		case <-done:
+			// good
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("locking didB blocked while didA was held; per-DID lock map is global")
+		}
+		close(release)
+	})
 }

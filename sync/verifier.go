@@ -328,7 +328,7 @@ type Verifier struct {
 
 	// per-DID serialization. Two events for the same DID never run
 	// through verification concurrently.
-	didMu stdsync.Map //nolint:unused // wired up in subsequent tasks (per-DID mutex map)
+	didMu stdsync.Map // map[atmos.DID]*sync.Mutex
 
 	// per-DID resync rate limiter. Lazy-initialized.
 	limiters stdsync.Map //nolint:unused // wired up in subsequent tasks (per-DID rate limiter)
@@ -362,6 +362,29 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 		opts.ResyncBurst = 5
 	}
 	return &Verifier{opts: opts}, nil
+}
+
+// lockDID acquires the per-DID mutex for did, returning an unlock
+// function. The mutex is lazy-initialized via LoadOrStore so the first
+// caller for a DID materializes the mutex and any concurrent
+// late-arrivals reuse it.
+//
+// sync.Mutex is non-reentrant — a goroutine that already holds the
+// per-DID lock for did MUST NOT call lockDID(did) again or it will
+// deadlock. Verification flows are structured to take the lock once
+// at entry and release it on return; any helper invoked under that
+// lock must not call back into lockDID for the same DID.
+func (v *Verifier) lockDID(did atmos.DID) func() {
+	val, _ := v.didMu.LoadOrStore(did, &stdsync.Mutex{})
+	mu, ok := val.(*stdsync.Mutex)
+	if !ok {
+		// We are the sole writer of this map; a non-Mutex value means
+		// memory corruption or a programming error elsewhere. Crash
+		// rather than silently lose serialization.
+		panic("Verifier.lockDID: stored value is not *sync.Mutex")
+	}
+	mu.Lock()
+	return mu.Unlock
 }
 
 // Stats returns a snapshot of this verifier's counters. Safe to call
