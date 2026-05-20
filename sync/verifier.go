@@ -940,8 +940,36 @@ func dataCIDFromCommit(commit *comatproto.SyncSubscribeRepos_Commit) cbor.CID {
 	return c.Data
 }
 
-// verifySync handles the #sync branch of VerifyAndExpand. Implemented
-// in Task 12; for now the firehose event router refuses to dispatch.
-func (v *Verifier) verifySync(_ context.Context, _ *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
-	return nil, fmt.Errorf("verifier: #sync handling not yet implemented")
+// verifySync handles the #sync branch of VerifyAndExpand. A #sync event
+// from upstream signals that the repo state changed out of band — the
+// upstream is telling us "I no longer have a continuous chain to give
+// you; here is my current rev." There is no commit body to verify
+// against locally-tracked state, so we cannot incrementally advance
+// the chain. The only sound response, regardless of policy, is to
+// resync against authoritative state via getRepo and reconcile from
+// there. PolicyError consumers do not get a typed error here: the
+// event itself is not a verification failure, just a directive to
+// re-fetch.
+//
+// Replays (rev <= persisted rev) are silently dropped, mirroring the
+// rev-replay gate on #commit.
+func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
+	did, err := atmos.ParseDID(syncEvt.DID)
+	if err != nil {
+		return nil, fmt.Errorf("verifier: invalid sync DID %q: %w", syncEvt.DID, err)
+	}
+
+	unlock := v.lockDID(did)
+	defer unlock()
+
+	state, err := v.opts.ChainStore.Load(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("verifier: load chain state for sync: %w", err)
+	}
+	if state != nil && syncEvt.Rev <= state.Rev {
+		v.revReplaysDropped.Add(1)
+		return nil, nil
+	}
+
+	return v.resync(ctx, did, ReasonSyncEvent)
 }

@@ -1383,3 +1383,82 @@ func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) 
 	assert.Equal(t, uint64(1), stats.ResyncFailures)
 	assert.Equal(t, uint64(0), stats.Resyncs)
 }
+
+func TestVerifyAndExpand_SyncEvent(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncev1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	for i := range 2 {
+		require.NoError(t, r.Create("app.bsky.feed.post",
+			fmt.Sprintf("rec%d", i), map[string]any{"text": "x"}))
+	}
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+
+	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  sync.NewMemChainStore(),
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:  string(did),
+		Rev:  "3newrev",
+		Time: "2026-05-19T00:00:00Z",
+	}
+	ops, err := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, err)
+	require.Len(t, ops, 2)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+}
+
+func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncrep1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	someCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	cs := sync.NewMemChainStore()
+	require.NoError(t, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: "3zzzzzzzzzzzz", Data: someCID}))
+
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     sync.PolicyResync,
+	})
+	require.NoError(t, err)
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID: string(did),
+		Rev: "3aaaaaaaaaaaa", // older
+	}
+	ops, err := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, err)
+	assert.Nil(t, ops)
+	assert.Equal(t, uint64(1), v.Stats().RevReplaysDropped)
+}
