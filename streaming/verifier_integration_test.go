@@ -324,3 +324,280 @@ func TestVerifiedStream_VerifierErrorDoesNotTriggerSpuriousGap(t *testing.T) {
 	assert.Equal(t, 0, gapErrors, "verifier-error path must not trigger spurious GapError")
 	assert.GreaterOrEqual(t, updates, 2, "commits 1 and 3 should verify cleanly and yield update ops")
 }
+
+// buildAccountBodyWithStatus mirrors buildAccountBody (client_test.go)
+// but includes the optional Status field used by takedown/suspend
+// states. Used by the #account-wiring tests below.
+func buildAccountBodyWithStatus(seq int64, did string, active bool, status string) []byte {
+	evt := &comatproto.SyncSubscribeRepos_Account{
+		LexiconTypeID: "com.atproto.sync.subscribeRepos#account",
+		DID:           did,
+		Seq:           seq,
+		Active:        active,
+		Time:          "2024-01-01T00:00:00Z",
+	}
+	if status != "" {
+		evt.Status = gt.Some(status)
+	}
+	data, err := evt.MarshalCBOR()
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+// TestVerifiedStream_AccountEventGatesSubsequentCommit is the headline
+// test for the streaming↔verifier #account wiring: a takedown account
+// event arriving on the firehose must populate HostingState before the
+// next #commit for the same DID, so HostingGate can drop it.
+//
+// Frame sequence: clean commit (seq=1) → takedown account event (seq=2)
+// → another commit (seq=3) for the now-takendown DID. The third commit
+// must surface as AccountInactiveError.
+func TestVerifiedStream_AccountEventGatesSubsequentCommit(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:gatedstream1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Build two chained commits.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData0, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	c1 := testutil.BuildSyntheticCommit(t, r, key, prevData0, []testutil.OpAction{{
+		Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec1",
+		Record: map[string]any{"text": "v1"},
+	}})
+	c1.Seq = 1
+	prevData1, ok := testutil.InnerCommitDataCID(c1)
+	require.True(t, ok, "couldn't extract data CID from c1")
+
+	c2 := testutil.BuildSyntheticCommit(t, r, key, prevData1, []testutil.OpAction{{
+		Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec2",
+		Record: map[string]any{"text": "v2"},
+	}})
+	c2.Seq = 3 // seq=2 is the account event between them.
+
+	frames := [][]byte{
+		buildFrame("#commit", mustMarshalCBOR(t, c1)),
+		buildFrame("#account", buildAccountBodyWithStatus(2, string(did), false, sync.StatusTakendown)),
+		buildFrame("#commit", mustMarshalCBOR(t, c2)),
+	}
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	verifier, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:     dir,
+		StateStore:    sync.NewMemStateStore(),
+		Policy:        gt.Some(sync.PolicyError),
+		HostingPolicy: gt.Some(sync.HostingGate),
+	})
+	require.NoError(t, err)
+
+	client := mustNewClient(t, Options{URL: wsURL(srv), Verifier: gt.Some(verifier)})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var (
+		creates       int
+		accountSeen   bool
+		gateRejection bool
+	)
+	for batch, batchErr := range client.Events(ctx) {
+		if batchErr != nil {
+			var aiErr *sync.AccountInactiveError
+			if stderrors.As(batchErr, &aiErr) {
+				gateRejection = true
+				assert.Equal(t, did, aiErr.DID)
+				assert.Equal(t, sync.StatusTakendown, aiErr.Status)
+			}
+			if creates >= 1 && gateRejection {
+				cancel()
+			}
+			continue
+		}
+		for _, evt := range batch {
+			if evt.Account != nil {
+				accountSeen = true
+				assert.Equal(t, string(did), evt.Account.DID,
+					"#account event must still be delivered to the consumer")
+			}
+			for op, opErr := range evt.Operations() {
+				require.NoError(t, opErr)
+				if op.Action == ActionCreate {
+					creates++
+				}
+			}
+		}
+		if creates >= 1 && gateRejection {
+			cancel()
+		}
+	}
+	assert.Equal(t, 1, creates, "first commit should pass; second must be gated")
+	assert.True(t, accountSeen, "consumer must still observe the #account event itself")
+	assert.True(t, gateRejection, "second commit must surface AccountInactiveError")
+
+	// Verifier counter sanity check: the gate ticked, the first commit
+	// was verified, the verifier saw exactly one account event.
+	stats := verifier.Stats()
+	assert.Equal(t, uint64(1), stats.AccountsInactive)
+	assert.Equal(t, uint64(1), stats.EventsVerified)
+
+	// HostingState in the StateStore must reflect the takedown.
+	hosting, err := verifier.StateStore().LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, hosting, "account event should have populated hosting state")
+	assert.False(t, hosting.Active)
+	assert.Equal(t, sync.StatusTakendown, hosting.Status)
+}
+
+// TestVerifiedStream_AccountEventTrackedUnderHostingTrack covers the
+// default HostingTrack policy: the streaming layer still feeds account
+// events into the verifier (so consumers can read state via
+// StateStore.LoadHosting), but commits are not gated.
+func TestVerifiedStream_AccountEventTrackedUnderHostingTrack(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:tracked1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	c1 := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec1",
+		Record: map[string]any{"text": "v1"},
+	}})
+	c1.Seq = 2 // seq=1 is the account event.
+
+	frames := [][]byte{
+		buildFrame("#account", buildAccountBodyWithStatus(1, string(did), false, sync.StatusSuspended)),
+		buildFrame("#commit", mustMarshalCBOR(t, c1)),
+	}
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	verifier, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: sync.NewMemStateStore(),
+		Policy:     gt.Some(sync.PolicyError),
+		// HostingPolicy left unset → HostingTrack default.
+	})
+	require.NoError(t, err)
+
+	client := mustNewClient(t, Options{URL: wsURL(srv), Verifier: gt.Some(verifier)})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var creates int
+	for batch, batchErr := range client.Events(ctx) {
+		require.NoError(t, batchErr)
+		for _, evt := range batch {
+			for op, opErr := range evt.Operations() {
+				require.NoError(t, opErr)
+				if op.Action == ActionCreate {
+					creates++
+				}
+			}
+		}
+		if creates >= 1 {
+			cancel()
+		}
+	}
+	assert.Equal(t, 1, creates, "HostingTrack must NOT gate commits")
+
+	// State was tracked, just not gated.
+	hosting, err := verifier.StateStore().LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, hosting, "HostingTrack must still persist account state")
+	assert.False(t, hosting.Active)
+	assert.Equal(t, sync.StatusSuspended, hosting.Status)
+	assert.Equal(t, uint64(0), verifier.Stats().AccountsInactive)
+}
+
+// TestVerifiedStream_AccountEventReplayDropped covers the seq-based
+// replay gate inside Verifier.OnAccountEvent, observed end-to-end:
+// re-delivering an account event at the same seq must not double-count
+// in the AccountEventReplaysDropped stat.
+func TestVerifiedStream_AccountEventReplayDropped(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:replayacct1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	frames := [][]byte{
+		// First account event lands cleanly.
+		buildFrame("#account", buildAccountBodyWithStatus(10, string(did), true, "")),
+		// Re-deliver same seq — must be silently dropped (not an error).
+		buildFrame("#account", buildAccountBodyWithStatus(10, string(did), false, sync.StatusTakendown)),
+		// And one more at a lower seq, also a replay.
+		buildFrame("#account", buildAccountBodyWithStatus(5, string(did), false, sync.StatusTakendown)),
+	}
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	verifier, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: sync.NewMemStateStore(),
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	client := mustNewClient(t, Options{URL: wsURL(srv), Verifier: gt.Some(verifier)})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var accountEvents int
+	for batch, batchErr := range client.Events(ctx) {
+		require.NoError(t, batchErr,
+			"replay drops are silent inside the verifier; the streaming layer must not surface them as errors")
+		for _, evt := range batch {
+			if evt.Account != nil {
+				accountEvents++
+			}
+		}
+		if accountEvents >= 3 {
+			cancel()
+		}
+	}
+	assert.Equal(t, 3, accountEvents, "consumer must still see all three account events")
+
+	// Two of three were replays from the verifier's view.
+	stats := verifier.Stats()
+	assert.Equal(t, uint64(2), stats.AccountEventReplaysDropped,
+		"verifier should have dropped the second and third events as seq replays")
+
+	// Persisted state reflects the FIRST event (Active=true), since the
+	// later events were rejected as replays.
+	hosting, err := verifier.StateStore().LoadHosting(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, hosting)
+	assert.True(t, hosting.Active, "state must reflect first event, not dropped re-deliveries")
+	assert.Equal(t, int64(10), hosting.Seq)
+}

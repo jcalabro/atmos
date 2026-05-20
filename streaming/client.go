@@ -89,8 +89,13 @@ type Options struct {
 
 	// Verifier, when set, runs Sync 1.1 verification on every #commit
 	// and #sync event before they reach the consumer's Operations()
-	// iterator. None means no verification — events flow through
-	// unchanged (existing behavior).
+	// iterator, AND feeds every #account event into the verifier's
+	// hosting-state tracker (so HostingPolicy=HostingGate can drop
+	// commits for takendown DIDs). None means no verification — events
+	// flow through unchanged (existing behavior).
+	//
+	// Only applied to firehose streams; jetstream isn't part of the
+	// verifier's contract.
 	Verifier gt.Option[*sync.Verifier]
 }
 
@@ -586,6 +591,36 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			if evt.Sync != nil && c.syncClient != nil {
 				evt.ctx = ctx
 				evt.syncClient = c.syncClient
+			}
+
+			// Sync 1.1: feed #account events into the verifier so its
+			// HostingState (and the HostingGate policy that depends on
+			// it) reflects upstream takedowns/suspensions before the
+			// next #commit/#sync for the same DID lands. Restricted to
+			// the firehose — jetstream's compact format isn't part of
+			// the verifier's contract. The event still passes through
+			// to the consumer below.
+			if c.opts.Verifier.HasVal() && !c.isJetstream && evt.Account != nil {
+				if aErr := c.opts.Verifier.Val().OnAccountEvent(ctx, evt.Account); aErr != nil {
+					// OnAccountEvent only errors on infrastructure
+					// failure (DID parse, StateStore load/save). Surface
+					// it loudly: silently swallowing means future events
+					// for this DID get gated against stale state.
+					if seq := evt.seqOf(); seq > 0 {
+						lastSeenSeq = seq
+					}
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+					if !yield(nil, aErr) {
+						return true
+					}
+					// Don't `continue` — we still want to deliver the
+					// raw #account event to the consumer below so they
+					// can react regardless of the verifier's bookkeeping
+					// failure.
+				}
 			}
 
 			// Sync 1.1 verification, when configured. Only valid for full-fat firehose events
