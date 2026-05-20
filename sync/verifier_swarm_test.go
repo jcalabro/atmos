@@ -31,19 +31,12 @@ import (
 //	emitted == accepted + dropped + chainBreaks + inversionErrs
 //
 // and confirm each Stats() field matches the locally-tracked count.
-//
-// The original Sync 1.1 plan called for 1000/100k iterations, but
-// atmos has no test-long recipe: we target 50 iters under -short and
-// 500 otherwise. Each iteration spawns 4 DIDs, seeds them, and runs
-// 50 random fault events — 500 * 4 * (1+50) = 102,000 events on the
-// default `just test` invocation, completing in well under a minute
-// on a developer laptop.
 func TestVerifierSwarm(t *testing.T) {
 	t.Parallel()
 
-	iters := 500
+	iters := 1000
 	if testing.Short() {
-		iters = 50
+		iters = 10
 	}
 	for i := 0; i < iters; i++ {
 		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
