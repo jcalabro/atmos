@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	mathrand "math/rand"
+	"net/http"
+	"net/http/httptest"
 	stdsync "sync"
 	"testing"
 	"time"
@@ -929,4 +931,218 @@ func TestVerifier_PerDIDRateLimiter(t *testing.T) {
 	// Different DID has its own bucket.
 	other := atmos.DID("did:plc:other")
 	assert.True(t, sync.AllowResyncForTest(v, other))
+}
+
+// newFakeSyncServer returns an *xrpc.Client whose GetRepo endpoint
+// returns the given CAR bytes for the matching DID.
+func newFakeSyncServer(t *testing.T, did atmos.DID, carBytes []byte) *xrpc.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.getRepo":
+			if r.URL.Query().Get("did") != string(did) {
+				w.WriteHeader(404)
+				return
+			}
+			w.Header().Set("Content-Type", "application/vnd.ipld.car")
+			_, _ = w.Write(carBytes)
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return &xrpc.Client{
+		Host:  srv.URL,
+		Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+	}
+}
+
+func TestVerifier_Resync_Success(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:resync1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	for i := range 3 {
+		require.NoError(t, r.Create("app.bsky.feed.post",
+			fmt.Sprintf("rec%d", i), map[string]any{"text": fmt.Sprintf("rec%d", i)}))
+	}
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+
+	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	var (
+		resyncDID    atmos.DID
+		resyncOldRev string
+		resyncNewRev string
+		resyncReason sync.ResyncReason
+	)
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  sync.NewMemChainStore(),
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+		OnResync: func(d atmos.DID, oldRev, newRev string, reason sync.ResyncReason) {
+			resyncDID = d
+			resyncOldRev = oldRev
+			resyncNewRev = newRev
+			resyncReason = reason
+		},
+	})
+	require.NoError(t, err)
+
+	ops, err := v.Resync(context.Background(), did)
+	require.NoError(t, err)
+	require.Len(t, ops, 3)
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, string(did), op.Repo)
+	}
+	assert.Equal(t, did, resyncDID)
+	assert.Equal(t, sync.ReasonSyncEvent, resyncReason)
+	assert.Empty(t, resyncOldRev, "first resync should report empty oldRev (no prior chain state)")
+	state, err := v.ChainStore().Load(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, state.Rev, resyncNewRev, "newRev should match the rev we just wrote to chain state")
+}
+
+func TestVerifier_Resync_RateLimited(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:rl1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x",
+		map[string]any{"text": "x"}))
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+
+	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  sync.NewMemChainStore(),
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Limit(0.001), // effectively no refill during test
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	// First resync allowed.
+	_, err = v.Resync(context.Background(), did)
+	require.NoError(t, err)
+	// Second immediately should be rate limited.
+	_, err = v.Resync(context.Background(), did)
+	var rl *sync.ResyncRateLimitedError
+	require.ErrorAs(t, err, &rl)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.ResyncFailures, "rate limit is not a failure; counter must not increment")
+	assert.Equal(t, uint64(1), stats.Resyncs, "first call should have succeeded")
+}
+
+func TestVerifier_Resync_BadSignatureFails(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:badsig1")
+	signKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	wrongKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x",
+		map[string]any{"text": "x"}))
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, signKey))
+
+	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, wrongKey.PublicKey()) // wrong key in DID doc
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  sync.NewMemChainStore(),
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), did)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, err, &rfe)
+}
+
+type failingChainStore struct {
+	real sync.ChainStore
+}
+
+func (s *failingChainStore) Load(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
+	return s.real.Load(ctx, did)
+}
+func (s *failingChainStore) Save(_ context.Context, _ atmos.DID, _ sync.ChainState) error {
+	return errors.New("disk full")
+}
+func (s *failingChainStore) Delete(ctx context.Context, did atmos.DID) error {
+	return s.real.Delete(ctx, did)
+}
+
+func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:savefail1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x",
+		map[string]any{"text": "x"}))
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+
+	xc := newFakeSyncServer(t, did, carBuf.Bytes())
+	resolver := newTrackingResolver()
+	resolver.docs[did] = buildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  &failingChainStore{real: sync.NewMemChainStore()},
+		Policy:      sync.PolicyResync,
+		ResyncLimit: rate.Inf,
+		ResyncBurst: 1,
+	})
+	require.NoError(t, err)
+
+	_, err = v.Resync(context.Background(), did)
+	var rfe *sync.ResyncFailedError
+	require.ErrorAs(t, err, &rfe)
+	assert.Contains(t, rfe.Cause.Error(), "save chain state",
+		"expected the cause to mention the save failure")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.ResyncFailures)
+	assert.Equal(t, uint64(0), stats.Resyncs)
 }

@@ -267,6 +267,20 @@ type VerifierStats struct {
 	RevReplaysDropped uint64
 }
 
+// VerifierOp is the operation shape the Verifier produces. It mirrors
+// streaming.Operation but lives in this package to avoid an import
+// cycle. streaming converts these into streaming.Operation values
+// when populating Event.verifiedOps.
+type VerifierOp struct {
+	Action     string // "create", "update", "delete", "resync"
+	Collection string
+	RKey       string
+	Repo       string // DID
+	Rev        string
+	CID        []byte
+	BlockData  []byte
+}
+
 // VerifierOptions configures a Verifier. Most fields are required
 // for PolicyResync (the default); ChainStore and Directory are
 // always required.
@@ -303,6 +317,10 @@ type VerifierOptions struct {
 	// this is the first resync we've ever performed for did (Load returned
 	// nil) or the resync was triggered by a #sync event from an upstream we
 	// hadn't seen before.
+	//
+	// Invoked while the per-DID mutex is held — a slow callback delays all
+	// verification for that DID. Keep it fast or hand off to a worker
+	// goroutine.
 	OnResync func(did atmos.DID, oldRev, newRev string, reason ResyncReason)
 
 	// OnVerificationFailure, if non-nil, fires once per verification failure
@@ -456,6 +474,106 @@ func (v *Verifier) allowResync(did atmos.DID) bool {
 		panic("Verifier.allowResync: stored value is not *rate.Limiter")
 	}
 	return lim.Allow()
+}
+
+// resync fetches the repo via getRepo, verifies the signature of the
+// fetched commit, walks the MST, and yields all current records as
+// ActionResync ops. Advances chain state to the fetched (rev, data).
+//
+// Subject to the per-DID resync rate limit. Caller must hold the
+// per-DID mutex.
+func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReason) ([]VerifierOp, error) {
+	if !v.allowResync(did) {
+		return nil, &ResyncRateLimitedError{DID: did}
+	}
+
+	body, err := v.opts.SyncClient.GetRepoStream(ctx, did, "")
+	if err != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+	}
+	defer func() { _ = body.Close() }()
+
+	rp, commit, err := repo.LoadFromCAR(body)
+	if err != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+	}
+
+	// Verify signature on fetched commit. We do NOT chain-check against
+	// the old state — the whole point of resync is that the chain is
+	// broken.
+	if err := v.verifyCommitSignature(ctx, did, commit); err != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+	}
+
+	// Capture old state for the OnResync callback.
+	old, _ := v.opts.ChainStore.Load(ctx, did)
+	oldRev := ""
+	if old != nil {
+		oldRev = old.Rev
+	}
+
+	// Walk MST, build ops.
+	var ops []VerifierOp
+	walkErr := rp.Tree.Walk(func(key string, val cbor.CID) error {
+		col, rkey := splitKey(key)
+		data, err := rp.Store.GetBlock(val)
+		if err != nil {
+			return fmt.Errorf("walk %s: %w", key, err)
+		}
+		ops = append(ops, VerifierOp{
+			Action:     "resync",
+			Collection: col,
+			RKey:       rkey,
+			Repo:       string(did),
+			Rev:        commit.Rev,
+			CID:        val.Bytes(),
+			BlockData:  data,
+		})
+		return nil
+	})
+	if walkErr != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: walkErr}
+	}
+
+	if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: commit.Data}); err != nil {
+		v.resyncFailures.Add(1)
+		return nil, &ResyncFailedError{DID: did, Reason: reason,
+			Cause: fmt.Errorf("save chain state: %w", err)}
+	}
+
+	v.resyncs.Add(1)
+	if v.opts.OnResync != nil {
+		v.opts.OnResync(did, oldRev, commit.Rev, reason)
+	}
+	return ops, nil
+}
+
+// Resync forces an immediate resync of one DID. Useful for consumers
+// running PolicyError that have decided to repair a chain break or
+// inversion failure themselves.
+//
+// Subject to the per-DID resync rate limit and the per-DID mutex (so
+// concurrent VerifyAndExpand calls for the same DID will not race).
+func (v *Verifier) Resync(ctx context.Context, did atmos.DID) ([]VerifierOp, error) {
+	unlock := v.lockDID(did)
+	defer unlock()
+	return v.resync(ctx, did, ReasonSyncEvent)
+}
+
+// ChainStore returns the configured chain store. Useful for inspection
+// from tests and for consumers that need to read state outside the
+// verifier (e.g. to filter events on hosting status).
+//
+// Consumers MUST NOT call Save on the returned store; the verifier
+// owns all writes. Calling Save externally will desynchronize the
+// in-memory rev/data tracking the verifier maintains and produce
+// spurious chain-break errors. Read-only access (Load) is safe.
+func (v *Verifier) ChainStore() ChainStore {
+	return v.opts.ChainStore
 }
 
 // Stats returns a snapshot of this verifier's counters. Safe to call
