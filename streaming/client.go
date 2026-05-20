@@ -86,6 +86,12 @@ type Options struct {
 	// gt.Some[*sync.Client](nil). This option is only used for repo
 	// consumption, not labels.
 	SyncClient gt.Option[*sync.Client]
+
+	// Verifier, when set, runs Sync 1.1 verification on every #commit
+	// and #sync event before they reach the consumer's Operations()
+	// iterator. None means no verification — events flow through
+	// unchanged (existing behavior).
+	Verifier gt.Option[*sync.Verifier]
 }
 
 // Client connects to an ATProto event stream (firehose or label stream).

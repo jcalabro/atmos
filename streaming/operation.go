@@ -64,6 +64,14 @@ func (o *Operation) Decode(dst CBORUnmarshaler) error {
 // callers that need to iterate multiple times should collect the results.
 func (e *Event) Operations() iter.Seq2[Operation, error] {
 	return func(yield func(Operation, error) bool) {
+		if e.verifierRan {
+			for _, op := range e.verifiedOps {
+				if !yield(op, nil) {
+					return
+				}
+			}
+			return
+		}
 		if e.Commit != nil {
 			e.yieldCommitOps(yield)
 			return

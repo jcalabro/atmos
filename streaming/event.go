@@ -39,6 +39,14 @@ type Event struct {
 	// Set by readLoop for lazy #sync handling. Unexported, single-goroutine.
 	ctx        context.Context
 	syncClient *sync.Client
+
+	// verifiedOps and verifierRan together encode the result of running
+	// a sync.Verifier on this event. When verifierRan is true,
+	// Operations() yields verifiedOps directly without re-decoding the
+	// CAR. An empty-but-verifierRan-true means "verifier saw zero ops" —
+	// distinct from "verifier never ran" (verifierRan=false).
+	verifiedOps []Operation
+	verifierRan bool
 }
 
 // Labels returns the individual labels from a subscribeLabels event,
