@@ -201,6 +201,27 @@ func BuildSyntheticCommit(t *testing.T, r *repo.Repo, key crypto.PrivateKey, pre
 	return c
 }
 
+// BuildSyncEventBlocks constructs the `Blocks` field for a
+// SyncSubscribeRepos_Sync event: a CAR file containing exactly one
+// block (the signed commit) with the commit CID as the CAR root.
+// This matches what a 1.1-compliant PDS emits — the event's CAR
+// intentionally carries no MST nodes or records, just the commit.
+//
+// The returned bytes are ready to assign to syncEvt.Blocks.
+func BuildSyncEventBlocks(t *testing.T, r *repo.Repo, key crypto.PrivateKey, dataCID cbor.CID) []byte {
+	t.Helper()
+	commitBlock, err := BuildAndStoreSignedCommit(r, key, dataCID)
+	require.NoError(t, err)
+	commitBytes, err := r.Store.GetBlock(commitBlock.CID)
+	require.NoError(t, err)
+
+	var carBuf bytes.Buffer
+	cw, err := car.NewWriter(&carBuf, []cbor.CID{commitBlock.CID})
+	require.NoError(t, err)
+	require.NoError(t, cw.WriteBlock(commitBlock.CID, commitBytes))
+	return carBuf.Bytes()
+}
+
 // BuildDIDDoc constructs a minimal DID document for did with the
 // given signing key as the "atproto" verification method.
 func BuildDIDDoc(did atmos.DID, key crypto.PublicKey) *identity.DIDDocument {

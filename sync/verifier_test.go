@@ -1359,6 +1359,307 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().RevReplaysDropped)
 }
 
+// ---------------------------------------------------------------------------
+// #sync no-op fast path (A5): skip getRepo when embedded data == seen data
+// ---------------------------------------------------------------------------
+
+// syncNoOpVerifier builds a verifier wired against a fake getRepo
+// server that, if hit, would return a CAR matching the test's
+// pre-state. The intent is to spot regressions where the fast path
+// fails to short-circuit: if a test expects no-op behavior and the
+// verifier accidentally falls through to resync, the fake server
+// fields the request and the test's resync counter assertions catch
+// it. PolicyResync is used so a fall-through results in a successful
+// resync (visible via the counter) rather than a typed error.
+func syncNoOpVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, r *repo.Repo) (*sync.Verifier, sync.ChainStore) {
+	t.Helper()
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	cs := sync.NewMemChainStore()
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		ChainStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+	return v, cs
+}
+
+// TestVerifyAndExpand_SyncEventNoOpFastPath is the headline A5 test:
+// when the upstream's #sync embedded commit declares the same data
+// CID we already have in chain state, we advance rev tracking and
+// skip getRepo. SyncNoOps increments; Resyncs stays at zero.
+func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncnop1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, cs := syncNoOpVerifier(t, did, key, r)
+
+	// Pre-seed chain state with the data CID we'll match.
+	oldRev := string(atmos.NewTIDFromTime(time.Now().Add(-1*time.Hour), 0))
+	require.NoError(t, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: oldRev, Data: dataCID}))
+
+	// Build a #sync event whose embedded commit asserts the same
+	// data CID at a newer rev.
+	newRev := string(atmos.NewTIDNow(0))
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    newRev,
+		Blocks: testutil.BuildSyncEventBlocks(t, r, key, dataCID),
+	}
+	// BuildSyncEventBlocks uses the repo's clock to mint the inner rev,
+	// which won't match newRev — but the no-op fast path doesn't care
+	// about envelope/inner rev consistency (that's a #commit-only
+	// invariant). We're testing data-CID equality.
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, vErr)
+	assert.Nil(t, ops, "no-op fast path should yield (nil, nil)")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.SyncNoOps)
+	assert.Equal(t, uint64(0), stats.Resyncs, "no-op must NOT trigger getRepo")
+	assert.Equal(t, uint64(0), stats.ResyncFailures)
+
+	// State.Rev advanced to the sync event's rev; data unchanged.
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, newRev, state.Rev, "rev should advance to the sync event's claim")
+	assert.True(t, state.Data.Equal(dataCID), "data CID must be unchanged")
+}
+
+// TestVerifyAndExpand_SyncEventDataMismatchFallsThrough asserts the
+// inverse: when the embedded commit's data CID differs from our
+// SeenData, the verifier falls through to a real resync. The fake
+// sync server is hit; ActionResync ops are emitted; SyncNoOps stays
+// at zero.
+func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncnop2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state of the repo (what getRepo will serve): one record.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	currentDataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, cs := syncNoOpVerifier(t, did, key, r)
+
+	// Pre-seed chain state with a DIFFERENT data CID — guarantees the
+	// no-op fast path can't engage.
+	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	require.NoError(t, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: testutil.BuildSyncEventBlocks(t, r, key, currentDataCID),
+	}
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, vErr)
+	require.NotEmpty(t, ops, "data mismatch must trigger resync, yielding ActionResync ops")
+	for _, op := range ops {
+		assert.Equal(t, "resync", op.Action)
+	}
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.SyncNoOps, "data mismatch must NOT increment SyncNoOps")
+	assert.Equal(t, uint64(1), stats.Resyncs)
+
+	// State.Data advanced to the resynced commit's data CID.
+	state, err := cs.Load(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.True(t, state.Data.Equal(currentDataCID))
+}
+
+// TestVerifyAndExpand_SyncEventFirstSightingFallsThrough asserts the
+// fast path doesn't engage when there's no chain state yet — without
+// prior SeenData we have nothing to compare the embedded commit's
+// data CID against, so we must fall through to getRepo.
+func TestVerifyAndExpand_SyncEventFirstSightingFallsThrough(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncnop3")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, _ := syncNoOpVerifier(t, did, key, r)
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: testutil.BuildSyncEventBlocks(t, r, key, dataCID),
+	}
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, vErr)
+	require.NotEmpty(t, ops, "first sighting must resync to establish a baseline")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.SyncNoOps)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
+// TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough covers the
+// "older PDS that doesn't yet emit Blocks on #sync" case: with no
+// embedded commit there's nothing to compare data CIDs against, so
+// the fast path is skipped and a normal resync runs. (The pre-A5
+// behavior — included as a regression test for the same code path
+// the old TestVerifyAndExpand_SyncEvent exercises.)
+func TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncnop4")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, cs := syncNoOpVerifier(t, did, key, r)
+	// Even with state.Data matching what the resync would return, the
+	// fast path can't engage with no Blocks to decode — assert a
+	// resync still runs.
+	require.NoError(t, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: dataCID}))
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID: string(did),
+		Rev: string(atmos.NewTIDNow(0)),
+		// Blocks intentionally omitted.
+	}
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, vErr)
+	require.NotEmpty(t, ops)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.SyncNoOps)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
+// TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough asserts
+// graceful handling of bogus Blocks. The fast path tries to decode
+// and silently falls through to resync rather than erroring — the
+// authoritative state from getRepo is the right answer regardless of
+// what the upstream put in the embedded CAR.
+func TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncnop5")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	v, cs := syncNoOpVerifier(t, did, key, r)
+	require.NoError(t, cs.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: dataCID}))
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: []byte{0xff, 0xff, 0xff}, // garbage CAR
+	}
+
+	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.NoError(t, vErr, "malformed Blocks should fall through to resync, not error")
+	require.NotEmpty(t, ops)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.SyncNoOps)
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
+// TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError covers the
+// observability concern: if ChainStore.Save fails on the no-op fast
+// path (advancing rev with unchanged data), we surface the error
+// rather than silently falling through to a resync that would also
+// fail to save. Operators see chain-store breakage immediately.
+func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncnop6")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	// Real underlying store pre-seeded with matching state.
+	realStore := sync.NewMemChainStore()
+	require.NoError(t, realStore.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: dataCID}))
+	cs := &failingChainStore{real: realStore}
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     gt.Some(sync.PolicyResync),
+	})
+	require.NoError(t, err)
+
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    string(atmos.NewTIDNow(0)),
+		Blocks: testutil.BuildSyncEventBlocks(t, r, key, dataCID),
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	require.Error(t, vErr, "save failure on no-op fast path must surface as error")
+	assert.Contains(t, vErr.Error(), "save chain state on sync no-op")
+
+	stats := v.Stats()
+	// SyncNoOps is NOT incremented on save failure — the fast path
+	// didn't actually complete. Resyncs also not attempted.
+	assert.Equal(t, uint64(0), stats.SyncNoOps)
+	assert.Equal(t, uint64(0), stats.Resyncs)
+}
+
 func TestVerifyAndExpand_BothNilIsNoOp(t *testing.T) {
 	t.Parallel()
 

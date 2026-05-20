@@ -526,6 +526,13 @@ type VerifierStats struct {
 	// alongside a high resync rate is the signature of a non-upgraded
 	// upstream PDS.
 	LegacyCommits uint64
+
+	// SyncNoOps counts #sync events whose embedded commit's data CID
+	// matched our locally-tracked data CID — the upstream was just
+	// asserting current state, not signaling a desync. We advance the
+	// rev tracking and short-circuit the (otherwise expensive)
+	// getRepo call.
+	SyncNoOps uint64
 }
 
 // VerifierOp is the operation shape the Verifier produces. It mirrors
@@ -651,6 +658,7 @@ type Verifier struct {
 	fieldMismatches        atomic.Uint64
 	opCIDMismatches        atomic.Uint64
 	legacyCommits          atomic.Uint64
+	syncNoOps              atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -900,6 +908,7 @@ func (v *Verifier) Stats() VerifierStats {
 		FieldMismatches:        v.fieldMismatches.Load(),
 		OpCIDMismatches:        v.opCIDMismatches.Load(),
 		LegacyCommits:          v.legacyCommits.Load(),
+		SyncNoOps:              v.syncNoOps.Load(),
 	}
 }
 
@@ -1448,6 +1457,35 @@ func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Co
 	return c, store, nil
 }
 
+// decodeCommitFromSyncCAR decodes a #sync event's embedded commit
+// block. Per the lexicon (`com.atproto.sync.subscribeRepos#sync`) the
+// CAR header's first root IS the commit block CID — there's no
+// separate Commit-link field on the envelope to dereference. The CAR
+// is intentionally minimal (commit block only; no MST nodes, no
+// records) so this is much cheaper than the #commit equivalent.
+//
+// Returns nil store on intent: callers don't need the block store for
+// anything else (the embedded Blocks have nothing else to read), so
+// not allocating + returning a parsed map saves the bookkeeping.
+func decodeCommitFromSyncCAR(syncEvt *comatproto.SyncSubscribeRepos_Sync) (*repo.Commit, error) {
+	if len(syncEvt.Blocks) == 0 {
+		return nil, errors.New("sync event has no blocks")
+	}
+	store, rootCID, err := repo.LoadBlocksFromCAR(bytes.NewReader(syncEvt.Blocks))
+	if err != nil {
+		return nil, fmt.Errorf("read sync CAR: %w", err)
+	}
+	data, err := store.GetBlock(rootCID)
+	if err != nil {
+		return nil, fmt.Errorf("commit block missing from sync CAR: %w", err)
+	}
+	c, err := repo.DecodeCommitCBOR(data)
+	if err != nil {
+		return nil, fmt.Errorf("decode sync commit block: %w", err)
+	}
+	return c, nil
+}
+
 // buildOpsFromCommit decodes the commit's ops list into VerifierOp
 // values. For non-delete ops with a CID, the corresponding record
 // block is pulled from the CAR diff if present; missing blocks are
@@ -1546,15 +1584,25 @@ func dataCIDFromCommit(commit *comatproto.SyncSubscribeRepos_Commit) cbor.CID {
 }
 
 // verifySync handles the #sync branch of VerifyAndExpand. A #sync event
-// from upstream signals that the repo state changed out of band — the
-// upstream is telling us "I no longer have a continuous chain to give
-// you; here is my current rev." There is no commit body to verify
-// against locally-tracked state, so we cannot incrementally advance
-// the chain. The only sound response, regardless of policy, is to
-// resync against authoritative state via getRepo and reconcile from
-// there. PolicyError consumers do not get a typed error here: the
-// event itself is not a verification failure, just a directive to
-// re-fetch.
+// from upstream is a directive to re-fetch authoritative state — the
+// upstream is asserting its current rev/data without claiming a
+// continuous chain to whatever we last saw.
+//
+// We optimize the common case where the upstream is just confirming
+// already-known state: if the embedded commit's data CID matches what
+// we have in chain state, we advance the persisted rev and skip the
+// (expensive) getRepo round-trip. Otherwise we fall through to a full
+// resync. Indigo's tap takes the same approach
+// (`cmd/tap/firehose.go:252`).
+//
+// The signature on the embedded commit is not separately verified for
+// the no-op fast path: the only state we mutate is the rev field
+// (moving it forward to match the upstream's claim while data stays
+// pinned), and a forged data CID would be caught by the equality check
+// against our authoritative SeenData. A forged rev advances rev only,
+// which is the same effect that a legitimate matching-rev #sync would
+// have. Sync events that actually trigger resync go through full
+// signature verification on the fetched commit inside resync().
 //
 // Replays (rev <= persisted rev) are silently dropped, mirroring the
 // rev-replay gate on #commit.
@@ -1585,6 +1633,33 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	if state != nil && syncEvt.Rev <= state.Rev {
 		v.revReplaysDropped.Add(1)
 		return nil, nil
+	}
+
+	// No-op fast path: when we already have state and the embedded
+	// commit's data CID matches what we've persisted, the upstream is
+	// just asserting current state. Advance rev (sync events with a
+	// later rev but unchanged data legitimately happen — e.g. PDS
+	// reaffirming after an account-lifecycle event) and return without
+	// doing a getRepo. First sighting (state == nil) skips the fast
+	// path because we have no SeenData to compare against.
+	if state != nil && len(syncEvt.Blocks) > 0 {
+		if inner, decErr := decodeCommitFromSyncCAR(syncEvt); decErr == nil && inner.Data.Equal(state.Data) {
+			if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: syncEvt.Rev, Data: state.Data}); err != nil {
+				// Save failure here is non-fatal for the consumer: we
+				// already had the right data CID; just couldn't push the
+				// rev forward. Surface as an error so operators can spot
+				// chain-store breakage, but don't fall through to resync
+				// (which would also try to Save and most likely fail
+				// the same way).
+				return nil, fmt.Errorf("verifier: save chain state on sync no-op: %w", err)
+			}
+			v.syncNoOps.Add(1)
+			return nil, nil
+		}
+		// Decode failed or data CID mismatched — fall through to resync.
+		// We deliberately don't error on decode failure here: a malformed
+		// embedded commit just means we can't take the fast path; the
+		// authoritative state from getRepo is still the right answer.
 	}
 
 	return v.resync(ctx, did, ReasonSyncEvent)
