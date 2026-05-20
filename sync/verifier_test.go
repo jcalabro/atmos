@@ -8,9 +8,12 @@ import (
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/sync"
+	"github.com/jcalabro/atmos/xrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
 )
 
 func TestMemChainStore_LoadMissingReturnsNilNil(t *testing.T) {
@@ -197,4 +200,100 @@ func TestVerifierStatsZero(t *testing.T) {
 	assert.Equal(t, uint64(0), s.SignatureFailures)
 	assert.Equal(t, uint64(0), s.ResyncFailures)
 	assert.Equal(t, uint64(0), s.RevReplaysDropped)
+}
+
+func TestNewVerifier_RequiredFields(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	xc := &xrpc.Client{Host: "https://example.invalid"}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	t.Run("missing ChainStore", func(t *testing.T) {
+		_, err := sync.NewVerifier(sync.VerifierOptions{
+			SyncClient: sc,
+			Directory:  dir,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ChainStore")
+	})
+
+	t.Run("missing Directory", func(t *testing.T) {
+		_, err := sync.NewVerifier(sync.VerifierOptions{
+			SyncClient: sc,
+			ChainStore: sync.NewMemChainStore(),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Directory")
+	})
+
+	t.Run("PolicyResync requires SyncClient", func(t *testing.T) {
+		_, err := sync.NewVerifier(sync.VerifierOptions{
+			Directory:  dir,
+			ChainStore: sync.NewMemChainStore(),
+			Policy:     sync.PolicyResync,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "SyncClient")
+	})
+
+	t.Run("PolicyError works without SyncClient", func(t *testing.T) {
+		v, err := sync.NewVerifier(sync.VerifierOptions{
+			Directory:  dir,
+			ChainStore: sync.NewMemChainStore(),
+			Policy:     sync.PolicyError,
+		})
+		require.NoError(t, err)
+		assert.NotNil(t, v)
+	})
+
+	t.Run("happy path with all required", func(t *testing.T) {
+		v, err := sync.NewVerifier(sync.VerifierOptions{
+			SyncClient: sc,
+			Directory:  dir,
+			ChainStore: sync.NewMemChainStore(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, v)
+	})
+}
+
+func TestNewVerifier_StatsStartAtZero(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	xc := &xrpc.Client{Host: "https://example.invalid"}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sc,
+		Directory:  dir,
+		ChainStore: sync.NewMemChainStore(),
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, v)
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.EventsVerified)
+}
+
+func TestNewVerifier_DoesNotMutateCallerOptions(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	xc := &xrpc.Client{Host: "https://example.invalid"}
+	sc := sync.NewClient(sync.Options{Client: xc})
+
+	opts := sync.VerifierOptions{
+		SyncClient:  sc,
+		Directory:   dir,
+		ChainStore:  sync.NewMemChainStore(),
+		ResyncLimit: 0,
+		ResyncBurst: 0,
+	}
+	_, err := sync.NewVerifier(opts)
+	require.NoError(t, err)
+	// NewVerifier defaults ResyncLimit and ResyncBurst internally; the
+	// caller's struct must not be mutated.
+	assert.Equal(t, rate.Limit(0), opts.ResyncLimit)
+	assert.Equal(t, 0, opts.ResyncBurst)
 }

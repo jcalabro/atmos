@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	stdsync "sync"
+	"sync/atomic"
 
 	"golang.org/x/time/rate"
 
@@ -306,3 +307,75 @@ type VerifierOptions struct {
 	// goroutine.
 	OnVerificationFailure func(did atmos.DID, err error)
 }
+
+// Verifier performs Sync 1.1 verification of firehose events. Safe
+// for concurrent use across DIDs; per-DID work is serialized
+// internally to prevent racing chain-state advances.
+//
+// Must not be copied; use NewVerifier and pass *Verifier.
+type Verifier struct {
+	_ noCopy
+
+	opts VerifierOptions
+
+	// per-DID serialization. Two events for the same DID never run
+	// through verification concurrently.
+	didMu stdsync.Map //nolint:unused // wired up in subsequent tasks (per-DID mutex map)
+
+	// per-DID resync rate limiter. Lazy-initialized.
+	limiters stdsync.Map //nolint:unused // wired up in subsequent tasks (per-DID rate limiter)
+
+	eventsVerified    atomic.Uint64
+	chainBreaks       atomic.Uint64
+	inversionFailures atomic.Uint64
+	signatureFailures atomic.Uint64
+	resyncs           atomic.Uint64
+	resyncFailures    atomic.Uint64
+	revReplaysDropped atomic.Uint64
+}
+
+// NewVerifier returns a Verifier with the given options. Returns an
+// error if required fields are missing or inconsistent with the
+// chosen Policy.
+func NewVerifier(opts VerifierOptions) (*Verifier, error) {
+	if opts.ChainStore == nil {
+		return nil, fmt.Errorf("sync: NewVerifier: ChainStore is required")
+	}
+	if opts.Directory == nil {
+		return nil, fmt.Errorf("sync: NewVerifier: Directory is required")
+	}
+	if opts.Policy == PolicyResync && opts.SyncClient == nil {
+		return nil, fmt.Errorf("sync: NewVerifier: SyncClient is required for PolicyResync")
+	}
+	if opts.ResyncLimit == 0 {
+		opts.ResyncLimit = rate.Limit(5.0 / 60.0) // 5 per minute
+	}
+	if opts.ResyncBurst == 0 {
+		opts.ResyncBurst = 5
+	}
+	return &Verifier{opts: opts}, nil
+}
+
+// Stats returns a snapshot of this verifier's counters. Safe to call
+// concurrently with verification. See VerifierStats for the across-counter
+// coherence caveat: each individual counter Load is atomic, but two
+// counters may not be simultaneously consistent.
+func (v *Verifier) Stats() VerifierStats {
+	return VerifierStats{
+		EventsVerified:    v.eventsVerified.Load(),
+		ChainBreaks:       v.chainBreaks.Load(),
+		InversionFailures: v.inversionFailures.Load(),
+		SignatureFailures: v.signatureFailures.Load(),
+		Resyncs:           v.resyncs.Load(),
+		ResyncFailures:    v.resyncFailures.Load(),
+		RevReplaysDropped: v.revReplaysDropped.Load(),
+	}
+}
+
+// noCopy is a zero-size sentinel that go vet's copylocks pass treats as
+// non-copyable. Embed it in types whose state must not be duplicated
+// (sync.Map / atomic.Uint64 fields). See https://golang.org/issues/8005.
+type noCopy struct{}
+
+func (*noCopy) Lock()   {}
+func (*noCopy) Unlock() {}
