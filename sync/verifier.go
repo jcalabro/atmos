@@ -1,16 +1,24 @@
 package sync
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	stdsync "sync"
 	"sync/atomic"
 
 	"golang.org/x/time/rate"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/api/comatproto"
+	"github.com/jcalabro/atmos/api/lextypes"
+	"github.com/jcalabro/atmos/car"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/mst"
+	"github.com/jcalabro/atmos/repo"
 )
 
 // ChainState is the per-DID state the verifier tracks: the last
@@ -379,3 +387,101 @@ type noCopy struct{}
 
 func (*noCopy) Lock()   {}
 func (*noCopy) Unlock() {}
+
+// InvertCommit applies the inverse of every op in commit against the
+// partial MST in commit.Blocks (the CAR diff), starting from the
+// commit's post-state MST root (read from the commit block referenced
+// by commit.Commit). Returns the resulting MST root CID, which — for a
+// structurally valid commit — equals the previous commit's data CID.
+//
+// Returns *InversionError if the CAR is malformed, the commit block is
+// missing or undecodable, an op references a CID not present in the
+// diff, or the partial MST is structurally broken. Does NOT error on a
+// non-matching root: that's a chain break, detected by the caller
+// comparing the returned CID against the expected prevData.
+func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error) {
+	if commit == nil {
+		return cbor.CID{}, &InversionError{Cause: fmt.Errorf("nil commit")}
+	}
+	did := atmos.DID(commit.Repo)
+	wrapErr := func(format string, args ...any) error {
+		return &InversionError{DID: did, Rev: commit.Rev, Cause: fmt.Errorf(format, args...)}
+	}
+
+	// Read CAR diff blocks into a fresh in-memory store.
+	store := mst.NewMemBlockStore()
+	if len(commit.Blocks) > 0 {
+		cr, err := car.NewReader(bytes.NewReader(commit.Blocks))
+		if err != nil {
+			return cbor.CID{}, wrapErr("read CAR header: %w", err)
+		}
+		for {
+			b, err := cr.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return cbor.CID{}, wrapErr("read CAR block: %w", err)
+			}
+			if err := store.PutBlock(b.CID, b.Data); err != nil {
+				return cbor.CID{}, wrapErr("store CAR block: %w", err)
+			}
+		}
+	}
+
+	// Resolve the post-state MST root by decoding the commit block from
+	// the CAR. The firehose Commit message carries only a CID link to
+	// the commit object; the actual data CID lives inside that block.
+	commitCID, err := cidFromLink(commit.Commit)
+	if err != nil {
+		return cbor.CID{}, wrapErr("parse commit CID: %w", err)
+	}
+	commitData, err := store.GetBlock(commitCID)
+	if err != nil {
+		return cbor.CID{}, wrapErr("commit block missing from CAR: %w", err)
+	}
+	innerCommit, err := repo.DecodeCommitCBOR(commitData)
+	if err != nil {
+		return cbor.CID{}, wrapErr("decode commit block: %w", err)
+	}
+
+	// Load partial MST rooted at the post-state data CID.
+	tree := mst.LoadTree(store, innerCommit.Data)
+
+	// Apply inverse of each op.
+	for _, op := range commit.Ops {
+		key := op.Path
+		switch op.Action {
+		case "create":
+			if err := tree.Remove(key); err != nil {
+				return cbor.CID{}, wrapErr("invert create %q: %w", key, err)
+			}
+		case "delete", "update":
+			if !op.Prev.HasVal() {
+				return cbor.CID{}, wrapErr("%s op %q missing prev CID", op.Action, key)
+			}
+			prevCID, err := cidFromLink(op.Prev.Val())
+			if err != nil {
+				return cbor.CID{}, wrapErr("%s op %q bad prev CID: %w", op.Action, key, err)
+			}
+			if err := tree.Insert(key, prevCID); err != nil {
+				return cbor.CID{}, wrapErr("invert %s %q: %w", op.Action, key, err)
+			}
+		default:
+			return cbor.CID{}, wrapErr("unknown op action %q", op.Action)
+		}
+	}
+
+	// Compute new root.
+	newRoot, err := tree.RootCID()
+	if err != nil {
+		return cbor.CID{}, wrapErr("compute inverted root: %w", err)
+	}
+	return newRoot, nil
+}
+
+// cidFromLink converts a LexCIDLink to a cbor.CID. The link's
+// underlying string is the CID's string form.
+func cidFromLink(link lextypes.LexCIDLink) (cbor.CID, error) {
+	return cbor.ParseCIDString(link.Link)
+}

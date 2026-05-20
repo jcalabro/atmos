@@ -3,6 +3,7 @@ package mst
 
 import (
 	"fmt"
+	"iter"
 	"unsafe"
 
 	"github.com/jcalabro/atmos/cbor"
@@ -45,6 +46,22 @@ func (s *MemBlockStore) GetBlock(cid cbor.CID) ([]byte, error) {
 func (s *MemBlockStore) PutBlock(cid cbor.CID, data []byte) error {
 	s.blocks[cid] = data
 	return nil
+}
+
+// All returns an iterator over every (cid, data) pair currently in
+// the store. Order is unspecified.
+//
+// Like all MemBlockStore methods, not safe for concurrent use;
+// concurrent mutation during iteration will panic per Go's map-
+// iteration semantics.
+func (s *MemBlockStore) All() iter.Seq2[cbor.CID, []byte] {
+	return func(yield func(cbor.CID, []byte) bool) {
+		for cid, data := range s.blocks {
+			if !yield(cid, data) {
+				return
+			}
+		}
+	}
 }
 
 // entry is an in-memory MST entry: a key/value pair with optional right subtree.

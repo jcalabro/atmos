@@ -29,6 +29,19 @@ var (
 	commitKeyVersion = cbor.AppendTextKey(nil, "version")
 )
 
+// EncodeCBOR returns the DAG-CBOR encoding of the full signed commit.
+// The CID of the returned bytes is the commit CID.
+func (c *Commit) EncodeCBOR() ([]byte, error) {
+	return encodeCommit(c)
+}
+
+// DecodeCommitCBOR decodes a commit block from its raw DAG-CBOR bytes.
+// The commit's Data field is the MST root CID; its Sig is the
+// signature to be verified against the controller's signing key.
+func DecodeCommitCBOR(data []byte) (*Commit, error) {
+	return decodeCommit(data)
+}
+
 // encodeCommit encodes a commit to DAG-CBOR bytes.
 func encodeCommit(c *Commit) ([]byte, error) {
 	// Pre-size: map(6) header + 6 keys + values ≈ 256 bytes typical

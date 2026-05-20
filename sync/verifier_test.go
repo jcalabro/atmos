@@ -1,16 +1,26 @@
 package sync_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	mathrand "math/rand"
 	"testing"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/api/comatproto"
+	"github.com/jcalabro/atmos/api/lextypes"
+	"github.com/jcalabro/atmos/car"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/mst"
+	"github.com/jcalabro/atmos/repo"
+	"github.com/jcalabro/atmos/streaming"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
@@ -296,4 +306,382 @@ func TestNewVerifier_DoesNotMutateCallerOptions(t *testing.T) {
 	// caller's struct must not be mutated.
 	assert.Equal(t, rate.Limit(0), opts.ResyncLimit)
 	assert.Equal(t, 0, opts.ResyncBurst)
+}
+
+// ---------------------------------------------------------------------------
+// InvertCommit tests
+// ---------------------------------------------------------------------------
+
+// buildEmptyRepo returns a freshly created Repo and the CID of its
+// (empty) MST root. The empty MST has a well-defined root CID
+// regardless of which key signs it.
+func buildEmptyRepo(t *testing.T, did atmos.DID) (*repo.Repo, cbor.CID) {
+	t.Helper()
+	store := mst.NewMemBlockStore()
+	r := &repo.Repo{
+		DID:   did,
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+	rootCID, err := r.Tree.RootCID()
+	require.NoError(t, err)
+	return r, rootCID
+}
+
+// opAction describes a single mutation to apply during synthetic-commit
+// construction.
+type opAction struct {
+	action     streaming.Action // ActionCreate, ActionUpdate, ActionDelete
+	collection string
+	rkey       string
+	record     any // ignored for delete
+}
+
+// commitBuildResult is returned by buildAndStoreSignedCommit.
+type commitBuildResult struct {
+	cid cbor.CID
+	rev string
+}
+
+// buildAndStoreSignedCommit creates and signs a commit pointing at
+// rootCID, stores the encoded commit block in r.Store, and returns the
+// commit's CID + raw bytes + rev.
+func buildAndStoreSignedCommit(r *repo.Repo, key crypto.PrivateKey, rootCID cbor.CID) (commitBuildResult, error) {
+	rev := r.Clock.Next()
+	c := &repo.Commit{
+		DID:     string(r.DID),
+		Version: 3,
+		Data:    rootCID,
+		Rev:     string(rev),
+	}
+	if err := c.Sign(key); err != nil {
+		return commitBuildResult{}, err
+	}
+	data, err := c.EncodeCBOR()
+	if err != nil {
+		return commitBuildResult{}, err
+	}
+	cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
+	if err := r.Store.PutBlock(cid, data); err != nil {
+		return commitBuildResult{}, err
+	}
+	return commitBuildResult{cid: cid, rev: string(rev)}, nil
+}
+
+// buildSyntheticCommit applies opActions to r in order, then constructs
+// a synthetic SyncSubscribeRepos_Commit whose Blocks CAR contains the
+// post-state MST blocks plus all pre-state nodes the inverter will
+// need (i.e., everything currently in r.Store). The commit is signed
+// with key. PrevData is set to prevData.
+func buildSyntheticCommit(t *testing.T, r *repo.Repo, key crypto.PrivateKey, prevData cbor.CID, ops []opAction) *comatproto.SyncSubscribeRepos_Commit {
+	t.Helper()
+
+	// Capture pre-state record CIDs for update/delete ops before
+	// mutating the tree.
+	type prevSnap struct {
+		cid cbor.CID
+		had bool
+	}
+	prevSnaps := make([]prevSnap, len(ops))
+	for i, op := range ops {
+		if op.action == streaming.ActionUpdate || op.action == streaming.ActionDelete {
+			cid, _, err := r.Get(op.collection, op.rkey)
+			require.NoError(t, err, "pre-state Get %s/%s", op.collection, op.rkey)
+			prevSnaps[i] = prevSnap{cid: cid, had: true}
+		}
+	}
+
+	// Apply ops to the live tree.
+	postCIDs := make([]cbor.CID, len(ops)) // for create/update, the new record CID
+	for i, op := range ops {
+		switch op.action {
+		case streaming.ActionCreate, streaming.ActionUpdate:
+			require.NoError(t, r.Create(op.collection, op.rkey, op.record))
+			cid, _, err := r.Get(op.collection, op.rkey)
+			require.NoError(t, err)
+			postCIDs[i] = cid
+		case streaming.ActionDelete:
+			require.NoError(t, r.Delete(op.collection, op.rkey))
+		default:
+			t.Fatalf("unsupported op action %q", op.action)
+		}
+	}
+
+	// Compute the post-state root and persist all touched MST nodes.
+	postRoot, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	// Build and store the signed commit block.
+	commitBlock, err := buildAndStoreSignedCommit(r, key, postRoot)
+	require.NoError(t, err)
+
+	// Write CAR. Iterate every block in r.Store; the inverter only
+	// strictly needs the nodes touched by the inverse path, but
+	// dumping the whole store is always sufficient.
+	memStore, ok := r.Store.(*mst.MemBlockStore)
+	require.True(t, ok, "test setup expected MemBlockStore")
+
+	var carBuf bytes.Buffer
+	cw, err := car.NewWriter(&carBuf, []cbor.CID{commitBlock.cid})
+	require.NoError(t, err)
+	for cid, data := range memStore.All() {
+		require.NoError(t, cw.WriteBlock(cid, data))
+	}
+
+	// Build the SyncSubscribeRepos_Commit.
+	c := &comatproto.SyncSubscribeRepos_Commit{
+		Repo:     string(r.DID),
+		Rev:      commitBlock.rev,
+		Commit:   lextypes.LexCIDLink{Link: commitBlock.cid.String()},
+		Blocks:   carBuf.Bytes(),
+		PrevData: gt.Some(lextypes.LexCIDLink{Link: prevData.String()}),
+	}
+	for i, op := range ops {
+		repoOp := comatproto.SyncSubscribeRepos_RepoOp{
+			Action: string(op.action),
+			Path:   op.collection + "/" + op.rkey,
+		}
+		if op.action != streaming.ActionDelete {
+			repoOp.CID = gt.Some(lextypes.LexCIDLink{Link: postCIDs[i].String()})
+		}
+		if prevSnaps[i].had {
+			repoOp.Prev = gt.Some(lextypes.LexCIDLink{Link: prevSnaps[i].cid.String()})
+		}
+		c.Ops = append(c.Ops, repoOp)
+	}
+	return c
+}
+
+func TestInvertCommit_SingleCreateOnEmptyMST(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:test1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, prevData := buildEmptyRepo(t, did)
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
+		action:     streaming.ActionCreate,
+		collection: "app.bsky.feed.post",
+		rkey:       "rec1",
+		record:     map[string]any{"text": "hello", "createdAt": "2024-01-01T00:00:00Z"},
+	}})
+
+	got, err := sync.InvertCommit(commit)
+	require.NoError(t, err)
+	assert.True(t, got.Equal(prevData),
+		"inverting a create should restore the empty MST root: got %s want %s",
+		got, prevData)
+}
+
+func TestInvertCommit_MultiOp(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:test2")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Pre-state: r already has rec1 (so we can update it) and rec2
+	// (so we can delete it). Capture prevData after seeding.
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "old"}))
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec2", map[string]any{"text": "doomed"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{
+		{action: streaming.ActionCreate, collection: "app.bsky.feed.post", rkey: "rec3", record: map[string]any{"text": "new"}},
+		{action: streaming.ActionUpdate, collection: "app.bsky.feed.post", rkey: "rec1", record: map[string]any{"text": "new"}},
+		{action: streaming.ActionDelete, collection: "app.bsky.feed.post", rkey: "rec2"},
+	})
+
+	got, err := sync.InvertCommit(commit)
+	require.NoError(t, err)
+	assert.True(t, got.Equal(prevData), "got %s want %s", got, prevData)
+}
+
+func TestInvertCommit_EmptyOps(t *testing.T) {
+	t.Parallel()
+	// An empty-ops commit (allowed by the spec) inverts to itself —
+	// inverted root == post-state root == prevData (which was also the
+	// pre-state root, since no mutation happened).
+	did := atmos.DID("did:plc:empty")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	r, prevData := buildEmptyRepo(t, did)
+	commit := buildSyntheticCommit(t, r, key, prevData, nil)
+
+	got, err := sync.InvertCommit(commit)
+	require.NoError(t, err)
+	assert.True(t, got.Equal(prevData))
+}
+
+// TestInvertCommit_MissingPrevOnRealCommit specifically exercises the
+// "update op with no Prev" branch by building a real synthetic commit
+// and then mutating one op to drop its Prev, ensuring the malformed
+// op is detected during the inversion loop rather than the prologue.
+func TestInvertCommit_MissingPrevOnRealCommit(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:noprev")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := buildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := buildSyntheticCommit(t, r, key, prevData, []opAction{{
+		action:     streaming.ActionUpdate,
+		collection: "app.bsky.feed.post",
+		rkey:       "rec1",
+		record:     map[string]any{"text": "v2"},
+	}})
+	// Drop the Prev field that the helper added.
+	commit.Ops[0].Prev = gt.None[lextypes.LexCIDLink]()
+
+	_, err = sync.InvertCommit(commit)
+	var ie *sync.InversionError
+	require.ErrorAs(t, err, &ie)
+}
+
+func TestInvertCommit_MalformedCAR(t *testing.T) {
+	t.Parallel()
+	commit := &comatproto.SyncSubscribeRepos_Commit{
+		Repo:   "did:plc:abc",
+		Rev:    "r1",
+		Blocks: []byte{0x00, 0x01, 0x02}, // garbage
+	}
+	_, err := sync.InvertCommit(commit)
+	var ie *sync.InversionError
+	require.ErrorAs(t, err, &ie)
+}
+
+// TestInvertCommit_ValidCARNoBlocks builds a CAR with only a header
+// (no blocks). The CAR parses cleanly but the commit-block lookup
+// fails, exercising a distinct error path from a malformed CAR.
+func TestInvertCommit_ValidCARNoBlocks(t *testing.T) {
+	t.Parallel()
+
+	fakeCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	_, err = car.NewWriter(&buf, []cbor.CID{fakeCID})
+	require.NoError(t, err)
+
+	commit := &comatproto.SyncSubscribeRepos_Commit{
+		Repo:   "did:plc:abc",
+		Rev:    "r1",
+		Blocks: buf.Bytes(),
+		Commit: lextypes.LexCIDLink{Link: fakeCID.String()},
+	}
+	_, err = sync.InvertCommit(commit)
+	var ie *sync.InversionError
+	require.ErrorAs(t, err, &ie)
+}
+
+func TestInvertCommit_PropertyRandomOps(t *testing.T) {
+	t.Parallel()
+	iterations := 50
+	if !testing.Short() {
+		iterations = 1000
+	}
+	for i := range iterations {
+		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
+			t.Parallel()
+			did := atmos.DID(fmt.Sprintf("did:plc:prop%d", i))
+			key, err := crypto.GenerateP256()
+			require.NoError(t, err)
+
+			// Seed with 5 records so we have things to update/delete.
+			r, _ := buildEmptyRepo(t, did)
+			for j := range 5 {
+				require.NoError(t, r.Create("app.bsky.feed.post",
+					fmt.Sprintf("seed%d", j),
+					map[string]any{"text": fmt.Sprintf("seed%d", j)}))
+			}
+			prevData, err := r.Tree.WriteBlocks(r.Store)
+			require.NoError(t, err)
+
+			// Generate 1-10 ops. Update/delete may only target seed
+			// keys that exist in the pre-state tree; otherwise the
+			// pre-state lookup in buildSyntheticCommit would fail.
+			// Creates use a new collection of "newK" keys (each used
+			// at most once). We do NOT permit update/delete on a
+			// newly-created key in the same ops list — that would
+			// require multi-step state tracking the synthetic
+			// builder doesn't do.
+			seed := int64(i*1000 + 1)
+			rng := mathrand.New(mathrand.NewSource(seed))
+			nOps := 1 + rng.Intn(10)
+			ops := make([]opAction, 0, nOps)
+			seedKeys := []string{"seed0", "seed1", "seed2", "seed3", "seed4"}
+			deletedSeeds := make(map[string]struct{})
+			usedNewKeys := make(map[string]struct{})
+
+			availableSeeds := func() []string {
+				out := make([]string, 0, len(seedKeys))
+				for _, k := range seedKeys {
+					if _, gone := deletedSeeds[k]; !gone {
+						out = append(out, k)
+					}
+				}
+				return out
+			}
+
+			attempt := 0
+			for len(ops) < nOps {
+				attempt++
+				if attempt > nOps*4 {
+					// pathological rng; just stop
+					break
+				}
+				switch rng.Intn(3) {
+				case 0:
+					rkey := fmt.Sprintf("new%d", attempt)
+					if _, dup := usedNewKeys[rkey]; dup {
+						continue
+					}
+					usedNewKeys[rkey] = struct{}{}
+					ops = append(ops, opAction{
+						action:     streaming.ActionCreate,
+						collection: "app.bsky.feed.post",
+						rkey:       rkey,
+						record:     map[string]any{"text": rkey},
+					})
+				case 1:
+					avail := availableSeeds()
+					if len(avail) == 0 {
+						continue
+					}
+					target := avail[rng.Intn(len(avail))]
+					ops = append(ops, opAction{
+						action:     streaming.ActionUpdate,
+						collection: "app.bsky.feed.post",
+						rkey:       target,
+						record:     map[string]any{"text": "updated"},
+					})
+				case 2:
+					avail := availableSeeds()
+					if len(avail) == 0 {
+						continue
+					}
+					target := avail[rng.Intn(len(avail))]
+					deletedSeeds[target] = struct{}{}
+					ops = append(ops, opAction{
+						action:     streaming.ActionDelete,
+						collection: "app.bsky.feed.post",
+						rkey:       target,
+					})
+				}
+			}
+
+			commit := buildSyntheticCommit(t, r, key, prevData, ops)
+			got, err := sync.InvertCommit(commit)
+			require.NoError(t, err)
+			assert.True(t, got.Equal(prevData), "iter %d: ops=%v got %s want %s", i, ops, got, prevData)
+		})
+	}
 }
