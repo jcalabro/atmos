@@ -43,7 +43,7 @@ wasm:
 
 # Runs tests under GOOS=js/wasm via Node (closest to in-browser WASM)
 test-wasm:
-    PATH="$PATH:$(go env GOROOT)/lib/wasm" GOOS=js GOARCH=wasm go test -short -count=1 ./...
+    PATH="$PATH:$(go env GOROOT)/lib/wasm" GOOS=js GOARCH=wasm just test
 
 # Runs fuzz tests for the given duration (default 10s per target)
 fuzz DURATION="10s" *ARGS="./...":
