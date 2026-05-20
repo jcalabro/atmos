@@ -265,6 +265,14 @@ type VerifierStats struct {
 	Resyncs           uint64
 	ResyncFailures    uint64
 	RevReplaysDropped uint64
+
+	// ChainStateSaveFailures counts the number of times ChainStore.Save
+	// failed during PolicyError state-advance after a verification
+	// failure. The original verification error (ChainBreakError /
+	// InversionError) was reported via OnVerificationFailure and the
+	// return value, but the secondary save failure means future events
+	// for this DID may re-report the same break until state catches up.
+	ChainStateSaveFailures uint64
 }
 
 // VerifierOp is the operation shape the Verifier produces. It mirrors
@@ -351,13 +359,14 @@ type Verifier struct {
 	// per-DID resync rate limiter. Lazy-initialized.
 	limiters stdsync.Map // map[atmos.DID]*rate.Limiter
 
-	eventsVerified    atomic.Uint64
-	chainBreaks       atomic.Uint64
-	inversionFailures atomic.Uint64
-	signatureFailures atomic.Uint64
-	resyncs           atomic.Uint64
-	resyncFailures    atomic.Uint64
-	revReplaysDropped atomic.Uint64
+	eventsVerified         atomic.Uint64
+	chainBreaks            atomic.Uint64
+	inversionFailures      atomic.Uint64
+	signatureFailures      atomic.Uint64
+	resyncs                atomic.Uint64
+	resyncFailures         atomic.Uint64
+	revReplaysDropped      atomic.Uint64
+	chainStateSaveFailures atomic.Uint64
 }
 
 // NewVerifier returns a Verifier with the given options. Returns an
@@ -582,13 +591,14 @@ func (v *Verifier) ChainStore() ChainStore {
 // counters may not be simultaneously consistent.
 func (v *Verifier) Stats() VerifierStats {
 	return VerifierStats{
-		EventsVerified:    v.eventsVerified.Load(),
-		ChainBreaks:       v.chainBreaks.Load(),
-		InversionFailures: v.inversionFailures.Load(),
-		SignatureFailures: v.signatureFailures.Load(),
-		Resyncs:           v.resyncs.Load(),
-		ResyncFailures:    v.resyncFailures.Load(),
-		RevReplaysDropped: v.revReplaysDropped.Load(),
+		EventsVerified:         v.eventsVerified.Load(),
+		ChainBreaks:            v.chainBreaks.Load(),
+		InversionFailures:      v.inversionFailures.Load(),
+		SignatureFailures:      v.signatureFailures.Load(),
+		Resyncs:                v.resyncs.Load(),
+		ResyncFailures:         v.resyncFailures.Load(),
+		RevReplaysDropped:      v.revReplaysDropped.Load(),
+		ChainStateSaveFailures: v.chainStateSaveFailures.Load(),
 	}
 }
 
@@ -924,7 +934,9 @@ func (v *Verifier) handleVerificationFailure(
 		return ops, nil
 	case PolicyError:
 		if dataCID := dataCIDFromCommit(commit); dataCID.Defined() {
-			_ = v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID})
+			if err := v.opts.ChainStore.Save(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
+				v.chainStateSaveFailures.Add(1)
+			}
 		}
 		return nil, origErr
 	default:

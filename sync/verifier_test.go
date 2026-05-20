@@ -1089,6 +1089,65 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
 }
 
+// TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats verifies
+// that a ChainStore.Save failure during PolicyError state-advance is
+// counted in VerifierStats.ChainStateSaveFailures rather than silently
+// swallowed. The original ChainBreakError still surfaces (the typed
+// signal is the primary report); the counter exists so operators can
+// detect that the secondary save failed.
+func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:psf1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+
+	// failingChainStore errs on every Save. Pre-seed the chain state
+	// directly via the underlying real store so the verifier sees a
+	// non-empty state (forcing a chain break) without the failingChainStore
+	// erroring on the seed call.
+	realStore := sync.NewMemChainStore()
+	require.NoError(t, realStore.Save(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+	cs := &failingChainStore{real: realStore}
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		Directory:  dir,
+		ChainStore: cs,
+		Policy:     sync.PolicyError,
+	})
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "rec1",
+		Record:     map[string]any{"text": "v2"},
+	}})
+
+	_, err = v.VerifyAndExpand(context.Background(), commit, nil)
+	var cb *sync.ChainBreakError
+	require.ErrorAs(t, err, &cb,
+		"primary verification error must still surface as ChainBreakError")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.ChainStateSaveFailures,
+		"PolicyError save failure should be counted")
+	assert.Equal(t, uint64(1), stats.ChainBreaks)
+}
+
 func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	t.Parallel()
 

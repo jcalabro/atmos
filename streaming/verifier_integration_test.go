@@ -31,14 +31,15 @@ import (
 
 // buildUpdateChainFrames returns N synthetic commit frames, each an
 // Update of a single shared record key. Each commit's Seq is set to
-// (i+1). Returns the post-state prevData for the LAST commit.
+// (i+1). The frames are independent: each is built on a fresh repo, so
+// successive commits' PrevData values do NOT chain. Suitable only for
+// the no-verifier regression test, where the verifier-acceptable chain
+// is not enforced.
 //
-// We use Update (rather than Create) because a chain of Creates would
-// expose an unrelated MST.Remove dirtying issue surfaced by the
-// verifier's inversion routine on multi-level trees. Update inverts as
-// Insert, which correctly propagates dirty markers up the spine. The
-// streaming-layer wiring under test here is independent of which op
-// type was applied.
+// Either Update or Create works correctly here post-MST-fix (see
+// 0e155c4 for the mst.Tree.Remove parent-dirty propagation fix that
+// removed the previous Update-only constraint); we keep Update because
+// the action is incidental for this no-verifier path.
 func buildUpdateChainFrames(t *testing.T, did atmos.DID, key crypto.PrivateKey, n int) [][]byte {
 	t.Helper()
 	frames := make([][]byte, 0, n)
@@ -89,27 +90,27 @@ func mustMarshalCBOR(t *testing.T, c *comatproto.SyncSubscribeRepos_Commit) []by
 	return data
 }
 
-// buildVerifiedChainFrames produces N commit frames using Update ops on
-// "shared" so that each successive commit's PrevData matches the prior
-// commit's post-state Data CID — i.e., a real verifier-acceptable
-// chain. Used by the HappyPath test.
+// buildVerifiedChainFrames produces N commit frames forming a real
+// verifier-acceptable chain: each successive commit's PrevData matches
+// the prior commit's post-state Data CID. Each commit is a Create of a
+// distinct rkey, exercising the inversion path's tree.Remove (which
+// requires the parent-dirty propagation fix in 0e155c4 to round-trip
+// correctly on multi-level trees). Used by the HappyPath test for
+// closer parity with real-firehose Create-heavy traffic.
 func buildVerifiedChainFrames(t *testing.T, did atmos.DID, key crypto.PrivateKey, n int) [][]byte {
 	t.Helper()
 	frames := make([][]byte, 0, n)
 
 	r, _ := testutil.BuildEmptyRepo(t, did)
-	// Initial create so subsequent updates have something to mutate.
-	require.NoError(t, r.Create("app.bsky.feed.post", "shared",
-		map[string]any{"text": "v0"}))
 	prevData, err := r.Tree.WriteBlocks(r.Store)
 	require.NoError(t, err)
 
 	for i := 0; i < n; i++ {
 		commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
-			Action:     string(ActionUpdate),
+			Action:     testutil.ActionCreate,
 			Collection: "app.bsky.feed.post",
-			RKey:       "shared",
-			Record:     map[string]any{"text": fmt.Sprintf("v%d", i+1)},
+			RKey:       fmt.Sprintf("rec%d", i),
+			Record:     map[string]any{"text": fmt.Sprintf("v%d", i)},
 		}})
 		commit.Seq = int64(i + 1)
 		body, err := commit.MarshalCBOR()
@@ -160,22 +161,22 @@ func TestVerifiedStream_HappyPath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var totalUpdates int
+	var totalCreates int
 	for batch, batchErr := range client.Events(ctx) {
 		require.NoError(t, batchErr)
 		for _, evt := range batch {
 			for op, opErr := range evt.Operations() {
 				require.NoError(t, opErr)
-				if op.Action == ActionUpdate {
-					totalUpdates++
+				if op.Action == ActionCreate {
+					totalCreates++
 				}
 			}
 		}
-		if totalUpdates >= n {
+		if totalCreates >= n {
 			cancel()
 		}
 	}
-	assert.Equal(t, n, totalUpdates)
+	assert.Equal(t, n, totalCreates)
 	stats := verifier.Stats()
 	assert.Equal(t, uint64(n), stats.EventsVerified)
 }
@@ -232,9 +233,8 @@ func TestVerifiedStream_VerifierErrorDoesNotTriggerSpuriousGap(t *testing.T) {
 	// The seq-gap-after-verifier-error fix from Task 14 must prevent a
 	// spurious GapError between the verifier-error event and commit #3.
 	//
-	// All three commits Update the same "shared" record so inversion
-	// uses Insert (not Remove), avoiding an MST.Remove dirtying issue
-	// unrelated to the streaming-layer wiring under test.
+	// The chain-break is forged via PrevData rewrite, so the action
+	// type (Update vs Create) is incidental to what's being tested.
 
 	did := atmos.DID("did:plc:vgap1")
 	key, err := crypto.GenerateP256()
