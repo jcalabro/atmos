@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	stdsync "sync"
+	"sync"
 	"sync/atomic"
-
-	"golang.org/x/time/rate"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
@@ -19,6 +17,8 @@ import (
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
+	"github.com/jcalabro/gt"
+	"golang.org/x/time/rate"
 )
 
 // Default per-DID resync rate-limit values applied by NewVerifier when
@@ -61,7 +61,7 @@ type ChainStore interface {
 // MemChainStore is a sync.Map-backed ChainStore. NOT suitable for
 // production: state is lost on restart.
 type MemChainStore struct {
-	m stdsync.Map // map[atmos.DID]ChainState
+	m sync.Map // map[atmos.DID]ChainState
 }
 
 // NewMemChainStore returns an empty in-memory ChainStore.
@@ -302,15 +302,11 @@ type VerifierOp struct {
 	BlockData  []byte
 }
 
-// VerifierOptions configures a Verifier. Most fields are required
-// for PolicyResync (the default); ChainStore and Directory are
-// always required.
+// VerifierOptions configures a Verifier. ChainStore and Directory are
+// always required; everything else is optional and wrapped in
+// [gt.Option] so callers can express "unset" distinctly from a zero
+// value.
 type VerifierOptions struct {
-	// SyncClient is used to fetch repos via getRepo during resync.
-	// Required when Policy is PolicyResync. Allowed but unused under
-	// PolicyError unless the consumer calls Verifier.Resync directly.
-	SyncClient *Client
-
 	// Directory is used to resolve DIDs to signing keys for
 	// signature verification. Required.
 	Directory *identity.Directory
@@ -319,19 +315,25 @@ type VerifierOptions struct {
 	// NewMemChainStore() for tests; bring your own for production.
 	ChainStore ChainStore
 
-	// Policy selects PolicyResync (default) or PolicyError.
-	Policy VerifierPolicy
+	// SyncClient is used to fetch repos via getRepo during resync.
+	// Required when Policy is PolicyResync (or unset, since PolicyResync
+	// is the default). Allowed but unused under PolicyError unless the
+	// consumer calls Verifier.Resync directly.
+	SyncClient gt.Option[*Client]
 
-	// ResyncLimit is the per-DID resync rate (token bucket). Zero means
-	// DefaultResyncLimit (5 per minute). Set to rate.Inf for tests that
-	// don't care about throttling.
-	ResyncLimit rate.Limit
+	// Policy selects the failure-handling mode. None means PolicyResync.
+	Policy gt.Option[VerifierPolicy]
+
+	// ResyncLimit is the per-DID resync rate (token bucket). None means
+	// DefaultResyncLimit (5 per minute). Set to gt.Some(rate.Inf) for
+	// tests that don't care about throttling.
+	ResyncLimit gt.Option[rate.Limit]
 
 	// ResyncBurst is the burst size for the per-DID rate limiter.
-	// Zero means DefaultResyncBurst (5).
-	ResyncBurst int
+	// None means DefaultResyncBurst (5).
+	ResyncBurst gt.Option[int]
 
-	// OnResync, if non-nil, fires once per successful resync, after chain
+	// OnResync, when set, fires once per successful resync, after chain
 	// state has been advanced and just before the resynced ops are returned
 	// to the caller. Invoked synchronously on the verifier's goroutine —
 	// keep the callback fast or hand off to a worker. oldRev is "" when
@@ -342,9 +344,9 @@ type VerifierOptions struct {
 	// Invoked while the per-DID mutex is held — a slow callback delays all
 	// verification for that DID. Keep it fast or hand off to a worker
 	// goroutine.
-	OnResync func(did atmos.DID, oldRev, newRev string, reason ResyncReason)
+	OnResync gt.Option[func(did atmos.DID, oldRev, newRev string, reason ResyncReason)]
 
-	// OnVerificationFailure, if non-nil, fires once per verification failure
+	// OnVerificationFailure, when set, fires once per verification failure
 	// regardless of policy AND regardless of whether a subsequent resync
 	// repaired the chain. ChainBreakError, InversionError, and
 	// SignatureError each invoke this hook before the verifier decides
@@ -357,7 +359,7 @@ type VerifierOptions struct {
 	// (without being typed *SignatureError) also do NOT fire this hook —
 	// they propagate as wrapped infrastructure errors via the return value
 	// only.
-	OnVerificationFailure func(did atmos.DID, err error)
+	OnVerificationFailure gt.Option[func(did atmos.DID, err error)]
 }
 
 // Verifier performs Sync 1.1 verification of firehose events. Safe
@@ -372,10 +374,10 @@ type Verifier struct {
 
 	// per-DID serialization. Two events for the same DID never run
 	// through verification concurrently.
-	didMu stdsync.Map // map[atmos.DID]*sync.Mutex
+	didMu sync.Map // map[atmos.DID]*sync.Mutex
 
 	// per-DID resync rate limiter. Lazy-initialized.
-	limiters stdsync.Map // map[atmos.DID]*rate.Limiter
+	limiters sync.Map // map[atmos.DID]*rate.Limiter
 
 	eventsVerified         atomic.Uint64
 	chainBreaks            atomic.Uint64
@@ -397,14 +399,17 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	if opts.Directory == nil {
 		return nil, fmt.Errorf("sync: NewVerifier: Directory is required")
 	}
-	if opts.Policy == PolicyResync && opts.SyncClient == nil {
-		return nil, fmt.Errorf("sync: NewVerifier: SyncClient is required for PolicyResync")
+	policy := opts.Policy.ValOr(PolicyResync)
+	if policy == PolicyResync {
+		if !opts.SyncClient.HasVal() || opts.SyncClient.Val() == nil {
+			return nil, fmt.Errorf("sync: NewVerifier: SyncClient is required for PolicyResync")
+		}
 	}
-	if opts.ResyncLimit == 0 {
-		opts.ResyncLimit = DefaultResyncLimit
+	if !opts.ResyncLimit.HasVal() || opts.ResyncLimit.Val() == 0 {
+		opts.ResyncLimit = gt.Some(DefaultResyncLimit)
 	}
-	if opts.ResyncBurst == 0 {
-		opts.ResyncBurst = DefaultResyncBurst
+	if !opts.ResyncBurst.HasVal() || opts.ResyncBurst.Val() == 0 {
+		opts.ResyncBurst = gt.Some(DefaultResyncBurst)
 	}
 	return &Verifier{opts: opts}, nil
 }
@@ -420,8 +425,8 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 // at entry and release it on return; any helper invoked under that
 // lock must not call back into lockDID for the same DID.
 func (v *Verifier) lockDID(did atmos.DID) func() {
-	val, _ := v.didMu.LoadOrStore(did, &stdsync.Mutex{})
-	mu, ok := val.(*stdsync.Mutex)
+	val, _ := v.didMu.LoadOrStore(did, &sync.Mutex{})
+	mu, ok := val.(*sync.Mutex)
 	if !ok {
 		// We are the sole writer of this map; a non-Mutex value means
 		// memory corruption or a programming error elsewhere. Crash
@@ -492,7 +497,7 @@ func (v *Verifier) verifyCommitSignature(ctx context.Context, did atmos.DID, c *
 // without waiting for the bucket to refill.
 func (v *Verifier) allowResync(did atmos.DID) bool {
 	val, _ := v.limiters.LoadOrStore(did,
-		rate.NewLimiter(v.opts.ResyncLimit, v.opts.ResyncBurst))
+		rate.NewLimiter(v.opts.ResyncLimit.Val(), v.opts.ResyncBurst.Val()))
 	lim, ok := val.(*rate.Limiter)
 	if !ok {
 		// We are the sole writer of this map; a non-*rate.Limiter value
@@ -514,7 +519,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		return nil, &ResyncRateLimitedError{DID: did}
 	}
 
-	body, err := v.opts.SyncClient.GetRepoStream(ctx, did, "")
+	body, err := v.opts.SyncClient.Val().GetRepoStream(ctx, did, "")
 	if err != nil {
 		v.resyncFailures.Add(1)
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
@@ -573,8 +578,8 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 	}
 
 	v.resyncs.Add(1)
-	if v.opts.OnResync != nil {
-		v.opts.OnResync(did, oldRev, commit.Rev, reason)
+	if v.opts.OnResync.HasVal() {
+		v.opts.OnResync.Val()(did, oldRev, commit.Rev, reason)
 	}
 	return ops, nil
 }
@@ -834,8 +839,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		var sigErr *SignatureError
 		if errors.As(err, &sigErr) {
 			v.signatureFailures.Add(1)
-			if v.opts.OnVerificationFailure != nil {
-				v.opts.OnVerificationFailure(did, sigErr)
+			if v.opts.OnVerificationFailure.HasVal() {
+				v.opts.OnVerificationFailure.Val()(did, sigErr)
 			}
 			return nil, sigErr
 		}
@@ -948,10 +953,11 @@ func (v *Verifier) handleVerificationFailure(
 	reason ResyncReason,
 	origErr error,
 ) ([]VerifierOp, error) {
-	if v.opts.OnVerificationFailure != nil {
-		v.opts.OnVerificationFailure(did, origErr)
+	if v.opts.OnVerificationFailure.HasVal() {
+		v.opts.OnVerificationFailure.Val()(did, origErr)
 	}
-	switch v.opts.Policy {
+	policy := v.opts.Policy.ValOr(PolicyResync)
+	switch policy {
 	case PolicyResync:
 		ops, rerr := v.resync(ctx, did, reason)
 		if rerr != nil {
@@ -966,7 +972,7 @@ func (v *Verifier) handleVerificationFailure(
 		}
 		return nil, origErr
 	default:
-		return nil, fmt.Errorf("verifier: unknown policy %v", v.opts.Policy)
+		return nil, fmt.Errorf("verifier: unknown policy %v", policy)
 	}
 }
 

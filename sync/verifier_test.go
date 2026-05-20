@@ -195,7 +195,8 @@ func TestVerifierPolicy_String(t *testing.T) {
 func TestVerifierOptions_ZeroValuePolicyIsResync(t *testing.T) {
 	t.Parallel()
 	var o sync.VerifierOptions
-	assert.Equal(t, sync.PolicyResync, o.Policy)
+	assert.False(t, o.Policy.HasVal(), "zero VerifierOptions.Policy must be None")
+	assert.Equal(t, sync.PolicyResync, o.Policy.ValOr(sync.PolicyResync))
 }
 
 func TestVerifierStatsZero(t *testing.T) {
@@ -219,7 +220,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 
 	t.Run("missing ChainStore", func(t *testing.T) {
 		_, err := sync.NewVerifier(sync.VerifierOptions{
-			SyncClient: sc,
+			SyncClient: gt.Some(sc),
 			Directory:  dir,
 		})
 		require.Error(t, err)
@@ -228,7 +229,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 
 	t.Run("missing Directory", func(t *testing.T) {
 		_, err := sync.NewVerifier(sync.VerifierOptions{
-			SyncClient: sc,
+			SyncClient: gt.Some(sc),
 			ChainStore: sync.NewMemChainStore(),
 		})
 		require.Error(t, err)
@@ -239,7 +240,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 		_, err := sync.NewVerifier(sync.VerifierOptions{
 			Directory:  dir,
 			ChainStore: sync.NewMemChainStore(),
-			Policy:     sync.PolicyResync,
+			Policy:     gt.Some(sync.PolicyResync),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "SyncClient")
@@ -249,7 +250,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 		v, err := sync.NewVerifier(sync.VerifierOptions{
 			Directory:  dir,
 			ChainStore: sync.NewMemChainStore(),
-			Policy:     sync.PolicyError,
+			Policy:     gt.Some(sync.PolicyError),
 		})
 		require.NoError(t, err)
 		assert.NotNil(t, v)
@@ -257,7 +258,7 @@ func TestNewVerifier_RequiredFields(t *testing.T) {
 
 	t.Run("happy path with all required", func(t *testing.T) {
 		v, err := sync.NewVerifier(sync.VerifierOptions{
-			SyncClient: sc,
+			SyncClient: gt.Some(sc),
 			Directory:  dir,
 			ChainStore: sync.NewMemChainStore(),
 		})
@@ -274,7 +275,7 @@ func TestNewVerifier_StatsStartAtZero(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sc,
+		SyncClient: gt.Some(sc),
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
 	})
@@ -292,18 +293,18 @@ func TestNewVerifier_DoesNotMutateCallerOptions(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc})
 
 	opts := sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  sync.NewMemChainStore(),
-		ResyncLimit: 0,
-		ResyncBurst: 0,
+		ResyncLimit: gt.Some(rate.Limit(0)),
+		ResyncBurst: gt.Some(0),
 	}
 	_, err := sync.NewVerifier(opts)
 	require.NoError(t, err)
 	// NewVerifier defaults ResyncLimit and ResyncBurst internally; the
 	// caller's struct must not be mutated.
-	assert.Equal(t, rate.Limit(0), opts.ResyncLimit)
-	assert.Equal(t, 0, opts.ResyncBurst)
+	assert.Equal(t, gt.Some(rate.Limit(0)), opts.ResyncLimit)
+	assert.Equal(t, gt.Some(0), opts.ResyncBurst)
 }
 
 // ---------------------------------------------------------------------------
@@ -553,7 +554,7 @@ func TestVerifier_PerDIDLocking(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -624,7 +625,7 @@ func TestVerifier_VerifySignature_Success(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -662,7 +663,7 @@ func TestVerifier_VerifySignature_KeyRotation(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -694,7 +695,7 @@ func TestVerifier_VerifySignature_PermanentFailure(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -718,12 +719,12 @@ func TestVerifier_PerDIDRateLimiter(t *testing.T) {
 	v, err := sync.NewVerifier(sync.VerifierOptions{
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 		// Effectively no refill during the test (one token per ~17 minutes).
 		// Keeps the burst-then-deny assertion bulletproof under any CI scheduling
 		// delay; the test never waits, just calls Allow() four times.
-		ResyncLimit: rate.Limit(0.001),
-		ResyncBurst: 2,
+		ResyncLimit: gt.Some(rate.Limit(0.001)),
+		ResyncBurst: gt.Some(2),
 	})
 	require.NoError(t, err)
 
@@ -768,18 +769,18 @@ func TestVerifier_Resync_Success(t *testing.T) {
 		resyncReason sync.ResyncReason
 	)
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  sync.NewMemChainStore(),
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
-		OnResync: func(d atmos.DID, oldRev, newRev string, reason sync.ResyncReason) {
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+		OnResync: gt.Some(func(d atmos.DID, oldRev, newRev string, reason sync.ResyncReason) {
 			resyncDID = d
 			resyncOldRev = oldRev
 			resyncNewRev = newRev
 			resyncReason = reason
-		},
+		}),
 	})
 	require.NoError(t, err)
 
@@ -818,12 +819,12 @@ func TestVerifier_Resync_RateLimited(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  sync.NewMemChainStore(),
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Limit(0.001), // effectively no refill during test
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Limit(0.001)), // effectively no refill during test
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -862,12 +863,12 @@ func TestVerifier_Resync_BadSignatureFails(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  sync.NewMemChainStore(),
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -915,12 +916,12 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient:  gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:   dir,
 		ChainStore:  chainStore,
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -971,12 +972,12 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient:  gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:   dir,
 		ChainStore:  chainStore,
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -1019,10 +1020,10 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: cs,
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -1062,13 +1063,13 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 
 	var failureCalled bool
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: cs,
-		Policy:     sync.PolicyError,
-		OnVerificationFailure: func(_ atmos.DID, _ error) {
+		Policy:     gt.Some(sync.PolicyError),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, _ error) {
 			failureCalled = true
-		},
+		}),
 	})
 	require.NoError(t, err)
 
@@ -1120,10 +1121,10 @@ func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: cs,
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -1161,10 +1162,10 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: cs,
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -1211,12 +1212,12 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  cs,
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -1258,12 +1259,12 @@ func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) 
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  &failingChainStore{real: sync.NewMemChainStore()},
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -1300,12 +1301,12 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  sync.NewMemChainStore(),
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 
@@ -1340,10 +1341,10 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: cs,
-		Policy:     sync.PolicyResync,
+		Policy:     gt.Some(sync.PolicyResync),
 	})
 	require.NoError(t, err)
 
@@ -1362,10 +1363,10 @@ func TestVerifyAndExpand_BothNilIsNoOp(t *testing.T) {
 
 	dir := &identity.Directory{Resolver: testutil.NewTrackingResolver()}
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 
@@ -1414,12 +1415,12 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient:  sc,
+		SyncClient:  gt.Some(sc),
 		Directory:   dir,
 		ChainStore:  cs,
-		Policy:      sync.PolicyResync,
-		ResyncLimit: rate.Inf,
-		ResyncBurst: 1,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
 

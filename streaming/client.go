@@ -588,8 +588,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				evt.syncClient = c.syncClient
 			}
 
-			// Sync 1.1 verification, when configured. Skips Jetstream events
-			// (verifier operates on the firehose CAR diff format, not Jetstream JSON).
+			// Sync 1.1 verification, when configured. Only valid for full-fat firehose events
 			if c.opts.Verifier.HasVal() && (evt.Commit != nil || evt.Sync != nil) {
 				verifier := c.opts.Verifier.Val()
 				verifierOps, vErr := verifier.VerifyAndExpand(ctx, evt.Commit, evt.Sync)

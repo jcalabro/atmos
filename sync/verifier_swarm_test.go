@@ -79,10 +79,10 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	}
 	dir := &identity.Directory{Resolver: resolver}
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: cs,
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
 

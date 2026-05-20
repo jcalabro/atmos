@@ -56,10 +56,10 @@ func FuzzVerifyAndExpand(f *testing.F) {
 
 	dir := &identity.Directory{Resolver: testutil.NewTrackingResolver()}
 	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}}),
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
 		Directory:  dir,
 		ChainStore: sync.NewMemChainStore(),
-		Policy:     sync.PolicyError,
+		Policy:     gt.Some(sync.PolicyError),
 	})
 	if err != nil {
 		f.Fatal(err)
