@@ -289,8 +289,8 @@ func formatCIDOrMissing(c cbor.CID) string {
 // we always require Sync 1.1's commit version 3; older versions are
 // rejected unconditionally.
 type FieldMismatchError struct {
-	DID     atmos.DID
-	Field   string // "did" | "rev" | "version"
+	DID      atmos.DID
+	Field    string // "did" | "rev" | "version"
 	Envelope string // value seen on the firehose envelope
 	Inner    string // value decoded from the signed commit block
 }
@@ -565,12 +565,7 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 		opts.FutureRevTolerance = gt.Some(DefaultFutureRevTolerance)
 	}
 	if !opts.Now.HasVal() {
-		// Explicit type arg to anchor inference: gt.Some(time.Now) would
-		// infer func() time.Time from the value, but the lint check
-		// flags it as unnecessary while still tripping on the bare
-		// time.Now. The cast keeps both lints quiet.
-		var now func() time.Time = time.Now
-		opts.Now = gt.Some(now)
+		opts.Now = gt.Some(time.Now)
 	}
 	return &Verifier{opts: opts}, nil
 }
@@ -949,9 +944,13 @@ func (v *Verifier) checkFutureRev(did atmos.DID, rev string) *FutureRevError {
 	if tolerance < 0 {
 		return nil
 	}
-	tid, err := atmos.ParseTID(rev)
-	if err != nil {
-		return nil
+	tid, parseErr := atmos.ParseTID(rev)
+	if parseErr != nil {
+		// Best-effort gate: malformed revs are deliberately skipped here
+		// and handled by downstream gates (rev-replay, chain check,
+		// field consistency). nilerr lint suppressed: the discarded
+		// error is the documented intent, not a bug.
+		return nil //nolint:nilerr
 	}
 	revTime := tid.Time()
 	now := v.opts.Now.Val()()
