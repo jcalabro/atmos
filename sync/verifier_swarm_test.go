@@ -3,7 +3,6 @@
 package sync_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -125,7 +124,8 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 			// Verifier saved state to the commit's data CID. Pull it
 			// back out of the CAR (the verifier already proved the
 			// CAR is well-formed by accepting the commit).
-			dataCID := extractDataCID(t, commit)
+			dataCID, ok := testutil.InnerCommitDataCID(commit)
+			require.True(t, ok, "couldn't extract data CID from accepted commit")
 			lastGood[didIdx] = dataCID
 		default:
 			var cb *sync.ChainBreakError
@@ -138,14 +138,16 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 				// CID is decodable, which it is for this fault path
 				// — only the prevData claim was tampered with. Mirror
 				// that locally.
-				lastGood[didIdx] = extractDataCID(t, commit)
+				dataCID, ok := testutil.InnerCommitDataCID(commit)
+				require.True(t, ok, "couldn't extract data CID from chain-break commit")
+				lastGood[didIdx] = dataCID
 			case errors.As(vErr, &ie):
 				inversionErrs++
 				// On inversion failure the malformed CAR usually
 				// prevents data-CID extraction, so the verifier
 				// leaves state untouched. Reset r.Tree to lastGood
 				// to undo BuildSyntheticCommit's mutation.
-				if dataCID := tryExtractDataCID(commit); dataCID.Defined() {
+				if dataCID, ok := testutil.InnerCommitDataCID(commit); ok {
 					lastGood[didIdx] = dataCID
 				} else {
 					repos[didIdx].Tree = mst.LoadTree(repos[didIdx].Store, lastGood[didIdx])
@@ -238,37 +240,4 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	require.Equal(t, uint64(0), stats.Resyncs, "seed=%d", seed)
 	require.Equal(t, uint64(0), stats.ResyncFailures, "seed=%d", seed)
 	require.Equal(t, uint64(0), stats.ChainStateSaveFailures, "seed=%d MemChainStore should never fail to save", seed)
-}
-
-// extractDataCID decodes the inner repo.Commit from a synthetic
-// SyncSubscribeRepos_Commit's CAR and returns its Data field. The CAR
-// must be well-formed; callers that may have a malformed CAR should
-// use tryExtractDataCID instead.
-func extractDataCID(t *testing.T, commit *comatproto.SyncSubscribeRepos_Commit) cbor.CID {
-	t.Helper()
-	cid := tryExtractDataCID(commit)
-	require.True(t, cid.Defined(), "couldn't extract data CID from synthetic commit")
-	return cid
-}
-
-// tryExtractDataCID is the non-fatal variant — returns the zero CID on
-// any decode failure, used in the malformed-CAR fault branch.
-func tryExtractDataCID(commit *comatproto.SyncSubscribeRepos_Commit) cbor.CID {
-	store, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(commit.Blocks))
-	if err != nil {
-		return cbor.CID{}
-	}
-	commitCID, err := cbor.ParseCIDString(commit.Commit.Link)
-	if err != nil {
-		return cbor.CID{}
-	}
-	data, err := store.GetBlock(commitCID)
-	if err != nil {
-		return cbor.CID{}
-	}
-	c, err := repo.DecodeCommitCBOR(data)
-	if err != nil {
-		return cbor.CID{}
-	}
-	return c.Data
 }

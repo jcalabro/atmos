@@ -82,7 +82,6 @@ func TestErrorTypes_FormatAndUnwrap(t *testing.T) {
 
 	t.Run("ChainBreakError", func(t *testing.T) {
 		cid, _ := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
-		cause := errors.New("cause goes here")
 		err := &sync.ChainBreakError{
 			DID:          atmos.DID("did:plc:abc"),
 			SeenRev:      "r1",
@@ -90,11 +89,9 @@ func TestErrorTypes_FormatAndUnwrap(t *testing.T) {
 			GotRev:       "r2",
 			GotPrevData:  cid,
 			InvertedData: cid,
-			Cause:        cause,
 		}
 		assert.Contains(t, err.Error(), "chain break")
 		assert.Contains(t, err.Error(), "did:plc:abc")
-		assert.ErrorIs(t, err, cause)
 
 		var target *sync.ChainBreakError
 		assert.True(t, errors.As(err, &target))

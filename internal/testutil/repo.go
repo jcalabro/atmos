@@ -50,6 +50,32 @@ type CommitBuildResult struct {
 	Rev string
 }
 
+// InnerCommitDataCID decodes the commit block referenced by the
+// firehose-frame commit's `Commit` link from the CAR diff in `Blocks`
+// and returns the decoded inner commit's Data field (the post-state
+// MST root CID). Returns (CID{}, false) on any decode failure —
+// callers should treat that as "data CID unavailable, do not advance
+// state."
+func InnerCommitDataCID(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, bool) {
+	store, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(commit.Blocks))
+	if err != nil {
+		return cbor.CID{}, false
+	}
+	commitCID, err := cbor.ParseCIDString(commit.Commit.Link)
+	if err != nil {
+		return cbor.CID{}, false
+	}
+	data, err := store.GetBlock(commitCID)
+	if err != nil {
+		return cbor.CID{}, false
+	}
+	c, err := repo.DecodeCommitCBOR(data)
+	if err != nil {
+		return cbor.CID{}, false
+	}
+	return c.Data, true
+}
+
 // BuildEmptyRepo returns a freshly created Repo and the CID of its
 // (empty) MST root. The empty MST has a well-defined root CID
 // regardless of which key signs it.

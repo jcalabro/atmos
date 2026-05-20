@@ -21,6 +21,15 @@ import (
 	"github.com/jcalabro/atmos/repo"
 )
 
+// Default per-DID resync rate-limit values applied by NewVerifier when
+// ResyncLimit/ResyncBurst are left at their zero values. Five resyncs
+// per minute with a burst of five — conservative for production but
+// override-able per the Sync 1.1 directive on consumer-side throttling.
+const (
+	DefaultResyncLimit = rate.Limit(5.0 / 60.0)
+	DefaultResyncBurst = 5
+)
+
 // ChainState is the per-DID state the verifier tracks: the last
 // commit rev and the last MST root data CID we successfully verified.
 type ChainState struct {
@@ -132,7 +141,6 @@ type ChainBreakError struct {
 	GotRev       string   // rev on the offending commit
 	GotPrevData  cbor.CID // prevData claim on the offending commit
 	InvertedData cbor.CID // CID we computed by inverting; zero if inversion itself failed
-	Cause        error
 }
 
 func (e *ChainBreakError) Error() string {
@@ -147,8 +155,6 @@ func (e *ChainBreakError) Error() string {
 	return fmt.Sprintf("sync: chain break for %s: seen (%s), got (rev=%s prevData=%s inverted=%s)",
 		e.DID, seen, e.GotRev, e.GotPrevData, inverted)
 }
-
-func (e *ChainBreakError) Unwrap() error { return e.Cause }
 
 // InversionError is returned when MST inversion itself failed —
 // malformed CAR, op references a CID not present in the diff, etc.
@@ -316,13 +322,13 @@ type VerifierOptions struct {
 	// Policy selects PolicyResync (default) or PolicyError.
 	Policy VerifierPolicy
 
-	// ResyncLimit is the per-DID resync rate (token bucket). Zero
-	// means rate.Limit(5.0/60.0) — five resyncs per minute. Set to
-	// rate.Inf for tests that don't care about throttling.
+	// ResyncLimit is the per-DID resync rate (token bucket). Zero means
+	// DefaultResyncLimit (5 per minute). Set to rate.Inf for tests that
+	// don't care about throttling.
 	ResyncLimit rate.Limit
 
 	// ResyncBurst is the burst size for the per-DID rate limiter.
-	// Zero means 5.
+	// Zero means DefaultResyncBurst (5).
 	ResyncBurst int
 
 	// OnResync, if non-nil, fires once per successful resync, after chain
@@ -346,6 +352,11 @@ type VerifierOptions struct {
 	// ResyncRateLimitedError do NOT — they are downstream consequences of a
 	// failure we already reported. Invoked synchronously on the verifier's
 	// goroutine.
+	//
+	// Resolver/network errors that surface during signature verification
+	// (without being typed *SignatureError) also do NOT fire this hook —
+	// they propagate as wrapped infrastructure errors via the return value
+	// only.
 	OnVerificationFailure func(did atmos.DID, err error)
 }
 
@@ -390,10 +401,10 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 		return nil, fmt.Errorf("sync: NewVerifier: SyncClient is required for PolicyResync")
 	}
 	if opts.ResyncLimit == 0 {
-		opts.ResyncLimit = rate.Limit(5.0 / 60.0) // 5 per minute
+		opts.ResyncLimit = DefaultResyncLimit
 	}
 	if opts.ResyncBurst == 0 {
-		opts.ResyncBurst = 5
+		opts.ResyncBurst = DefaultResyncBurst
 	}
 	return &Verifier{opts: opts}, nil
 }
@@ -574,6 +585,10 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 //
 // Subject to the per-DID resync rate limit and the per-DID mutex (so
 // concurrent VerifyAndExpand calls for the same DID will not race).
+//
+// Resyncs initiated through this method use ReasonSyncEvent for callback /
+// metrics labeling, since the operator's intent is identical to acting on
+// an upstream #sync event (re-fetch authoritative state).
 func (v *Verifier) Resync(ctx context.Context, did atmos.DID) ([]VerifierOp, error) {
 	unlock := v.lockDID(did)
 	defer unlock()

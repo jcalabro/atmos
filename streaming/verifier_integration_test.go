@@ -4,7 +4,6 @@
 package streaming
 
 import (
-	"bytes"
 	"context"
 	stderrors "errors"
 	"fmt"
@@ -20,7 +19,6 @@ import (
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/internal/testutil"
-	"github.com/jcalabro/atmos/repo"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -67,21 +65,6 @@ func buildUpdateChainFrames(t *testing.T, did atmos.DID, key crypto.PrivateKey, 
 	return frames
 }
 
-// innerCommitDataCID extracts the post-state MST root CID (i.e. inner
-// commit.Data) from a #commit event's CAR diff.
-func innerCommitDataCID(t *testing.T, commit *comatproto.SyncSubscribeRepos_Commit) cbor.CID {
-	t.Helper()
-	store, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(commit.Blocks))
-	require.NoError(t, err)
-	commitCID, err := cbor.ParseCIDString(commit.Commit.Link)
-	require.NoError(t, err)
-	commitData, err := store.GetBlock(commitCID)
-	require.NoError(t, err)
-	innerCommit, err := repo.DecodeCommitCBOR(commitData)
-	require.NoError(t, err)
-	return innerCommit.Data
-}
-
 // mustMarshalCBOR is a test convenience for SyncSubscribeRepos_Commit.
 func mustMarshalCBOR(t *testing.T, c *comatproto.SyncSubscribeRepos_Commit) []byte {
 	t.Helper()
@@ -116,7 +99,9 @@ func buildVerifiedChainFrames(t *testing.T, did atmos.DID, key crypto.PrivateKey
 		body, err := commit.MarshalCBOR()
 		require.NoError(t, err)
 		frames = append(frames, buildFrame("#commit", body))
-		prevData = innerCommitDataCID(t, commit)
+		var ok bool
+		prevData, ok = testutil.InnerCommitDataCID(commit)
+		require.True(t, ok, "couldn't extract data CID from synthetic commit")
 	}
 	return frames
 }
@@ -252,7 +237,8 @@ func TestVerifiedStream_VerifierErrorDoesNotTriggerSpuriousGap(t *testing.T) {
 		Record: map[string]any{"text": "v1"},
 	}})
 	c1.Seq = 1
-	prevDataAfterC1 := innerCommitDataCID(t, c1)
+	prevDataAfterC1, ok := testutil.InnerCommitDataCID(c1)
+	require.True(t, ok, "couldn't extract data CID from c1")
 
 	// Commit 2: structurally valid but with a forged PrevData (bogus CID).
 	c2 := testutil.BuildSyntheticCommit(t, r, key, prevDataAfterC1, []testutil.OpAction{{
@@ -265,7 +251,8 @@ func TestVerifiedStream_VerifierErrorDoesNotTriggerSpuriousGap(t *testing.T) {
 	c2.PrevData = gt.Some(lextypes.LexCIDLink{Link: bogusCID.String()})
 	// c2's actual post-state data CID is what the verifier advances to
 	// under PolicyError after the chain-break.
-	prevDataAfterC2 := innerCommitDataCID(t, c2)
+	prevDataAfterC2, ok := testutil.InnerCommitDataCID(c2)
+	require.True(t, ok, "couldn't extract data CID from c2")
 
 	// Commit 3: clean Update built atop c2's actual data root (matching
 	// the verifier's post-failure state).
