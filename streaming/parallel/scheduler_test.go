@@ -116,3 +116,55 @@ func TestScheduler_CrossKeyParallel(t *testing.T) {
 	}
 	close(release)
 }
+
+func TestScheduler_DropOldest(t *testing.T) {
+	const Cap = 10
+	const Burst = 100
+
+	// Single worker, one key, cap=10. We dispatch Burst units; the
+	// first will be running, then 10 will queue, then each new arrival
+	// drops the head of the queue.
+	gate := make(chan struct{})
+	var (
+		mu      sync.Mutex
+		seen    []int
+		dropped []int
+	)
+	s := NewScheduler(1, Cap, func(ctx context.Context, n int) error {
+		<-gate // hold the worker open until the test releases
+		mu.Lock()
+		seen = append(seen, n)
+		mu.Unlock()
+		return nil
+	}, func(n int) {
+		mu.Lock()
+		dropped = append(dropped, n)
+		mu.Unlock()
+	})
+	defer func() {
+		close(gate)
+		s.Shutdown()
+	}()
+
+	ctx := context.Background()
+	for i := range Burst {
+		require.NoError(t, s.AddWork(ctx, "didX", i))
+	}
+
+	// Wait for all drops to register. (Burst-1 in-flight slot - Cap queue = drops.)
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(dropped) == Burst-1-Cap
+	}, time.Second, time.Millisecond,
+		"expected %d drops, got %d", Burst-1-Cap, len(dropped))
+
+	mu.Lock()
+	defer mu.Unlock()
+	// Drops are the OLDEST queued items, in order: indices 1..Burst-1-Cap.
+	// (Index 0 is in-flight; indices 1..Cap fill the initial queue;
+	// index Cap+1 displaces 1, Cap+2 displaces 2, etc.)
+	for i, d := range dropped {
+		require.Equal(t, i+1, d)
+	}
+}
