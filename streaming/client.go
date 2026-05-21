@@ -15,6 +15,7 @@ import (
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
+	"github.com/jcalabro/jttp"
 )
 
 const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
@@ -211,8 +212,17 @@ func NewClient(opts Options) (*Client, error) {
 			return nil, fmt.Errorf("derive HTTP URL for sync client: %w", err)
 		}
 
+		// Use BulkDownloadOpts: getRepo can take minutes for the
+		// largest accounts (Bluesky's biggest are ~2.5M records / ~1
+		// GiB CAR). The default xrpc client's 30-second wall-clock
+		// timeout would prematurely kill those downloads even when
+		// they're progressing fine; BulkDownloadOpts replaces it with
+		// streaming-aware idle/min-rate guards.
 		sc = sync.NewClient(sync.Options{
-			Client: &xrpc.Client{Host: httpURL},
+			Client: &xrpc.Client{
+				Host:       httpURL,
+				HTTPClient: gt.Some(jttp.New(xrpc.BulkDownloadOpts()...)),
+			},
 		})
 
 		if opts.Verifier.HasVal() {
