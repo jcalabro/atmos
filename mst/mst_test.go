@@ -502,6 +502,97 @@ func TestInsertAndRemove(t *testing.T) {
 	}
 }
 
+// TestRemoveCanonicality_HeightGap exercises the canonical-shape
+// invariant when Remove is called on a tree where the removed key is
+// at a level below the root. The MST's canonical encoding fills
+// height gaps with empty intermediate nodes (entries=[], left=<child>),
+// and Remove must preserve them or reproduce them when an entry
+// removal collapses an intermediate.
+//
+// Both cases below were minimal failing inputs surfaced by a
+// side-by-side property test against indigo's reference MST. They
+// guard against:
+//
+//   - Stale empty stubs left dangling when an entry-removal in a
+//     deep subtree leaves the chain empty all the way down (the
+//     stub's parent must drop the pointer; its grandparent must NOT
+//     synthesize a new chain).
+//   - Over-collapse when an entry-removal at a height-N intermediate
+//     leaves entries=[] but left=<height-(N-1) child>: the canonical
+//     shape requires keeping the empty height-N intermediate as a
+//     pass-through, NOT replacing the parent's pointer with a direct
+//     pointer to the height-(N-1) child (which would skip a level).
+func TestRemoveCanonicality_HeightGap(t *testing.T) {
+	cases := []struct {
+		name      string
+		insert    []struct{ k, v string }
+		removeIdx int
+	}{
+		{
+			// One height-2 root key; one height-0 key < it (LEFT
+			// branch); one height-0 key > it (RIGHT branch). Remove
+			// the right-side key. The resulting tree must look like
+			// a fresh build of {left, root}.
+			name: "right-side-collapse",
+			insert: []struct{ k, v string }{
+				{"app.bsky.feed.like/394091dd64a21", "bafyreieohcq6uxdidshjuchrv5df6hyh2m6zghpi64npixwl5flxkhe2qy"},
+				{"app.bsky.feed.like/32f5052c9fd15", "bafyreiha2j2hxgvxvo3owzpag472dnbiukf5nwfchaaqnxgaqd2yabpocq"},
+				{"app.bsky.feed.like/388dbf612972c", "bafyreihoqylfaloqqhz7eugn54nv6hcau67gwxxn2wjw6jw4zmwf4mjbge"},
+			},
+			removeIdx: 0,
+		},
+		{
+			// One height-2 root key; two height-0 keys both < it
+			// (both LEFT). Remove the second one. The intermediate
+			// at height 1 (which used to hold a height-1 entry) must
+			// remain as an empty pass-through so the surviving
+			// height-0 leaf isn't promoted directly under the height-2
+			// root.
+			name: "left-side-keep-intermediate",
+			insert: []struct{ k, v string }{
+				{"app.bsky.feed.like/32f5052c9fd15", "bafyreiha2j2hxgvxvo3owzpag472dnbiukf5nwfchaaqnxgaqd2yabpocq"},
+				{"app.bsky.feed.like/36ab9f1eb8f7d", "bafyreib37qtjlfhpmsjcr2nhjovqb4cc57er2wwmn67oggryf2anii4i7y"},
+				{"app.bsky.feed.like/388dbf612972c", "bafyreihoqylfaloqqhz7eugn54nv6hcau67gwxxn2wjw6jw4zmwf4mjbge"},
+			},
+			removeIdx: 1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store := NewMemBlockStore()
+			tree := NewTree(store)
+			for _, e := range tc.insert {
+				c, err := cbor.ParseCIDString(e.v)
+				require.NoError(t, err)
+				require.NoError(t, tree.Insert(e.k, c))
+			}
+			require.NoError(t, tree.Remove(tc.insert[tc.removeIdx].k))
+			rootAfter, err := tree.RootCID()
+			require.NoError(t, err)
+
+			// Oracle: a freshly-built tree containing the surviving
+			// keyset. The MST is canonical, so this must match the
+			// post-remove root exactly.
+			store2 := NewMemBlockStore()
+			tree2 := NewTree(store2)
+			for i, e := range tc.insert {
+				if i == tc.removeIdx {
+					continue
+				}
+				c, err := cbor.ParseCIDString(e.v)
+				require.NoError(t, err)
+				require.NoError(t, tree2.Insert(e.k, c))
+			}
+			expected, err := tree2.RootCID()
+			require.NoError(t, err)
+
+			assert.Equal(t, expected.String(), rootAfter.String(),
+				"Remove must leave the canonical MST root for the resulting keyset")
+		})
+	}
+}
+
 func TestRemoveAllKeys(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()

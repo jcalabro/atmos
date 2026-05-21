@@ -519,8 +519,18 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 			}
 			n.dirty = true
 
-			if len(n.entries) == 0 {
-				return n.left, nil
+			// If we collapsed all entries AND there's no remaining
+			// left subtree, this node is fully empty — return nil so
+			// the parent drops the pointer. Otherwise keep n: the
+			// canonical MST shape requires an empty-but-non-nil
+			// intermediate (entries=[], left=<child>) to fill the
+			// height gap between the parent and the surviving child.
+			// Indigo's `removeChild` enforces the same invariant via
+			// IsEmpty (entries==0). Returning n.left directly here
+			// would skip a height level and produce a non-canonical
+			// root.
+			if len(n.entries) == 0 && n.left == nil {
+				return nil, nil
 			}
 			return n, nil
 		}
@@ -586,6 +596,18 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 		} else if newChild != nil && newChild.dirty {
 			n.dirty = true
 		}
+	}
+	// Trim trailing empty passthrough at THIS level: if the only
+	// remaining structure is `entries=[]` AND `left == nil`, this
+	// node is a fully-empty stub and our parent should treat us as
+	// nil. (We do NOT collapse `entries=[] && left != nil` because
+	// such an "empty intermediate" is a meaningful height-encoding
+	// placeholder in the canonical MST shape — it's the difference
+	// between a height-2 root pointing directly at a height-0 leaf
+	// (wrong) versus pointing at a height-1 stub that points at the
+	// height-0 leaf (canonical).)
+	if len(n.entries) == 0 && n.left == nil {
+		return nil, nil
 	}
 	return n, nil
 }
