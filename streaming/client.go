@@ -744,18 +744,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				// Convert []sync.VerifierOp to []streaming.Operation.
 				// Action types are identical (streaming.Action is an
 				// alias for atmos.Action), so no cast is needed.
-				ops := make([]Operation, len(verifierOps))
-				for i, vo := range verifierOps {
-					ops[i] = Operation{
-						Action:     vo.Action,
-						Collection: vo.Collection,
-						RKey:       vo.RKey,
-						Repo:       vo.Repo,
-						Rev:        vo.Rev,
-						CID:        vo.CID,
-						blockData:  vo.BlockData,
-					}
-				}
+				ops := convertVerifierOps(verifierOps)
 				evt.verifiedOps = ops
 				evt.verifierRan = true
 			}
@@ -800,18 +789,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				if end > len(res.Ops) {
 					end = len(res.Ops)
 				}
-				ops := make([]Operation, len(res.Ops[i:end]))
-				for j, vo := range res.Ops[i:end] {
-					ops[j] = Operation{
-						Action:     vo.Action,
-						Collection: vo.Collection,
-						RKey:       vo.RKey,
-						Repo:       vo.Repo,
-						Rev:        vo.Rev,
-						CID:        vo.CID,
-						blockData:  vo.BlockData,
-					}
-				}
+				ops := convertVerifierOps(res.Ops[i:end])
 				ev := Event{
 					verifierRan: true,
 					verifiedOps: ops,
@@ -886,4 +864,24 @@ func deriveHTTPURL(wsURL string) (string, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String(), nil
+}
+
+// convertVerifierOps maps a slice of sync.VerifierOp to the streaming
+// layer's Operation type. Both types carry identical fields; this
+// helper exists to keep the two readLoop call sites (inline-verifier
+// path and async-resync chunking) from drifting if a field is added.
+func convertVerifierOps(vos []sync.VerifierOp) []Operation {
+	ops := make([]Operation, len(vos))
+	for i, vo := range vos {
+		ops[i] = Operation{
+			Action:     vo.Action,
+			Collection: vo.Collection,
+			RKey:       vo.RKey,
+			Repo:       vo.Repo,
+			Rev:        vo.Rev,
+			CID:        vo.CID,
+			blockData:  vo.BlockData,
+		}
+	}
+	return ops
 }
