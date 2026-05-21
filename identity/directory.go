@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 	"sync"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/puzpuzpuz/xsync/v4"
@@ -59,6 +60,9 @@ type Directory struct {
 	// valid; flightMap returns the live map.
 	flightsOnce sync.Once
 	flights     *xsync.Map[string, *inflight]
+
+	// Diagnostic counters. See debug.go.
+	debug directoryDebug
 }
 
 // flightMap returns the lazily-initialized in-flight request coalesce
@@ -129,18 +133,41 @@ func (d *Directory) LookupHandle(ctx context.Context, handle atmos.Handle) (*Ide
 
 // LookupDID resolves a DID to a verified Identity.
 func (d *Directory) LookupDID(ctx context.Context, did atmos.DID) (*Identity, error) {
+	d.debug.lookupDIDCalls.Add(1)
 	key := "did:" + string(did)
 
-	return d.coalesce(ctx, key, func(ctx context.Context) (*Identity, error) {
-		// Check cache.
+	// Fast-path cache hit: avoid the coalesce machinery entirely on the
+	// common case. The coalesce closure still re-checks the cache
+	// (covering the race where another goroutine populated it between
+	// the check here and joining a flight).
+	if d.Cache != nil {
+		if id, ok := d.Cache.Get(ctx, key); ok {
+			d.debug.lookupDIDCacheHits.Add(1)
+			return identityCopy(id), nil
+		}
+	}
+
+	// didLead is set true on the path where this goroutine actually ran
+	// the resolver closure; if the coalesce returns without invoking the
+	// closure (we joined an in-flight resolve), it stays false and we
+	// account a coalesced hit.
+	var didLead bool
+	id, err := d.coalesce(ctx, key, func(ctx context.Context) (*Identity, error) {
+		didLead = true
+
+		// Race window: another goroutine may have populated the cache
+		// between our pre-check and acquiring the inflight slot.
 		if d.Cache != nil {
 			if id, ok := d.Cache.Get(ctx, key); ok {
+				d.debug.lookupDIDCacheHits.Add(1)
 				return identityCopy(id), nil
 			}
 		}
 
 		// Resolve DID → document.
+		resolveStart := time.Now()
 		doc, err := d.Resolver.ResolveDID(ctx, did)
+		d.debug.addResolveNs(resolveStart)
 		if err != nil {
 			return nil, err
 		}
@@ -166,12 +193,17 @@ func (d *Directory) LookupDID(ctx context.Context, did atmos.DID) (*Identity, er
 		d.cacheIdentity(ctx, id, "")
 		return id, nil
 	})
+	if !didLead {
+		d.debug.lookupDIDCoalescedHits.Add(1)
+	}
+	return id, err
 }
 
 // Purge removes the cached identity for a DID, forcing the next lookup to
 // re-resolve from the network. This is useful when a signing key rotation is
 // detected (e.g. service auth signature verification fails).
 func (d *Directory) Purge(ctx context.Context, did atmos.DID) {
+	d.debug.purgeCalls.Add(1)
 	if d.Cache == nil {
 		return
 	}

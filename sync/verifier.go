@@ -1020,6 +1020,9 @@ type Verifier struct {
 	workerCancel context.CancelFunc
 	workerWG     sync.WaitGroup
 	closeOnce    sync.Once
+
+	// Per-stage debug timings. See verifier_debug.go.
+	timers verifierDebugTimers
 }
 
 // NewVerifier constructs a Verifier. Returns an error if required
@@ -1875,7 +1878,9 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, tlErr
 	}
 
+	lockStart := time.Now()
 	unlock := v.lockDID(did)
+	addStageNs(&v.timers.lockWaitNs, &v.timers.lockWaitCount, lockStart)
 
 	// hookErr captures a verification failure to surface to
 	// OnVerificationFailure AFTER unlock(), so a hook implementation
@@ -1889,6 +1894,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		}
 	}()
 
+	defer addStageNs(&v.timers.totalNs, &v.timers.totalCount, time.Now())
 	ops, hkErr, retErr := v.verifyCommitLocked(ctx, did, commit, true)
 	hookErr = hkErr
 	return ops, retErr
@@ -1931,7 +1937,9 @@ func (v *Verifier) verifyCommitLocked(
 		return nil, hookErr, aiErr
 	}
 
+	loadStart := time.Now()
 	state, err := v.opts.StateStore.LoadChain(ctx, did)
+	addStageNs(&v.timers.loadChainNs, &v.timers.loadChainCount, loadStart)
 	if err != nil {
 		return nil, hookErr, fmt.Errorf("verifier: load chain state: %w", err)
 	}
@@ -1956,7 +1964,9 @@ func (v *Verifier) verifyCommitLocked(
 	}
 
 	// Decode the CAR once; every downstream stage reuses this parse.
+	decodeStart := time.Now()
 	innerCommit, store, carRoot, decErr := decodeCommitFromCAR(commit)
+	addStageNs(&v.timers.decodeCARNs, &v.timers.decodeCARCount, decodeStart)
 	if decErr != nil {
 		v.inversionFailures.Add(1)
 		invErr := &InversionError{DID: did, Rev: commit.Rev, Cause: decErr}
@@ -2002,7 +2012,9 @@ func (v *Verifier) verifyCommitLocked(
 	// Inversion + chain check. Skipped on first sighting (nothing to
 	// chain against) and on legacy-accepted commits (no prevData).
 	if state != nil && !legacy {
+		invStart := time.Now()
 		inverted, err := invertCommitFromStore(commit, innerCommit, store)
+		addStageNs(&v.timers.invertNs, &v.timers.invertCount, invStart)
 		if err != nil {
 			v.inversionFailures.Add(1)
 			hookErr = err
@@ -2068,7 +2080,10 @@ func (v *Verifier) verifyCommitLocked(
 		hookErr = fmErr
 		return nil, hookErr, fmErr
 	}
-	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
+	sigStart := time.Now()
+	sigVerifyErr := v.verifyCommitSignature(ctx, did, innerCommit)
+	addStageNs(&v.timers.sigVerifyNs, &v.timers.sigVerifyCount, sigStart)
+	if err := sigVerifyErr; err != nil {
 		// Count true signature mismatches only. Resolver/network
 		// errors are infrastructure failures and surface as wrapped
 		// errors so operators can distinguish "couldn't check" from
@@ -2085,7 +2100,10 @@ func (v *Verifier) verifyCommitLocked(
 	// Op-CID consistency: ops list must agree with the post-state MST.
 	// Routed via the inversion-failure path so PolicyResync recovers
 	// transparently.
-	if opErr := checkOpCIDs(commit, dataCID, store); opErr != nil {
+	opCIDStart := time.Now()
+	opCIDErr := checkOpCIDs(commit, dataCID, store)
+	addStageNs(&v.timers.opCIDCheckNs, &v.timers.opCIDCheckCount, opCIDStart)
+	if opErr := opCIDErr; opErr != nil {
 		v.opCIDMismatches.Add(1)
 		hookErr = opErr
 		ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, opErr, allowAsyncResync)
@@ -2093,14 +2111,19 @@ func (v *Verifier) verifyCommitLocked(
 	}
 
 	// Success: build verified ops and advance state.
+	buildStart := time.Now()
 	ops, err = v.buildOpsFromCommit(commit, store)
+	addStageNs(&v.timers.buildOpsNs, &v.timers.buildOpsCount, buildStart)
 	if err != nil {
 		v.inversionFailures.Add(1)
 		ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure,
 			&InversionError{DID: did, Rev: commit.Rev, Cause: err}, allowAsyncResync)
 		return ops, hookErr, retErr
 	}
-	if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
+	saveStart := time.Now()
+	saveErr := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID})
+	addStageNs(&v.timers.saveChainNs, &v.timers.saveChainCount, saveStart)
+	if err := saveErr; err != nil {
 		return nil, hookErr, fmt.Errorf("verifier: save chain state: %w", err)
 	}
 	v.eventsVerified.Add(1)
