@@ -16,11 +16,11 @@ import (
 // still flows to the consumer; the collector yields the error AND
 // appends the event.
 //
-// silentDrop is true when the verifier ran on a #commit / #sync but
-// returned (nil, nil) — i.e. the event was a rev replay, was queued
-// for async resync, or was appended to a per-DID pending buffer. The
-// firehose seq advances but the event is NOT delivered to the
-// consumer.
+// silentDrop is true when the verifier ran successfully but produced
+// no operations (returned (nil, nil)). Three causes: the event was a
+// rev replay, was queued for async resync, or was appended to a
+// per-DID pending buffer during an in-flight resync. The firehose seq
+// advances but the event is NOT delivered to the consumer.
 type verifyResult struct {
 	evt        Event
 	hookErr    error

@@ -906,14 +906,12 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 	}
 
 	// Result channel shared by all workers; the dispatch goroutine
-	// drains it (it doubles as the collector here, since dispatch
-	// is already single-goroutine and selects on msgCh + resultCh +
-	// resyncEvents + asyncErr + timer + ctx.Done).
-	resultCh := make(chan verifyResult, 256)
+	// drains it and selects on the multiple channels listed below.
+	resultCh := make(chan verifyResult, 256) // headroom for typical concurrent completions before backpressure on workers
 
 	// asyncErr fires drop notifications. Buffered so onDrop never
 	// blocks the scheduler.
-	asyncErr := make(chan error, 64)
+	asyncErr := make(chan error, 64) // enough for typical drop-rate spikes; overflow drops the drop notification
 
 	queueCap := c.parallelism * 2
 
@@ -922,6 +920,7 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 		queueCap,
 		func(jctx context.Context, j schedJob) error {
 			res := c.verifyOne(jctx, j.evt)
+			// Send result on parent ctx, not jctx: if the iterator stopped, we drop the result; if jctx alone is cancelled, we still deliver.
 			select {
 			case resultCh <- res:
 			case <-ctx.Done():
@@ -1015,17 +1014,7 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 	// dispatch decodes a frame and either (a) sends it directly to
 	// resultCh for events with no DID or (b) AddWork to scheduler.
 	// Returns false if the caller wants to stop iterating.
-	dispatch := func(data []byte, decErr error) bool {
-		if decErr != nil {
-			if flushBatch() {
-				return false
-			}
-			timer.Reset(c.batchTimeout)
-			if !yield(nil, &DecodeError{Frame: data, Err: decErr}) {
-				return false
-			}
-			return true
-		}
+	dispatch := func(data []byte) bool {
 		evt, err := c.decode(data)
 		if errors.Is(err, errUnknownType) || errors.Is(err, errUnknownOp) {
 			return true
@@ -1107,6 +1096,7 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 					if !yield(nil, vr.accountErr) {
 						return true
 					}
+					// fall through to deliver the underlying event
 				}
 				if vr.hookErr != nil {
 					if seq := vr.evt.seqOf(); seq > 0 {
@@ -1154,7 +1144,7 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 				}
 				return false
 			}
-			if !dispatch(res.data, nil) {
+			if !dispatch(res.data) {
 				if flushBatch() {
 					return true
 				}
