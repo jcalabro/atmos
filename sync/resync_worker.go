@@ -1,7 +1,11 @@
 package sync
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/api/comatproto"
 )
 
 // ResyncEvents returns the channel of completed async resync events.
@@ -63,10 +67,105 @@ func (v *Verifier) worker() {
 	}
 }
 
-// runResyncJob is the per-job worker body. Stub — implemented in Task 6.
-// Defined here so worker() compiles before Task 6 lands.
+// runResyncJob is the per-job worker body. Holds the per-DID
+// serialization lock for the duration of the resync HTTP call AND
+// the pending drain, so subsequent verifyCommit calls for the same
+// DID continue to land in the pending buffer (FSM still in
+// statusResyncing).
 func (v *Verifier) runResyncJob(job resyncJob) {
-	// Placeholder — overwritten in Task 6.
+	state := v.lookupResyncState(job.did)
+	if state == nil {
+		// Defensive: verifyCommit creates the state before enqueueing,
+		// so this is unreachable except after a programmer error.
+		v.sendAsyncError(fmt.Errorf("verifier: missing resync state for %s", job.did))
+		return
+	}
+
+	unlock := v.lockDID(job.did)
+	defer unlock()
+
+	// Capture pre-resync rev for OnResync / ResyncEvent.OldRev.
+	oldRev := ""
+	if old, _ := v.opts.StateStore.LoadChain(job.ctx, job.did); old != nil {
+		oldRev = old.Rev
+	}
+
+	ops, err := v.resync(job.ctx, job.did, job.reason)
+	if err != nil {
+		v.sendAsyncError(err)
+		v.markIdleAndCleanup(state, job.did)
+		return
+	}
+
+	// Capture post-resync rev. resync() advanced state to
+	// (newRev, newData) before returning; reload to get newRev.
+	newRev := ""
+	if newState, _ := v.opts.StateStore.LoadChain(job.ctx, job.did); newState != nil {
+		newRev = newState.Rev
+	}
+
+	// Drain pending: replay each commit through verifyCommitInline.
+	// Replays at or below newRev drop silently via the existing
+	// rev-replay logic (rev <= state.Rev returns nil, nil).
+	state.mu.Lock()
+	pending := state.pending
+	state.pending = nil
+	state.mu.Unlock()
+
+	for _, c := range pending {
+		replayOps, rerr := v.verifyCommitInline(job.ctx, job.did, c)
+		if rerr != nil {
+			v.sendAsyncError(rerr)
+			break
+		}
+		ops = append(ops, replayOps...)
+	}
+
+	// Send the combined event. Block on full resyncDone is acceptable
+	// back-pressure; workerCtx cancellation breaks us out so Close()
+	// doesn't deadlock.
+	select {
+	case v.resyncDone <- ResyncEvent{
+		DID:    job.did,
+		OldRev: oldRev,
+		NewRev: newRev,
+		Reason: job.reason,
+		Ops:    ops,
+	}:
+	case <-v.workerCtx.Done():
+	}
+
+	v.markIdleAndCleanup(state, job.did)
+}
+
+// verifyCommitInline is verifyCommit's body without the lockDID
+// acquisition (workers hold it across the resync + replay cycle) and
+// without async resync enqueue (replay errors surface as typed errors,
+// not new resync jobs).
+//
+// Future-rev / size checks are duplicated here from verifyCommit. They
+// cost effectively nothing and protect against a malicious or buggy
+// commit landing in pending under one set of gates and being replayed
+// after gates have changed (e.g. FutureRevTolerance reduced).
+//
+// Returns the typed error directly. OnVerificationFailure is NOT fired
+// during replay; consumers monitor AsyncErrors instead. This is a
+// documented simplification — replay failures are rare.
+func (v *Verifier) verifyCommitInline(
+	ctx context.Context,
+	did atmos.DID,
+	commit *comatproto.SyncSubscribeRepos_Commit,
+) ([]VerifierOp, error) {
+	if frErr := v.checkFutureRev(did, commit.Rev); frErr != nil {
+		v.futureRevsRejected.Add(1)
+		return nil, frErr
+	}
+	if tlErr := checkCommitSize(did, commit); tlErr != nil {
+		v.oversizedCommits.Add(1)
+		return nil, tlErr
+	}
+	ops, _, err := v.verifyCommitLocked(ctx, did, commit, false)
+	return ops, err
 }
 
 // lookupOrCreateResyncState returns the per-DID async-resync state

@@ -1789,8 +1789,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	// hookErr captures a verification failure to surface to
 	// OnVerificationFailure AFTER unlock(), so a hook implementation
 	// that calls back into the verifier (e.g. Resync) doesn't
-	// deadlock on the per-DID mutex. Each error site below sets
-	// hookErr on the way out.
+	// deadlock on the per-DID mutex.
 	var hookErr error
 	defer func() {
 		unlock()
@@ -1799,6 +1798,34 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		}
 	}()
 
+	ops, hkErr, retErr := v.verifyCommitLocked(ctx, did, commit, true)
+	hookErr = hkErr
+	return ops, retErr
+}
+
+// verifyCommitLocked is the inner body of verifyCommit, called while
+// the per-DID mutex is already held. allowAsyncResync controls whether
+// chain-break / inversion-failure routes through the async enqueue
+// (true, called from verifyCommit) or returns the typed error directly
+// (false, called from the worker during replay).
+//
+// Returns (ops, hookErr, retErr):
+//   - ops:     verified ops on success; nil otherwise.
+//   - hookErr: the typed verification failure that should fire
+//     OnVerificationFailure once the per-DID lock is
+//     released. nil for success or for infrastructure
+//     errors that don't fit the hook contract.
+//   - retErr:  the error to return to the caller. Distinct from
+//     hookErr when the failure was routed through
+//     handleVerificationFailure under PolicyResync (which
+//     returns nil, nil because the resync was enqueued —
+//     the consumer sees no error).
+func (v *Verifier) verifyCommitLocked(
+	ctx context.Context,
+	did atmos.DID,
+	commit *comatproto.SyncSubscribeRepos_Commit,
+	allowAsyncResync bool,
+) (ops []VerifierOp, hookErr, retErr error) {
 	// Hosting gate (HostingGate only): drop events for non-active
 	// DIDs before any chain-state I/O. Bypasses VerifierPolicy. Runs
 	// under the per-DID lock so it serializes against concurrent
@@ -1806,23 +1833,23 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	// takedown-heavy upstream doesn't pay a chain-store round trip
 	// per gated event.
 	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
-		return nil, err
+		return nil, hookErr, err
 	} else if aiErr != nil {
 		v.accountsInactive.Add(1)
 		hookErr = aiErr
-		return nil, aiErr
+		return nil, hookErr, aiErr
 	}
 
 	state, err := v.opts.StateStore.LoadChain(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("verifier: load chain state: %w", err)
+		return nil, hookErr, fmt.Errorf("verifier: load chain state: %w", err)
 	}
 
 	// Rev-replay drop: a commit at or below persisted rev is a
 	// re-delivery (or out-of-order) and silently dropped.
 	if state != nil && commit.Rev <= state.Rev {
 		v.revReplaysDropped.Add(1)
-		return nil, nil
+		return nil, hookErr, nil
 	}
 
 	// Duplicate-path check uses only the ops list, no CAR parse.
@@ -1833,7 +1860,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		v.duplicatePaths.Add(1)
 		dupErr := &DuplicatePathError{DID: did, Rev: commit.Rev, Path: dupPath}
 		hookErr = dupErr
-		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, dupErr)
+		ops, retErr = v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, dupErr, allowAsyncResync)
+		return ops, hookErr, retErr
 	}
 
 	// Decode the CAR once; every downstream stage reuses this parse.
@@ -1842,7 +1870,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		v.inversionFailures.Add(1)
 		invErr := &InversionError{DID: did, Rev: commit.Rev, Cause: decErr}
 		hookErr = invErr
-		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, invErr)
+		ops, retErr = v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, invErr, allowAsyncResync)
+		return ops, hookErr, retErr
 	}
 	dataCID := innerCommit.Data
 
@@ -1853,7 +1882,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	if mErr := checkCARRoot(commit, carRoot); mErr != nil {
 		v.fieldMismatches.Add(1)
 		hookErr = mErr
-		return nil, mErr
+		return nil, hookErr, mErr
 	}
 
 	// Legacy 1.0-shape detection runs before inversion so a
@@ -1871,7 +1900,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 				SeenData: state.Data,
 			}
 			hookErr = lcErr
-			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonLegacyCommit, lcErr)
+			ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonLegacyCommit, lcErr, allowAsyncResync)
+			return ops, hookErr, retErr
 		}
 		// LegacyAccept: fall through; the chain-link check below is
 		// skipped (impossible without prevData), but signature and
@@ -1885,7 +1915,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		if err != nil {
 			v.inversionFailures.Add(1)
 			hookErr = err
-			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, err)
+			ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, err, allowAsyncResync)
+			return ops, hookErr, retErr
 		}
 
 		var prevDataCID cbor.CID
@@ -1905,7 +1936,8 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 				InvertedData: inverted,
 			}
 			hookErr = cbErr
-			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonChainBreak, cbErr)
+			ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonChainBreak, cbErr, allowAsyncResync)
+			return ops, hookErr, retErr
 		}
 	}
 
@@ -1915,7 +1947,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	if fmErr := checkCommitFields(commit, innerCommit); fmErr != nil {
 		v.fieldMismatches.Add(1)
 		hookErr = fmErr
-		return nil, fmErr
+		return nil, hookErr, fmErr
 	}
 	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
 		// Count true signature mismatches only. Resolver/network
@@ -1926,9 +1958,9 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		if errors.As(err, &sigErr) {
 			v.signatureFailures.Add(1)
 			hookErr = sigErr
-			return nil, sigErr
+			return nil, hookErr, sigErr
 		}
-		return nil, fmt.Errorf("verifier: signature verification: %w", err)
+		return nil, hookErr, fmt.Errorf("verifier: signature verification: %w", err)
 	}
 
 	// Op-CID consistency: ops list must agree with the post-state MST.
@@ -1937,21 +1969,23 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	if opErr := checkOpCIDs(commit, dataCID, store); opErr != nil {
 		v.opCIDMismatches.Add(1)
 		hookErr = opErr
-		return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, opErr)
+		ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, opErr, allowAsyncResync)
+		return ops, hookErr, retErr
 	}
 
 	// Success: build verified ops and advance state.
-	ops, err := v.buildOpsFromCommit(commit, store)
+	ops, err = v.buildOpsFromCommit(commit, store)
 	if err != nil {
 		v.inversionFailures.Add(1)
-		return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure,
-			&InversionError{DID: did, Rev: commit.Rev, Cause: err})
+		ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure,
+			&InversionError{DID: did, Rev: commit.Rev, Cause: err}, allowAsyncResync)
+		return ops, hookErr, retErr
 	}
 	if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
-		return nil, fmt.Errorf("verifier: save chain state: %w", err)
+		return nil, hookErr, fmt.Errorf("verifier: save chain state: %w", err)
 	}
 	v.eventsVerified.Add(1)
-	return ops, nil
+	return ops, hookErr, nil
 }
 
 // decodeCommitFromCAR loads the CAR diff, decodes the commit block
@@ -2107,8 +2141,15 @@ func (v *Verifier) handleVerificationFailure(
 	dataCID cbor.CID,
 	reason ResyncReason,
 	origErr error,
+	allowAsyncResync bool,
 ) ([]VerifierOp, error) {
 	policy := v.opts.Policy.ValOr(PolicyResync)
+	if policy == PolicyResync && !allowAsyncResync {
+		// Worker replay context: don't re-enqueue; behave like
+		// PolicyError. The caller (the worker) surfaces origErr to
+		// AsyncErrors().
+		policy = PolicyError
+	}
 	switch policy {
 	case PolicyResync:
 		// Async path: mark the DID as resyncing under its FSM lock
