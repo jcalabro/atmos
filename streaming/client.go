@@ -80,12 +80,20 @@ type Options struct {
 	DIDs gt.Option[[]string]
 
 	// SyncClient overrides the sync client used for automatic #sync
-	// re-fetching. By default, a sync client is auto-created from the
-	// WebSocket URL (the relay typically 302-redirects getRepo requests to
-	// the account's PDS). To disable automatic resync, set to
-	// gt.Some[*sync.Client](nil). This option is only used for repo
+	// re-fetching. By default, a sync client is auto-created from
+	// the WebSocket URL (the relay typically 302-redirects getRepo
+	// requests to the account's PDS). To disable automatic resync,
+	// set DisableAutoResync. This option is only used for repo
 	// consumption, not labels.
 	SyncClient gt.Option[*sync.Client]
+
+	// DisableAutoResync turns off the streaming layer's automatic
+	// fetching for #sync events. With it set, #sync events flow
+	// through to the consumer unchanged but Operations() yields
+	// nothing for them. Useful when a custom Verifier handles
+	// resync logic, or when the consumer wants to handle #sync
+	// itself.
+	DisableAutoResync bool
 
 	// Verifier, when set, runs Sync 1.1 verification on every #commit
 	// and #sync event before they reach the consumer's Operations()
@@ -179,9 +187,12 @@ func NewClient(opts Options) (*Client, error) {
 	// Resolve the sync client for automatic #sync resync.
 	// Jetstream and label streams don't need a sync client.
 	var sc *sync.Client
-	if opts.SyncClient.HasVal() {
-		sc = opts.SyncClient.Val() // may be nil (opt-out)
-	} else if !isJS && !strings.Contains(opts.URL, "subscribeLabels") {
+	switch {
+	case opts.DisableAutoResync:
+		// Caller explicitly opted out; sc stays nil.
+	case opts.SyncClient.HasVal():
+		sc = opts.SyncClient.Val()
+	case !isJS && !strings.Contains(opts.URL, "subscribeLabels"):
 		// Auto-create from the WebSocket URL for repo streams.
 		httpURL, err := deriveHTTPURL(opts.URL)
 		if err != nil {
@@ -661,7 +672,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 						Action:     vo.Action,
 						Collection: vo.Collection,
 						RKey:       vo.RKey,
-						Repo:       vo.Repo,
+						Repo:       string(vo.Repo),
 						Rev:        vo.Rev,
 						CID:        vo.CID,
 						blockData:  vo.BlockData,

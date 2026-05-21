@@ -403,7 +403,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 			for _, op := range ops {
 				require.Equal(t, atmos.ActionResync, op.Action,
 					"seed=%d resync batch must contain only ActionResync ops", seed)
-				require.Equal(t, string(dids[didIdx]), op.Repo)
+				require.Equal(t, dids[didIdx], op.Repo)
 			}
 			return
 		}

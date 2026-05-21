@@ -12,7 +12,7 @@
 // mutations. When a #sync event arrives (indicating a broken commit chain),
 // Operations automatically re-fetches the full repository and yields every
 // record as an [ActionResync] operation. This behavior is enabled by default;
-// override via [Options.SyncClient] or disable with gt.Some[*sync.Client](nil).
+// override via [Options.SyncClient] or set [Options.DisableAutoResync].
 //
 // Events are delivered in batches for efficient bulk processing. The
 // [Options.BatchSize] and [Options.BatchTimeout] fields control batching

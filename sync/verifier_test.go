@@ -903,7 +903,7 @@ func TestVerifier_Resync_Success(t *testing.T) {
 	require.Len(t, ops, 3)
 	for _, op := range ops {
 		assert.Equal(t, atmos.ActionResync, op.Action)
-		assert.Equal(t, string(did), op.Repo)
+		assert.Equal(t, did, op.Repo)
 	}
 	assert.Equal(t, did, resyncDID)
 	assert.Equal(t, sync.ReasonSyncEvent, resyncReason)
@@ -1351,10 +1351,10 @@ func TestRevRegressionError_FormatAndUnwrap(t *testing.T) {
 	assert.NotNil(t, target)
 }
 
-// failingChainStore wraps a real StateStore and forces every chain
-// SaveChain to fail. Hosting reads/writes pass through unchanged so
-// tests can mix chain-write-failure scenarios with normal hosting
-// behavior.
+// failingChainStore wraps a real StateStore and forces SaveChain
+// (and only SaveChain) to fail. LoadChain plus the four hosting
+// methods delegate untouched so tests can drive chain-write-failure
+// scenarios alongside normal hosting state.
 type failingChainStore struct {
 	real sync.StateStore
 }
@@ -5107,7 +5107,7 @@ func TestVerifier_OnAccountEvent_PersistsState(t *testing.T) {
 		Directory:  dir,
 		StateStore: ss,
 		Policy:     gt.Some(sync.PolicyError),
-		OnAccountEvent: gt.Some(func(d atmos.DID, s sync.HostingState) {
+		OnAccountStateChanged: gt.Some(func(d atmos.DID, s sync.HostingState) {
 			callbackDID = d
 			callbackState = s
 			callbackCalls++
@@ -5158,7 +5158,7 @@ func TestVerifier_OnAccountEvent_ReplayDrop(t *testing.T) {
 		Directory:  dir,
 		StateStore: ss,
 		Policy:     gt.Some(sync.PolicyError),
-		OnAccountEvent: gt.Some(func(_ atmos.DID, _ sync.HostingState) {
+		OnAccountStateChanged: gt.Some(func(_ atmos.DID, _ sync.HostingState) {
 			callbackCalls++
 		}),
 	})

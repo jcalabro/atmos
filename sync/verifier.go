@@ -80,7 +80,12 @@ type HostingState struct {
 	Active bool
 	Status string // optional reason when !Active; empty when Active
 	Seq    int64  // seq of the source #account event (replay protection)
-	Time   string // event time, for diagnostics
+	// Time is the verbatim event timestamp from the firehose
+	// envelope. Stored unchanged for diagnostics; the verifier does
+	// NOT validate that it parses as an ISO-8601 datetime. Consumers
+	// that want a parsed time should call atmos.ParseDatetime
+	// themselves and tolerate malformed inputs.
+	Time string
 }
 
 // IsActive reports whether s permits commit/sync events. A nil
@@ -730,7 +735,7 @@ type VerifierOp struct {
 	Action     atmos.Action
 	Collection string
 	RKey       string
-	Repo       string // DID
+	Repo       atmos.DID
 	Rev        string
 	CID        cbor.CID
 	BlockData  []byte
@@ -783,9 +788,17 @@ type VerifierOptions struct {
 	// ResyncFailedError and ResyncRateLimitedError do not (they're
 	// downstream consequences of a failure already reported).
 	//
-	// Resolver/network errors during signature verification surface as
-	// wrapped infrastructure errors via the return value only; they
-	// do not invoke this hook.
+	// Infrastructure errors do NOT invoke this hook — they surface
+	// only via the return value. The set of "infrastructure" failures:
+	//   - Resolver / network errors during signature verification.
+	//   - StateStore.LoadHosting / LoadChain failures (including the
+	//     hosting-gate read in checkHostingGate).
+	//   - StateStore.SaveChain failures on the success path.
+	// The rationale is the same in each case: "couldn't check" is
+	// distinct from "checked and it's bad", and only the latter is
+	// what the hook is for. Operators who want to react to
+	// infrastructure failures should consult the verifier's return
+	// value or a separate logging path.
 	//
 	// Invoked synchronously on the verifier's goroutine, AFTER the
 	// per-DID mutex has been released. Callers may invoke other
@@ -813,13 +826,16 @@ type VerifierOptions struct {
 	// pipelines that must drop events for takendown accounts.
 	HostingPolicy gt.Option[HostingPolicy]
 
-	// OnAccountEvent fires once per #account event the consumer
-	// passes to Verifier.OnAccountEvent, after the verifier has
-	// derived and persisted the new HostingState. Re-deliveries
+	// OnAccountStateChanged fires once per #account event the
+	// consumer passes to [Verifier.OnAccountEvent], after the verifier
+	// has derived and persisted the new HostingState. Re-deliveries
 	// (events with seq <= persisted seq) do not fire the callback.
 	// Invoked synchronously while the per-DID mutex is held; keep
 	// the callback fast or hand off to a worker.
-	OnAccountEvent gt.Option[func(did atmos.DID, state HostingState)]
+	//
+	// Renamed from OnAccountEvent to disambiguate from the method
+	// of the same name on Verifier.
+	OnAccountStateChanged gt.Option[func(did atmos.DID, state HostingState)]
 
 	// MutexCapacity bounds the per-DID serialization-mutex cache.
 	// None or zero → DefaultMutexCapacity. Currently-held mutexes
@@ -1068,7 +1084,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 			Action:     atmos.ActionResync,
 			Collection: col,
 			RKey:       rkey,
-			Repo:       string(did),
+			Repo:       did,
 			Rev:        commit.Rev,
 			CID:        val,
 			BlockData:  data,
@@ -1120,9 +1136,9 @@ func (v *Verifier) StateStore() StateStore {
 
 // OnAccountEvent processes a #account event: derives the new
 // HostingState from (Active, Status), persists it via
-// StateStore.SaveHosting, fires the OnAccountEvent callback (if
-// configured), and applies replay protection — events with seq at
-// or below the persisted seq are silently dropped (counter:
+// StateStore.SaveHosting, fires the OnAccountStateChanged callback
+// (if configured), and applies replay protection — events with seq
+// at or below the persisted seq are silently dropped (counter:
 // AccountEventReplaysDropped).
 //
 // Returns an error only on infrastructure failure (DID parse,
@@ -1168,8 +1184,8 @@ func (v *Verifier) OnAccountEvent(ctx context.Context, evt *comatproto.SyncSubsc
 	if err := v.opts.StateStore.SaveHosting(ctx, did, state); err != nil {
 		return fmt.Errorf("verifier: save hosting state: %w", err)
 	}
-	if v.opts.OnAccountEvent.HasVal() {
-		v.opts.OnAccountEvent.Val()(did, state)
+	if v.opts.OnAccountStateChanged.HasVal() {
+		v.opts.OnAccountStateChanged.Val()(did, state)
 	}
 	return nil
 }
@@ -1259,9 +1275,11 @@ func findDuplicateOpPath(commit *comatproto.SyncSubscribeRepos_Commit) string {
 	return ""
 }
 
-// commitVersion is the repo-commit version atmos accepts on the
-// firehose. Sync 1.1 mandates v3.
-const commitVersion = 3
+// CommitVersion is the repo-commit version atmos accepts on the
+// firehose. Sync 1.1 mandates v3. Exported so test helpers and
+// downstream consumers writing synthetic commits don't have to
+// hard-code the literal alongside this package.
+const CommitVersion = 3
 
 // isLegacyCommit reports whether commit has the Sync-1.0 shape:
 // envelope prevData absent and no update/delete op carries op.Prev.
@@ -1376,15 +1394,15 @@ func checkOpCIDs(commit *comatproto.SyncSubscribeRepos_Commit, dataCID cbor.CID,
 //
 // The version check is one-sided: the envelope carries no version
 // field, so we require the inner commit's version to equal
-// commitVersion (3). A v2 commit surfaces as Field="version" with
+// CommitVersion (3). A v2 commit surfaces as Field="version" with
 // Envelope="3" so the error shape stays consistent.
 func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *repo.Commit) *FieldMismatchError {
 	did := atmos.DID(envelope.Repo)
-	if inner.Version != commitVersion {
+	if inner.Version != CommitVersion {
 		return &FieldMismatchError{
 			DID:      did,
 			Field:    "version",
-			Envelope: fmt.Sprintf("%d", commitVersion),
+			Envelope: fmt.Sprintf("%d", CommitVersion),
 			Inner:    fmt.Sprintf("%d", inner.Version),
 		}
 	}
@@ -1414,11 +1432,11 @@ func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *re
 // counters and fires hooks.
 func checkSyncCommitFields(envelope *comatproto.SyncSubscribeRepos_Sync, inner *repo.Commit) *FieldMismatchError {
 	did := atmos.DID(envelope.DID)
-	if inner.Version != commitVersion {
+	if inner.Version != CommitVersion {
 		return &FieldMismatchError{
 			DID:      did,
 			Field:    "version",
-			Envelope: fmt.Sprintf("%d", commitVersion),
+			Envelope: fmt.Sprintf("%d", CommitVersion),
 			Inner:    fmt.Sprintf("%d", inner.Version),
 		}
 	}
@@ -1444,7 +1462,7 @@ func checkSyncCommitFields(envelope *comatproto.SyncSubscribeRepos_Sync, inner *
 // validateFetchedCommit applies the resync-time invariants on an
 // already signature-verified commit served by getRepo:
 //
-//   - inner.Version == commitVersion (Sync 1.1 mandates v3)
+//   - inner.Version == CommitVersion (Sync 1.1 mandates v3)
 //   - inner.DID matches the DID we requested (defense in depth: a
 //     misconfigured PDS that serves another account's repo passes the
 //     signature check only if we'd resolved the served DID's key,
@@ -1457,11 +1475,11 @@ func checkSyncCommitFields(envelope *comatproto.SyncSubscribeRepos_Sync, inner *
 // [ResyncFailedError]. prev may be nil (first sighting); regression
 // checks are skipped in that case.
 func validateFetchedCommit(did atmos.DID, inner *repo.Commit, prev *ChainState) error {
-	if inner.Version != commitVersion {
+	if inner.Version != CommitVersion {
 		return &FieldMismatchError{
 			DID:      did,
 			Field:    "version",
-			Envelope: fmt.Sprintf("%d", commitVersion),
+			Envelope: fmt.Sprintf("%d", CommitVersion),
 			Inner:    fmt.Sprintf("%d", inner.Version),
 		}
 	}
@@ -1964,13 +1982,15 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 	for _, op := range commit.Ops {
 		col, rkey := repo.SplitMSTKey(op.Path)
 		o := VerifierOp{
-			// Wire→typed conversion. op.Action is the lexicon's
-			// repoOp.action enum string ("create"/"update"/"delete");
-			// the cast brings it into the typed domain.
+			// Wire→typed conversions. The lexicon's RepoOp fields are
+			// plain strings; here we lift them into the typed domain.
+			// commit.Repo's parseability was already asserted by
+			// verifyCommit's atmos.ParseDID call, so a fresh cast is
+			// safe.
 			Action:     atmos.Action(op.Action),
 			Collection: col,
 			RKey:       rkey,
-			Repo:       commit.Repo,
+			Repo:       atmos.DID(commit.Repo),
 			Rev:        commit.Rev,
 		}
 		if op.CID.HasVal() {

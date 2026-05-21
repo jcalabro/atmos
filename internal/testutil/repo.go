@@ -20,6 +20,7 @@ import (
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/mst"
 	"github.com/jcalabro/atmos/repo"
+	atmossync "github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/require"
@@ -104,7 +105,7 @@ func BuildAndStoreSignedCommit(r *repo.Repo, key crypto.PrivateKey, rootCID cbor
 	rev := r.Clock.Next()
 	c := &repo.Commit{
 		DID:     string(r.DID),
-		Version: 3,
+		Version: atmossync.CommitVersion,
 		Data:    rootCID,
 		Rev:     string(rev),
 	}
