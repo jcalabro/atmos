@@ -605,3 +605,110 @@ func TestVerifiedStream_AccountEventReplayDropped(t *testing.T) {
 	assert.True(t, hosting.Active, "state must reflect first event, not dropped re-deliveries")
 	assert.Equal(t, int64(10), hosting.Seq)
 }
+
+// blockingStateStore wraps a sync.StateStore and blocks SaveChain on a
+// gate channel. Used to provoke queue overflow in the parallel scheduler
+// integration test by holding the first verification completely blocked.
+type blockingStateStore struct {
+	inner sync.StateStore
+	gate  chan struct{}
+}
+
+func (s *blockingStateStore) LoadChain(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
+	return s.inner.LoadChain(ctx, did)
+}
+
+func (s *blockingStateStore) SaveChain(ctx context.Context, did atmos.DID, state sync.ChainState) error {
+	// Add a significant delay to each SaveChain to make verification slow.
+	// This allows commits to pile up and overflow the queue.
+	select {
+	case <-time.After(50 * time.Millisecond):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return s.inner.SaveChain(ctx, did, state)
+}
+
+func (s *blockingStateStore) LoadHosting(ctx context.Context, did atmos.DID) (*sync.HostingState, error) {
+	return s.inner.LoadHosting(ctx, did)
+}
+
+func (s *blockingStateStore) SaveHosting(ctx context.Context, did atmos.DID, state sync.HostingState) error {
+	return s.inner.SaveHosting(ctx, did, state)
+}
+
+func (s *blockingStateStore) Delete(ctx context.Context, did atmos.DID) error {
+	return s.inner.Delete(ctx, did)
+}
+
+func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:dropoverflow")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	const n = 100
+	frames := buildVerifiedChainFrames(t, did, key, n)
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	slowStore := &blockingStateStore{
+		inner: sync.NewMemStateStore(),
+		gate:  make(chan struct{}), // unused, kept for type compatibility
+	}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: slowStore,
+		// No SyncClient required: we'll never resync (single DID, valid chain).
+		Policy: gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	defer v.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Parallelism=2 → per-DID queue cap = 2 * 2 = 4.
+	// (Parallelism=1 would use serial mode, bypassing the scheduler.)
+	// With 100 commits arriving rapidly and 50ms SaveChain delay per
+	// commit, the dispatch goroutine will fill the queue faster than
+	// the workers can drain it, triggering drop-oldest.
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Verifier:    gt.Some(v),
+		Parallelism: gt.Some(2),
+	})
+
+	dropCount := 0
+	var firstDrop *DropError
+
+	for batch, err := range client.Events(ctx) {
+		if err != nil {
+			var de *DropError
+			if stderrors.As(err, &de) {
+				dropCount++
+				if firstDrop == nil {
+					firstDrop = de
+				}
+			}
+		}
+		_ = batch
+		if dropCount > 0 {
+			cancel()
+			break
+		}
+	}
+
+	require.Greater(t, dropCount, 0, "expected at least one DropError")
+	require.Equal(t, string(did), firstDrop.DID, "DropError should reference the offending DID")
+	require.Greater(t, firstDrop.Seq, int64(0), "DropError seq should be > 0")
+	require.Equal(t, 4, firstDrop.QueueLen, "QueueLen should match parallelism * 2")
+}
