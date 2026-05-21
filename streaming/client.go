@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/streaming/parallel"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -594,13 +595,25 @@ type readResult struct {
 	err  error
 }
 
-// readLoop reads messages from the WebSocket and yields batches of events.
+// readLoop selects between the strict-order path (Parallelism = 1)
+// and the per-DID parallel path. Both paths read from conn and yield
+// batches of events to the caller. Returns true when the caller's
+// yield function asked to stop iterating; false on connection errors
+// or context cancellation (caller should reconnect or exit).
+func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
+	if c.parallelism <= 1 {
+		return c.readLoopSerial(ctx, conn, yield)
+	}
+	return c.readLoopParallel(ctx, conn, yield)
+}
+
+// readLoopSerial reads messages from the WebSocket and yields batches of events.
 // A reader goroutine sends raw frames to a channel; the main select loop
 // decodes, accumulates, and flushes batches on three triggers: batch full,
 // timeout, or error. Returns true only when the yield function returns false
 // (caller wants to stop iterating). Returns false for context cancellation
 // and connection errors (caller should reconnect or exit).
-func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
+func (c *Client) readLoopSerial(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
 	msgCh := make(chan readResult, 1)
 
 	// Reader goroutine: reads raw frames and sends them to msgCh.
@@ -872,6 +885,377 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			// Context cancelled (e.g. lock lost or parent cancel) while the
 			// reader goroutine exited via its own ctx.Done() branch without
 			// sending the error to msgCh. Flush any partial batch and exit.
+			if flushBatch() {
+				return true
+			}
+			return false
+		}
+	}
+}
+
+// readLoopParallel runs the firehose with verification dispatched to
+// a per-DID FIFO worker pool. Events for different DIDs may complete
+// (and yield) out of seq order; events for the same DID are strictly
+// ordered. Cursor advances on a watermark equal to the smallest
+// in-flight seq minus 1; a per-DID seq tracker drives GapError, and
+// per-DID queue overflow surfaces as *DropError.
+func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
+	// schedJob carries one decoded event through the scheduler.
+	type schedJob struct {
+		evt Event
+	}
+
+	// Result channel shared by all workers; the dispatch goroutine
+	// drains it (it doubles as the collector here, since dispatch
+	// is already single-goroutine and selects on msgCh + resultCh +
+	// resyncEvents + asyncErr + timer + ctx.Done).
+	resultCh := make(chan verifyResult, 256)
+
+	// asyncErr fires drop notifications. Buffered so onDrop never
+	// blocks the scheduler.
+	asyncErr := make(chan error, 64)
+
+	queueCap := c.parallelism * 2
+
+	sched := parallel.NewSchedulerWithErrorHook[schedJob](
+		c.parallelism,
+		queueCap,
+		func(jctx context.Context, j schedJob) error {
+			res := c.verifyOne(jctx, j.evt)
+			select {
+			case resultCh <- res:
+			case <-ctx.Done():
+			}
+			return nil
+		},
+		func(j schedJob) {
+			seq := j.evt.seqOf()
+			did := j.evt.repoOf()
+			select {
+			case asyncErr <- &DropError{DID: did, Seq: seq, QueueLen: queueCap}:
+			default:
+				// asyncErr full: drop the drop notification rather than
+				// stall the scheduler.
+			}
+		},
+		nil, // no onError hook in parallel path; verifyOne already returns errors via verifyResult
+	)
+	defer sched.Shutdown()
+
+	// Reader goroutine: identical to serial mode.
+	msgCh := make(chan readResult, 1)
+	go func() {
+		for {
+			_, data, err := conn.Read(ctx)
+			select {
+			case msgCh <- readResult{data, err}:
+			case <-ctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	// Verifier auxiliary channels (resync events, async errors).
+	var resyncEvents <-chan sync.ResyncEvent
+	var verifierAsyncErrs <-chan error
+	if c.opts.Verifier.HasVal() && c.opts.Verifier.Val() != nil {
+		v := c.opts.Verifier.Val()
+		resyncEvents = v.ResyncEvents()
+		verifierAsyncErrs = v.AsyncErrors()
+	}
+
+	// Watermark cursor and per-DID seq state.
+	var inflight inflightSeqs
+	perDIDSeq := make(map[string]int64)
+
+	batch := make([]Event, 0, c.batchSize)
+	timer := time.NewTimer(c.batchTimeout)
+	defer timer.Stop()
+
+	// flushBatch yields the current batch and updates the cursor to
+	// max(currentCursor, watermark). Returns true if the caller
+	// stopped iterating.
+	flushBatch := func() bool {
+		if len(batch) == 0 {
+			return false
+		}
+		stopped := !yield(batch, nil)
+		if !stopped {
+			watermark := inflight.Min()
+			cur := c.cursor.Load()
+			var newCur int64
+			if watermark > 0 {
+				newCur = watermark - 1
+			} else {
+				// inflight empty: cursor = highest yielded seq.
+				for _, e := range batch {
+					if s := e.seqOf(); s > newCur {
+						newCur = s
+					}
+				}
+			}
+			if newCur > cur {
+				c.cursor.Store(newCur)
+				if c.opts.CursorStore.HasVal() {
+					prevCount := c.cursorCount
+					c.cursorCount += int64(len(batch))
+					if c.cursorCount/c.cursorInterval > prevCount/c.cursorInterval {
+						_ = c.opts.CursorStore.Val().SaveCursor(ctx, newCur)
+					}
+				}
+			}
+		}
+		batch = make([]Event, 0, c.batchSize)
+		return stopped
+	}
+
+	// dispatch decodes a frame and either (a) sends it directly to
+	// resultCh for events with no DID or (b) AddWork to scheduler.
+	// Returns false if the caller wants to stop iterating.
+	dispatch := func(data []byte, decErr error) bool {
+		if decErr != nil {
+			if flushBatch() {
+				return false
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, &DecodeError{Frame: data, Err: decErr}) {
+				return false
+			}
+			return true
+		}
+		evt, err := c.decode(data)
+		if errors.Is(err, errUnknownType) || errors.Is(err, errUnknownOp) {
+			return true
+		}
+		if err != nil {
+			if flushBatch() {
+				return false
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)}) {
+				return false
+			}
+			return true
+		}
+
+		// Plumb context, sync client, and strict validation onto the
+		// event — same as serial path.
+		if evt.Sync != nil && c.syncClient != nil {
+			evt.ctx = ctx
+			evt.syncClient = c.syncClient
+		}
+		evt.strictValidation = c.opts.StrictValidation.ValOr(false)
+
+		// Per-DID gap detection. Only firehose events with a real DID.
+		seq := evt.seqOf()
+		did := evt.repoOf()
+		if seq > 0 && !c.isJetstream && did != "" {
+			if last, ok := perDIDSeq[did]; ok && seq > last+1 {
+				if flushBatch() {
+					return false
+				}
+				timer.Reset(c.batchTimeout)
+				if !yield(nil, &GapError{DID: did, Expected: last + 1, Got: seq}) {
+					return false
+				}
+			}
+			perDIDSeq[did] = seq
+		}
+
+		// Track in-flight for watermark cursor.
+		if seq > 0 {
+			inflight.Add(seq)
+		}
+
+		// Events without a DID (#info, label-stream Info) bypass
+		// the scheduler.
+		if did == "" {
+			select {
+			case resultCh <- verifyResult{evt: evt}:
+			case <-ctx.Done():
+				return false
+			}
+			return true
+		}
+
+		if err := sched.AddWork(ctx, did, schedJob{evt: evt}); err != nil {
+			// Context cancelled mid-dispatch.
+			if seq > 0 {
+				inflight.Remove(seq) // we will not see a result
+			}
+			return false
+		}
+		return true
+	}
+
+	// drainResults pulls any pending results from resultCh into the
+	// batch (calling flushBatch on overflow) until inflight is empty.
+	// Used on connection-close paths so in-flight verification work is
+	// not silently dropped when the relay closes mid-batch. Returns
+	// true if the caller stopped iterating.
+	drainResults := func() bool {
+		for inflight.Len() > 0 {
+			select {
+			case vr := <-resultCh:
+				if vr.accountErr != nil {
+					if flushBatch() {
+						return true
+					}
+					if !yield(nil, vr.accountErr) {
+						return true
+					}
+				}
+				if vr.hookErr != nil {
+					if seq := vr.evt.seqOf(); seq > 0 {
+						inflight.Remove(seq)
+					}
+					if flushBatch() {
+						return true
+					}
+					if !yield(nil, vr.hookErr) {
+						return true
+					}
+					continue
+				}
+				if vr.silentDrop {
+					if seq := vr.evt.seqOf(); seq > 0 {
+						inflight.Remove(seq)
+					}
+					continue
+				}
+				batch = append(batch, vr.evt)
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				if len(batch) >= c.batchSize {
+					if flushBatch() {
+						return true
+					}
+				}
+			case <-ctx.Done():
+				return false
+			}
+		}
+		return false
+	}
+
+	for {
+		select {
+		case res := <-msgCh:
+			if res.err != nil {
+				if drainResults() {
+					return true
+				}
+				if flushBatch() {
+					return true
+				}
+				return false
+			}
+			if !dispatch(res.data, nil) {
+				if flushBatch() {
+					return true
+				}
+				return false
+			}
+
+		case vr := <-resultCh:
+			if vr.accountErr != nil {
+				if flushBatch() {
+					return true
+				}
+				timer.Reset(c.batchTimeout)
+				if !yield(nil, vr.accountErr) {
+					return true
+				}
+				// fall through to deliver the underlying event
+			}
+			if vr.hookErr != nil {
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				if flushBatch() {
+					return true
+				}
+				timer.Reset(c.batchTimeout)
+				if !yield(nil, vr.hookErr) {
+					return true
+				}
+				continue
+			}
+			if vr.silentDrop {
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				continue
+			}
+			batch = append(batch, vr.evt)
+			if seq := vr.evt.seqOf(); seq > 0 {
+				inflight.Remove(seq)
+			}
+			if len(batch) >= c.batchSize {
+				if flushBatch() {
+					return true
+				}
+				timer.Reset(c.batchTimeout)
+			}
+
+		case res, ok := <-resyncEvents:
+			if !ok {
+				resyncEvents = nil
+				continue
+			}
+			const chunkSize = 100
+			for i := 0; i < len(res.Ops); i += chunkSize {
+				end := i + chunkSize
+				if end > len(res.Ops) {
+					end = len(res.Ops)
+				}
+				ops := convertVerifierOps(res.Ops[i:end])
+				batch = append(batch, Event{verifierRan: true, verifiedOps: ops})
+				if len(batch) >= c.batchSize {
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+				}
+			}
+
+		case err, ok := <-verifierAsyncErrs:
+			if !ok {
+				verifierAsyncErrs = nil
+				continue
+			}
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, err) {
+				return true
+			}
+
+		case err, ok := <-asyncErr:
+			if !ok {
+				asyncErr = nil
+				continue
+			}
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, err) {
+				return true
+			}
+
+		case <-timer.C:
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+
+		case <-ctx.Done():
 			if flushBatch() {
 				return true
 			}

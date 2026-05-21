@@ -311,7 +311,9 @@ func TestJetstream_Integration_MixedEvents(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
+	// Parallelism=1: this test asserts strict cross-DID ordering by
+	// index (events[0] is alice's commit, [1] is bob's account, etc.).
+	client := mustNewClient(t, Options{URL: jetstreamURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	for batch, err := range client.Events(ctx) {
@@ -472,7 +474,11 @@ func TestJetstream_Integration_ErrorFrame(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
+	// Parallelism=1: this test asserts the good event is yielded
+	// before the error in the same loop iteration; under parallel
+	// mode the worker may still be processing when the error frame
+	// arrives, leaving the event in flight at cancel time.
+	client := mustNewClient(t, Options{URL: jetstreamURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	var errs []error

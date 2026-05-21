@@ -5,6 +5,7 @@ package streaming
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -35,7 +36,9 @@ func TestIntegration_MixedEventTypes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	// Parallelism=1: this test asserts strict cross-DID ordering by
+	// index (events[0] is alice, [1] is bob, etc.).
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	for batch, err := range client.Events(ctx) {
@@ -248,4 +251,82 @@ func TestIntegration_SyncEvent_EndToEnd(t *testing.T) {
 		assert.Equal(t, "3abc", string(op.Rev))
 		assert.True(t, op.CID.Defined(), "resync op CID must be defined")
 	}
+}
+
+func TestReadLoopParallel_DeliversAllEvents(t *testing.T) {
+	t.Parallel()
+
+	const N = 20
+	const Workers = 4
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		frames := make([][]byte, 0, N)
+		// Use a unique DID per event to avoid per-DID gaps (each DID
+		// only sees one seq, so no per-DID gap can fire).
+		for i := int64(1); i <= N; i++ {
+			did := fmt.Sprintf("did:plc:u%d", i)
+			frames = append(frames, buildFrame("#identity", buildIdentityBody(i, did)))
+		}
+		writeFrames(conn, frames...)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Parallelism: gt.Some(Workers),
+	})
+
+	seen := make(map[int64]bool)
+	for batch, err := range client.Events(ctx) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, evt := range batch {
+			if evt.Seq > 0 {
+				seen[evt.Seq] = true
+			}
+		}
+		if len(seen) >= N {
+			cancel()
+		}
+	}
+	require.Len(t, seen, N)
+}
+
+func TestReadLoopSerial_BackwardCompat(t *testing.T) {
+	t.Parallel()
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn,
+			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")),
+			buildFrame("#identity", buildIdentityBody(2, "did:plc:bob")),
+			buildFrame("#identity", buildIdentityBody(3, "did:plc:carol")),
+		)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Parallelism: gt.Some(1),
+	})
+
+	var seqs []int64
+	for batch, err := range client.Events(ctx) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, evt := range batch {
+			if evt.Seq > 0 {
+				seqs = append(seqs, evt.Seq)
+			}
+		}
+		if len(seqs) >= 3 {
+			cancel()
+		}
+	}
+	require.Equal(t, []int64{1, 2, 3}, seqs)
 }

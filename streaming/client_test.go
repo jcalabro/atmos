@@ -130,7 +130,8 @@ func TestHappyPath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	// Cross-DID strict ordering: opt into Parallelism=1.
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	for batch, err := range client.Events(ctx) {
@@ -167,7 +168,10 @@ func TestSequenceGap(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	// Opt into strict-order (Parallelism=1) so global gap detection
+	// fires across DIDs. Under parallel mode, gaps are per-DID and a
+	// 2-event multi-DID stream produces no gap.
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
 
 	var (
 		events []Event
@@ -216,6 +220,8 @@ func TestReconnection(t *testing.T) {
 	defer cancel()
 
 	var reconnects atomic.Int32
+	// Parallelism=1: cursor advances on highest yielded seq across
+	// DIDs, so reconnect query reliably contains cursor=1.
 	client := mustNewClient(t, Options{
 		URL: wsURL(srv),
 		Backoff: gt.Some(BackoffPolicy{
@@ -227,6 +233,7 @@ func TestReconnection(t *testing.T) {
 		OnReconnect: gt.Some(func(attempt int, delay time.Duration) {
 			reconnects.Add(1)
 		}),
+		Parallelism: gt.Some(1),
 	})
 
 	var events []Event
