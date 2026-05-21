@@ -55,4 +55,34 @@
 // When the client auto-attaches a verifier (no Options.Verifier supplied),
 // Client.Close() shuts the verifier down too. User-supplied verifiers are
 // the caller's responsibility to close.
+//
+// # Parallel verification (Sync 1.1)
+//
+// When [Options.Verifier] is configured (or auto-attached by
+// NewClient), per-event verification can dominate the readLoop's wall
+// clock — primarily because each event's signature check resolves
+// the DID through the identity directory, which round-trips to
+// plc.directory on cache miss (~30ms). To keep up with line rate,
+// the client runs verification on a per-DID FIFO worker pool sized
+// by [Options.Parallelism] (default 32). Workers process events
+// concurrently across DIDs while preserving same-DID order.
+//
+// Delivery semantics under Parallelism > 1:
+//
+//   - Events for the same DID are delivered in seq order.
+//   - Events for different DIDs may interleave: an event with seq=N
+//     may yield AFTER an event with seq=N+1 if they belong to
+//     different DIDs.
+//   - The cursor advances to a watermark equal to the smallest seq
+//     still in flight, minus 1. Restarting the consumer resumes from
+//     this point; some events that completed after the watermark
+//     holder may be re-delivered (at-least-once).
+//   - [GapError] is fired per-DID, not globally. The DID field
+//     identifies which repo's seq sequence skipped.
+//   - Per-DID queue overflow surfaces as [*DropError] on the
+//     consumer's iter (alongside [GapError], [DecodeError], and
+//     verifier errors).
+//
+// To preserve the strict global-seq behavior of pre-1.2 atmos, set
+// Parallelism to 1.
 package streaming
