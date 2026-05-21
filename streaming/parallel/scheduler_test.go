@@ -3,6 +3,7 @@ package parallel
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -74,4 +75,44 @@ func TestScheduler_PerKeyFIFO(t *testing.T) {
 	for i, v := range observed {
 		require.Equal(t, i, v, "out-of-order at index %d", i)
 	}
+}
+
+func TestScheduler_CrossKeyParallel(t *testing.T) {
+	const Workers = 8
+	const Keys = 8
+
+	// Each handler waits on a barrier so all 8 keys must be running
+	// concurrently before any can complete. If parallelism were less
+	// than Keys, this would deadlock and time out.
+	var (
+		started sync.WaitGroup
+		release = make(chan struct{})
+	)
+	started.Add(Keys)
+
+	s := NewScheduler(Workers, 0, func(ctx context.Context, k string) error {
+		started.Done()
+		<-release
+		return nil
+	}, nil)
+	defer s.Shutdown()
+
+	ctx := context.Background()
+	for i := range Keys {
+		require.NoError(t, s.AddWork(ctx, fmt.Sprintf("k%d", i), fmt.Sprintf("v%d", i)))
+	}
+
+	// All Keys handlers must run concurrently.
+	allRunning := make(chan struct{})
+	go func() {
+		started.Wait()
+		close(allRunning)
+	}()
+
+	select {
+	case <-allRunning:
+	case <-time.After(time.Second):
+		t.Fatal("only some workers ran; cross-key parallelism not honored")
+	}
+	close(release)
 }
