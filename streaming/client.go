@@ -213,9 +213,12 @@ func NewClient(opts Options) (*Client, error) {
 			}
 		} else {
 			// Auto-set a sync 1.1 verifier if none is provided and sync 1.1
-			// is not explicitly disabled
+			// is not explicitly disabled. The directory MUST be cached:
+			// without a cache every commit triggers PLC + handle round
+			// trips and consumer throughput collapses well below line
+			// rate. NewDefaultDirectory ships with a sized in-memory LRU.
 			v, err := sync.NewVerifier(sync.VerifierOptions{
-				Directory:  &identity.Directory{Resolver: &identity.DefaultResolver{}},
+				Directory:  identity.NewInMemoryDirectory(),
 				StateStore: sync.NewMemStateStore(),
 				SyncClient: gt.Some(sc),
 			})
