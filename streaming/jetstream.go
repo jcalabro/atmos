@@ -124,5 +124,10 @@ func isJetstreamURL(rawURL string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.HasSuffix(parsed.Path, "/subscribe")
+
+	// ToLower because even though it's invalid, certain web frameworks
+	// that shall remain unnamed treat HTTP paths as case insensitive
+	// by default
+	p := strings.ToLower(parsed.Path)
+	return strings.HasSuffix(p, "/subscribe")
 }

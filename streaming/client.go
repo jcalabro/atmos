@@ -20,15 +20,14 @@ const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
 
 // Options configures a streaming client.
 type Options struct {
-	// URL is the full WebSocket URL. The decoder is auto-detected: URLs
-	// containing "subscribeLabels" use the label decoder, all others use
-	// the repository decoder.
+	// URL is the full WebSocket URL. The decoder is auto-detected based
+	// on the HTTP path. Examples of such URLs:
 	//
-	// Examples:
-	//   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos"
-	//   "wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels"
+	//   Firehose:  "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos"
+	//   Jetstream: "wss://jetstream1.us-east.bsky.network/subscribe"
+	//   Labeler:   "wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels"
 	//
-	// Required.
+	// This field is required.
 	URL string
 
 	// Cursor is the initial sequence number to resume from. None means start
@@ -187,7 +186,8 @@ func NewClient(opts Options) (*Client, error) {
 
 	decode := decodeFrame
 	isJS := false
-	if strings.Contains(opts.URL, "subscribeLabels") {
+	isLabels := isSubscribeLabels(opts.URL)
+	if isLabels {
 		decode = decodeLabelFrame
 	} else if isJetstreamURL(opts.URL) {
 		decode = decodeJetstreamFrame
@@ -202,7 +202,7 @@ func NewClient(opts Options) (*Client, error) {
 		// Caller explicitly opted out; sc stays nil.
 	case opts.SyncClient.HasVal():
 		sc = opts.SyncClient.Val()
-	case !isJS && !strings.Contains(opts.URL, "subscribeLabels"):
+	case !isJS && !isLabels:
 		// Auto-create from the WebSocket URL for repo streams.
 		httpURL, err := deriveHTTPURL(opts.URL)
 		if err != nil {
@@ -248,6 +248,18 @@ func NewClient(opts Options) (*Client, error) {
 	}
 
 	return c, nil
+}
+
+func isSubscribeLabels(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	// EqualFold because even though it's invalid, certain web frameworks
+	// that shall remain unnamed treat HTTP paths as case insensitive
+	// by default.
+	return strings.EqualFold(parsed.Path, "/xrpc/com.atproto.label.subscribeLabels")
 }
 
 // Cursor returns the sequence number of the last successfully yielded event.
