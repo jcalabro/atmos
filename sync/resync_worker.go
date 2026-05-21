@@ -84,13 +84,19 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 	unlock := v.lockDID(job.did)
 	defer unlock()
 
+	// Honor both the readLoop's context AND the verifier's worker
+	// context. Close() cancels workerCtx; either being cancelled
+	// should abort an in-flight getRepo or replay.
+	ctx, cancelCtx := mergeCtx(job.ctx, v.workerCtx)
+	defer cancelCtx()
+
 	// Capture pre-resync rev for OnResync / ResyncEvent.OldRev.
 	oldRev := ""
-	if old, _ := v.opts.StateStore.LoadChain(job.ctx, job.did); old != nil {
+	if old, _ := v.opts.StateStore.LoadChain(ctx, job.did); old != nil {
 		oldRev = old.Rev
 	}
 
-	ops, err := v.resync(job.ctx, job.did, job.reason)
+	ops, err := v.resync(ctx, job.did, job.reason)
 	if err != nil {
 		v.sendAsyncError(err)
 		v.markIdleAndCleanup(state, job.did)
@@ -100,7 +106,7 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 	// Capture post-resync rev. resync() advanced state to
 	// (newRev, newData) before returning; reload to get newRev.
 	newRev := ""
-	if newState, _ := v.opts.StateStore.LoadChain(job.ctx, job.did); newState != nil {
+	if newState, _ := v.opts.StateStore.LoadChain(ctx, job.did); newState != nil {
 		newRev = newState.Rev
 	}
 
@@ -113,10 +119,10 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 	state.mu.Unlock()
 
 	for _, c := range pending {
-		replayOps, rerr := v.verifyCommitInline(job.ctx, job.did, c)
+		replayOps, rerr := v.verifyCommitInline(ctx, job.did, c)
 		if rerr != nil {
 			v.sendAsyncError(rerr)
-			break
+			continue
 		}
 		ops = append(ops, replayOps...)
 	}
@@ -226,4 +232,21 @@ func (v *Verifier) sendAsyncError(err error) {
 	case v.asyncErrs <- err:
 	case <-v.workerCtx.Done():
 	}
+}
+
+// mergeCtx returns a context that is cancelled when EITHER a or b is
+// cancelled. Used by resync workers to honor both the readLoop's
+// context (from job.ctx) and the verifier's workerCtx (cancelled by
+// Close()).
+func mergeCtx(a, b context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(a)
+	stop := make(chan struct{})
+	go func() {
+		select {
+		case <-b.Done():
+			cancel()
+		case <-stop:
+		}
+	}()
+	return ctx, func() { close(stop); cancel() }
 }
