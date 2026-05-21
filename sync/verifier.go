@@ -2150,7 +2150,11 @@ func (v *Verifier) handleVerificationFailure(
 		case statusResyncing:
 			// Append to pending; ring-shift on overflow.
 			if len(state.pending) >= v.pendingCap {
-				state.pending = append(state.pending[1:], commit)
+				// Allocation-free ring shift: drop the oldest, append the new
+				// in-place. append(state.pending[1:], commit) would allocate
+				// because state.pending[1:] has cap == len.
+				copy(state.pending, state.pending[1:])
+				state.pending[len(state.pending)-1] = commit
 				state.mu.Unlock()
 				v.sendAsyncError(&BufferOverflowError{DID: did, Dropped: 1})
 			} else {
