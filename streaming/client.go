@@ -736,9 +736,25 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 					continue
 				}
 				if verifierOps == nil {
-					// Silent drop (rev replay). buildOpsFromCommit returns
-					// a non-nil empty slice for legitimate empty-ops commits,
-					// so a true nil here uniquely signals replay.
+					// VerifyAndExpand returned (nil, nil). Three causes:
+					//   1. Rev replay (commit.Rev <= persisted state.Rev).
+					//      The relay assigns a fresh monotonic seq on
+					//      re-delivery, so seq advances even though we
+					//      drop the commit silently.
+					//   2. Chain break enqueued for async resync. The
+					//      worker pool will produce ops on ResyncEvents().
+					//   3. Commit appended to the per-DID pending buffer
+					//      during an in-flight resync.
+					//
+					// In all three cases the firehose seq is real and
+					// MUST advance lastSeenSeq, otherwise the next event
+					// triggers a phantom GapError. (buildOpsFromCommit
+					// returns a non-nil empty slice for legitimate
+					// empty-ops commits, so true-nil uniquely signals
+					// these silent paths.)
+					if seq := evt.seqOf(); seq > 0 && !c.isJetstream {
+						lastSeenSeq = seq
+					}
 					continue
 				}
 				// Convert []sync.VerifierOp to []streaming.Operation.
