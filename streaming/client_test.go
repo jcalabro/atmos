@@ -576,8 +576,8 @@ func TestNewClient_DisabledSyncClient(t *testing.T) {
 	t.Parallel()
 
 	c, err := NewClient(Options{
-		URL:               "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
-		DisableAutoResync: true,
+		URL:        "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		SyncClient: gt.Some(sync.NewClient(sync.Options{DisableAutoResync: true})),
 	})
 	require.NoError(t, err)
 	assert.Nil(t, c.syncClient, "DisableAutoResync should leave syncClient nil")

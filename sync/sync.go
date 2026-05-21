@@ -69,6 +69,14 @@ type Options struct {
 	// Directory enables commit signature verification via DID
 	// resolution. None disables signature checks.
 	Directory gt.Option[*identity.Directory]
+
+	// DisableAutoResync turns off the streaming layer's automatic
+	// fetching for #sync events. With it set, #sync events flow
+	// through to the consumer unchanged but Operations() yields
+	// nothing for them. Useful when a custom Verifier handles
+	// resync logic, or when the consumer wants to handle #sync
+	// itself.
+	DisableAutoResync bool
 }
 
 // Client performs sync operations against a PDS or relay.
@@ -79,4 +87,10 @@ type Client struct {
 // NewClient creates a new sync client.
 func NewClient(opts Options) *Client {
 	return &Client{opts: opts}
+}
+
+// Returns whether or not this Client is configured to automatically
+// resync on #sync events
+func (c *Client) DisableAutoResync() bool {
+	return c.opts.DisableAutoResync
 }

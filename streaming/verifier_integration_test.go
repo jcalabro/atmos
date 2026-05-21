@@ -168,6 +168,7 @@ func TestVerifiedStream_HappyPath(t *testing.T) {
 
 func TestVerifiedStream_NoVerifierUnchangedBehavior(t *testing.T) {
 	t.Parallel()
+
 	// Same scripted firehose, no verifier configured. The CAR-decode path
 	// must produce the same op count — regression check that the verifier
 	// opt-in didn't break the legacy code path.
@@ -186,7 +187,10 @@ func TestVerifiedStream_NoVerifierUnchangedBehavior(t *testing.T) {
 		writeFrames(conn, frames...)
 	})
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	client := mustNewClient(t, Options{
+		URL:      wsURL(srv),
+		Verifier: gt.Some[*sync.Verifier](nil),
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

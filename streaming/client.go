@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
@@ -86,14 +87,6 @@ type Options struct {
 	// consumption, not labels.
 	SyncClient gt.Option[*sync.Client]
 
-	// DisableAutoResync turns off the streaming layer's automatic
-	// fetching for #sync events. With it set, #sync events flow
-	// through to the consumer unchanged but Operations() yields
-	// nothing for them. Useful when a custom Verifier handles
-	// resync logic, or when the consumer wants to handle #sync
-	// itself.
-	DisableAutoResync bool
-
 	// Verifier, when set, runs Sync 1.1 verification on every #commit
 	// and #sync event before they reach the consumer's Operations()
 	// iterator, AND feeds every #account event into the verifier's
@@ -101,16 +94,17 @@ type Options struct {
 	// commits for takendown DIDs). None means no verification — events
 	// flow through unchanged (existing behavior).
 	//
-	// Only applied to firehose streams; jetstream isn't part of the
-	// verifier's contract.
+	// Only relevant for firehose streams.
+	//
+	// Pass gt.Some[*sync.Verifier](nil) to disable
 	Verifier gt.Option[*sync.Verifier]
 
 	// StrictValidation makes [Event.Operations] validate each op's
 	// typed fields (NSID, RecordKey, DID, TID) against the
 	// corresponding [atmos] syntax types before yielding. None or
-	// false (the default) is the existing relaxed behavior: typed
-	// fields carry whatever value the wire produced, and consumers
-	// that care about strict syntax call [atmos.NSID.Validate] etc.
+	// false (the default) is the relaxed behavior: typed fields
+	// carry whatever value the wire produced, and consumers that
+	// care about strict syntax call [atmos.NSID.Validate] etc.
 	// themselves. Set to gt.Some(true) to make the iterator yield
 	// (Operation{}, error) for any op whose fields don't parse.
 	StrictValidation gt.Option[bool]
@@ -198,19 +192,39 @@ func NewClient(opts Options) (*Client, error) {
 	// Jetstream and label streams don't need a sync client.
 	var sc *sync.Client
 	switch {
-	case opts.DisableAutoResync:
-		// Caller explicitly opted out; sc stays nil.
 	case opts.SyncClient.HasVal():
-		sc = opts.SyncClient.Val()
+		if !opts.SyncClient.Val().DisableAutoResync() {
+			sc = opts.SyncClient.Val()
+		}
 	case !isJS && !isLabels:
 		// Auto-create from the WebSocket URL for repo streams.
 		httpURL, err := deriveHTTPURL(opts.URL)
 		if err != nil {
 			return nil, fmt.Errorf("derive HTTP URL for sync client: %w", err)
 		}
+
 		sc = sync.NewClient(sync.Options{
 			Client: &xrpc.Client{Host: httpURL},
 		})
+
+		if opts.Verifier.HasVal() {
+			if opts.Verifier.Val() == nil {
+				opts.Verifier = gt.None[*sync.Verifier]() // disable
+			}
+		} else {
+			// Auto-set a sync 1.1 verifier if none is provided and sync 1.1
+			// is not explicitly disabled
+			v, err := sync.NewVerifier(sync.VerifierOptions{
+				Directory:  &identity.Directory{Resolver: &identity.DefaultResolver{}},
+				StateStore: sync.NewMemStateStore(),
+				SyncClient: gt.Some(sc),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create default verifier: %w", err)
+			}
+
+			opts.Verifier = gt.Some(v)
+		}
 	}
 
 	c := &Client{
