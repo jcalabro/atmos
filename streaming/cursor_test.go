@@ -5,6 +5,7 @@ package streaming
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -210,4 +211,43 @@ func TestCursorSaveOnClose(t *testing.T) {
 	assert.Equal(t, 1, store.saveCount)
 	assert.Equal(t, int64(7), store.cursor)
 	store.mu.Unlock()
+}
+
+func TestParallelReadLoop_WatermarkCursorMonotonic(t *testing.T) {
+	t.Parallel()
+
+	const N = 50
+	const Workers = 4
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		frames := make([][]byte, 0, N)
+		for i := int64(1); i <= N; i++ {
+			did := fmt.Sprintf("did:plc:k%d", i%10)
+			frames = append(frames, buildFrame("#identity", buildIdentityBody(i, did)))
+		}
+		writeFrames(conn, frames...)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Parallelism: gt.Some(Workers),
+	})
+
+	var prev int64
+	count := 0
+	for batch, err := range client.Events(ctx) {
+		_ = err
+		cur := client.Cursor()
+		require.GreaterOrEqual(t, cur, prev, "cursor regressed: %d -> %d", prev, cur)
+		prev = cur
+		count += len(batch)
+		if count >= N {
+			cancel()
+		}
+	}
+	require.GreaterOrEqual(t, count, N, "expected to see all %d events", N)
+	require.GreaterOrEqual(t, prev, int64(1), "cursor should have advanced past 0")
 }
