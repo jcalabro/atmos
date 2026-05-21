@@ -109,6 +109,20 @@ type Options struct {
 	// themselves. Set to gt.Some(true) to make the iterator yield
 	// (Operation{}, error) for any op whose fields don't parse.
 	StrictValidation gt.Option[bool]
+
+	// Parallelism is the number of workers in the per-DID FIFO scheduler
+	// that runs verification (and decoded-event dispatch when no verifier
+	// is configured). Default 32. Set to 1 to preserve strict global seq
+	// ordering at the cost of throughput.
+	//
+	// With Parallelism > 1, events for different DIDs may be delivered
+	// out of seq order. Same-DID events are always delivered in seq
+	// order. Cursor checkpoints advance on a watermark equal to
+	// (smallest in-flight seq - 1) so on-restart no event is skipped.
+	//
+	// Sequence gap detection (GapError) becomes per-DID under parallel
+	// mode; under Parallelism = 1 it remains global.
+	Parallelism gt.Option[int]
 }
 
 // Client connects to an ATProto event stream (firehose or label stream).
@@ -120,6 +134,7 @@ type Client struct {
 	cursorInterval int64
 	batchSize      int
 	batchTimeout   time.Duration
+	parallelism    int
 	decode         func([]byte) (Event, error)
 	syncClient     *sync.Client // nil disables automatic #sync resync
 	isJetstream    bool
@@ -159,6 +174,10 @@ func NewClient(opts Options) (*Client, error) {
 	batchTimeout := opts.BatchTimeout.ValOr(500 * time.Millisecond)
 	if batchTimeout <= 0 {
 		return nil, errors.New("BatchTimeout must be > 0")
+	}
+	parallelism := opts.Parallelism.ValOr(32)
+	if parallelism < 1 {
+		return nil, errors.New("Parallelism must be >= 1")
 	}
 
 	lk := DistributedLocker(NoopLock{})
@@ -256,6 +275,7 @@ func NewClient(opts Options) (*Client, error) {
 		cursorInterval:      interval,
 		batchSize:           batchSize,
 		batchTimeout:        batchTimeout,
+		parallelism:         parallelism,
 		decode:              decode,
 		syncClient:          sc,
 		isJetstream:         isJS,

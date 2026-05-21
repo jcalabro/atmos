@@ -590,3 +590,34 @@ func TestNewClient_BadURL(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "derive HTTP URL")
 }
+
+func TestOptions_ParallelismDefault(t *testing.T) {
+	c, err := NewClient(Options{
+		URL:      "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier: gt.Some[*sync.Verifier](nil),
+	})
+	require.NoError(t, err)
+	defer c.Close()
+	require.Equal(t, 32, c.parallelism)
+}
+
+func TestOptions_ParallelismExplicit(t *testing.T) {
+	c, err := NewClient(Options{
+		URL:         "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier:    gt.Some[*sync.Verifier](nil),
+		Parallelism: gt.Some(8),
+	})
+	require.NoError(t, err)
+	defer c.Close()
+	require.Equal(t, 8, c.parallelism)
+}
+
+func TestOptions_ParallelismRejectsNonPositive(t *testing.T) {
+	_, err := NewClient(Options{
+		URL:         "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier:    gt.Some[*sync.Verifier](nil),
+		Parallelism: gt.Some(0),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Parallelism")
+}
