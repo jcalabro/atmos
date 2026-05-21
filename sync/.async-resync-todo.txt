@@ -1,7 +1,0 @@
-Tests broken by Task 5 (synchronous-resync expectations); fix in Task 7:
-  - TestVerifyAndExpand_InversionFailureUnderPolicyResync
-  - TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync
-  - TestVerifyAndExpand_DuplicatePathUnderPolicyResync
-  - TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync
-  - TestVerifyAndExpand_ChainBreakUnderPolicyResync
-  - TestVerifierSwarm_PolicyResync

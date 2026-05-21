@@ -10,6 +10,7 @@ import (
 	mathrand "math/rand"
 	stdsync "sync"
 	"testing"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
@@ -324,6 +325,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
 
 	lastGood := make([]cbor.CID, numDIDs)
 	for i := range numDIDs {
@@ -347,68 +349,69 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		require.NoError(t, vErr,
 			"PolicyResync should never surface a typed error for chain/inversion faults — got %T %v",
 			vErr, vErr)
+
 		if ops == nil {
-			// Silent rev-replay drop. State unchanged. Rebuild from the
-			// served CAR (same reason as the resync path: avoid
-			// store-pollution carrying over across faults).
-			dropped++
-			carMu.Lock()
-			carBytes := cars[dids[didIdx]]
-			carMu.Unlock()
-			rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
-			require.NoError(t, err, "rebuild store from served CAR")
-			repos[didIdx].Store = rebuiltStore
-			repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
-			return
-		}
+			// Either rev-replay drop OR an async resync in progress.
+			// Distinguish by waiting briefly for a ResyncEvent: resyncs
+			// against the in-memory fake server complete in single-digit
+			// ms, so a 100ms cap is generous for "resync triggered" while
+			// keeping per-iteration cost bounded for the (numEvents-many)
+			// rev-replay branch.
+			select {
+			case ev := <-v.ResyncEvents():
+				// Async resync triggered by chain break or inversion
+				// failure. Classify by the same heuristic as the original
+				// synchronous test: inversion fault is the exact
+				// [0xff, 0xff, 0xff] sentinel on commit.Blocks; everything
+				// else is a chain break.
+				if bytes.Equal(commit.Blocks, []byte{0xff, 0xff, 0xff}) {
+					inversionErrs++
+				} else {
+					chainBreaks++
+				}
+				// Both fault classes leave the verifier's state at the
+				// served data CID, which equals lastGood. Rebuild our
+				// local repo from the served CAR so subsequent
+				// BuildSyntheticCommit calls operate on a consistent
+				// state — using mst.LoadTree alone left subtle store
+				// pollution that broke inversion of follow-on commits.
+				carMu.Lock()
+				carBytes := cars[dids[didIdx]]
+				carMu.Unlock()
+				rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
+				require.NoError(t, err, "rebuild store from served CAR")
+				repos[didIdx].Store = rebuiltStore
+				repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
+				// Every resync op should reference the fetched commit.
+				for _, op := range ev.Ops {
+					require.Equal(t, atmos.ActionResync, op.Action,
+						"seed=%d resync batch must contain only ActionResync ops", seed)
+					require.Equal(t, dids[didIdx], op.Repo)
+				}
+				require.Equal(t, dids[didIdx], ev.DID)
+				return
 
-		// Distinguish a clean-accept (op actions inherit from commit:
-		// "create", "update", or "delete") from a resync (every op is
-		// "resync"). Mixed shouldn't happen — the verifier emits one
-		// or the other per event.
-		isResync := false
-		for _, op := range ops {
-			if op.Action == atmos.ActionResync {
-				isResync = true
-				break
+			case asyncErr := <-v.AsyncErrors():
+				t.Fatalf("seed=%d unexpected async error: %v", seed, asyncErr)
+
+			case <-time.After(100 * time.Millisecond):
+				// No ResyncEvent arrived → silent rev-replay drop. State
+				// unchanged. Rebuild from the served CAR (same reason as
+				// the resync path: avoid store-pollution carrying over).
+				dropped++
+				carMu.Lock()
+				carBytes := cars[dids[didIdx]]
+				carMu.Unlock()
+				rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
+				require.NoError(t, err, "rebuild store from served CAR")
+				repos[didIdx].Store = rebuiltStore
+				repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
+				return
 			}
 		}
 
-		if isResync {
-			// Resync triggered by chain break or inversion failure.
-			// Classify by reconstructing what the fault must have been
-			// from the commit shape: inversion fault is the exact
-			// [0xff, 0xff, 0xff] sentinel the random-fault loop sets
-			// on commit.Blocks; everything else is a chain break (the
-			// other resync-triggering fault path).
-			if bytes.Equal(commit.Blocks, []byte{0xff, 0xff, 0xff}) {
-				inversionErrs++
-			} else {
-				chainBreaks++
-			}
-			// Both fault classes leave the verifier's state at the
-			// served data CID, which equals lastGood. Rebuild our
-			// local repo from the served CAR so subsequent
-			// BuildSyntheticCommit calls operate on a consistent
-			// state — using mst.LoadTree alone left subtle store
-			// pollution that broke inversion of follow-on commits.
-			carMu.Lock()
-			carBytes := cars[dids[didIdx]]
-			carMu.Unlock()
-			rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
-			require.NoError(t, err, "rebuild store from served CAR")
-			repos[didIdx].Store = rebuiltStore
-			repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
-			// Every resync op should reference the fetched commit.
-			for _, op := range ops {
-				require.Equal(t, atmos.ActionResync, op.Action,
-					"seed=%d resync batch must contain only ActionResync ops", seed)
-				require.Equal(t, dids[didIdx], op.Repo)
-			}
-			return
-		}
-
-		// Clean accept: state advanced to the new commit's data CID.
+		// Non-nil ops: clean accept (chain advanced normally — only
+		// chain-break / inversion-failure ops became async).
 		accepted++
 		dataCID, ok := testutil.InnerCommitDataCID(commit)
 		require.True(t, ok, "couldn't extract data CID from accepted commit")
@@ -479,6 +482,23 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		}
 
 		emit(t, didIdx, commit)
+	}
+
+	// Drain any tail-end pending events from the worker before reading
+	// stats. Each emit() above already drains its own resync, but the
+	// worker increments stats atomics before sending on ResyncEvents,
+	// and we want a final cushion for any straggler the test didn't
+	// directly observe.
+	drainTimeout := time.NewTimer(200 * time.Millisecond)
+	defer drainTimeout.Stop()
+drainLoop:
+	for {
+		select {
+		case <-v.ResyncEvents():
+		case <-v.AsyncErrors():
+		case <-drainTimeout.C:
+			break drainLoop
+		}
 	}
 
 	stats := v.Stats()

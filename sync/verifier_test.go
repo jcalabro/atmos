@@ -1851,6 +1851,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -1861,10 +1862,21 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, err)
-	require.Greater(t, len(ops), 0)
-	for _, op := range ops {
-		assert.Equal(t, atmos.ActionResync, op.Action)
+	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
+
+	select {
+	case ev := <-v.ResyncEvents():
+		require.Equal(t, did, ev.DID)
+		require.Greater(t, len(ev.Ops), 0)
+		for _, op := range ev.Ops {
+			assert.Equal(t, atmos.ActionResync, op.Action)
+		}
+	case err := <-v.AsyncErrors():
+		t.Fatalf("expected ResyncEvent, got async error: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ResyncEvent")
 	}
+
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.ChainBreaks)
 	assert.Equal(t, uint64(1), stats.Resyncs)
@@ -3580,6 +3592,7 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
 
 	// Build a commit, then corrupt the op CID to force op-CID mismatch.
 	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
@@ -3594,10 +3607,21 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr)
-	require.Greater(t, len(ops), 0)
-	for _, op := range ops {
-		assert.Equal(t, atmos.ActionResync, op.Action)
+	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
+
+	select {
+	case ev := <-v.ResyncEvents():
+		require.Equal(t, did, ev.DID)
+		require.Greater(t, len(ev.Ops), 0)
+		for _, op := range ev.Ops {
+			assert.Equal(t, atmos.ActionResync, op.Action)
+		}
+	case err := <-v.AsyncErrors():
+		t.Fatalf("expected ResyncEvent, got async error: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ResyncEvent")
 	}
+
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.OpCIDMismatches)
 	assert.Equal(t, uint64(1), stats.Resyncs)
@@ -4080,6 +4104,7 @@ func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
 		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionCreate,
@@ -4096,9 +4121,19 @@ func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
 
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr)
-	require.NotEmpty(t, ops)
-	for _, op := range ops {
-		assert.Equal(t, atmos.ActionResync, op.Action)
+	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
+
+	select {
+	case ev := <-v.ResyncEvents():
+		require.Equal(t, did, ev.DID)
+		require.NotEmpty(t, ev.Ops)
+		for _, op := range ev.Ops {
+			assert.Equal(t, atmos.ActionResync, op.Action)
+		}
+	case err := <-v.AsyncErrors():
+		t.Fatalf("expected ResyncEvent, got async error: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ResyncEvent")
 	}
 
 	stats := v.Stats()
@@ -4260,6 +4295,7 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
 
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
 		Action:     testutil.ActionUpdate,
@@ -4271,9 +4307,19 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr)
-	require.Greater(t, len(ops), 0)
-	for _, op := range ops {
-		assert.Equal(t, atmos.ActionResync, op.Action)
+	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
+
+	select {
+	case ev := <-v.ResyncEvents():
+		require.Equal(t, did, ev.DID)
+		require.Greater(t, len(ev.Ops), 0)
+		for _, op := range ev.Ops {
+			assert.Equal(t, atmos.ActionResync, op.Action)
+		}
+	case err := <-v.AsyncErrors():
+		t.Fatalf("expected ResyncEvent, got async error: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ResyncEvent")
 	}
 	assert.Equal(t, sync.ReasonLegacyCommit, resyncReason, "OnResync should receive legacy_commit, not chain_break")
 
@@ -4779,6 +4825,7 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 		ResyncBurst: gt.Some(1),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
 
 	// Build a commit, then corrupt its Blocks to force an inversion failure.
 	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
@@ -4791,10 +4838,21 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, err)
-	require.Greater(t, len(ops), 0)
-	for _, op := range ops {
-		assert.Equal(t, atmos.ActionResync, op.Action)
+	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
+
+	select {
+	case ev := <-v.ResyncEvents():
+		require.Equal(t, did, ev.DID)
+		require.Greater(t, len(ev.Ops), 0)
+		for _, op := range ev.Ops {
+			assert.Equal(t, atmos.ActionResync, op.Action)
+		}
+	case err := <-v.AsyncErrors():
+		t.Fatalf("expected ResyncEvent, got async error: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ResyncEvent")
 	}
+
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.InversionFailures)
 	assert.Equal(t, uint64(1), stats.Resyncs)
