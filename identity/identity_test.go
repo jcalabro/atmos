@@ -210,6 +210,31 @@ func TestDirectory_LookupDID_HandleVerificationFails(t *testing.T) {
 	assert.Equal(t, atmos.HandleInvalid, id.Handle)
 }
 
+// SkipHandleVerification must (a) report HandleInvalid even when the
+// declared handle would have verified, and (b) avoid the second resolver
+// round trip — that's the whole point. The handle-resolve count check
+// guards against silent regressions where a future refactor reintroduces
+// the call.
+func TestDirectory_LookupDID_SkipHandleVerification(t *testing.T) {
+	t.Parallel()
+
+	var handleCalls atomic.Int32
+	r := &handleCountingResolver{
+		Resolver: &mockResolver{
+			docs:    map[string]*DIDDocument{"did:plc:alice": makeDIDDoc("did:plc:alice", "alice.test")},
+			handles: map[string]atmos.DID{"alice.test": "did:plc:alice"},
+		},
+		count: &handleCalls,
+	}
+	dir := &Directory{Resolver: r, SkipHandleVerification: true}
+
+	id, err := dir.LookupDID(context.Background(), "did:plc:alice")
+	require.NoError(t, err)
+	assert.Equal(t, atmos.DID("did:plc:alice"), id.DID)
+	assert.Equal(t, atmos.HandleInvalid, id.Handle, "Handle must not be reported as verified")
+	assert.Equal(t, int32(0), handleCalls.Load(), "ResolveHandle must not be called")
+}
+
 func TestDirectory_Lookup_DIDInput(t *testing.T) {
 	t.Parallel()
 
@@ -325,6 +350,19 @@ func (c *countingResolver) ResolveDID(ctx context.Context, did atmos.DID) (*DIDD
 
 func (c *countingResolver) ResolveHandle(ctx context.Context, handle atmos.Handle) (atmos.DID, error) {
 	return c.r.ResolveHandle(ctx, handle)
+}
+
+// handleCountingResolver tallies ResolveHandle calls (the inverse of
+// countingResolver, which tallies ResolveDID). Used to assert that
+// SkipHandleVerification suppresses the second round trip.
+type handleCountingResolver struct {
+	Resolver
+	count *atomic.Int32
+}
+
+func (h *handleCountingResolver) ResolveHandle(ctx context.Context, handle atmos.Handle) (atmos.DID, error) {
+	h.count.Add(1)
+	return h.Resolver.ResolveHandle(ctx, handle)
 }
 
 func TestResolver_SkipDNS(t *testing.T) {

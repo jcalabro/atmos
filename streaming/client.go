@@ -216,7 +216,9 @@ func NewClient(opts Options) (*Client, error) {
 			// is not explicitly disabled. The directory MUST be cached:
 			// without a cache every commit triggers PLC + handle round
 			// trips and consumer throughput collapses well below line
-			// rate. NewDefaultDirectory ships with a sized in-memory LRU.
+			// rate. NewInMemoryDirectory ships with a sized in-memory
+			// LRU and skips bi-directional handle verification, which
+			// the verify path doesn't need.
 			v, err := sync.NewVerifier(sync.VerifierOptions{
 				Directory:  identity.NewInMemoryDirectory(),
 				StateStore: sync.NewMemStateStore(),

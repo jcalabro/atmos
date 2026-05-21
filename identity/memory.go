@@ -18,7 +18,10 @@ const InMemoryDirectoryTTL = 6 * time.Hour
 // NewInMemoryDirectory returns a [Directory] suitable for firehose-scale
 // consumers: the [DefaultResolver] paired with an in-memory LRU cache
 // of [InMemoryDirectoryCapacity] entries and a [InMemoryDirectoryTTL]
-// expiry.
+// expiry. Bi-directional handle verification is OFF by default
+// ([Directory.SkipHandleVerification] is set) — the returned Identity's
+// Handle is therefore [atmos.HandleInvalid]; callers needing the
+// account's verified handle should construct a [Directory] directly.
 //
 // Without a cache, a [Directory] resolves every DID via the network
 // on every lookup — at firehose line rate (~500 events/second on
@@ -26,6 +29,10 @@ const InMemoryDirectoryTTL = 6 * time.Hour
 // HTTPS GET to a stranger's domain per commit, which collapses
 // throughput to a small fraction of line rate within seconds. Cached
 // lookups are sub-microsecond and reuse one round trip per active DID.
+// On top of caching, skipping handle verification removes a second
+// network round trip per cache miss (DNS plus an HTTPS GET to the
+// user's domain) — the single biggest hot-path cost for verifier
+// consumers, who only need the signing key.
 //
 // Callers that need different sizing, an explicit [Resolver]
 // configuration (e.g. a custom PLC URL or a non-default
@@ -34,7 +41,8 @@ const InMemoryDirectoryTTL = 6 * time.Hour
 // one-liner and the defaults match production needs.
 func NewInMemoryDirectory() *Directory {
 	return &Directory{
-		Resolver: &DefaultResolver{},
-		Cache:    NewLRUCache(InMemoryDirectoryCapacity, InMemoryDirectoryTTL),
+		Resolver:               &DefaultResolver{},
+		Cache:                  NewLRUCache(InMemoryDirectoryCapacity, InMemoryDirectoryTTL),
+		SkipHandleVerification: true,
 	}
 }

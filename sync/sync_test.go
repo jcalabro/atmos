@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
@@ -20,6 +21,7 @@ import (
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
+	"github.com/jcalabro/jttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -642,9 +644,17 @@ func TestGetRepoStream_FollowsRelayRedirect(t *testing.T) {
 	}))
 	t.Cleanup(relaySrv.Close)
 
+	// Both httptest servers bind to loopback, so the redirect chain is
+	// 127.0.0.1 → 127.0.0.1. jttp's default redirect guard rejects
+	// redirects targeting private IPs — that's the right production
+	// behavior (a relay that redirects you to localhost is suspicious)
+	// but blocks this fixture. WithAllowPrivateRedirects is the
+	// documented opt-out and keeps the relaxation explicit at the call
+	// site, rather than baking test-mode magic into jttp.
 	xc := &xrpc.Client{
-		Host:  relaySrv.URL,
-		Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+		Host:       relaySrv.URL,
+		HTTPClient: gt.Some(jttp.New(append(xrpc.ATProtoOpts(30*time.Second), jttp.WithAllowPrivateRedirects())...)),
+		Retry:      gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
 	}
 	sc := sync.NewClient(sync.Options{Client: xc})
 

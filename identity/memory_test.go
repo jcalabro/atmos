@@ -21,3 +21,14 @@ func TestNewInMemoryDirectory_CacheRoundtrips(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, id.DID, got.DID)
 }
+
+// Firehose-scale consumers must NOT pay the bidirectional handle round
+// trip per cache miss, so the helper sets SkipHandleVerification by
+// default. Callers needing verified handles should construct a Directory
+// directly.
+func TestNewInMemoryDirectory_SkipsHandleVerification(t *testing.T) {
+	t.Parallel()
+	d := NewInMemoryDirectory()
+	require.NotNil(t, d)
+	assert.True(t, d.SkipHandleVerification, "the in-memory helper is the firehose default; handle verification must be off")
+}

@@ -35,6 +35,24 @@ type Directory struct {
 	Resolver Resolver
 	Cache    Cache // nil = no caching
 
+	// SkipHandleVerification disables the bi-directional handle check
+	// during [LookupDID]: the DID document is fetched and parsed, but
+	// the declared handle is NOT resolved back to a DID. The returned
+	// Identity's Handle is set to [atmos.HandleInvalid].
+	//
+	// On the firehose verify hot path the handle is irrelevant —
+	// signature verification only needs the atproto signing key — and
+	// the second resolution (DNS plus an HTTPS GET to the user's own
+	// domain) is the dominant cost. Skipping it is the single biggest
+	// throughput win for verifier consumers; mirrors indigo's
+	// [identity.BaseDirectory.SkipHandleVerification].
+	//
+	// Leave false (default) for callers that need to know whether the
+	// account currently controls its declared handle (e.g. AppViews
+	// rendering @handles or auth flows). Set true for the firehose
+	// verifier and any consumer that only needs the signing key.
+	SkipHandleVerification bool
+
 	// flights coalesces in-progress lookups so concurrent callers
 	// requesting the same key share one resolver round-trip. Lazily
 	// initialized so &Directory{Resolver: ...} struct literals stay
@@ -132,8 +150,13 @@ func (d *Directory) LookupDID(ctx context.Context, did atmos.DID) (*Identity, er
 			return nil, err
 		}
 
-		// Bi-directional verification: resolve declared handle back to DID.
-		if id.Handle != atmos.HandleInvalid {
+		// Bi-directional verification: resolve declared handle back to
+		// DID. Skipped when SkipHandleVerification is set; in that
+		// case any handle the doc declares is reported as
+		// HandleInvalid because we have not confirmed it.
+		if d.SkipHandleVerification {
+			id.Handle = atmos.HandleInvalid
+		} else if id.Handle != atmos.HandleInvalid {
 			resolvedDID, err := d.Resolver.ResolveHandle(ctx, id.Handle)
 			if err != nil || resolvedDID != did {
 				id.Handle = atmos.HandleInvalid

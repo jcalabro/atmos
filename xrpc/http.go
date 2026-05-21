@@ -56,17 +56,21 @@ func NewTransport() *http.Transport {
 // Callers that implement their own retry loop (e.g. [Client]) should use jttp
 // directly with [jttp.WithNoRetries] to avoid compounding retries.
 func NewHTTPClient(timeout time.Duration) *http.Client {
-	return jttp.New(atprotoOpts(timeout)...)
+	return jttp.New(ATProtoOpts(timeout)...)
 }
 
-// atprotoOpts returns jttp options tuned for ATProto production workloads.
+// ATProtoOpts returns the canonical jttp option set used across the
+// codebase for ATProto production workloads. Callers wanting to layer
+// additional options (e.g. [jttp.WithStrictSSRFProtection] for code
+// paths that follow attacker-controlled URLs) should pass these as
+// the prefix of their own option list.
 //
 // These options assume we are fanning out to thousands of independently
 // operated, potentially slow or adversarial PDSes (think: a web scraper at
 // Google's scale). Defaults err on the side of protecting the client's
 // memory, connection pool, and time budget rather than maximising per-host
 // success.
-func atprotoOpts(timeout time.Duration) []jttp.Option {
+func ATProtoOpts(timeout time.Duration) []jttp.Option {
 	return []jttp.Option{
 		jttp.WithTimeout(timeout),
 		jttp.WithDialTimeout(10 * time.Second),
