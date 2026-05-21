@@ -368,7 +368,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		// or the other per event.
 		isResync := false
 		for _, op := range ops {
-			if op.Action == "resync" {
+			if op.Action == atmos.ActionResync {
 				isResync = true
 				break
 			}
@@ -401,7 +401,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 			repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
 			// Every resync op should reference the fetched commit.
 			for _, op := range ops {
-				require.Equal(t, "resync", op.Action,
+				require.Equal(t, atmos.ActionResync, op.Action,
 					"seed=%d resync batch must contain only ActionResync ops", seed)
 				require.Equal(t, string(dids[didIdx]), op.Repo)
 			}

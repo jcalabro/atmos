@@ -25,9 +25,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Action constants mirror streaming.Action without creating an import
-// cycle (streaming tests import this package). Values match exactly
-// (and match the on-the-wire RepoOp.Action strings).
+// Action constants mirror atmos.Action's underlying strings as
+// untyped strings. testutil deliberately uses raw strings rather
+// than atmos.Action because some callers feed these directly into
+// the lexicon-generated comatproto.SyncSubscribeRepos_RepoOp.Action
+// field (which is a plain string).
 const (
 	ActionCreate = "create"
 	ActionUpdate = "update"
@@ -36,7 +38,7 @@ const (
 
 // OpAction describes one record mutation for BuildSyntheticCommit.
 // Action is one of the ActionCreate/ActionUpdate/ActionDelete constants
-// (or any string equal to streaming.Action's underlying string).
+// (or any string equal to atmos.Action's underlying string).
 type OpAction struct {
 	Action     string // "create", "update", "delete"
 	Collection string

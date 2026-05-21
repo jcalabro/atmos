@@ -902,7 +902,7 @@ func TestVerifier_Resync_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ops, 3)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 		assert.Equal(t, string(did), op.Repo)
 	}
 	assert.Equal(t, did, resyncDID)
@@ -1451,7 +1451,7 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, err)
 	require.Len(t, ops, 1)
-	assert.Equal(t, "create", ops[0].Action)
+	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
 	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
 	assert.Equal(t, "rec2", ops[0].RKey)
 
@@ -1710,7 +1710,7 @@ func TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock(t *testing.T) {
 	require.NoError(t, hookResyncErr, "hook's Resync should have completed cleanly")
 	require.NotEmpty(t, hookOps, "hook's Resync should have yielded ops")
 	for _, op := range hookOps {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 
 	stats := v.Stats()
@@ -1863,7 +1863,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 	require.NoError(t, err)
 	require.Greater(t, len(ops), 0)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.ChainBreaks)
@@ -1950,7 +1950,7 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ops, 2)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 }
 
@@ -2260,7 +2260,7 @@ func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
 	require.NoError(t, vErr)
 	require.NotEmpty(t, ops, "data mismatch must trigger resync, yielding ActionResync ops")
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 
 	stats := v.Stats()
@@ -2636,7 +2636,7 @@ func TestVerifyAndExpand_FutureRevWithinTolerance(t *testing.T) {
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr)
 	require.Len(t, ops, 1)
-	assert.Equal(t, "create", ops[0].Action)
+	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
 	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
 	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
 }
@@ -3596,7 +3596,7 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 	require.NoError(t, vErr)
 	require.Greater(t, len(ops), 0)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.OpCIDMismatches)
@@ -4098,7 +4098,7 @@ func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
 	require.NoError(t, vErr)
 	require.NotEmpty(t, ops)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 
 	stats := v.Stats()
@@ -4273,7 +4273,7 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	require.NoError(t, vErr)
 	require.Greater(t, len(ops), 0)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 	assert.Equal(t, sync.ReasonLegacyCommit, resyncReason, "OnResync should receive legacy_commit, not chain_break")
 
@@ -4547,7 +4547,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr)
 	require.Len(t, ops, 1)
-	assert.Equal(t, "update", ops[0].Action, "ops should pass through with their original action, not be relabeled as resync")
+	assert.Equal(t, atmos.ActionUpdate, ops[0].Action, "ops should pass through with their original action, not be relabeled as resync")
 
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.LegacyCommits, "counter must still tick under accept mode")
@@ -4727,7 +4727,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
 	ops, vErr := v.VerifyAndExpand(context.Background(), c2, nil)
 	require.NoError(t, vErr, "1.1 followup must chain cleanly off the accepted legacy commit")
 	assert.Len(t, ops, 1)
-	assert.Equal(t, "update", ops[0].Action)
+	assert.Equal(t, atmos.ActionUpdate, ops[0].Action)
 
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.LegacyCommits)
@@ -4793,7 +4793,7 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	require.NoError(t, err)
 	require.Greater(t, len(ops), 0)
 	for _, op := range ops {
-		assert.Equal(t, "resync", op.Action)
+		assert.Equal(t, atmos.ActionResync, op.Action)
 	}
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.InversionFailures)
@@ -4853,7 +4853,7 @@ func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
 	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 	require.NoError(t, vErr, "missing record block must NOT fail verification — counter only")
 	require.Len(t, ops, 1)
-	assert.Equal(t, "create", ops[0].Action)
+	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
 	assert.Empty(t, ops[0].BlockData, "BlockData should be empty when the block was missing from the CAR")
 
 	stats := v.Stats()

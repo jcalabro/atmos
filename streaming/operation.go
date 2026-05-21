@@ -14,14 +14,18 @@ import (
 	"github.com/jcalabro/atmos/repo"
 )
 
-// Action is the type of record mutation.
-type Action string
+// Action is the type of record mutation. Aliases [atmos.Action] so
+// streaming consumers and verifier consumers use the same type at the
+// boundary — no string-cast required when passing ops between layers.
+type Action = atmos.Action
 
+// Action constants. Re-exported from package atmos for ergonomic
+// access via streaming.ActionCreate etc.
 const (
-	ActionCreate Action = "create"
-	ActionUpdate Action = "update"
-	ActionDelete Action = "delete"
-	ActionResync Action = "resync"
+	ActionCreate = atmos.ActionCreate
+	ActionUpdate = atmos.ActionUpdate
+	ActionDelete = atmos.ActionDelete
+	ActionResync = atmos.ActionResync
 )
 
 // CBORUnmarshaler is implemented by all generated ATProto types.

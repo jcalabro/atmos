@@ -653,10 +653,12 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 					continue
 				}
 				// Convert []sync.VerifierOp to []streaming.Operation.
+				// Action types are identical (streaming.Action is an
+				// alias for atmos.Action), so no cast is needed.
 				ops := make([]Operation, len(verifierOps))
 				for i, vo := range verifierOps {
 					ops[i] = Operation{
-						Action:     Action(vo.Action),
+						Action:     vo.Action,
 						Collection: vo.Collection,
 						RKey:       vo.RKey,
 						Repo:       vo.Repo,

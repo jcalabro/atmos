@@ -727,7 +727,7 @@ type VerifierStats struct {
 // CID is the record content hash for create/update/resync ops; the
 // zero value (use [cbor.CID.Defined] to check) on delete ops.
 type VerifierOp struct {
-	Action     string // "create", "update", "delete", "resync"
+	Action     atmos.Action
 	Collection string
 	RKey       string
 	Repo       string // DID
@@ -1065,7 +1065,7 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 			return fmt.Errorf("walk %s: %w", key, err)
 		}
 		ops = append(ops, VerifierOp{
-			Action:     "resync",
+			Action:     atmos.ActionResync,
 			Collection: col,
 			RKey:       rkey,
 			Repo:       string(did),
@@ -1964,7 +1964,10 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 	for _, op := range commit.Ops {
 		col, rkey := repo.SplitMSTKey(op.Path)
 		o := VerifierOp{
-			Action:     op.Action,
+			// Wire→typed conversion. op.Action is the lexicon's
+			// repoOp.action enum string ("create"/"update"/"delete");
+			// the cast brings it into the typed domain.
+			Action:     atmos.Action(op.Action),
 			Collection: col,
 			RKey:       rkey,
 			Repo:       commit.Repo,
