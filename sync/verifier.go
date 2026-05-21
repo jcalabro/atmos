@@ -419,20 +419,27 @@ func formatCIDOrMissing(c cbor.CID) string {
 
 // FieldMismatchError is returned when a firehose #commit envelope
 // field disagrees with the corresponding field in the signed inner
-// commit. Per the Sync 1.1 validation checklist, outer fields MUST
-// match the signed commit. Mismatches indicate a misbehaving PDS
-// (or, more concerningly, a misattribution attempt: a valid commit
-// for one DID wrapped in an envelope claiming another).
+// commit (or, for Field=="commit", the CAR's root). Per the Sync
+// 1.1 validation checklist, outer fields MUST match the signed
+// commit; per the spec, the CAR's first root MUST be the commit
+// CID. Mismatches indicate a misbehaving PDS (or, more concerningly,
+// a misattribution attempt: a valid commit for one DID wrapped in
+// an envelope claiming another).
 //
 // Bypasses VerifierPolicy. Chain state is not advanced.
 //
-// Field is "did", "rev", or "version". For "version", Sync 1.1
-// mandates commit version 3; older versions surface here.
+// Field values:
+//   - "did":     envelope.Repo != inner.DID
+//   - "rev":     envelope.Rev != inner.Rev
+//   - "version": inner.Version != 3 (Sync 1.1 mandates v3; envelope
+//     has no version field, so we render Envelope="3")
+//   - "commit":  envelope.Commit (the link to the inner commit)
+//     disagrees with the CAR's first root. "Inner" is the CAR root.
 type FieldMismatchError struct {
 	DID      atmos.DID
-	Field    string // "did" | "rev" | "version"
+	Field    string // "did" | "rev" | "version" | "commit"
 	Envelope string // value on the firehose envelope
-	Inner    string // value decoded from the signed commit block
+	Inner    string // value decoded from the signed commit block (or CAR root for Field=="commit")
 }
 
 func (e *FieldMismatchError) Error() string {
@@ -1517,10 +1524,16 @@ func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error
 	if commit == nil {
 		return cbor.CID{}, &InversionError{Cause: fmt.Errorf("nil commit")}
 	}
-	innerCommit, store, decErr := decodeCommitFromCAR(commit)
+	did := atmos.DID(commit.Repo)
+	innerCommit, store, carRoot, decErr := decodeCommitFromCAR(commit)
 	if decErr != nil {
-		did := atmos.DID(commit.Repo)
 		return cbor.CID{}, &InversionError{DID: did, Rev: commit.Rev, Cause: decErr}
+	}
+	if mErr := checkCARRoot(commit, carRoot); mErr != nil {
+		// Surface as InversionError so the public API's error contract
+		// stays uniform; callers can still reach the typed mismatch via
+		// errors.As on the wrapped Cause.
+		return cbor.CID{}, &InversionError{DID: did, Rev: commit.Rev, Cause: mErr}
 	}
 	return invertCommitFromStore(commit, innerCommit, store)
 }
@@ -1702,7 +1715,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	}
 
 	// Decode the CAR once; every downstream stage reuses this parse.
-	innerCommit, store, decErr := decodeCommitFromCAR(commit)
+	innerCommit, store, carRoot, decErr := decodeCommitFromCAR(commit)
 	if decErr != nil {
 		v.inversionFailures.Add(1)
 		invErr := &InversionError{DID: did, Rev: commit.Rev, Cause: decErr}
@@ -1710,6 +1723,16 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, invErr)
 	}
 	dataCID := innerCommit.Data
+
+	// CAR root MUST equal the envelope's Commit link. Surface as a
+	// FieldMismatchError; bypasses policy (a misbehaving upstream
+	// serving inconsistent CAR metadata isn't repaired by resync).
+	// State is not advanced — the producer is malformed.
+	if mErr := checkCARRoot(commit, carRoot); mErr != nil {
+		v.fieldMismatches.Add(1)
+		hookErr = mErr
+		return nil, mErr
+	}
 
 	// Legacy 1.0-shape detection runs before inversion so a
 	// non-upgraded upstream surfaces as the precise typed error
@@ -1810,26 +1833,58 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 }
 
 // decodeCommitFromCAR loads the CAR diff, decodes the commit block
-// referenced by commit.Commit, and returns the inner commit and the
-// parsed block store. Callers reuse the store to avoid re-parsing.
-func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Commit, *mst.MemBlockStore, error) {
+// referenced by commit.Commit, and returns the inner commit, the
+// parsed block store, and the CAR's first root. Callers reuse the
+// store to avoid re-parsing; callers that care about CAR-root
+// integrity (the verifier hot path) compare the returned root to
+// commit.Commit via [checkCARRoot].
+func decodeCommitFromCAR(commit *comatproto.SyncSubscribeRepos_Commit) (*repo.Commit, *mst.MemBlockStore, cbor.CID, error) {
 	commitCID, err := cidFromLink(commit.Commit)
 	if err != nil {
-		return nil, nil, fmt.Errorf("commit CID: %w", err)
+		return nil, nil, cbor.CID{}, fmt.Errorf("commit CID: %w", err)
 	}
-	store, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(commit.Blocks))
+	store, carRoot, err := repo.LoadBlocksFromCAR(bytes.NewReader(commit.Blocks))
 	if err != nil {
-		return nil, nil, fmt.Errorf("read CAR: %w", err)
+		return nil, nil, cbor.CID{}, fmt.Errorf("read CAR: %w", err)
 	}
 	data, err := store.GetBlock(commitCID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("commit block missing from CAR: %w", err)
+		return nil, nil, cbor.CID{}, fmt.Errorf("commit block missing from CAR: %w", err)
 	}
 	c, err := repo.DecodeCommitCBOR(data)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, cbor.CID{}, err
 	}
-	return c, store, nil
+	return c, store, carRoot, nil
+}
+
+// checkCARRoot asserts the CAR's first root equals the envelope's
+// Commit link. Per the Sync 1.1 spec, the CAR carrying a #commit
+// event MUST have the commit CID as its first root; an upstream that
+// disagrees is malformed. Mirrors indigo's atproto/repo's reliance
+// on the CAR root for commit identity.
+//
+// Returns a typed *FieldMismatchError on mismatch, nil on agreement.
+// Caller bypasses VerifierPolicy: a misbehaving upstream serving
+// inconsistent CAR metadata isn't repaired by a resync against the
+// same upstream.
+func checkCARRoot(envelope *comatproto.SyncSubscribeRepos_Commit, carRoot cbor.CID) *FieldMismatchError {
+	envelopeCID, err := cidFromLink(envelope.Commit)
+	if err != nil {
+		// Malformed envelope link; surface as a mismatch with empty
+		// envelope side. The caller handles the same way regardless.
+		return &FieldMismatchError{
+			DID: atmos.DID(envelope.Repo), Field: "commit",
+			Envelope: envelope.Commit.Link, Inner: carRoot.String(),
+		}
+	}
+	if envelopeCID.Equal(carRoot) {
+		return nil
+	}
+	return &FieldMismatchError{
+		DID: atmos.DID(envelope.Repo), Field: "commit",
+		Envelope: envelopeCID.String(), Inner: carRoot.String(),
+	}
 }
 
 // decodeCommitFromSyncCAR decodes a #sync event's embedded commit.

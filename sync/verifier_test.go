@@ -3006,6 +3006,135 @@ func TestVerifyAndExpand_FieldMismatchHappyPathUnchanged(t *testing.T) {
 	assert.Equal(t, uint64(0), v.Stats().FieldMismatches)
 }
 
+// rewriteCARRoot rewrites the CAR header in `in` so its first root is
+// `newRoot`, leaving every block intact. The block referenced by the
+// envelope's Commit link is still present, so the envelope-link
+// lookup succeeds — only the CAR root disagrees with the link. Used
+// to exercise the CAR-root mismatch gate.
+func rewriteCARRoot(t *testing.T, in []byte, newRoot cbor.CID) []byte {
+	t.Helper()
+	cr, err := car.NewReader(bytes.NewReader(in))
+	require.NoError(t, err)
+
+	type block struct {
+		cid  cbor.CID
+		data []byte
+	}
+	var blocks []block
+	for {
+		b, err := cr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		blocks = append(blocks, block{cid: b.CID, data: b.Data})
+	}
+
+	var out bytes.Buffer
+	cw, err := car.NewWriter(&out, []cbor.CID{newRoot})
+	require.NoError(t, err)
+	for _, b := range blocks {
+		require.NoError(t, cw.WriteBlock(b.cid, b.data))
+	}
+	return out.Bytes()
+}
+
+// TestVerifyAndExpand_CARRootMismatchRejected covers issue #10: the
+// CAR's first root MUST equal the envelope's Commit link. A
+// misbehaving upstream that lists a different root in the CAR
+// header is rejected outright — bypasses VerifierPolicy because no
+// resync against the same upstream can repair a malformed CAR.
+//
+// The signed inner commit and its block are intact (and
+// signature-verifiable); only the CAR header's root field is
+// inconsistent. Without this gate, indigo's atproto/repo (which
+// trusts the CAR root) and atmos (which trusts the envelope link)
+// would disagree on which block is "the commit" and reach different
+// conclusions about a malformed event.
+func TestVerifyAndExpand_CARRootMismatchRejected(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:carroot1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec1",
+		Record: map[string]any{"text": "ok"},
+	}})
+
+	// Rewrite the CAR header to advertise an unrelated CID as root,
+	// without touching the blocks. The block referenced by the
+	// envelope's Commit link is still present and decodes cleanly.
+	bogusRoot, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Blocks = rewriteCARRoot(t, commit.Blocks, bogusRoot)
+
+	v, _, hookFired, hookErr := fieldMismatchTestVerifier(t, did, key)
+
+	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, vErr, &fme,
+		"CAR root mismatch must surface as FieldMismatchError")
+	assert.Equal(t, "commit", fme.Field)
+	assert.Equal(t, bogusRoot.String(), fme.Inner)
+	// Envelope side equals the original commit-block CID.
+	assert.Equal(t, commit.Commit.Link, fme.Envelope)
+
+	// Hook fires for this typed error.
+	assert.True(t, *hookFired)
+	assert.ErrorAs(t, *hookErr, &fme)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.FieldMismatches)
+	assert.Equal(t, uint64(0), stats.EventsVerified)
+	assert.Equal(t, uint64(0), stats.SignatureFailures,
+		"CAR-root check must run before signature verify so a malformed event doesn't pay P-256 cost")
+	assert.Equal(t, uint64(0), stats.Resyncs,
+		"CAR root mismatch must bypass policy and not trigger resync")
+}
+
+// TestInvertCommit_CARRootMismatch covers the same gate exposed via
+// the public InvertCommit API: a CAR whose root disagrees with the
+// envelope's Commit link surfaces as *InversionError, with the
+// underlying *FieldMismatchError reachable via errors.As. This keeps
+// the InvertCommit error contract uniform while still letting
+// callers distinguish "structurally inconsistent input" from
+// genuine inversion failures.
+func TestInvertCommit_CARRootMismatch(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:invcarroot1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	prevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, []testutil.OpAction{{
+		Action: testutil.ActionCreate, Collection: "app.bsky.feed.post", RKey: "rec1",
+		Record: map[string]any{"text": "ok"},
+	}})
+
+	bogusRoot, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	commit.Blocks = rewriteCARRoot(t, commit.Blocks, bogusRoot)
+
+	_, err = sync.InvertCommit(commit)
+	var ie *sync.InversionError
+	require.ErrorAs(t, err, &ie)
+
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, err, &fme,
+		"InvertCommit's wrapped error must still surface the FieldMismatchError via errors.As")
+	assert.Equal(t, "commit", fme.Field)
+}
+
 // ---------------------------------------------------------------------------
 // Op-CID consistency: ops list must agree with post-state MST (C4)
 // ---------------------------------------------------------------------------
