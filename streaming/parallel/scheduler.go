@@ -37,9 +37,10 @@ type task[Work any] struct {
 // goroutines. keyQueueCap caps the per-key queue depth: when a single
 // key already has keyQueueCap pending units and another arrives, the
 // oldest pending unit for that key is dropped and onDrop is invoked
-// with it. keyQueueCap == 0 disables drops (unbounded per-key queue).
-// onDrop may be nil; it is invoked synchronously off the AddWork hot
-// path, so it must not block.
+// with it. keyQueueCap == 0 disables drops, allowing unbounded queue
+// growth — callers must guarantee bounded per-key arrival rate or
+// risk OOM. onDrop may be nil; it is invoked synchronously off the
+// AddWork hot path, so it must not block.
 func NewScheduler[Work any](
 	workers int,
 	keyQueueCap int,
@@ -69,29 +70,40 @@ func NewScheduler[Work any](
 func (s *Scheduler[Work]) Workers() int { return s.workers }
 
 // Shutdown stops all workers, waiting for in-flight units to complete.
-// Pending units in active[key] queues are NOT processed; callers can
-// drain them externally before calling Shutdown if needed. Idempotent.
+// Work already dispatched runs to completion with the context passed
+// to do (currently context.Background()); cancellation mid-flight is
+// not supported. Pending units in active[key] queues are NOT processed;
+// callers can drain them externally before calling Shutdown if needed.
+// Idempotent.
 func (s *Scheduler[Work]) Shutdown() {
 	s.stopOnce.Do(func() {
 		close(s.stopped)
-		close(s.feeder)
 	})
 	s.wg.Wait()
 }
 
 func (s *Scheduler[Work]) workerLoop() {
 	defer s.wg.Done()
-	for t := range s.feeder {
-		s.runChain(t.key, t.work)
+	for {
+		select {
+		case t := <-s.feeder:
+			s.runChain(t.key, t.work)
+		case <-s.stopped:
+			return
+		}
 	}
 }
 
 // runChain runs the given work, then drains active[key] until it is
 // empty, then deletes the key. Holds the per-key invariant: a single
 // worker drains the queue serially without releasing the slot until
-// the queue is empty.
+// the queue is empty. AddWork enforces this by dispatching to feeder
+// only when active[key] does not exist; subsequent arrivals for the
+// same key append to active[key] without dispatching, so this worker
+// is the only one mutating active[key] until it removes the entry.
 func (s *Scheduler[Work]) runChain(key string, work Work) {
 	for {
+		// Error/panic recovery via onError hook is added by NewSchedulerWithErrorHook.
 		_ = s.do(context.Background(), work)
 
 		s.mu.Lock()
