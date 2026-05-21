@@ -3,6 +3,7 @@ package sync_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/identity"
@@ -77,4 +78,36 @@ func TestVerifier_Close_Idempotent(t *testing.T) {
 	assert.False(t, ok, "ResyncEvents() should be closed after Close()")
 	_, ok = <-v.AsyncErrors()
 	assert.False(t, ok, "AsyncErrors() should be closed after Close()")
+}
+
+// sendAsyncError must not drop errors. With a buffer of 1, the second
+// send blocks until the first is drained. We assert that by draining
+// in a separate goroutine and seeing both errors arrive.
+func TestVerifier_SendAsyncError_BlocksWhenFull(t *testing.T) {
+	t.Parallel()
+
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:        dir,
+		StateStore:       sync.NewMemStateStore(),
+		SyncClient:       gt.Some(&sync.Client{}),
+		AsyncErrorBuffer: gt.Some(1),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
+
+	// Use the test export below to call sendAsyncError directly.
+	go sync.SendAsyncErrorForTest(v, errors.New("first"))
+	go sync.SendAsyncErrorForTest(v, errors.New("second"))
+
+	got := make([]string, 0, 2)
+	for range 2 {
+		select {
+		case e := <-v.AsyncErrors():
+			got = append(got, e.Error())
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for queued async error")
+		}
+	}
+	assert.ElementsMatch(t, []string{"first", "second"}, got)
 }

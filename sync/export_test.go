@@ -31,3 +31,8 @@ func MutexCacheLen(v *Verifier) int { return v.didMu.Len() }
 // LimiterCacheLen returns the live size of the per-DID limiter cache.
 // Test-only.
 func LimiterCacheLen(v *Verifier) int { return v.limiters.Len() }
+
+// SendAsyncErrorForTest exposes sendAsyncError to external tests.
+func SendAsyncErrorForTest(v *Verifier, err error) {
+	v.sendAsyncError(err)
+}

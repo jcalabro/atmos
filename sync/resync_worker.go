@@ -1,5 +1,9 @@
 package sync
 
+import (
+	"github.com/jcalabro/atmos"
+)
+
 // ResyncEvents returns the channel of completed async resync events.
 // Drain promptly: workers block on send when this channel is full
 // (buffer size from VerifierOptions.ResyncEventBuffer; default
@@ -63,4 +67,64 @@ func (v *Verifier) worker() {
 // Defined here so worker() compiles before Task 6 lands.
 func (v *Verifier) runResyncJob(job resyncJob) {
 	// Placeholder — overwritten in Task 6.
+}
+
+// lookupOrCreateResyncState returns the per-DID async-resync state
+// for did, creating a fresh one if absent. Atomic via xsync.Map.
+func (v *Verifier) lookupOrCreateResyncState(did atmos.DID) *didResyncState {
+	if existing, ok := v.resyncStates.Load(did); ok {
+		return existing
+	}
+	fresh := &didResyncState{}
+	actual, _ := v.resyncStates.LoadOrStore(did, fresh)
+	return actual
+}
+
+// lookupResyncState returns the per-DID state if present, or nil.
+// Workers use this; the entry is guaranteed present because verifyCommit
+// created it before enqueueing the job.
+func (v *Verifier) lookupResyncState(did atmos.DID) *didResyncState {
+	s, _ := v.resyncStates.Load(did)
+	return s
+}
+
+// markIdleAndCleanup transitions the per-DID state back to Idle and,
+// if pending is empty, removes the entry from the map. Worker calls
+// this after sending the ResyncEvent (success) or after surfacing the
+// error (failure).
+//
+// Pending should be empty here in normal operation: the worker drained
+// it under the per-DID lock before this call. The robustness check
+// for non-empty pending exists so a future code path that adds to
+// pending after drain does not silently leave entries stuck.
+func (v *Verifier) markIdleAndCleanup(state *didResyncState, did atmos.DID) {
+	state.mu.Lock()
+	state.status = statusIdle
+	empty := len(state.pending) == 0
+	state.mu.Unlock()
+	if empty {
+		v.resyncStates.Delete(did)
+	}
+}
+
+// sendAsyncError delivers err on the asyncErrs channel. Tries
+// non-blocking first to avoid select overhead; on full channel falls
+// back to a blocking send, with workerCtx cancellation as the only
+// escape (so Close() does not deadlock a worker that's mid-send).
+//
+// Workers may also block on a full resyncDone channel, but its larger
+// buffer (DefaultResyncEventBuffer = 2048) makes that rare.
+func (v *Verifier) sendAsyncError(err error) {
+	if err == nil {
+		return
+	}
+	select {
+	case v.asyncErrs <- err:
+		return
+	default:
+	}
+	select {
+	case v.asyncErrs <- err:
+	case <-v.workerCtx.Done():
+	}
 }
