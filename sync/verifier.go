@@ -689,11 +689,12 @@ type VerifierStats struct {
 	// (event routed to the failure path).
 	LegacyCommits uint64
 
-	// MissingRecordBlocks counts create/update ops whose record block
-	// was absent from the CAR. The op still flows to the consumer
-	// (with empty BlockData); this counter signals upstreams shipping
+	// MissingRecordBlocksOps counts individual create/update ops
+	// whose record block was absent from the CAR (one increment per
+	// affected op, not per event). The op still flows to the consumer
+	// with empty BlockData; this counter signals upstreams shipping
 	// incomplete CARs.
-	MissingRecordBlocks uint64
+	MissingRecordBlocksOps uint64
 
 	// DuplicatePaths counts events whose ops list contained two or
 	// more ops on the same path. Routed via the inversion-failure
@@ -867,7 +868,7 @@ type Verifier struct {
 	opCIDMismatches        atomic.Uint64
 	legacyCommits          atomic.Uint64
 	syncNoOps              atomic.Uint64
-	missingRecordBlocks    atomic.Uint64
+	missingRecordBlocksOps atomic.Uint64
 	duplicatePaths         atomic.Uint64
 	oversizedCommits       atomic.Uint64
 	accountsInactive       atomic.Uint64
@@ -1191,7 +1192,7 @@ func (v *Verifier) Stats() VerifierStats {
 		OpCIDMismatches:            v.opCIDMismatches.Load(),
 		LegacyCommits:              v.legacyCommits.Load(),
 		SyncNoOps:                  v.syncNoOps.Load(),
-		MissingRecordBlocks:        v.missingRecordBlocks.Load(),
+		MissingRecordBlocksOps:     v.missingRecordBlocksOps.Load(),
 		DuplicatePaths:             v.duplicatePaths.Load(),
 		OversizedCommits:           v.oversizedCommits.Load(),
 		AccountsInactive:           v.accountsInactive.Load(),
@@ -1947,7 +1948,7 @@ func decodeCommitFromSyncCAR(syncEvt *comatproto.SyncSubscribeRepos_Sync) (*repo
 // buildOpsFromCommit decodes commit.Ops into VerifierOp values.
 // Record blocks are pulled from store when present; missing blocks
 // are not a failure (deletes have no CID, and partial CARs are
-// permitted) but increment Stats.MissingRecordBlocks so operators
+// permitted) but increment Stats.MissingRecordBlocksOps so operators
 // can spot upstreams shipping incomplete CARs.
 //
 // store must be the block store returned by decodeCommitFromCAR for
@@ -1978,7 +1979,7 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 			if data, err := store.GetBlock(cid); err == nil {
 				o.BlockData = data
 			} else {
-				v.missingRecordBlocks.Add(1)
+				v.missingRecordBlocksOps.Add(1)
 			}
 		}
 		ops = append(ops, o)

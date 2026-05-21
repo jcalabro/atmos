@@ -4804,7 +4804,7 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 // observability hook for upstreams that ship incomplete CARs: when a
 // create/update op declares a CID whose block isn't present in the
 // CAR, the verifier still emits the op (with empty BlockData) and
-// increments Stats.MissingRecordBlocks. Tests the observability
+// increments Stats.MissingRecordBlocksOps. Tests the observability
 // path; correctness of the verifier's decision (still accept, still
 // pass through) is unchanged.
 func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
@@ -4857,7 +4857,7 @@ func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
 	assert.Empty(t, ops[0].BlockData, "BlockData should be empty when the block was missing from the CAR")
 
 	stats := v.Stats()
-	assert.Equal(t, uint64(1), stats.MissingRecordBlocks)
+	assert.Equal(t, uint64(1), stats.MissingRecordBlocksOps)
 	assert.Equal(t, uint64(1), stats.EventsVerified, "still counted as verified — the commit itself is fine")
 }
 
