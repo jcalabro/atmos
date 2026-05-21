@@ -243,9 +243,9 @@ func TestIntegration_SyncEvent_EndToEnd(t *testing.T) {
 	require.Len(t, ops, 3)
 	for _, op := range ops {
 		assert.Equal(t, ActionResync, op.Action)
-		assert.Equal(t, "app.bsky.feed.post", op.Collection)
-		assert.Equal(t, "did:plc:test123", op.Repo)
-		assert.Equal(t, "3abc", op.Rev)
+		assert.Equal(t, "app.bsky.feed.post", string(op.Collection))
+		assert.Equal(t, "did:plc:test123", string(op.Repo))
+		assert.Equal(t, "3abc", string(op.Rev))
 		assert.True(t, op.CID.Defined(), "resync op CID must be defined")
 	}
 }

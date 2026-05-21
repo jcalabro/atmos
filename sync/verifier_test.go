@@ -1452,8 +1452,8 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ops, 1)
 	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
-	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
-	assert.Equal(t, "rec2", ops[0].RKey)
+	assert.Equal(t, "app.bsky.feed.post", string(ops[0].Collection))
+	assert.Equal(t, "rec2", string(ops[0].RKey))
 
 	state, err := chainStore.LoadChain(context.Background(), did)
 	require.NoError(t, err)

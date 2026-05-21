@@ -672,7 +672,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 						Action:     vo.Action,
 						Collection: vo.Collection,
 						RKey:       vo.RKey,
-						Repo:       string(vo.Repo),
+						Repo:       vo.Repo,
 						Rev:        vo.Rev,
 						CID:        vo.CID,
 						blockData:  vo.BlockData,

@@ -733,10 +733,10 @@ type VerifierStats struct {
 // zero value (use [cbor.CID.Defined] to check) on delete ops.
 type VerifierOp struct {
 	Action     atmos.Action
-	Collection string
-	RKey       string
+	Collection atmos.NSID
+	RKey       atmos.RecordKey
 	Repo       atmos.DID
-	Rev        string
+	Rev        atmos.TID
 	CID        cbor.CID
 	BlockData  []byte
 }
@@ -1082,10 +1082,10 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		}
 		ops = append(ops, VerifierOp{
 			Action:     atmos.ActionResync,
-			Collection: col,
-			RKey:       rkey,
+			Collection: atmos.NSID(col),
+			RKey:       atmos.RecordKey(rkey),
 			Repo:       did,
-			Rev:        commit.Rev,
+			Rev:        atmos.TID(commit.Rev),
 			CID:        val,
 			BlockData:  data,
 		})
@@ -1985,13 +1985,14 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 			// Wire→typed conversions. The lexicon's RepoOp fields are
 			// plain strings; here we lift them into the typed domain.
 			// commit.Repo's parseability was already asserted by
-			// verifyCommit's atmos.ParseDID call, so a fresh cast is
-			// safe.
+			// verifyCommit's atmos.ParseDID call. Collection, RKey,
+			// and Rev are NOT re-validated against their type's
+			// strict syntax — see the streaming.Operation doc.
 			Action:     atmos.Action(op.Action),
-			Collection: col,
-			RKey:       rkey,
+			Collection: atmos.NSID(col),
+			RKey:       atmos.RecordKey(rkey),
 			Repo:       atmos.DID(commit.Repo),
-			Rev:        commit.Rev,
+			Rev:        atmos.TID(commit.Rev),
 		}
 		if op.CID.HasVal() {
 			cid, err := cidFromLink(op.CID.Val())

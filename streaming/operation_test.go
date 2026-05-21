@@ -79,10 +79,10 @@ func TestOperations_CreatePost(t *testing.T) {
 
 	require.Len(t, ops, 1)
 	assert.Equal(t, ActionCreate, ops[0].Action)
-	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
-	assert.Equal(t, "3abc123", ops[0].RKey)
-	assert.Equal(t, "did:plc:alice", ops[0].Repo)
-	assert.Equal(t, "3abc", ops[0].Rev)
+	assert.Equal(t, "app.bsky.feed.post", string(ops[0].Collection))
+	assert.Equal(t, "3abc123", string(ops[0].RKey))
+	assert.Equal(t, "did:plc:alice", string(ops[0].Repo))
+	assert.Equal(t, "3abc", string(ops[0].Rev))
 	assert.True(t, ops[0].CID.Defined(), "create op CID must be defined")
 
 	var decoded bsky.FeedPost
@@ -220,7 +220,7 @@ func TestOperations_DeleteOp(t *testing.T) {
 
 	require.Len(t, ops, 1)
 	assert.Equal(t, ActionDelete, ops[0].Action)
-	assert.Equal(t, "app.bsky.feed.post", ops[0].Collection)
+	assert.Equal(t, "app.bsky.feed.post", string(ops[0].Collection))
 	assert.False(t, ops[0].CID.Defined(), "delete op must have undefined CID")
 
 	var post bsky.FeedPost
@@ -263,9 +263,9 @@ func TestOperations_MixedOps(t *testing.T) {
 
 	require.Len(t, ops, 2)
 	assert.Equal(t, ActionDelete, ops[0].Action)
-	assert.Equal(t, "app.bsky.graph.follow", ops[0].Collection)
+	assert.Equal(t, "app.bsky.graph.follow", string(ops[0].Collection))
 	assert.Equal(t, ActionCreate, ops[1].Action)
-	assert.Equal(t, "app.bsky.feed.post", ops[1].Collection)
+	assert.Equal(t, "app.bsky.feed.post", string(ops[1].Collection))
 
 	var decoded bsky.FeedPost
 	require.NoError(t, ops[1].Decode(&decoded))
@@ -376,9 +376,9 @@ func TestOperations_SyncEvent(t *testing.T) {
 	require.Len(t, ops, 3)
 	for _, op := range ops {
 		assert.Equal(t, ActionResync, op.Action)
-		assert.Equal(t, "app.bsky.feed.post", op.Collection)
-		assert.Equal(t, "did:plc:test123", op.Repo)
-		assert.Equal(t, "3abc", op.Rev)
+		assert.Equal(t, "app.bsky.feed.post", string(op.Collection))
+		assert.Equal(t, "did:plc:test123", string(op.Repo))
+		assert.Equal(t, "3abc", string(op.Rev))
 		assert.True(t, op.CID.Defined(), "resync op CID must be defined")
 		assert.NotEmpty(t, op.blockData)
 	}

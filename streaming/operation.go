@@ -41,14 +41,23 @@ type CBORUnmarshaler interface {
 // check). Jetstream commits carry the CID as a base32 string in the
 // JSON payload; on parse failure the field is left undefined and an
 // error is yielded alongside the op.
+//
+// Strongly-typed fields (Collection, RKey, Repo, Rev) carry the
+// canonical ATproto syntax types so consumers can call methods like
+// [atmos.TID.Time] or [atmos.DID.Method] without re-parsing. The
+// streaming layer does NOT re-validate these against the type's
+// strict syntax — the values come from the upstream PDS and from
+// repo path splits, and a malformed wire value yields a malformed
+// typed value. Consumers that need strict syntax checks should call
+// the corresponding Parse* function on the field.
 type Operation struct {
-	Action     Action   // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
-	Collection string   // e.g. "app.bsky.feed.post"
-	RKey       string   // record key, e.g. "3abc123"
-	Repo       string   // DID of the repo
-	Rev        string   // commit revision
-	CID        cbor.CID // record content hash; zero for deletes
-	blockData  []byte   // CBOR bytes of the record block (nil for deletes)
+	Action     Action          // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
+	Collection atmos.NSID      // e.g. "app.bsky.feed.post"
+	RKey       atmos.RecordKey // record key, e.g. "3abc123"
+	Repo       atmos.DID       // DID of the repo
+	Rev        atmos.TID       // commit revision
+	CID        cbor.CID        // record content hash; zero for deletes
+	blockData  []byte          // CBOR bytes of the record block (nil for deletes)
 }
 
 // BlockData returns the raw CBOR bytes of the record block, or nil for
@@ -111,10 +120,10 @@ func (e *Event) yieldJetstreamOp(yield func(Operation, error) bool) {
 	jc := e.Jetstream.Commit
 	op := Operation{
 		Action:     Action(jc.Operation),
-		Collection: jc.Collection,
-		RKey:       jc.RKey,
-		Repo:       e.Jetstream.DID,
-		Rev:        jc.Rev,
+		Collection: atmos.NSID(jc.Collection),
+		RKey:       atmos.RecordKey(jc.RKey),
+		Repo:       atmos.DID(e.Jetstream.DID),
+		Rev:        atmos.TID(jc.Rev),
 	}
 	if jc.CID != "" {
 		cid, err := cbor.ParseCIDString(jc.CID)
@@ -149,10 +158,10 @@ func (e *Event) yieldCommitOps(yield func(Operation, error) bool) {
 
 		o := Operation{
 			Action:     Action(op.Action),
-			Collection: collection,
-			RKey:       rkey,
-			Repo:       commit.Repo,
-			Rev:        commit.Rev,
+			Collection: atmos.NSID(collection),
+			RKey:       atmos.RecordKey(rkey),
+			Repo:       atmos.DID(commit.Repo),
+			Rev:        atmos.TID(commit.Rev),
 		}
 
 		if op.CID.HasVal() {
@@ -197,10 +206,10 @@ func (e *Event) yieldResyncOps(yield func(Operation, error) bool) {
 
 		op := Operation{
 			Action:     ActionResync,
-			Collection: rec.Collection,
-			RKey:       rec.RKey,
-			Repo:       e.Sync.DID,
-			Rev:        e.Sync.Rev,
+			Collection: atmos.NSID(rec.Collection),
+			RKey:       atmos.RecordKey(rec.RKey),
+			Repo:       atmos.DID(e.Sync.DID),
+			Rev:        atmos.TID(e.Sync.Rev),
 			CID:        rec.CID,
 			blockData:  rec.Data,
 		}
@@ -223,7 +232,7 @@ func (o *Operation) Record(decode RecordDecoder) (any, error) {
 	if o.blockData == nil {
 		return nil, errors.New("no record data (delete operation)")
 	}
-	return decode(o.Collection, o.blockData)
+	return decode(string(o.Collection), o.blockData)
 }
 
 // ChainDecoders combines multiple RecordDecoders into one. Each decoder is
