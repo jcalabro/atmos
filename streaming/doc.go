@@ -14,13 +14,25 @@
 // record as an [ActionResync] operation. This behavior is enabled by default;
 // override via [Options.SyncClient] or set [Options.DisableAutoResync].
 //
+// Sync 1.1 verification is auto-attached for firehose streams: every #commit
+// is verified for signature, MST inversion, and chain continuity before its
+// ops reach the consumer. On chain break or inversion failure, a background
+// resync is triggered against the account's PDS; the resync ops eventually
+// arrive on the consumer's iterator as [ActionResync] operations,
+// transparently chunked into 100-op events. Async resync is invisible to
+// consumers: the ops flow through the same Event.Operations() path as
+// regular commits, and any background errors (resync failures, buffer
+// overflows) flow through the iterator's error slot like any other stream
+// error. To opt out, supply Options.Verifier = gt.Some[*sync.Verifier](nil)
+// or supply your own configured *sync.Verifier.
+//
 // Events are delivered in batches for efficient bulk processing. The
 // [Options.BatchSize] and [Options.BatchTimeout] fields control batching
 // behavior (defaults: 50 events, 500ms). Each yield from [Client.Events]
 // delivers a slice of 1 to BatchSize events. Batches flush when full, when
-// the timeout elapses, or when an error (decode error, sequence gap) is
-// encountered — in which case the partial batch is yielded first, followed
-// by the error.
+// the timeout elapses, or when an error (decode error, sequence gap,
+// verifier error) is encountered — in which case the partial batch is
+// yielded first, followed by the error.
 //
 // For label events, use [Event.Labels] to access the individual
 // labels — including negation labels (Neg=true) that revoke a previous label.
@@ -39,4 +51,8 @@
 // Events are delivered at least once in batches. In rare cases during leader
 // failover, the same event may be emitted more than once. Consumers must
 // handle events idempotently.
+//
+// When the client auto-attaches a verifier (no Options.Verifier supplied),
+// Client.Close() shuts the verifier down too. User-supplied verifiers are
+// the caller's responsibility to close.
 package streaming

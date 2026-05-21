@@ -881,6 +881,38 @@ type VerifierOptions struct {
 // internally to prevent racing chain-state advances.
 //
 // Construct with NewVerifier; Verifier values must not be copied.
+//
+// Async resync. Chain-break and inversion-failure events under the
+// default PolicyResync are NOT resolved synchronously inside
+// VerifyAndExpand. Instead, VerifyAndExpand returns (nil, nil), the
+// affected DID is marked as resyncing, and a worker pool processes
+// the resync (HTTP getRepo + MST walk) in the background.
+//
+// Resync results arrive via two channels exposed for consumption:
+//
+//   - ResyncEvents() yields ResyncEvent records — one per completed
+//     resync, with the full set of [ActionResync] ops.
+//   - AsyncErrors() yields errors that occur off the readLoop:
+//     ResyncFailedError, ResyncRateLimitedError,
+//     BufferOverflowError, etc.
+//
+// Commits arriving for a DID while its resync is in flight are
+// buffered (capacity VerifierOptions.PendingCap, default 2048) and
+// replayed against post-resync state. Buffer overflow drops the
+// oldest commit and surfaces *BufferOverflowError; the verifier does
+// NOT auto-trigger a follow-up resync (consumers should log/alert).
+//
+// The streaming layer (package streaming) drains both channels
+// transparently; consumers using streaming.Client.Events() see
+// resync ops flow through Event.Operations() as ActionResync and
+// async errors flow through the iterator's error slot, so the async
+// machinery is invisible at the streaming-consumer API.
+//
+// Call Close() to shut down the worker pool. Close is idempotent;
+// calling it multiple times is safe. Outstanding workers' contexts
+// are cancelled (so a stuck getRepo unblocks on a subsequent ctx
+// check), and ResyncEvents / AsyncErrors are closed once all
+// workers exit.
 type Verifier struct {
 	_ noCopy
 
