@@ -779,7 +779,10 @@ type VerifierOptions struct {
 	// wrapped infrastructure errors via the return value only; they
 	// do not invoke this hook.
 	//
-	// Invoked synchronously on the verifier's goroutine.
+	// Invoked synchronously on the verifier's goroutine, AFTER the
+	// per-DID mutex has been released. Callers may invoke other
+	// Verifier methods (e.g. [Verifier.Resync]) from inside the hook
+	// without deadlocking.
 	OnVerificationFailure gt.Option[func(did atmos.DID, err error)]
 
 	// FutureRevTolerance is the maximum a rev TID timestamp may lead
@@ -1647,7 +1650,19 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	}
 
 	unlock := v.lockDID(did)
-	defer unlock()
+
+	// hookErr captures a verification failure to surface to
+	// OnVerificationFailure AFTER unlock(), so a hook implementation
+	// that calls back into the verifier (e.g. Resync) doesn't
+	// deadlock on the per-DID mutex. Each error site below sets
+	// hookErr on the way out.
+	var hookErr error
+	defer func() {
+		unlock()
+		if hookErr != nil && v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, hookErr)
+		}
+	}()
 
 	// Hosting gate (HostingGate only): drop events for non-active
 	// DIDs before any chain-state I/O. Bypasses VerifierPolicy. Runs
@@ -1659,9 +1674,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		return nil, err
 	} else if aiErr != nil {
 		v.accountsInactive.Add(1)
-		if v.opts.OnVerificationFailure.HasVal() {
-			v.opts.OnVerificationFailure.Val()(did, aiErr)
-		}
+		hookErr = aiErr
 		return nil, aiErr
 	}
 
@@ -1683,16 +1696,18 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	// commit we can't trust.
 	if dupPath := findDuplicateOpPath(commit); dupPath != "" {
 		v.duplicatePaths.Add(1)
-		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure,
-			&DuplicatePathError{DID: did, Rev: commit.Rev, Path: dupPath})
+		dupErr := &DuplicatePathError{DID: did, Rev: commit.Rev, Path: dupPath}
+		hookErr = dupErr
+		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, dupErr)
 	}
 
 	// Decode the CAR once; every downstream stage reuses this parse.
 	innerCommit, store, decErr := decodeCommitFromCAR(commit)
 	if decErr != nil {
 		v.inversionFailures.Add(1)
-		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure,
-			&InversionError{DID: did, Rev: commit.Rev, Cause: decErr})
+		invErr := &InversionError{DID: did, Rev: commit.Rev, Cause: decErr}
+		hookErr = invErr
+		return v.handleVerificationFailure(ctx, did, commit, cbor.CID{}, ReasonInversionFailure, invErr)
 	}
 	dataCID := innerCommit.Data
 
@@ -1710,6 +1725,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 				SeenRev:  state.Rev,
 				SeenData: state.Data,
 			}
+			hookErr = lcErr
 			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonLegacyCommit, lcErr)
 		}
 		// LegacyAccept: fall through; the chain-link check below is
@@ -1723,6 +1739,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		inverted, err := invertCommitFromStore(commit, innerCommit, store)
 		if err != nil {
 			v.inversionFailures.Add(1)
+			hookErr = err
 			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, err)
 		}
 
@@ -1742,6 +1759,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 				GotPrevData:  prevDataCID,
 				InvertedData: inverted,
 			}
+			hookErr = cbErr
 			return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonChainBreak, cbErr)
 		}
 	}
@@ -1751,9 +1769,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	// Bypasses policy.
 	if fmErr := checkCommitFields(commit, innerCommit); fmErr != nil {
 		v.fieldMismatches.Add(1)
-		if v.opts.OnVerificationFailure.HasVal() {
-			v.opts.OnVerificationFailure.Val()(did, fmErr)
-		}
+		hookErr = fmErr
 		return nil, fmErr
 	}
 	if err := v.verifyCommitSignature(ctx, did, innerCommit); err != nil {
@@ -1764,9 +1780,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 		var sigErr *SignatureError
 		if errors.As(err, &sigErr) {
 			v.signatureFailures.Add(1)
-			if v.opts.OnVerificationFailure.HasVal() {
-				v.opts.OnVerificationFailure.Val()(did, sigErr)
-			}
+			hookErr = sigErr
 			return nil, sigErr
 		}
 		return nil, fmt.Errorf("verifier: signature verification: %w", err)
@@ -1777,6 +1791,7 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	// transparently.
 	if opErr := checkOpCIDs(commit, dataCID, store); opErr != nil {
 		v.opCIDMismatches.Add(1)
+		hookErr = opErr
 		return v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonInversionFailure, opErr)
 	}
 
@@ -1884,8 +1899,13 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 
 // handleVerificationFailure dispatches a chain-break, inversion, or
 // equivalent failure per the verifier's policy. Caller must hold the
-// per-DID mutex. Invokes OnVerificationFailure unconditionally before
-// consulting policy.
+// per-DID mutex.
+//
+// Does NOT fire OnVerificationFailure — the caller is responsible for
+// arranging that to fire after the per-DID lock is released, so a
+// hook implementation that calls back into the verifier doesn't
+// deadlock. The caller typically captures origErr in a deferred
+// dispatcher; see verifyCommit.
 //
 // Under PolicyError, state advances to the offending commit's
 // (rev, data) so re-deliveries don't re-report the same failure.
@@ -1905,9 +1925,6 @@ func (v *Verifier) handleVerificationFailure(
 	reason ResyncReason,
 	origErr error,
 ) ([]VerifierOp, error) {
-	if v.opts.OnVerificationFailure.HasVal() {
-		v.opts.OnVerificationFailure.Val()(did, origErr)
-	}
 	policy := v.opts.Policy.ValOr(PolicyResync)
 	switch policy {
 	case PolicyResync:
@@ -1961,7 +1978,17 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	}
 
 	unlock := v.lockDID(did)
-	defer unlock()
+
+	// hookErr captures a verification failure to surface to
+	// OnVerificationFailure AFTER unlock(); see verifyCommit for
+	// the rationale.
+	var hookErr error
+	defer func() {
+		unlock()
+		if hookErr != nil && v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, hookErr)
+		}
+	}()
 
 	// Hosting gate (HostingGate only): drop sync events for non-active
 	// DIDs. Same rationale as verifyCommit.
@@ -1969,9 +1996,7 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 		return nil, err
 	} else if aiErr != nil {
 		v.accountsInactive.Add(1)
-		if v.opts.OnVerificationFailure.HasVal() {
-			v.opts.OnVerificationFailure.Val()(did, aiErr)
-		}
+		hookErr = aiErr
 		return nil, aiErr
 	}
 

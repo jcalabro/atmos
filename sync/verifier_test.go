@@ -1603,6 +1603,121 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
 }
 
+// TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock asserts the
+// hook-after-unlock contract: OnVerificationFailure fires after the
+// per-DID mutex has been released, so a hook implementation that
+// calls back into the verifier — typically Resync — does not
+// deadlock. This was issue #8 from the review: previously the hook
+// fired under the per-DID lock for most error types, and a hook
+// invoking Resync (which also takes the lock) would hang forever.
+//
+// We trigger a chain break (PolicyError so the hook fires AND the
+// caller sees the typed error), have the hook call Resync against a
+// fake getRepo, and assert the whole thing completes within a
+// generous deadline. Without the fix this test deadlocks rather
+// than failing — so we run it under a t.Context() with a deadline
+// and check via a done channel.
+func TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:hookresync1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v"}))
+	realPrevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	// Pre-seed chain state with a wrong CID so the upcoming commit
+	// trips the chain-break gate.
+	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did,
+		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+
+	// Build the chain-break-triggering commit first, then export the
+	// CAR so the resync's served rev is strictly greater than the
+	// chain-break commit's rev (the resync-time monotonicity gate
+	// rejects regressions otherwise).
+	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
+		Action: testutil.ActionUpdate, Collection: "app.bsky.feed.post", RKey: "rec1",
+		Record: map[string]any{"text": "v2"},
+	}})
+
+	// Fake getRepo server so the hook's Resync call succeeds.
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	// Forward declaration: the hook needs to reference the verifier
+	// it's installed on, but the verifier construction needs the hook.
+	// Stash it via a pointer that gets set after NewVerifier returns.
+	var (
+		v             *sync.Verifier
+		hookErr       error
+		hookResyncErr error
+		hookOps       []sync.VerifierOp
+	)
+	verifier, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  cs,
+		Policy:      gt.Some(sync.PolicyError),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(2),
+		OnVerificationFailure: gt.Some(func(d atmos.DID, e error) {
+			hookErr = e
+			// The headline test: from inside the hook, call Resync on
+			// the same DID. Pre-fix this deadlocks because the hook
+			// fires under the per-DID mutex that Resync also takes.
+			ops, rerr := v.Resync(context.Background(), d)
+			hookOps = ops
+			hookResyncErr = rerr
+		}),
+	})
+	require.NoError(t, err)
+	v = verifier
+
+	// Run the call in a goroutine with a deadline so a regression
+	// surfaces as a test failure rather than the test process hanging
+	// until t's own timeout.
+	done := make(chan error, 1)
+	go func() {
+		_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+		done <- vErr
+	}()
+
+	select {
+	case vErr := <-done:
+		var cb *sync.ChainBreakError
+		require.ErrorAs(t, vErr, &cb,
+			"primary error must still surface as ChainBreakError")
+	case <-time.After(5 * time.Second):
+		t.Fatal("VerifyAndExpand deadlocked: hook firing under per-DID lock prevents inner Resync")
+	}
+
+	// The hook saw the chain break.
+	var cb *sync.ChainBreakError
+	require.ErrorAs(t, hookErr, &cb)
+	// The hook's inner Resync succeeded.
+	require.NoError(t, hookResyncErr, "hook's Resync should have completed cleanly")
+	require.NotEmpty(t, hookOps, "hook's Resync should have yielded ops")
+	for _, op := range hookOps {
+		assert.Equal(t, "resync", op.Action)
+	}
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.ChainBreaks)
+	assert.Equal(t, uint64(1), stats.Resyncs, "the hook-driven resync should have completed")
+}
+
 // TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats verifies
 // that a ChainStore.Save failure during PolicyError state-advance is
 // counted in VerifierStats.ChainStateSaveFailures rather than silently
