@@ -61,3 +61,20 @@ func newTestVerifier(t *testing.T) (*sync.Verifier, error) {
 		SyncClient: gt.Some(&sync.Client{}),
 	})
 }
+
+func TestVerifier_Close_Idempotent(t *testing.T) {
+	t.Parallel()
+
+	v, err := newTestVerifier(t)
+	require.NoError(t, err)
+
+	require.NoError(t, v.Close())
+	require.NoError(t, v.Close()) // second call must not panic or err
+
+	// After close, ResyncEvents and AsyncErrors must be drainable to
+	// EOF (closed and empty).
+	_, ok := <-v.ResyncEvents()
+	assert.False(t, ok, "ResyncEvents() should be closed after Close()")
+	_, ok = <-v.AsyncErrors()
+	assert.False(t, ok, "AsyncErrors() should be closed after Close()")
+}

@@ -915,6 +915,21 @@ type Verifier struct {
 	oversizedCommits       atomic.Uint64
 	accountsInactive       atomic.Uint64
 	accountEventReplays    atomic.Uint64
+
+	// Async resync subsystem. resyncStates maps DID -> per-DID state;
+	// resyncQueue is what verifyCommit pushes jobs onto; workers read
+	// it. resyncDone is exposed as ResyncEvents(); asyncErrs as
+	// AsyncErrors(). workerCtx/workerCancel/workerWG together
+	// implement clean shutdown via Close().
+	resyncStates *xsync.Map[atmos.DID, *didResyncState]
+	resyncQueue  chan resyncJob
+	resyncDone   chan ResyncEvent
+	asyncErrs    chan error
+	pendingCap   int
+	workerCtx    context.Context
+	workerCancel context.CancelFunc
+	workerWG     sync.WaitGroup
+	closeOnce    sync.Once
 }
 
 // NewVerifier constructs a Verifier. Returns an error if required
@@ -953,11 +968,39 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 	if limiterCap <= 0 {
 		limiterCap = DefaultLimiterCapacity
 	}
-	return &Verifier{
-		opts:     opts,
-		didMu:    lru.New[atmos.DID, *sync.Mutex](mutexCap, 0),
-		limiters: lru.New[atmos.DID, *rate.Limiter](limiterCap, 0),
-	}, nil
+	workers := opts.AsyncResyncWorkers.ValOr(DefaultAsyncResyncWorkers)
+	if workers <= 0 {
+		workers = DefaultAsyncResyncWorkers
+	}
+	pendingCap := opts.PendingCap.ValOr(DefaultPendingCap)
+	if pendingCap <= 0 {
+		pendingCap = DefaultPendingCap
+	}
+	resyncBuf := opts.ResyncEventBuffer.ValOr(DefaultResyncEventBuffer)
+	if resyncBuf <= 0 {
+		resyncBuf = DefaultResyncEventBuffer
+	}
+	errBuf := opts.AsyncErrorBuffer.ValOr(DefaultAsyncErrorBuffer)
+	if errBuf <= 0 {
+		errBuf = DefaultAsyncErrorBuffer
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	v := &Verifier{
+		opts:         opts,
+		didMu:        lru.New[atmos.DID, *sync.Mutex](mutexCap, 0),
+		limiters:     lru.New[atmos.DID, *rate.Limiter](limiterCap, 0),
+		resyncStates: xsync.NewMap[atmos.DID, *didResyncState](),
+		resyncQueue:  make(chan resyncJob, 2*workers),
+		resyncDone:   make(chan ResyncEvent, resyncBuf),
+		asyncErrs:    make(chan error, errBuf),
+		pendingCap:   pendingCap,
+		workerCtx:    ctx,
+		workerCancel: cancel,
+	}
+	v.startWorkers(workers)
+	return v, nil
 }
 
 // lockDID acquires the per-DID mutex and returns an unlock function.
