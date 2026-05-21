@@ -5,14 +5,40 @@ import (
 	"fmt"
 )
 
-// GapError indicates missed sequence numbers in the firehose.
+// GapError indicates missed sequence numbers in the firehose. Under
+// parallel verification (Options.Parallelism > 1), gaps are detected
+// per-DID rather than globally; DID identifies the repo whose seq
+// sequence skipped. Under strict-order mode (Parallelism = 1), DID is
+// empty and Expected/Got reference the global firehose stream.
 type GapError struct {
-	Expected int64 // lastSeq + 1
-	Got      int64 // actual seq received
+	DID      string // empty under strict-order mode
+	Expected int64
+	Got      int64
 }
 
 func (e *GapError) Error() string {
+	if e.DID != "" {
+		return fmt.Sprintf("sequence gap on %s: expected %d, got %d", e.DID, e.Expected, e.Got)
+	}
 	return fmt.Sprintf("sequence gap: expected %d, got %d", e.Expected, e.Got)
+}
+
+// DropError indicates that an event was dropped from the parallel
+// scheduler's per-DID queue because the queue was full. Surfaced via
+// the Verifier's AsyncErrors channel; consumers see it through the
+// (nil, err) iterator yield. Dropped events are silently lost from
+// the perspective of the consumer.
+//
+// QueueLen is the per-DID queue capacity at the time of the drop;
+// callers can use this to tell whether the cap was set too low.
+type DropError struct {
+	DID      string
+	Seq      int64
+	QueueLen int
+}
+
+func (e *DropError) Error() string {
+	return fmt.Sprintf("event dropped: did=%s seq=%d queueLen=%d", e.DID, e.Seq, e.QueueLen)
 }
 
 // DecodeError wraps a decode failure and carries the raw frame bytes.

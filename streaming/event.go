@@ -180,6 +180,23 @@ func (e *Event) seqOf() int64 {
 	return e.Seq
 }
 
+// repoOf returns the DID associated with this event, or "" for events
+// that have no per-repo binding (#info frames, server-side error frames,
+// label streams). Used to key the parallel scheduler.
+func (e *Event) repoOf() string {
+	switch {
+	case e.Commit != nil:
+		return e.Commit.Repo
+	case e.Sync != nil:
+		return e.Sync.DID
+	case e.Identity != nil:
+		return e.Identity.DID
+	case e.Account != nil:
+		return e.Account.DID
+	}
+	return ""
+}
+
 // decodeLabelFrame decodes an ATProto subscribeLabels frame (two concatenated
 // CBOR values: header map + body).
 func decodeLabelFrame(data []byte) (Event, error) {

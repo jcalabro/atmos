@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/jcalabro/atmos/api/comatproto"
 )
 
 func TestGapError(t *testing.T) {
@@ -48,4 +49,27 @@ func TestGapError_DifferentValues(t *testing.T) {
 	e := &GapError{Expected: 1, Got: 100}
 	require.Contains(t, e.Error(), "expected 1")
 	require.Contains(t, e.Error(), "got 100")
+}
+
+func TestEvent_RepoOf(t *testing.T) {
+	require.Equal(t, "did:plc:abc", (&Event{Commit: &comatproto.SyncSubscribeRepos_Commit{Repo: "did:plc:abc"}}).repoOf())
+	require.Equal(t, "did:plc:def", (&Event{Sync: &comatproto.SyncSubscribeRepos_Sync{DID: "did:plc:def"}}).repoOf())
+	require.Equal(t, "did:plc:ghi", (&Event{Identity: &comatproto.SyncSubscribeRepos_Identity{DID: "did:plc:ghi"}}).repoOf())
+	require.Equal(t, "did:plc:jkl", (&Event{Account: &comatproto.SyncSubscribeRepos_Account{DID: "did:plc:jkl"}}).repoOf())
+	require.Equal(t, "", (&Event{Info: &comatproto.SyncSubscribeRepos_Info{}}).repoOf())
+	require.Equal(t, "", (&Event{}).repoOf())
+}
+
+func TestGapError_WithDID(t *testing.T) {
+	e := &GapError{DID: "did:plc:abc", Expected: 5, Got: 7}
+	require.Contains(t, e.Error(), "did:plc:abc")
+	require.Contains(t, e.Error(), "expected 5")
+	require.Contains(t, e.Error(), "got 7")
+}
+
+func TestDropError_Format(t *testing.T) {
+	e := &DropError{DID: "did:plc:xyz", Seq: 42, QueueLen: 64}
+	require.Contains(t, e.Error(), "did:plc:xyz")
+	require.Contains(t, e.Error(), "42")
+	require.Contains(t, e.Error(), "64")
 }
