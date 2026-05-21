@@ -2111,11 +2111,58 @@ func (v *Verifier) handleVerificationFailure(
 	policy := v.opts.Policy.ValOr(PolicyResync)
 	switch policy {
 	case PolicyResync:
-		ops, rerr := v.resync(ctx, did, reason)
-		if rerr != nil {
-			return nil, rerr
+		// Async path: mark the DID as resyncing under its FSM lock
+		// and enqueue a job. The worker pool runs resync() off the
+		// readLoop. When the worker finishes, ops flow through
+		// ResyncEvents(); if the worker fails, the error flows through
+		// AsyncErrors().
+		//
+		// The caller (verifyCommit) holds the per-DID serialization
+		// lock from lockDID(); that lock is released in verifyCommit's
+		// defer once we return. The brief window between unlock and
+		// the worker re-acquiring the same lock is safe because the
+		// FSM transition to statusResyncing — which we performed under
+		// state.mu before returning — directs any concurrent
+		// verifyCommit for the same DID into the pending-buffer
+		// branch.
+		state := v.lookupOrCreateResyncState(did)
+		state.mu.Lock()
+		switch state.status {
+		case statusIdle:
+			state.status = statusResyncing
+			state.mu.Unlock()
+			// Block on full queue: workerWG.Wait() bounds the wait,
+			// and workerCtx cancellation interrupts it.
+			select {
+			case v.resyncQueue <- resyncJob{
+				ctx:     ctx,
+				did:     did,
+				trigger: commit,
+				reason:  reason,
+			}:
+			case <-v.workerCtx.Done():
+				// Verifier closed mid-enqueue. Surface the original
+				// error directly — same shape as PolicyError.
+				return nil, origErr
+			}
+			return nil, nil
+
+		case statusResyncing:
+			// Append to pending; ring-shift on overflow.
+			if len(state.pending) >= v.pendingCap {
+				state.pending = append(state.pending[1:], commit)
+				state.mu.Unlock()
+				v.sendAsyncError(&BufferOverflowError{DID: did, Dropped: 1})
+			} else {
+				state.pending = append(state.pending, commit)
+				state.mu.Unlock()
+			}
+			return nil, nil
+
+		default:
+			state.mu.Unlock()
+			return nil, fmt.Errorf("verifier: unknown resync status %d", state.status)
 		}
-		return ops, nil
 	case PolicyError:
 		if dataCID.Defined() {
 			if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: dataCID}); err != nil {
