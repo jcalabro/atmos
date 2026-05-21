@@ -123,6 +123,12 @@ type Client struct {
 	syncClient     *sync.Client // nil disables automatic #sync resync
 	isJetstream    bool
 
+	// ownsVerifier is true if NewClient auto-attached the default
+	// verifier (i.e. the caller didn't supply one). Close() shuts down
+	// the verifier only in that case; user-supplied verifiers are the
+	// user's responsibility to close.
+	ownsVerifier bool
+
 	// Lock-related fields, initialized in NewClient.
 	lock                DistributedLocker
 	lockOpts            *DistributedLockerOptions // nil when no lock configured
@@ -188,6 +194,8 @@ func NewClient(opts Options) (*Client, error) {
 		isJS = true
 	}
 
+	autoVerifier := false
+
 	// Resolve the sync client for automatic #sync resync.
 	// Jetstream and label streams don't need a sync client.
 	var sc *sync.Client
@@ -229,6 +237,7 @@ func NewClient(opts Options) (*Client, error) {
 			}
 
 			opts.Verifier = gt.Some(v)
+			autoVerifier = true
 		}
 	}
 
@@ -240,6 +249,7 @@ func NewClient(opts Options) (*Client, error) {
 		decode:              decode,
 		syncClient:          sc,
 		isJetstream:         isJS,
+		ownsVerifier:        autoVerifier,
 		lock:                lk,
 		lockOpts:            lockOpts,
 		leaseDuration:       leaseDur,
@@ -288,10 +298,15 @@ func (c *Client) Cursor() int64 {
 }
 
 // Close gracefully shuts down the WebSocket connection. If a CursorStore is
-// configured, the current cursor is persisted (best-effort). Close does not
-// release the distributed lock — the lock is released when the [Events]
-// iterator terminates (via context cancellation or the caller breaking out
-// of the range loop).
+// configured, the current cursor is persisted (best-effort). If the client
+// auto-attached a verifier (no Verifier option supplied to NewClient), the
+// verifier is closed too — its worker pool stops and ResyncEvents /
+// AsyncErrors channels are drained. User-supplied verifiers are the
+// caller's responsibility.
+//
+// Close does not release the distributed lock — the lock is released when
+// the [Events] iterator terminates (via context cancellation or the caller
+// breaking out of the range loop).
 func (c *Client) Close() error {
 	if c.opts.CursorStore.HasVal() {
 		cur := c.cursor.Load()
@@ -300,6 +315,12 @@ func (c *Client) Close() error {
 			// cancelled parent contexts.
 			_ = c.opts.CursorStore.Val().SaveCursor(context.Background(), cur)
 		}
+	}
+
+	if c.ownsVerifier && c.opts.Verifier.HasVal() {
+		// Best-effort: verifier Close() is documented to be idempotent
+		// and never returns an error from in-flight workers.
+		_ = c.opts.Verifier.Val().Close()
 	}
 
 	conn := c.conn.Load()
@@ -574,6 +595,18 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 	batch := make([]Event, 0, c.batchSize)
 	lastSeenSeq := c.cursor.Load()
 
+	// Capture verifier channels at top of readLoop so we can include
+	// them in the select. Nil channels in select are permanently
+	// blocked, so when no verifier is configured these cases never
+	// fire — no extra branching needed.
+	var resyncEvents <-chan sync.ResyncEvent
+	var asyncErrs <-chan error
+	if c.opts.Verifier.HasVal() {
+		v := c.opts.Verifier.Val()
+		resyncEvents = v.ResyncEvents()
+		asyncErrs = v.AsyncErrors()
+	}
+
 	timer := time.NewTimer(c.batchTimeout)
 	defer timer.Stop()
 
@@ -750,6 +783,59 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 					return true
 				}
 				timer.Reset(c.batchTimeout)
+			}
+
+		case res, ok := <-resyncEvents:
+			if !ok {
+				// Verifier closed; treat as no more resync events.
+				resyncEvents = nil
+				continue
+			}
+			// Chunk into 100-op batches. Each chunk becomes one
+			// synthetic Event with verifierRan=true so consumers
+			// reach Operations() through the existing fast path.
+			const chunkSize = 100
+			for i := 0; i < len(res.Ops); i += chunkSize {
+				end := i + chunkSize
+				if end > len(res.Ops) {
+					end = len(res.Ops)
+				}
+				ops := make([]Operation, len(res.Ops[i:end]))
+				for j, vo := range res.Ops[i:end] {
+					ops[j] = Operation{
+						Action:     vo.Action,
+						Collection: vo.Collection,
+						RKey:       vo.RKey,
+						Repo:       vo.Repo,
+						Rev:        vo.Rev,
+						CID:        vo.CID,
+						blockData:  vo.BlockData,
+					}
+				}
+				ev := Event{
+					verifierRan: true,
+					verifiedOps: ops,
+				}
+				batch = append(batch, ev)
+				if len(batch) >= c.batchSize {
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+				}
+			}
+
+		case err, ok := <-asyncErrs:
+			if !ok {
+				asyncErrs = nil
+				continue
+			}
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, err) {
+				return true
 			}
 
 		case <-timer.C:
