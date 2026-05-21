@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/sync"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBufferOverflowError_ErrorAndUnwrap(t *testing.T) {
@@ -24,4 +27,37 @@ func TestBufferOverflowError_ErrorAndUnwrap(t *testing.T) {
 	assert.True(t, errors.As(error(err), &typed))
 	assert.Equal(t, atmos.DID("did:plc:alice"), typed.DID)
 	assert.Equal(t, 7, typed.Dropped)
+}
+
+// Verifier construction must accept the new option fields and apply
+// the documented defaults when they are omitted.
+func TestNewVerifier_AsyncOptionDefaults(t *testing.T) {
+	t.Parallel()
+
+	v, err := newTestVerifier(t)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
+
+	// ResyncEvents and AsyncErrors must be drainable channels of the
+	// configured buffer sizes; we don't expose the buffer size from
+	// outside, so we only assert non-nil and that the channels are not
+	// closed.
+	require.NotNil(t, v.ResyncEvents())
+	require.NotNil(t, v.AsyncErrors())
+
+	select {
+	case _, ok := <-v.ResyncEvents():
+		require.True(t, ok, "ResyncEvents() must not be closed before Close()")
+	default:
+	}
+}
+
+func newTestVerifier(t *testing.T) (*sync.Verifier, error) {
+	t.Helper()
+	dir := &identity.Directory{Resolver: &identity.DefaultResolver{}}
+	return sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: sync.NewMemStateStore(),
+		SyncClient: gt.Some(&sync.Client{}),
+	})
 }

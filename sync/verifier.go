@@ -848,6 +848,32 @@ type VerifierOptions struct {
 	// inactive DID's token-bucket state — its next resync gets a
 	// fresh full bucket, equivalent to a long-quiet account.
 	LimiterCapacity gt.Option[int]
+
+	// AsyncResyncWorkers is the goroutine pool size processing
+	// chain-break-driven resyncs. None or zero → DefaultAsyncResyncWorkers
+	// (32). Sized so independent slow DIDs proceed in parallel; one slow
+	// DID still serializes inside its own per-DID mutex.
+	AsyncResyncWorkers gt.Option[int]
+
+	// PendingCap is the per-DID ring-buffer capacity for commits that
+	// arrive while a resync is in flight for that DID. None or zero →
+	// DefaultPendingCap (2048). Overflow drops the oldest entry and
+	// surfaces *BufferOverflowError on AsyncErrors().
+	PendingCap gt.Option[int]
+
+	// ResyncEventBuffer is the capacity of the channel returned by
+	// ResyncEvents(). None or zero → DefaultResyncEventBuffer (2048).
+	// Workers block on full; the streaming readLoop drains it
+	// alongside firehose reads.
+	ResyncEventBuffer gt.Option[int]
+
+	// AsyncErrorBuffer is the capacity of the channel returned by
+	// AsyncErrors(). None or zero → DefaultAsyncErrorBuffer (256).
+	// Smaller than ResyncEventBuffer because errors are rare; workers
+	// blocking on full delivery is the correct back-pressure (a
+	// consumer that has stalled long enough for 256 errors to queue
+	// up should not have those errors silently dropped).
+	AsyncErrorBuffer gt.Option[int]
 }
 
 // Verifier performs Sync 1.1 verification of firehose events. Safe
