@@ -36,3 +36,26 @@ func LimiterCacheLen(v *Verifier) int { return v.limiters.Len() }
 func SendAsyncErrorForTest(v *Verifier, err error) {
 	v.sendAsyncError(err)
 }
+
+// EnqueueResyncForTest exercises the send-to-resyncQueue path that
+// handleVerificationFailure takes under PolicyResync. Returns nil on
+// successful enqueue OR if the verifier was closed (in which case the
+// producer takes the workerCtx.Done branch). Does NOT set up the FSM
+// state — this is a pure test of the channel-send race condition.
+//
+// IMPORTANT: This sends a job with a nil trigger commit, which will
+// cause workers to panic if they try to process it. Use only for
+// testing the send path, and ensure Close() is called to stop workers
+// before they can pick up the job.
+func EnqueueResyncForTest(v *Verifier, did atmos.DID) error {
+	select {
+	case v.resyncQueue <- resyncJob{
+		ctx:    context.Background(),
+		did:    did,
+		reason: ReasonChainBreak,
+	}:
+		return nil
+	case <-v.workerCtx.Done():
+		return nil
+	}
+}

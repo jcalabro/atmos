@@ -29,9 +29,9 @@ func (v *Verifier) AsyncErrors() <-chan error {
 }
 
 // Close stops the async-resync worker pool and closes ResyncEvents
-// and AsyncErrors. Safe to call multiple times. Outstanding jobs in
-// the queue are abandoned; in-flight workers' contexts are cancelled
-// (so a stuck getRepo unblocks).
+// and AsyncErrors. Safe to call multiple times. Outstanding jobs are
+// abandoned; in-flight workers' contexts are cancelled (so a stuck
+// getRepo unblocks).
 //
 // After Close, calls to verifyCommit that would have triggered a
 // resync return the original verification error directly, as if the
@@ -39,7 +39,6 @@ func (v *Verifier) AsyncErrors() <-chan error {
 func (v *Verifier) Close() error {
 	v.closeOnce.Do(func() {
 		v.workerCancel()
-		close(v.resyncQueue)
 		v.workerWG.Wait()
 		close(v.resyncDone)
 		close(v.asyncErrs)
@@ -48,7 +47,7 @@ func (v *Verifier) Close() error {
 }
 
 // startWorkers spawns n goroutines pulling from resyncQueue. Called
-// once by NewVerifier; the workers exit when resyncQueue is closed
+// once by NewVerifier; the workers exit when workerCtx is cancelled
 // (by Close()).
 func (v *Verifier) startWorkers(n int) {
 	for range n {
@@ -58,12 +57,16 @@ func (v *Verifier) startWorkers(n int) {
 }
 
 // worker is the worker-pool goroutine body. Pulls jobs from
-// resyncQueue until the channel is closed, then exits.
+// resyncQueue until workerCtx is cancelled, then exits.
 func (v *Verifier) worker() {
 	defer v.workerWG.Done()
-	for job := range v.resyncQueue {
-		// runResyncJob is implemented in Task 6.
-		v.runResyncJob(job)
+	for {
+		select {
+		case job := <-v.resyncQueue:
+			v.runResyncJob(job)
+		case <-v.workerCtx.Done():
+			return
+		}
 	}
 }
 
@@ -219,9 +222,18 @@ func (v *Verifier) markIdleAndCleanup(state *didResyncState, did atmos.DID) {
 //
 // Workers may also block on a full resyncDone channel, but its larger
 // buffer (DefaultResyncEventBuffer = 2048) makes that rare.
+//
+// After Close(), asyncErrs is closed and sends would panic. The
+// workerCtx.Done() check protects against post-Close calls.
 func (v *Verifier) sendAsyncError(err error) {
 	if err == nil {
 		return
+	}
+	// Fast check: if the verifier is closed, don't try to send.
+	select {
+	case <-v.workerCtx.Done():
+		return
+	default:
 	}
 	select {
 	case v.asyncErrs <- err:
