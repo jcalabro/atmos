@@ -394,7 +394,7 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 			case asyncErr := <-v.AsyncErrors():
 				t.Fatalf("seed=%d unexpected async error: %v", seed, asyncErr)
 
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(500 * time.Millisecond):
 				// No ResyncEvent arrived → silent rev-replay drop. State
 				// unchanged. Rebuild from the served CAR (same reason as
 				// the resync path: avoid store-pollution carrying over).
@@ -484,21 +484,34 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		emit(t, didIdx, commit)
 	}
 
-	// Drain any tail-end pending events from the worker before reading
-	// stats. Each emit() above already drains its own resync, but the
-	// worker increments stats atomics before sending on ResyncEvents,
-	// and we want a final cushion for any straggler the test didn't
-	// directly observe.
-	drainTimeout := time.NewTimer(200 * time.Millisecond)
-	defer drainTimeout.Stop()
-drainLoop:
-	for {
-		select {
-		case <-v.ResyncEvents():
-		case <-v.AsyncErrors():
-		case <-drainTimeout.C:
-			break drainLoop
+	// Drain tail-end events while waiting for the worker counters to
+	// stabilize. Resyncs can complete in any order; reading stats
+	// before workers finish would race the invariant
+	// stats.Resyncs == chainBreaks + inversionErrs.
+	stabilizeDeadline := time.Now().Add(5 * time.Second)
+	var prevTotal uint64
+	stableSamples := 0
+	for time.Now().Before(stabilizeDeadline) && stableSamples < 2 {
+		// Drain any events that piled up; they don't affect counters
+		// (workers update counters before sending), but full channels
+		// would block workers.
+		for draining := true; draining; {
+			select {
+			case <-v.ResyncEvents():
+			case <-v.AsyncErrors():
+			default:
+				draining = false
+			}
 		}
+		stats := v.Stats()
+		total := stats.Resyncs + stats.ResyncFailures
+		if total == prevTotal {
+			stableSamples++
+		} else {
+			stableSamples = 0
+			prevTotal = total
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	stats := v.Stats()
