@@ -105,6 +105,16 @@ type Options struct {
 	// Only applied to firehose streams; jetstream isn't part of the
 	// verifier's contract.
 	Verifier gt.Option[*sync.Verifier]
+
+	// StrictValidation makes [Event.Operations] validate each op's
+	// typed fields (NSID, RecordKey, DID, TID) against the
+	// corresponding [atmos] syntax types before yielding. None or
+	// false (the default) is the existing relaxed behavior: typed
+	// fields carry whatever value the wire produced, and consumers
+	// that care about strict syntax call [atmos.NSID.Validate] etc.
+	// themselves. Set to gt.Some(true) to make the iterator yield
+	// (Operation{}, error) for any op whose fields don't parse.
+	StrictValidation gt.Option[bool]
 }
 
 // Client connects to an ATProto event stream (firehose or label stream).
@@ -603,6 +613,10 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				evt.ctx = ctx
 				evt.syncClient = c.syncClient
 			}
+
+			// Plumb strict-validation preference onto the event so
+			// Operations() can decide whether to validate yielded ops.
+			evt.strictValidation = c.opts.StrictValidation.ValOr(false)
 
 			// Sync 1.1: feed #account events into the verifier so its
 			// HostingState (and the HostingGate policy that depends on

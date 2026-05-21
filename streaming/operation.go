@@ -85,27 +85,63 @@ func (o *Operation) Decode(dst CBORUnmarshaler) error {
 // callers that need to iterate multiple times should collect the results.
 func (e *Event) Operations() iter.Seq2[Operation, error] {
 	return func(yield func(Operation, error) bool) {
+		// Wrap yield to enforce strict validation when configured.
+		// On a successful yield (op, nil) we run validateOpFields;
+		// if it fails, we surface the syntax error in place of the
+		// op. Errors from upstream pass through unchanged.
+		actual := yield
+		if e.strictValidation {
+			actual = func(op Operation, err error) bool {
+				if err == nil {
+					if vErr := validateOpFields(op); vErr != nil {
+						return yield(Operation{}, vErr)
+					}
+				}
+				return yield(op, err)
+			}
+		}
+
 		if e.verifierRan {
 			for _, op := range e.verifiedOps {
-				if !yield(op, nil) {
+				if !actual(op, nil) {
 					return
 				}
 			}
 			return
 		}
 		if e.Commit != nil {
-			e.yieldCommitOps(yield)
+			e.yieldCommitOps(actual)
 			return
 		}
 		if e.Jetstream != nil && e.Jetstream.Commit != nil {
-			e.yieldJetstreamOp(yield)
+			e.yieldJetstreamOp(actual)
 			return
 		}
 		if e.Sync != nil && e.syncClient != nil {
-			e.yieldResyncOps(yield)
+			e.yieldResyncOps(actual)
 			return
 		}
 	}
+}
+
+// validateOpFields runs the typed-field syntax checks on op and
+// returns the first failure, or nil. Used by Operations() under
+// Options.StrictValidation. Errors are wrapped with a label naming
+// the offending field so consumers know which one failed.
+func validateOpFields(op Operation) error {
+	if err := op.Repo.Validate(); err != nil {
+		return fmt.Errorf("op.Repo: %w", err)
+	}
+	if err := op.Collection.Validate(); err != nil {
+		return fmt.Errorf("op.Collection: %w", err)
+	}
+	if err := op.RKey.Validate(); err != nil {
+		return fmt.Errorf("op.RKey: %w", err)
+	}
+	if err := op.Rev.Validate(); err != nil {
+		return fmt.Errorf("op.Rev: %w", err)
+	}
+	return nil
 }
 
 // yieldJetstreamOp yields a single operation from a Jetstream commit event.

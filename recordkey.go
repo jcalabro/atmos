@@ -22,6 +22,16 @@ func ParseRecordKey(raw string) (RecordKey, error) {
 	return RecordKey(raw), nil
 }
 
+// Validate reports whether r satisfies the RecordKey syntax.
+// Useful for values constructed by string casts (rather than
+// [ParseRecordKey]) that need a post-hoc syntax check. Returns nil
+// on success or a typed syntax error that names the offending
+// input.
+func (r RecordKey) Validate() error {
+	_, err := ParseRecordKey(string(r))
+	return err
+}
+
 func (r RecordKey) String() string {
 	return string(r)
 }

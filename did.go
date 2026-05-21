@@ -89,6 +89,15 @@ func (d DID) ATIdentifier() ATIdentifier {
 	return ATIdentifier(d)
 }
 
+// Validate reports whether d satisfies the DID syntax. Useful for
+// values constructed by string casts (rather than [ParseDID]) that
+// need a post-hoc syntax check. Returns nil on success or a typed
+// syntax error that names the offending input.
+func (d DID) Validate() error {
+	_, err := ParseDID(string(d))
+	return err
+}
+
 func (d DID) String() string {
 	return string(d)
 }

@@ -47,6 +47,12 @@ type Event struct {
 	// distinct from "verifier never ran" (verifierRan=false).
 	verifiedOps []Operation
 	verifierRan bool
+
+	// strictValidation, when true, makes Operations() validate each
+	// op's typed fields (NSID, RecordKey, DID, TID) before yielding
+	// and surface a typed atmos syntax error for any that fail.
+	// Plumbed from Options.StrictValidation by readLoop.
+	strictValidation bool
 }
 
 // Labels returns the individual labels from a subscribeLabels event,
