@@ -265,6 +265,34 @@ func (e *ChainBreakError) Error() string {
 		e.DID, seen, e.GotRev, e.GotPrevData, inverted)
 }
 
+// InversionIncompleteError signals a specific lenient-mode pass-through:
+// the upstream commit's prevData claim matches our stored chain state
+// (so the upstream IS honestly continuing the chain), but our local
+// MST inversion produced a different root because the CAR diff did not
+// include enough blocks for a complete inversion. The spec acknowledges
+// this case ("blocks adjacent to changed keys must be included; in
+// rare cases this is violated") and Bluesky's production relay logs +
+// passes such commits through under its LenientSyncValidation config.
+//
+// Surfaced via OnVerificationFailure for visibility, but the verifier
+// advances state as if the commit verified normally; ops flow through
+// to the consumer. Disable by setting VerifierOptions.LenientInversion
+// to gt.Some(false), in which case the same condition surfaces as a
+// ChainBreakError that triggers resync under PolicyResync.
+type InversionIncompleteError struct {
+	DID          atmos.DID
+	SeenRev      string
+	SeenData     cbor.CID
+	GotRev       string
+	GotPrevData  cbor.CID
+	InvertedData cbor.CID
+}
+
+func (e *InversionIncompleteError) Error() string {
+	return fmt.Sprintf("sync: inversion incomplete for %s: seen (rev=%s data=%s), got (rev=%s prevData=%s inverted=%s) — accepted under lenient mode",
+		e.DID, e.SeenRev, e.SeenData, e.GotRev, e.GotPrevData, e.InvertedData)
+}
+
 // InversionError is returned when MST inversion fails on its own
 // terms: malformed CAR, op references a CID absent from the diff,
 // structurally broken partial MST. Distinct from ChainBreakError,
@@ -652,6 +680,15 @@ type VerifierStats struct {
 	// PolicyResync recovers via resync.
 	InversionFailures uint64
 
+	// InversionIncomplete counts events accepted under
+	// VerifierOptions.LenientInversion: the upstream's prevData
+	// matched our state, but our local inversion produced a different
+	// root (the CAR was missing blocks needed for full inversion).
+	// State advances and ops flow through; *InversionIncompleteError
+	// fires via OnVerificationFailure for visibility. Strict mode
+	// accounts these as ChainBreaks instead.
+	InversionIncomplete uint64
+
 	// SignatureFailures counts typed *SignatureError outcomes only
 	// (after the purge+retry path). Resolver/network errors during
 	// signature verification do not increment this counter; they
@@ -820,6 +857,26 @@ type VerifierOptions struct {
 	// handled. None → LegacyAccept (lenient default).
 	LegacyCommitPolicy gt.Option[LegacyCommitPolicy]
 
+	// LenientInversion controls handling of commits where the
+	// upstream's prevData matches our stored chain state but our
+	// local MST inversion produces a different root. This happens
+	// when an upstream PDS ships a CAR that's missing blocks needed
+	// for full inversion — the spec acknowledges this is rare but
+	// permitted, and Bluesky's production relay forwards such commits
+	// under its LenientSyncValidation config.
+	//
+	// None or true (default): accept the commit under
+	// *InversionIncompleteError surfaced via OnVerificationFailure;
+	// state advances normally and ops flow through to the consumer.
+	// Matches the production relay's behavior and avoids triggering
+	// expensive resyncs against accounts whose PDS sometimes ships
+	// inversion-incomplete CARs.
+	//
+	// Set to gt.Some(false) for strict verification: the same
+	// condition becomes a ChainBreakError that triggers resync under
+	// PolicyResync (or surfaces directly under PolicyError).
+	LenientInversion gt.Option[bool]
+
 	// HostingPolicy selects whether the verifier gates #commit/#sync
 	// events on persisted hosting status. None → HostingTrack (track
 	// state, don't gate). Set to HostingGate for content-distribution
@@ -932,6 +989,7 @@ type Verifier struct {
 	eventsVerified         atomic.Uint64
 	chainBreaks            atomic.Uint64
 	inversionFailures      atomic.Uint64
+	inversionIncomplete    atomic.Uint64
 	signatureFailures      atomic.Uint64
 	resyncs                atomic.Uint64
 	resyncFailures         atomic.Uint64
@@ -1299,6 +1357,7 @@ func (v *Verifier) Stats() VerifierStats {
 		EventsVerified:             v.eventsVerified.Load(),
 		ChainBreaks:                v.chainBreaks.Load(),
 		InversionFailures:          v.inversionFailures.Load(),
+		InversionIncomplete:        v.inversionIncomplete.Load(),
 		SignatureFailures:          v.signatureFailures.Load(),
 		Resyncs:                    v.resyncs.Load(),
 		ResyncFailures:             v.resyncFailures.Load(),
@@ -1955,21 +2014,49 @@ func (v *Verifier) verifyCommitLocked(
 		if commit.PrevData.HasVal() {
 			prevDataCID, _ = cidFromLink(commit.PrevData.Val())
 		}
-		// Both the inverted root and the declared prevData MUST equal
-		// SeenData; either disagreeing is a chain break.
-		if !inverted.Equal(state.Data) || !prevDataCID.Equal(state.Data) {
-			v.chainBreaks.Add(1)
-			cbErr := &ChainBreakError{
-				DID:          did,
-				SeenRev:      state.Rev,
-				SeenData:     state.Data,
-				GotRev:       commit.Rev,
-				GotPrevData:  prevDataCID,
-				InvertedData: inverted,
+		invertedMatches := inverted.Equal(state.Data)
+		prevDataMatches := prevDataCID.Equal(state.Data)
+		if !invertedMatches || !prevDataMatches {
+			// Lenient carve-out: the upstream's prevData matches our
+			// stored chain state — i.e. the upstream IS honestly
+			// continuing the chain — but our local inversion produced
+			// a different root because the CAR was missing blocks
+			// needed for full inversion. Bluesky's production relay
+			// runs in this lenient mode (RELAY_LENIENT_SYNC_VALIDATION)
+			// and forwards such commits with a "failed to invert" log
+			// rather than dropping them. Match that behavior here:
+			// surface *InversionIncompleteError via the hook for
+			// visibility, but advance state normally and let the
+			// commit's ops reach the consumer. Triggering a resync
+			// here would be both expensive AND no more correct than
+			// trusting the prevData claim, since the upstream is
+			// already trusted to ship correctly-prevData'd events.
+			lenient := v.opts.LenientInversion.ValOr(true)
+			if lenient && prevDataMatches && !invertedMatches {
+				v.inversionIncomplete.Add(1)
+				hookErr = &InversionIncompleteError{
+					DID:          did,
+					SeenRev:      state.Rev,
+					SeenData:     state.Data,
+					GotRev:       commit.Rev,
+					GotPrevData:  prevDataCID,
+					InvertedData: inverted,
+				}
+				// Fall through to signature check + state advance.
+			} else {
+				v.chainBreaks.Add(1)
+				cbErr := &ChainBreakError{
+					DID:          did,
+					SeenRev:      state.Rev,
+					SeenData:     state.Data,
+					GotRev:       commit.Rev,
+					GotPrevData:  prevDataCID,
+					InvertedData: inverted,
+				}
+				hookErr = cbErr
+				ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonChainBreak, cbErr, allowAsyncResync)
+				return ops, hookErr, retErr
 			}
-			hookErr = cbErr
-			ops, retErr = v.handleVerificationFailure(ctx, did, commit, dataCID, ReasonChainBreak, cbErr, allowAsyncResync)
-			return ops, hookErr, retErr
 		}
 	}
 

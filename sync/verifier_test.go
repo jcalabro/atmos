@@ -1882,6 +1882,186 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
+// Lenient inversion: when the upstream's prevData matches our stored
+// chain state but our local inversion produces a different root (an
+// inversion-incomplete CAR, which Bluesky's production relay
+// intentionally forwards under LenientSyncValidation), the verifier
+// must accept the commit, advance state, and surface
+// *InversionIncompleteError via OnVerificationFailure — NOT trigger a
+// resync.
+//
+// We provoke the condition synthetically: build a valid commit, then
+// tamper with op.Prev so the inverter inserts the wrong CID at the
+// key during the inverse path. Inversion then yields a root different
+// from the genuine prev state (which we save in the StateStore as
+// state.Data). commit.PrevData remains correctly set, so prevData
+// matches state.Data while inverted does not — exactly the
+// inversion-incomplete signature.
+func TestVerifyAndExpand_LenientInversion_AcceptsInversionIncomplete(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:lenient1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	// Build the prev state and persist it as the verifier's stored
+	// chain state.
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	realPrevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: realPrevData}))
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	// PolicyResync requires a SyncClient even though lenient mode
+	// means resync is never triggered. Provide a fake one wired to
+	// the prev repo so that an unexpected resync would at least not
+	// crash the test.
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	// Configure verifier with LenientInversion explicitly true (the
+	// default; we set it to assert intent).
+	var hookMu stdsync.Mutex
+	var hookErrs []error
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:       gt.Some(sc),
+		Directory:        dir,
+		StateStore:       cs,
+		Policy:           gt.Some(sync.PolicyResync),
+		LenientInversion: gt.Some(true),
+		OnVerificationFailure: gt.Some(func(_ atmos.DID, err error) {
+			hookMu.Lock()
+			hookErrs = append(hookErrs, err)
+			hookMu.Unlock()
+		}),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
+
+	// Build an update commit with a tampered op.Prev so the inverter
+	// computes a wrong root. PrevData is set correctly to the genuine
+	// pre-state root.
+	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "x",
+		Record:     map[string]any{"text": "y"},
+	}})
+	bogusCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commit.Ops))
+	commit.Ops[0].Prev = gt.Some(lextypes.LexCIDLink{Link: bogusCID.String()})
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err, "lenient mode must not surface a typed error to the caller")
+	require.NotNil(t, ops, "lenient mode must yield ops; the commit was accepted")
+	require.Greater(t, len(ops), 0)
+
+	// State must have advanced to the new commit's data CID.
+	newState, err := cs.LoadChain(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, newState)
+	assert.Equal(t, commit.Rev, newState.Rev, "rev must advance under lenient mode")
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(0), stats.ChainBreaks, "no chain break should be counted")
+	assert.Equal(t, uint64(0), stats.Resyncs, "no resync should be triggered")
+	assert.Equal(t, uint64(1), stats.InversionIncomplete, "InversionIncomplete counter must increment")
+
+	// OnVerificationFailure must have fired exactly once with a
+	// *InversionIncompleteError so consumers can log/alert.
+	var iiErr *sync.InversionIncompleteError
+	require.Eventually(t, func() bool {
+		hookMu.Lock()
+		defer hookMu.Unlock()
+		for _, e := range hookErrs {
+			if errors.As(e, &iiErr) {
+				return true
+			}
+		}
+		return false
+	}, 200*time.Millisecond, 20*time.Millisecond, "InversionIncompleteError must surface via OnVerificationFailure")
+	assert.Equal(t, did, iiErr.DID)
+	assert.Equal(t, realPrevData, iiErr.GotPrevData, "prevData must match stored state")
+	assert.NotEqual(t, realPrevData, iiErr.InvertedData, "inverted must differ from stored state")
+}
+
+// Strict mode (LenientInversion=false): the same condition that lenient
+// mode accepts must instead trigger ChainBreakError → resync.
+func TestVerifyAndExpand_StrictInversion_RejectsInversionIncomplete(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:strict1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "x", map[string]any{"text": "x"}))
+	realPrevData, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: realPrevData}))
+
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:       gt.Some(sc),
+		Directory:        dir,
+		StateStore:       cs,
+		Policy:           gt.Some(sync.PolicyResync),
+		LenientInversion: gt.Some(false),
+		ResyncLimit:      gt.Some(rate.Inf),
+		ResyncBurst:      gt.Some(1),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
+
+	commit := testutil.BuildSyntheticCommit(t, r, key, realPrevData, []testutil.OpAction{{
+		Action:     testutil.ActionUpdate,
+		Collection: "app.bsky.feed.post",
+		RKey:       "x",
+		Record:     map[string]any{"text": "y"},
+	}})
+	bogusCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commit.Ops))
+	commit.Ops[0].Prev = gt.Some(lextypes.LexCIDLink{Link: bogusCID.String()})
+
+	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	require.NoError(t, err)
+	require.Nil(t, ops, "strict mode + PolicyResync: chain break enqueues async resync, returns nil ops")
+
+	select {
+	case ev := <-v.ResyncEvents():
+		require.Equal(t, did, ev.DID)
+	case asyncErr := <-v.AsyncErrors():
+		t.Fatalf("expected ResyncEvent, got async error: %v", asyncErr)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ResyncEvent")
+	}
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.ChainBreaks, "strict mode must count this as a chain break")
+	assert.Equal(t, uint64(0), stats.InversionIncomplete, "strict mode must NOT count InversionIncomplete")
+	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
 func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) {
 	t.Parallel()
 
