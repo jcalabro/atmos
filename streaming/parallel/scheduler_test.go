@@ -199,3 +199,35 @@ func TestScheduler_PanicRecovery(t *testing.T) {
 		return len(errs) == 5
 	}, time.Second, time.Millisecond)
 }
+
+func TestScheduler_AddWorkCancelled(t *testing.T) {
+	// One worker, hold it busy, fill so the next AddWork on a NEW key
+	// blocks on the unbuffered feeder.
+	gate := make(chan struct{})
+	s := NewScheduler(1, 0, func(ctx context.Context, n int) error {
+		<-gate
+		return nil
+	}, nil)
+	defer s.Shutdown()
+
+	ctx0 := context.Background()
+	require.NoError(t, s.AddWork(ctx0, "k1", 1)) // claims the worker
+
+	// Different key → must dispatch via feeder. Feeder is unbuffered;
+	// worker is busy, so AddWork blocks.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	err := s.AddWork(ctx, "k2", 2)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	// After cancellation, the key claim must be rolled back so a future
+	// AddWork(k2) starts cleanly. First unblock the worker so k1 finishes.
+	close(gate)
+
+	// Drain k1; worker becomes free. New AddWork(k2) should now succeed.
+	require.Eventually(t, func() bool {
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel2()
+		return s.AddWork(ctx2, "k2", 3) == nil
+	}, time.Second, 10*time.Millisecond)
+}
