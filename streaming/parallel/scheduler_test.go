@@ -168,3 +168,34 @@ func TestScheduler_DropOldest(t *testing.T) {
 		require.Equal(t, i+1, d)
 	}
 }
+
+func TestScheduler_PanicRecovery(t *testing.T) {
+	var (
+		mu   sync.Mutex
+		errs []error
+	)
+	onError := func(err error) {
+		mu.Lock()
+		errs = append(errs, err)
+		mu.Unlock()
+	}
+
+	s := NewSchedulerWithErrorHook(2, 0, func(ctx context.Context, n int) error {
+		if n%2 == 0 {
+			panic(fmt.Errorf("boom on %d", n))
+		}
+		return nil
+	}, nil, onError)
+	defer s.Shutdown()
+
+	ctx := context.Background()
+	for i := range 10 {
+		require.NoError(t, s.AddWork(ctx, fmt.Sprintf("k%d", i), i))
+	}
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(errs) == 5
+	}, time.Second, time.Millisecond)
+}

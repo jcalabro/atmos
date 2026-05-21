@@ -4,6 +4,8 @@ package parallel
 import (
 	"context"
 	"sync"
+
+	"github.com/jcalabro/gt"
 )
 
 // Scheduler dispatches per-key work units to a fixed pool of N workers
@@ -17,6 +19,7 @@ type Scheduler[Work any] struct {
 	keyQueueCap int
 	do          func(context.Context, Work) error
 	onDrop      func(Work)
+	onError     func(error) // set by NewSchedulerWithErrorHook; nil = ignore
 
 	feeder chan task[Work]
 
@@ -41,11 +44,27 @@ type task[Work any] struct {
 // growth — callers must guarantee bounded per-key arrival rate or
 // risk OOM. onDrop may be nil; it is invoked synchronously off the
 // AddWork hot path, so it must not block.
+//
+// Errors and panics returned by do are silently ignored. To observe
+// them, use NewSchedulerWithErrorHook.
 func NewScheduler[Work any](
 	workers int,
 	keyQueueCap int,
 	do func(context.Context, Work) error,
 	onDrop func(Work),
+) *Scheduler[Work] {
+	return NewSchedulerWithErrorHook(workers, keyQueueCap, do, onDrop, nil)
+}
+
+// NewSchedulerWithErrorHook is NewScheduler plus an onError callback
+// that fires whenever a work unit returns a non-nil error or panics.
+// onError must not block. May be nil, in which case errors and panics
+// are silently ignored (equivalent to NewScheduler).
+func NewSchedulerWithErrorHook[Work any](
+	workers, keyQueueCap int,
+	do func(context.Context, Work) error,
+	onDrop func(Work),
+	onError func(error),
 ) *Scheduler[Work] {
 	if workers < 1 {
 		workers = 1
@@ -55,6 +74,7 @@ func NewScheduler[Work any](
 		keyQueueCap: keyQueueCap,
 		do:          do,
 		onDrop:      onDrop,
+		onError:     onError,
 		feeder:      make(chan task[Work]),
 		active:      make(map[string][]Work),
 		stopped:     make(chan struct{}),
@@ -103,8 +123,7 @@ func (s *Scheduler[Work]) workerLoop() {
 // is the only one mutating active[key] until it removes the entry.
 func (s *Scheduler[Work]) runChain(key string, work Work) {
 	for {
-		// Error/panic recovery via onError hook is added by NewSchedulerWithErrorHook.
-		_ = s.do(context.Background(), work)
+		s.runOne(work)
 
 		s.mu.Lock()
 		queue := s.active[key]
@@ -117,6 +136,19 @@ func (s *Scheduler[Work]) runChain(key string, work Work) {
 		s.active[key] = queue[1:]
 		s.mu.Unlock()
 	}
+}
+
+// runOne executes a single work unit, recovering panics via gt.Recover.
+// Errors and panics are reported via onError when set.
+func (s *Scheduler[Work]) runOne(work Work) {
+	var err error
+	defer func() {
+		err = gt.Recover(err, recover())
+		if err != nil && s.onError != nil {
+			s.onError(err)
+		}
+	}()
+	err = s.do(context.Background(), work)
 }
 
 // AddWork enqueues a unit of work for the given key.
