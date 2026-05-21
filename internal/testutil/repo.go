@@ -211,8 +211,11 @@ func BuildSyntheticCommit(t testing.TB, r *repo.Repo, key crypto.PrivateKey, pre
 // This matches what a 1.1-compliant PDS emits — the event's CAR
 // intentionally carries no MST nodes or records, just the commit.
 //
-// The returned bytes are ready to assign to syncEvt.Blocks.
-func BuildSyncEventBlocks(t *testing.T, r *repo.Repo, key crypto.PrivateKey, dataCID cbor.CID) []byte {
+// Returns the CAR bytes and the inner commit's rev. Callers that
+// need envelope/inner consistency (the fast-path tests) should set
+// syncEvt.Rev to the returned rev; the verifier's field-consistency
+// gate enforces equality.
+func BuildSyncEventBlocks(t *testing.T, r *repo.Repo, key crypto.PrivateKey, dataCID cbor.CID) (blocks []byte, rev string) {
 	t.Helper()
 	commitBlock, err := BuildAndStoreSignedCommit(r, key, dataCID)
 	require.NoError(t, err)
@@ -223,7 +226,7 @@ func BuildSyncEventBlocks(t *testing.T, r *repo.Repo, key crypto.PrivateKey, dat
 	cw, err := car.NewWriter(&carBuf, []cbor.CID{commitBlock.CID})
 	require.NoError(t, err)
 	require.NoError(t, cw.WriteBlock(commitBlock.CID, commitBytes))
-	return carBuf.Bytes()
+	return carBuf.Bytes(), commitBlock.Rev
 }
 
 // BuildDIDDoc constructs a minimal DID document for did with the

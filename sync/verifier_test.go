@@ -2049,17 +2049,15 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 		sync.ChainState{Rev: oldRev, Data: dataCID}))
 
 	// Build a #sync event whose embedded commit asserts the same
-	// data CID at a newer rev.
-	newRev := string(atmos.NewTIDNow(0))
+	// data CID. BuildSyncEventBlocks mints the inner commit's rev
+	// from the repo's clock; the verifier's field-consistency gate
+	// requires envelope.Rev == inner.Rev, so use the same value here.
+	blocks, newRev := testutil.BuildSyncEventBlocks(t, r, key, dataCID)
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
 		DID:    string(did),
 		Rev:    newRev,
-		Blocks: testutil.BuildSyncEventBlocks(t, r, key, dataCID),
+		Blocks: blocks,
 	}
-	// BuildSyncEventBlocks uses the repo's clock to mint the inner rev,
-	// which won't match newRev — but the no-op fast path doesn't care
-	// about envelope/inner rev consistency (that's a #commit-only
-	// invariant). We're testing data-CID equality.
 
 	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
 	require.NoError(t, vErr)
@@ -2076,6 +2074,150 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 	require.NotNil(t, state)
 	assert.Equal(t, newRev, state.Rev, "rev should advance to the sync event's claim")
 	assert.True(t, state.Data.Equal(dataCID), "data CID must be unchanged")
+}
+
+// TestVerifyAndExpand_SyncEventFastPathRejectsBadSignature is the
+// headline issue-#12 test: a hostile upstream that has observed our
+// SeenData CID could craft a #sync event with that data CID and any
+// rev they want, and (pre-fix) we would advance our rev tracker
+// without verifying the embedded commit's signature. Subsequent
+// legitimate events at rev <= the forged rev would then be silently
+// dropped as replays.
+//
+// The fast path now signature-verifies the embedded commit. A
+// commit signed with a key that doesn't match the DID document
+// surfaces as *SignatureError; chain state is NOT advanced.
+func TestVerifyAndExpand_SyncEventFastPathRejectsBadSignature(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncfastsig1")
+	realKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	attackerKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	// Pre-seed chain state with the data CID the attacker has observed.
+	oldRev := string(atmos.NewTIDFromTime(time.Now().Add(-1*time.Hour), 0))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did,
+		sync.ChainState{Rev: oldRev, Data: dataCID}))
+
+	// DID document advertises realKey; the embedded commit will be
+	// signed with attackerKey, so signature verification fails.
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, realKey.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		StateStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	// Build the malicious #sync event: data == ourSeenData, signed by
+	// the wrong key. The "any rev they want" part is what the attacker
+	// is exploiting — they pick a far-future rev to poison our tracker.
+	blocks, attackerRev := testutil.BuildSyncEventBlocks(t, r, attackerKey, dataCID)
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    attackerRev,
+		Blocks: blocks,
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	var sigErr *sync.SignatureError
+	require.ErrorAs(t, vErr, &sigErr,
+		"forged #sync with wrong-key signature must surface as SignatureError")
+	assert.Equal(t, did, sigErr.DID)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.SignatureFailures)
+	assert.Equal(t, uint64(0), stats.SyncNoOps,
+		"forged commit must NOT count as a successful no-op")
+	assert.Equal(t, uint64(0), stats.Resyncs,
+		"signature failure on fast path must bypass policy, not fall through to resync")
+
+	// Chain state must NOT have been advanced. Otherwise the attacker
+	// has poisoned the tracker even on rejection.
+	state, err := cs.LoadChain(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, oldRev, state.Rev,
+		"forged #sync must not advance rev — that's the attack we're preventing")
+	assert.True(t, state.Data.Equal(dataCID))
+}
+
+// TestVerifyAndExpand_SyncEventFastPathRejectsRevMismatch covers a
+// related attack vector: an upstream that takes a real signed commit
+// at rev=X but relabels the firehose envelope's Rev to a different
+// value Y. Without the field-consistency gate on the fast path, the
+// rev advance would land at Y (the envelope's claim) even though the
+// signed inner says X. The check rejects with FieldMismatchError.
+func TestVerifyAndExpand_SyncEventFastPathRejectsRevMismatch(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:syncfastrev1")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec1", map[string]any{"text": "v1"}))
+	dataCID, err := r.Tree.WriteBlocks(r.Store)
+	require.NoError(t, err)
+
+	oldRev := string(atmos.NewTIDFromTime(time.Now().Add(-1*time.Hour), 0))
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did,
+		sync.ChainState{Rev: oldRev, Data: dataCID}))
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
+		Directory:  dir,
+		StateStore: cs,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+
+	// Build a real signed commit, then deliberately set the envelope
+	// rev to something different (within the future-rev tolerance so
+	// that gate doesn't fire first).
+	blocks, innerRev := testutil.BuildSyncEventBlocks(t, r, key, dataCID)
+	envelopeRev := string(atmos.NewTIDFromTime(time.Now().Add(1*time.Minute), 0))
+	require.NotEqual(t, innerRev, envelopeRev, "test setup must produce a real mismatch")
+	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
+		DID:    string(did),
+		Rev:    envelopeRev,
+		Blocks: blocks,
+	}
+
+	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	var fme *sync.FieldMismatchError
+	require.ErrorAs(t, vErr, &fme,
+		"envelope/inner rev disagreement must surface as FieldMismatchError")
+	assert.Equal(t, "rev", fme.Field)
+	assert.Equal(t, envelopeRev, fme.Envelope)
+	assert.Equal(t, innerRev, fme.Inner)
+
+	stats := v.Stats()
+	assert.Equal(t, uint64(1), stats.FieldMismatches)
+	assert.Equal(t, uint64(0), stats.SyncNoOps)
+
+	// Chain state must NOT have been advanced.
+	state, err := cs.LoadChain(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, oldRev, state.Rev)
 }
 
 // TestVerifyAndExpand_SyncEventDataMismatchFallsThrough asserts the
@@ -2105,10 +2247,13 @@ func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
 	require.NoError(t, cs.SaveChain(context.Background(), did,
 		sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
 
+	// Data mismatch path; envelope rev doesn't need to match the
+	// inner since the fast path won't engage.
+	blocks, _ := testutil.BuildSyncEventBlocks(t, r, key, currentDataCID)
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
 		DID:    string(did),
 		Rev:    string(atmos.NewTIDNow(0)),
-		Blocks: testutil.BuildSyncEventBlocks(t, r, key, currentDataCID),
+		Blocks: blocks,
 	}
 
 	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
@@ -2147,10 +2292,13 @@ func TestVerifyAndExpand_SyncEventFirstSightingFallsThrough(t *testing.T) {
 
 	v, _ := syncNoOpVerifier(t, did, key, r)
 
+	// First-sighting path; envelope rev doesn't need to match the
+	// inner since the fast path won't engage (no chain state yet).
+	blocks, _ := testutil.BuildSyncEventBlocks(t, r, key, dataCID)
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
 		DID:    string(did),
 		Rev:    string(atmos.NewTIDNow(0)),
-		Blocks: testutil.BuildSyncEventBlocks(t, r, key, dataCID),
+		Blocks: blocks,
 	}
 
 	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
@@ -2273,10 +2421,13 @@ func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Save-failure on no-op fast path; envelope rev must match inner
+	// rev so the fast path engages.
+	blocks, innerRev := testutil.BuildSyncEventBlocks(t, r, key, dataCID)
 	syncEvt := &comatproto.SyncSubscribeRepos_Sync{
 		DID:    string(did),
-		Rev:    string(atmos.NewTIDNow(0)),
-		Blocks: testutil.BuildSyncEventBlocks(t, r, key, dataCID),
+		Rev:    innerRev,
+		Blocks: blocks,
 	}
 
 	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)

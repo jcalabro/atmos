@@ -1406,6 +1406,40 @@ func checkCommitFields(envelope *comatproto.SyncSubscribeRepos_Commit, inner *re
 	return nil
 }
 
+// checkSyncCommitFields asserts a #sync event's envelope fields agree
+// with the signed inner commit decoded from its embedded CAR. Mirrors
+// checkCommitFields for #commit events. Returns the first mismatch in
+// priority order (version → did → rev) or nil. Caller increments
+// counters and fires hooks.
+func checkSyncCommitFields(envelope *comatproto.SyncSubscribeRepos_Sync, inner *repo.Commit) *FieldMismatchError {
+	did := atmos.DID(envelope.DID)
+	if inner.Version != commitVersion {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "version",
+			Envelope: fmt.Sprintf("%d", commitVersion),
+			Inner:    fmt.Sprintf("%d", inner.Version),
+		}
+	}
+	if inner.DID != envelope.DID {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "did",
+			Envelope: envelope.DID,
+			Inner:    inner.DID,
+		}
+	}
+	if inner.Rev != envelope.Rev {
+		return &FieldMismatchError{
+			DID:      did,
+			Field:    "rev",
+			Envelope: envelope.Rev,
+			Inner:    inner.Rev,
+		}
+	}
+	return nil
+}
+
 // validateFetchedCommit applies the resync-time invariants on an
 // already signature-verified commit served by getRepo:
 //
@@ -2005,16 +2039,22 @@ func (v *Verifier) handleVerificationFailure(
 //
 // Fast path: when the embedded commit's data CID matches persisted
 // state, the upstream is just confirming current state. Advance the
-// persisted rev and skip getRepo. Indigo's tap takes the same
+// persisted rev and skip getRepo. Indigo's tap takes a similar
 // approach (cmd/tap/firehose.go).
 //
-// The fast path does not separately verify the embedded commit's
-// signature. The only state mutation is the rev field; a forged
-// data CID is caught by the equality check against authoritative
-// SeenData, and a forged rev advances rev only (same outcome as a
-// legitimate matching-data #sync). Resyncs triggered through the
-// slow path go through full signature verification on the fetched
-// commit inside resync.
+// The fast path validates the embedded commit's envelope fields and
+// signature before advancing rev. Without this, a hostile upstream
+// that observed our SeenData could send #sync{Data: ourSeenData,
+// Rev: <forged future rev>} and poison our rev tracker — every
+// subsequent legitimate event below the forged rev would be silently
+// dropped as a replay. Field/signature checks bypass policy: a
+// forged commit isn't repaired by resync against the same upstream.
+//
+// CAR decode failures (truncated CAR, transport glitch) keep the
+// existing fall-through-to-resync behavior; resync against the
+// authoritative source is the right recovery for transport noise.
+// Field or signature failures, by contrast, are intentional malformation
+// and surface as typed errors directly.
 //
 // Replays (rev ≤ persisted rev) are silently dropped.
 func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
@@ -2068,7 +2108,34 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	// persisted SeenData. First sighting and empty-Blocks events
 	// skip this and fall through to resync.
 	if state != nil && len(syncEvt.Blocks) > 0 {
-		if inner, decErr := decodeCommitFromSyncCAR(syncEvt); decErr == nil && inner.Data.Equal(state.Data) {
+		inner, decErr := decodeCommitFromSyncCAR(syncEvt)
+		switch {
+		case decErr != nil:
+			// Decode failure: transport-level glitch (truncated CAR,
+			// etc.). Fall through to resync; the authoritative
+			// getRepo response is the right recovery.
+		case inner.Data.Equal(state.Data):
+			// Data matches — the upstream is confirming our state.
+			// Validate envelope/inner fields and signature before
+			// advancing rev. A forged commit (any rev, our SeenData)
+			// trying to poison our rev tracker is rejected here.
+			if mErr := checkSyncCommitFields(syncEvt, inner); mErr != nil {
+				v.fieldMismatches.Add(1)
+				hookErr = mErr
+				return nil, mErr
+			}
+			if sigErr := v.verifyCommitSignature(ctx, did, inner); sigErr != nil {
+				// Same shape as verifyCommit's signature handling:
+				// resolver/network errors surface as wrapped infra
+				// errors; only true mismatches count and fire the hook.
+				var typed *SignatureError
+				if errors.As(sigErr, &typed) {
+					v.signatureFailures.Add(1)
+					hookErr = typed
+					return nil, typed
+				}
+				return nil, fmt.Errorf("verifier: signature verification: %w", sigErr)
+			}
 			if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: syncEvt.Rev, Data: state.Data}); err != nil {
 				// Don't fall through to resync — that would try to
 				// Save and likely fail the same way. Surface so
@@ -2077,10 +2144,10 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 			}
 			v.syncNoOps.Add(1)
 			return nil, nil
+		default:
+			// Data CID mismatch: our state and the upstream's claim
+			// disagree. Fall through to resync; getRepo is authoritative.
 		}
-		// Decode failure or data CID mismatch: fall through to
-		// resync. A malformed embedded commit isn't fatal — getRepo
-		// is the authoritative recovery.
 	}
 
 	return v.resync(ctx, did, ReasonSyncEvent)
