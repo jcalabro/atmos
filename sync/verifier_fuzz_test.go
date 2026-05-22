@@ -47,10 +47,10 @@ func FuzzInvertCommit(f *testing.F) {
 	})
 }
 
-// FuzzVerifyAndExpand drives random byte streams as the CAR diff into
+// FuzzVerifyCommit drives random byte streams as the CAR diff into
 // a verifier. Asserts (a) no panics, (b) any returned error is one of
 // our typed errors or a wrapped infrastructure error.
-func FuzzVerifyAndExpand(f *testing.F) {
+func FuzzVerifyCommit(f *testing.F) {
 	f.Add([]byte{0x00})
 	f.Add([]byte{0xff, 0xff, 0xff, 0xff})
 
@@ -72,7 +72,7 @@ func FuzzVerifyAndExpand(f *testing.F) {
 			Blocks: blocks,
 			Commit: lextypes.LexCIDLink{Link: "bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha"},
 		}
-		_, err := v.VerifyAndExpand(context.Background(), commit, nil)
+		_, err := v.VerifyCommit(context.Background(), commit)
 		// Any returned error is acceptable as long as it isn't a panic.
 		_ = err
 	})

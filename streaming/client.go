@@ -682,9 +682,10 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 		queueCap,
 		func(jctx context.Context, j schedJob) error {
 			// jctx is the readLoop's ctx (consumer's parent ctx); a
-			// cancel propagates into VerifyAndExpand, OnAccountEvent,
-			// and the PLC/CAR network calls they make, so consumer
-			// shutdown unblocks any blocking I/O the verifier holds.
+			// cancel propagates into VerifyCommit/VerifySync,
+			// OnAccountEvent, and the PLC/CAR network calls they make,
+			// so consumer shutdown unblocks any blocking I/O the
+			// verifier holds.
 			res := c.verifyOne(jctx, j.evt)
 			select {
 			case resultCh <- res:

@@ -3,6 +3,8 @@ package streaming
 import (
 	"context"
 	"fmt"
+
+	"github.com/jcalabro/atmos/sync"
 )
 
 // verifyResult is the output of running per-event verification. It is
@@ -58,7 +60,16 @@ func (c *Client) verifyOne(ctx context.Context, evt Event) verifyResult {
 
 	// Sync 1.1: verify #commit and #sync.
 	if evt.Commit != nil || evt.Sync != nil {
-		ops, vErr := v.VerifyAndExpand(ctx, evt.Commit, evt.Sync)
+		var (
+			ops  []sync.VerifierOp
+			vErr error
+		)
+		switch {
+		case evt.Commit != nil:
+			ops, vErr = v.VerifyCommit(ctx, evt.Commit)
+		case evt.Sync != nil:
+			ops, vErr = v.VerifySync(ctx, evt.Sync)
+		}
 		if vErr != nil {
 			res.hookErr = vErr
 			return res

@@ -909,7 +909,7 @@ func (s *cancellableStateStore) Delete(ctx context.Context, did atmos.DID) error
 
 // TestVerifiedStream_ParallelCtxCancelsInflightVerifier asserts that
 // cancelling Events(ctx) under Parallelism > 1 promptly cancels the
-// scheduler's worker context, which propagates into VerifyAndExpand and
+// scheduler's worker context, which propagates into VerifyCommit and
 // the StateStore I/O it does. Without ctx threading, the worker would
 // block in SaveChain indefinitely and Events() would hang on
 // sched.Shutdown() during the deferred teardown.

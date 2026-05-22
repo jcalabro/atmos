@@ -112,7 +112,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 	emit := func(t *testing.T, didIdx int, commit *comatproto.SyncSubscribeRepos_Commit, expectClean bool) {
 		t.Helper()
 		emitted++
-		ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+		ops, vErr := v.VerifyCommit(context.Background(), commit)
 		switch {
 		case vErr == nil && ops == nil:
 			// Silent rev-replay drop. State unchanged. Reset r.Tree
@@ -362,14 +362,14 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		t.Helper()
 		emitted++
 
-		// VerifyAndExpand increments RevReplaysDropped synchronously
+		// VerifyCommit increments RevReplaysDropped synchronously
 		// before returning for the rev-replay branch; the chain-break
 		// and inversion-failure branches under PolicyResync enqueue a
 		// resync job and never touch this counter. So observing the
 		// counter delta is a deterministic, race-free way to tell the
 		// two ops==nil outcomes apart — no timeout heuristic needed.
 		replaysBefore := v.Stats().RevReplaysDropped
-		ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+		ops, vErr := v.VerifyCommit(context.Background(), commit)
 		require.NoError(t, vErr,
 			"PolicyResync should never surface a typed error for chain/inversion faults — got %T %v",
 			vErr, vErr)

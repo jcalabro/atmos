@@ -941,7 +941,7 @@ type VerifierOptions struct {
 //
 // Async resync. Chain-break and inversion-failure events under the
 // default PolicyResync are NOT resolved synchronously inside
-// VerifyAndExpand. Instead, VerifyAndExpand returns (nil, nil), the
+// VerifyCommit. Instead, VerifyCommit returns (nil, nil), the
 // affected DID is marked as resyncing, and a worker pool processes
 // the resync (HTTP getRepo + MST walk) in the background.
 //
@@ -1007,7 +1007,7 @@ type Verifier struct {
 	accountEventReplays    atomic.Uint64
 
 	// Async resync subsystem. resyncStates maps DID -> per-DID state;
-	// resyncQueue is what verifyCommit pushes jobs onto; workers read
+	// resyncQueue is what VerifyCommit pushes jobs onto; workers read
 	// it. resyncDone is exposed as ResyncEvents(); asyncErrs as
 	// AsyncErrors(). workerCtx/workerCancel/workerWG together
 	// implement clean shutdown via Close().
@@ -1755,7 +1755,7 @@ func InvertCommit(commit *comatproto.SyncSubscribeRepos_Commit) (cbor.CID, error
 }
 
 // invertCommitFromStore is InvertCommit with a pre-decoded CAR, used
-// by verifyCommit (which already has innerCommit and store from
+// by VerifyCommit (which already has innerCommit and store from
 // signature verification) to avoid re-parsing.
 func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCommit *repo.Commit, store *mst.MemBlockStore) (cbor.CID, error) {
 	did := atmos.DID(commit.Repo)
@@ -1794,7 +1794,7 @@ func invertCommitFromStore(commit *comatproto.SyncSubscribeRepos_Commit, innerCo
 
 // newInversionErr wraps a formatted error in *InversionError.
 // Free-function rather than an inline closure to avoid the per-call
-// closure heap allocation on the verifyCommit hot path.
+// closure heap allocation on the VerifyCommit hot path.
 func newInversionErr(did atmos.DID, rev, format string, args ...any) error {
 	return &InversionError{DID: did, Rev: rev, Cause: fmt.Errorf(format, args...)}
 }
@@ -1804,13 +1804,12 @@ func cidFromLink(link lextypes.LexCIDLink) (cbor.CID, error) {
 	return cbor.ParseCIDString(link.Link)
 }
 
-// VerifyAndExpand runs Sync 1.1 verification on one firehose event.
-// Pass exactly one of commitEvt or syncEvt; passing both nil returns
-// (nil, nil). The split signature avoids a streaming↔sync import
-// cycle.
+// VerifyCommit runs Sync 1.1 verification on one #commit firehose
+// event. Returns the operations the consumer should observe, or:
 //
-// Returns the operations the consumer should observe, or:
-//   - (nil, nil) for silent drops (rev replay; #sync no-op).
+//   - (nil, nil) for silent drops (rev replay; queued for async
+//     resync; appended to a per-DID pending buffer during in-flight
+//     resync).
 //   - (nil, typed error) for rejections that bypass policy
 //     (signature, future-rev, field mismatch, oversized commit).
 //   - Under PolicyResync, chain breaks and inversion failures
@@ -1821,22 +1820,8 @@ func cidFromLink(link lextypes.LexCIDLink) (cbor.CID, error) {
 //     typed error (ChainBreakError, InversionError,
 //     OpCIDMismatchError, DuplicatePathError, or LegacyCommitError
 //     under LegacyReject).
-func (v *Verifier) VerifyAndExpand(
-	ctx context.Context,
-	commitEvt *comatproto.SyncSubscribeRepos_Commit,
-	syncEvt *comatproto.SyncSubscribeRepos_Sync,
-) ([]VerifierOp, error) {
-	if commitEvt != nil {
-		return v.verifyCommit(ctx, commitEvt)
-	}
-	if syncEvt != nil {
-		return v.verifySync(ctx, syncEvt)
-	}
-	return nil, nil
-}
-
-// verifyCommit handles the #commit branch of VerifyAndExpand. Runs
-// the gate sequence:
+//
+// Gate sequence:
 //
 //  1. Parse DID
 //  2. Future-rev check (bypasses policy, before per-DID lock)
@@ -1851,7 +1836,7 @@ func (v *Verifier) VerifyAndExpand(
 //  11. Signature verification
 //  12. Op-CID consistency
 //  13. State advance and op emission.
-func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubscribeRepos_Commit) ([]VerifierOp, error) {
+func (v *Verifier) VerifyCommit(ctx context.Context, commit *comatproto.SyncSubscribeRepos_Commit) ([]VerifierOp, error) {
 	did, err := atmos.ParseDID(commit.Repo)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid DID %q: %w", commit.Repo, err)
@@ -1900,10 +1885,10 @@ func (v *Verifier) verifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	return ops, retErr
 }
 
-// verifyCommitLocked is the inner body of verifyCommit, called while
+// verifyCommitLocked is the inner body of VerifyCommit, called while
 // the per-DID mutex is already held. allowAsyncResync controls whether
 // chain-break / inversion-failure routes through the async enqueue
-// (true, called from verifyCommit) or returns the typed error directly
+// (true, called from VerifyCommit) or returns the typed error directly
 // (false, called from the worker during replay).
 //
 // Returns (ops, hookErr, retErr):
@@ -2230,7 +2215,7 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 			// Wire→typed conversions. The lexicon's RepoOp fields are
 			// plain strings; here we lift them into the typed domain.
 			// commit.Repo's parseability was already asserted by
-			// verifyCommit's atmos.ParseDID call. Collection, RKey,
+			// VerifyCommit's atmos.ParseDID call. Collection, RKey,
 			// and Rev are NOT re-validated against their type's
 			// strict syntax — see the streaming.Operation doc.
 			Action:     atmos.Action(op.Action),
@@ -2264,7 +2249,7 @@ func (v *Verifier) buildOpsFromCommit(commit *comatproto.SyncSubscribeRepos_Comm
 // arranging that to fire after the per-DID lock is released, so a
 // hook implementation that calls back into the verifier doesn't
 // deadlock. The caller typically captures origErr in a deferred
-// dispatcher; see verifyCommit.
+// dispatcher; see VerifyCommit.
 //
 // Under PolicyError, state advances to the offending commit's
 // (rev, data) so re-deliveries don't re-report the same failure.
@@ -2300,13 +2285,13 @@ func (v *Verifier) handleVerificationFailure(
 		// ResyncEvents(); if the worker fails, the error flows through
 		// AsyncErrors().
 		//
-		// The caller (verifyCommit) holds the per-DID serialization
-		// lock from lockDID(); that lock is released in verifyCommit's
+		// The caller (VerifyCommit) holds the per-DID serialization
+		// lock from lockDID(); that lock is released in VerifyCommit's
 		// defer once we return. The brief window between unlock and
 		// the worker re-acquiring the same lock is safe because the
 		// FSM transition to statusResyncing — which we performed under
 		// state.mu before returning — directs any concurrent
-		// verifyCommit for the same DID into the pending-buffer
+		// VerifyCommit for the same DID into the pending-buffer
 		// branch.
 		state := v.lookupOrCreateResyncState(did)
 		state.mu.Lock()
@@ -2362,8 +2347,13 @@ func (v *Verifier) handleVerificationFailure(
 	}
 }
 
-// verifySync handles the #sync branch of VerifyAndExpand. A #sync
-// event is a directive to re-fetch authoritative state.
+// VerifySync runs Sync 1.1 verification on one #sync firehose event.
+// A #sync event is a directive to re-fetch authoritative state.
+//
+// Returns (nil, nil) for silent drops (rev replay; fast-path no-op
+// after rev advance) and (nil, typed error) for field/signature
+// rejections that bypass policy. Under PolicyResync, mismatches
+// trigger transparent resync.
 //
 // Fast path: when the embedded commit's data CID matches persisted
 // state, the upstream is just confirming current state. Advance the
@@ -2385,13 +2375,13 @@ func (v *Verifier) handleVerificationFailure(
 // and surface as typed errors directly.
 //
 // Replays (rev ≤ persisted rev) are silently dropped.
-func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
+func (v *Verifier) VerifySync(ctx context.Context, syncEvt *comatproto.SyncSubscribeRepos_Sync) ([]VerifierOp, error) {
 	did, err := atmos.ParseDID(syncEvt.DID)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid sync DID %q: %w", syncEvt.DID, err)
 	}
 
-	// Future-rev check: same rationale as verifyCommit.
+	// Future-rev check: same rationale as VerifyCommit.
 	if frErr := v.checkFutureRev(did, syncEvt.Rev); frErr != nil {
 		v.futureRevsRejected.Add(1)
 		if v.opts.OnVerificationFailure.HasVal() {
@@ -2403,7 +2393,7 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	unlock := v.lockDID(did)
 
 	// hookErr captures a verification failure to surface to
-	// OnVerificationFailure AFTER unlock(); see verifyCommit for
+	// OnVerificationFailure AFTER unlock(); see VerifyCommit for
 	// the rationale.
 	var hookErr error
 	defer func() {
@@ -2414,7 +2404,7 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 	}()
 
 	// Hosting gate (HostingGate only): drop sync events for non-active
-	// DIDs. Same rationale as verifyCommit.
+	// DIDs. Same rationale as VerifyCommit.
 	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
 		return nil, err
 	} else if aiErr != nil {
@@ -2453,7 +2443,7 @@ func (v *Verifier) verifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 				return nil, mErr
 			}
 			if sigErr := v.verifyCommitSignature(ctx, did, inner); sigErr != nil {
-				// Same shape as verifyCommit's signature handling:
+				// Same shape as VerifyCommit's signature handling:
 				// resolver/network errors surface as wrapped infra
 				// errors; only true mismatches count and fire the hook.
 				var typed *SignatureError

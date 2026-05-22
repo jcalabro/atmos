@@ -1408,10 +1408,10 @@ func (s *countingChainStore) Delete(ctx context.Context, did atmos.DID) error {
 }
 
 // ---------------------------------------------------------------------------
-// VerifyAndExpand (#commit)
+// VerifyCommit
 // ---------------------------------------------------------------------------
 
-func TestVerifyAndExpand_HappyPath(t *testing.T) {
+func TestVerifyCommit_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:happy1")
@@ -1448,7 +1448,7 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 		Record:     map[string]any{"text": "v2"},
 	}})
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	require.Len(t, ops, 1)
 	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
@@ -1463,11 +1463,11 @@ func TestVerifyAndExpand_HappyPath(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.EventsVerified)
 }
 
-// TestVerifyAndExpand_EmptyOpsCommit guards the streaming integration's
+// TestVerifyCommit_EmptyOpsCommit guards the streaming integration's
 // ability to distinguish a successful zero-ops verification from a
 // rev-replay drop. The verifier must return a non-nil empty slice on
 // success here, not (nil, nil).
-func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
+func TestVerifyCommit_EmptyOpsCommit(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:emptyops1")
@@ -1500,7 +1500,7 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	// Zero-ops commit at a higher rev than the persisted state.
 	commit := testutil.BuildSyntheticCommit(t, r, key, prevData, nil)
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	require.NotNil(t, ops, "empty-ops verification must return a non-nil empty slice (rev-replay returns nil)")
 	assert.Empty(t, ops)
@@ -1515,7 +1515,7 @@ func TestVerifyAndExpand_EmptyOpsCommit(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.RevReplaysDropped)
 }
 
-func TestVerifyAndExpand_RevReplay(t *testing.T) {
+func TestVerifyCommit_RevReplay(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:replay1")
@@ -1551,13 +1551,13 @@ func TestVerifyAndExpand_RevReplay(t *testing.T) {
 	}})
 	commit.Rev = "3aaaaaaaaaaaa" // low rev
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	assert.Nil(t, ops, "rev replay should drop silently")
 	assert.Equal(t, uint64(1), v.Stats().RevReplaysDropped)
 }
 
-func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
+func TestVerifyCommit_ChainBreakUnderPolicyError(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:cb1")
@@ -1596,14 +1596,14 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 		Record:     map[string]any{"text": "v2"},
 	}})
 
-	_, err = v.VerifyAndExpand(context.Background(), commit, nil)
+	_, err = v.VerifyCommit(context.Background(), commit)
 	var cb *sync.ChainBreakError
 	require.ErrorAs(t, err, &cb)
 	assert.True(t, failureCalled)
 	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
 }
 
-// TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock asserts the
+// TestVerifyCommit_HookCanCallResyncWithoutDeadlock asserts the
 // hook-after-unlock contract: OnVerificationFailure fires after the
 // per-DID mutex has been released, so a hook implementation that
 // calls back into the verifier — typically Resync — does not
@@ -1617,7 +1617,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyError(t *testing.T) {
 // generous deadline. Without the fix this test deadlocks rather
 // than failing — so we run it under a t.Context() with a deadline
 // and check via a done channel.
-func TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock(t *testing.T) {
+func TestVerifyCommit_HookCanCallResyncWithoutDeadlock(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:hookresync1")
@@ -1690,7 +1690,7 @@ func TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock(t *testing.T) {
 	// until t's own timeout.
 	done := make(chan error, 1)
 	go func() {
-		_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+		_, vErr := v.VerifyCommit(context.Background(), commit)
 		done <- vErr
 	}()
 
@@ -1700,7 +1700,7 @@ func TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock(t *testing.T) {
 		require.ErrorAs(t, vErr, &cb,
 			"primary error must still surface as ChainBreakError")
 	case <-time.After(5 * time.Second):
-		t.Fatal("VerifyAndExpand deadlocked: hook firing under per-DID lock prevents inner Resync")
+		t.Fatal("VerifyCommit deadlocked: hook firing under per-DID lock prevents inner Resync")
 	}
 
 	// The hook saw the chain break.
@@ -1718,13 +1718,13 @@ func TestVerifyAndExpand_HookCanCallResyncWithoutDeadlock(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs, "the hook-driven resync should have completed")
 }
 
-// TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats verifies
+// TestVerifyCommit_PolicyErrorSaveFailureCountedInStats verifies
 // that a ChainStore.Save failure during PolicyError state-advance is
 // counted in VerifierStats.ChainStateSaveFailures rather than silently
 // swallowed. The original ChainBreakError still surfaces (the typed
 // signal is the primary report); the counter exists so operators can
 // detect that the secondary save failed.
-func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
+func TestVerifyCommit_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:psf1")
@@ -1766,7 +1766,7 @@ func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
 		Record:     map[string]any{"text": "v2"},
 	}})
 
-	_, err = v.VerifyAndExpand(context.Background(), commit, nil)
+	_, err = v.VerifyCommit(context.Background(), commit)
 	var cb *sync.ChainBreakError
 	require.ErrorAs(t, err, &cb,
 		"primary verification error must still surface as ChainBreakError")
@@ -1777,7 +1777,7 @@ func TestVerifyAndExpand_PolicyErrorSaveFailureCountedInStats(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.ChainBreaks)
 }
 
-func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
+func TestVerifyCommit_FirstSightingNoBreak(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:fresh1")
@@ -1807,7 +1807,7 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 		Record:     map[string]any{"text": "first"},
 	}})
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	assert.Len(t, ops, 1)
 	state, err := cs.LoadChain(context.Background(), did)
@@ -1816,7 +1816,7 @@ func TestVerifyAndExpand_FirstSightingNoBreak(t *testing.T) {
 	assert.Equal(t, commit.Rev, state.Rev)
 }
 
-func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
+func TestVerifyCommit_ChainBreakUnderPolicyResync(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:cbres1")
@@ -1860,7 +1860,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 		Record:     map[string]any{"text": "y"},
 	}})
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
 
@@ -1897,7 +1897,7 @@ func TestVerifyAndExpand_ChainBreakUnderPolicyResync(t *testing.T) {
 // state.Data). commit.PrevData remains correctly set, so prevData
 // matches state.Data while inverted does not — exactly the
 // inversion-incomplete signature.
-func TestVerifyAndExpand_LenientInversion_AcceptsInversionIncomplete(t *testing.T) {
+func TestVerifyCommit_LenientInversion_AcceptsInversionIncomplete(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:lenient1")
@@ -1960,7 +1960,7 @@ func TestVerifyAndExpand_LenientInversion_AcceptsInversionIncomplete(t *testing.
 	require.Equal(t, 1, len(commit.Ops))
 	commit.Ops[0].Prev = gt.Some(lextypes.LexCIDLink{Link: bogusCID.String()})
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err, "lenient mode must not surface a typed error to the caller")
 	require.NotNil(t, ops, "lenient mode must yield ops; the commit was accepted")
 	require.Greater(t, len(ops), 0)
@@ -1996,7 +1996,7 @@ func TestVerifyAndExpand_LenientInversion_AcceptsInversionIncomplete(t *testing.
 
 // Strict mode (LenientInversion=false): the same condition that lenient
 // mode accepts must instead trigger ChainBreakError → resync.
-func TestVerifyAndExpand_StrictInversion_RejectsInversionIncomplete(t *testing.T) {
+func TestVerifyCommit_StrictInversion_RejectsInversionIncomplete(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:strict1")
@@ -2043,7 +2043,7 @@ func TestVerifyAndExpand_StrictInversion_RejectsInversionIncomplete(t *testing.T
 	require.Equal(t, 1, len(commit.Ops))
 	commit.Ops[0].Prev = gt.Some(lextypes.LexCIDLink{Link: bogusCID.String()})
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	require.Nil(t, ops, "strict mode + PolicyResync: chain break enqueues async resync, returns nil ops")
 
@@ -2102,7 +2102,7 @@ func TestVerifier_Resync_ChainStoreSaveFailureIsResyncFailedError(t *testing.T) 
 	assert.Equal(t, uint64(0), stats.Resyncs)
 }
 
-func TestVerifyAndExpand_SyncEvent(t *testing.T) {
+func TestVerifySync_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncev1")
@@ -2138,7 +2138,7 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 		Rev:  "3newrev",
 		Time: "2026-05-19T00:00:00Z",
 	}
-	ops, err := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, err := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, err)
 	require.Len(t, ops, 2)
 	for _, op := range ops {
@@ -2146,7 +2146,7 @@ func TestVerifyAndExpand_SyncEvent(t *testing.T) {
 	}
 }
 
-func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
+func TestVerifySync_RevReplay(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncrep1")
@@ -2175,7 +2175,7 @@ func TestVerifyAndExpand_SyncEvent_RevReplay(t *testing.T) {
 		DID: string(did),
 		Rev: "3aaaaaaaaaaaa", // older
 	}
-	ops, err := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, err := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, err)
 	assert.Nil(t, ops)
 	assert.Equal(t, uint64(1), v.Stats().RevReplaysDropped)
@@ -2217,11 +2217,11 @@ func syncNoOpVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKey, r *rep
 	return v, cs
 }
 
-// TestVerifyAndExpand_SyncEventNoOpFastPath is the headline A5 test:
+// TestVerifySync_NoOpFastPath is the headline A5 test:
 // when the upstream's #sync embedded commit declares the same data
 // CID we already have in chain state, we advance rev tracking and
 // skip getRepo. SyncNoOps increments; Resyncs stays at zero.
-func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
+func TestVerifySync_NoOpFastPath(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncnop1")
@@ -2251,7 +2251,7 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 		Blocks: blocks,
 	}
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, vErr := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, vErr)
 	assert.Nil(t, ops, "no-op fast path should yield (nil, nil)")
 
@@ -2268,7 +2268,7 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 	assert.True(t, state.Data.Equal(dataCID), "data CID must be unchanged")
 }
 
-// TestVerifyAndExpand_SyncEventFastPathRejectsBadSignature is the
+// TestVerifySync_FastPathRejectsBadSignature is the
 // headline issue-#12 test: a hostile upstream that has observed our
 // SeenData CID could craft a #sync event with that data CID and any
 // rev they want, and (pre-fix) we would advance our rev tracker
@@ -2279,7 +2279,7 @@ func TestVerifyAndExpand_SyncEventNoOpFastPath(t *testing.T) {
 // The fast path now signature-verifies the embedded commit. A
 // commit signed with a key that doesn't match the DID document
 // surfaces as *SignatureError; chain state is NOT advanced.
-func TestVerifyAndExpand_SyncEventFastPathRejectsBadSignature(t *testing.T) {
+func TestVerifySync_FastPathRejectsBadSignature(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncfastsig1")
@@ -2323,7 +2323,7 @@ func TestVerifyAndExpand_SyncEventFastPathRejectsBadSignature(t *testing.T) {
 		Blocks: blocks,
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	_, vErr := v.VerifySync(context.Background(), syncEvt)
 	var sigErr *sync.SignatureError
 	require.ErrorAs(t, vErr, &sigErr,
 		"forged #sync with wrong-key signature must surface as SignatureError")
@@ -2346,13 +2346,13 @@ func TestVerifyAndExpand_SyncEventFastPathRejectsBadSignature(t *testing.T) {
 	assert.True(t, state.Data.Equal(dataCID))
 }
 
-// TestVerifyAndExpand_SyncEventFastPathRejectsRevMismatch covers a
+// TestVerifySync_FastPathRejectsRevMismatch covers a
 // related attack vector: an upstream that takes a real signed commit
 // at rev=X but relabels the firehose envelope's Rev to a different
 // value Y. Without the field-consistency gate on the fast path, the
 // rev advance would land at Y (the envelope's claim) even though the
 // signed inner says X. The check rejects with FieldMismatchError.
-func TestVerifyAndExpand_SyncEventFastPathRejectsRevMismatch(t *testing.T) {
+func TestVerifySync_FastPathRejectsRevMismatch(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncfastrev1")
@@ -2393,7 +2393,7 @@ func TestVerifyAndExpand_SyncEventFastPathRejectsRevMismatch(t *testing.T) {
 		Blocks: blocks,
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	_, vErr := v.VerifySync(context.Background(), syncEvt)
 	var fme *sync.FieldMismatchError
 	require.ErrorAs(t, vErr, &fme,
 		"envelope/inner rev disagreement must surface as FieldMismatchError")
@@ -2412,12 +2412,12 @@ func TestVerifyAndExpand_SyncEventFastPathRejectsRevMismatch(t *testing.T) {
 	assert.Equal(t, oldRev, state.Rev)
 }
 
-// TestVerifyAndExpand_SyncEventDataMismatchFallsThrough asserts the
+// TestVerifySync_DataMismatchFallsThrough asserts the
 // inverse: when the embedded commit's data CID differs from our
 // SeenData, the verifier falls through to a real resync. The fake
 // sync server is hit; ActionResync ops are emitted; SyncNoOps stays
 // at zero.
-func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
+func TestVerifySync_DataMismatchFallsThrough(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncnop2")
@@ -2448,7 +2448,7 @@ func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
 		Blocks: blocks,
 	}
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, vErr := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, vErr)
 	require.NotEmpty(t, ops, "data mismatch must trigger resync, yielding ActionResync ops")
 	for _, op := range ops {
@@ -2466,11 +2466,11 @@ func TestVerifyAndExpand_SyncEventDataMismatchFallsThrough(t *testing.T) {
 	assert.True(t, state.Data.Equal(currentDataCID))
 }
 
-// TestVerifyAndExpand_SyncEventFirstSightingFallsThrough asserts the
+// TestVerifySync_FirstSightingFallsThrough asserts the
 // fast path doesn't engage when there's no chain state yet — without
 // prior SeenData we have nothing to compare the embedded commit's
 // data CID against, so we must fall through to getRepo.
-func TestVerifyAndExpand_SyncEventFirstSightingFallsThrough(t *testing.T) {
+func TestVerifySync_FirstSightingFallsThrough(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncnop3")
@@ -2493,7 +2493,7 @@ func TestVerifyAndExpand_SyncEventFirstSightingFallsThrough(t *testing.T) {
 		Blocks: blocks,
 	}
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, vErr := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, vErr)
 	require.NotEmpty(t, ops, "first sighting must resync to establish a baseline")
 
@@ -2502,13 +2502,13 @@ func TestVerifyAndExpand_SyncEventFirstSightingFallsThrough(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
-// TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough covers the
+// TestVerifySync_EmptyBlocksFallsThrough covers the
 // "older PDS that doesn't yet emit Blocks on #sync" case: with no
 // embedded commit there's nothing to compare data CIDs against, so
 // the fast path is skipped and a normal resync runs. (The pre-A5
 // behavior — included as a regression test for the same code path
-// the old TestVerifyAndExpand_SyncEvent exercises.)
-func TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough(t *testing.T) {
+// the old TestVerifySync_HappyPath exercises.)
+func TestVerifySync_EmptyBlocksFallsThrough(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncnop4")
@@ -2533,7 +2533,7 @@ func TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough(t *testing.T) {
 		// Blocks intentionally omitted.
 	}
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, vErr := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, vErr)
 	require.NotEmpty(t, ops)
 
@@ -2542,12 +2542,12 @@ func TestVerifyAndExpand_SyncEventEmptyBlocksFallsThrough(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
-// TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough asserts
+// TestVerifySync_MalformedBlocksFallsThrough asserts
 // graceful handling of bogus Blocks. The fast path tries to decode
 // and silently falls through to resync rather than erroring — the
 // authoritative state from getRepo is the right answer regardless of
 // what the upstream put in the embedded CAR.
-func TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough(t *testing.T) {
+func TestVerifySync_MalformedBlocksFallsThrough(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncnop5")
@@ -2569,7 +2569,7 @@ func TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough(t *testing.T) {
 		Blocks: []byte{0xff, 0xff, 0xff}, // garbage CAR
 	}
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	ops, vErr := v.VerifySync(context.Background(), syncEvt)
 	require.NoError(t, vErr, "malformed Blocks should fall through to resync, not error")
 	require.NotEmpty(t, ops)
 
@@ -2578,12 +2578,12 @@ func TestVerifyAndExpand_SyncEventMalformedBlocksFallsThrough(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
-// TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError covers the
+// TestVerifySync_NoOpSaveFailureSurfacesError covers the
 // observability concern: if ChainStore.Save fails on the no-op fast
 // path (advancing rev with unchanged data), we surface the error
 // rather than silently falling through to a resync that would also
 // fail to save. Operators see chain-store breakage immediately.
-func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
+func TestVerifySync_NoOpSaveFailureSurfacesError(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:syncnop6")
@@ -2622,7 +2622,7 @@ func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
 		Blocks: blocks,
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	_, vErr := v.VerifySync(context.Background(), syncEvt)
 	require.Error(t, vErr, "save failure on no-op fast path must surface as error")
 	assert.Contains(t, vErr.Error(), "save chain state on sync no-op")
 
@@ -2631,27 +2631,6 @@ func TestVerifyAndExpand_SyncEventNoOpSaveFailureSurfacesError(t *testing.T) {
 	// didn't actually complete. Resyncs also not attempted.
 	assert.Equal(t, uint64(0), stats.SyncNoOps)
 	assert.Equal(t, uint64(0), stats.Resyncs)
-}
-
-func TestVerifyAndExpand_BothNilIsNoOp(t *testing.T) {
-	t.Parallel()
-
-	dir := &identity.Directory{Resolver: testutil.NewTrackingResolver()}
-	v, err := sync.NewVerifier(sync.VerifierOptions{
-		SyncClient: gt.Some(sync.NewClient(sync.Options{Client: &xrpc.Client{Host: "https://nope.invalid"}})),
-		Directory:  dir,
-		StateStore: sync.NewMemStateStore(),
-		Policy:     gt.Some(sync.PolicyError),
-	})
-	require.NoError(t, err)
-
-	ops, err := v.VerifyAndExpand(context.Background(), nil, nil)
-	require.NoError(t, err)
-	assert.Nil(t, ops)
-	// Counters remain zero.
-	stats := v.Stats()
-	assert.Equal(t, uint64(0), stats.EventsVerified)
-	assert.Equal(t, uint64(0), stats.RevReplaysDropped)
 }
 
 // ---------------------------------------------------------------------------
@@ -2718,13 +2697,13 @@ func TestFutureRevError_FormatAndUnwrap(t *testing.T) {
 	assert.NotNil(t, target)
 }
 
-// TestVerifyAndExpand_FutureRevRejected covers the spec MUST: a #commit
+// TestVerifyCommit_FutureRevRejected covers the spec MUST: a #commit
 // whose rev's TID timestamp is more than the tolerance ahead of the
 // verifier's wall clock is rejected outright with *FutureRevError. The
 // counter increments, OnVerificationFailure fires, and chain state is
 // NOT advanced (so a real commit at a sane rev can still land
 // afterwards).
-func TestVerifyAndExpand_FutureRevRejected(t *testing.T) {
+func TestVerifyCommit_FutureRevRejected(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future1")
@@ -2766,7 +2745,7 @@ func TestVerifyAndExpand_FutureRevRejected(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	var fre *sync.FutureRevError
 	require.ErrorAs(t, vErr, &fre)
 	assert.Nil(t, ops)
@@ -2792,12 +2771,12 @@ func TestVerifyAndExpand_FutureRevRejected(t *testing.T) {
 	assert.Nil(t, state, "future-rev rejection must not advance chain state")
 }
 
-// TestVerifyAndExpand_FutureRevWithinTolerance asserts the gate's other
+// TestVerifyCommit_FutureRevWithinTolerance asserts the gate's other
 // edge: a rev whose timestamp is ahead of wall clock but within the
 // tolerance window is accepted normally. Guards against a regression
 // where the comparison flips and rejects sane revs from clocks slightly
 // ahead.
-func TestVerifyAndExpand_FutureRevWithinTolerance(t *testing.T) {
+func TestVerifyCommit_FutureRevWithinTolerance(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future2")
@@ -2825,7 +2804,7 @@ func TestVerifyAndExpand_FutureRevWithinTolerance(t *testing.T) {
 
 	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	require.Len(t, ops, 1)
 	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
@@ -2833,12 +2812,12 @@ func TestVerifyAndExpand_FutureRevWithinTolerance(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
 }
 
-// TestVerifyAndExpand_FutureRevCustomTolerance checks that operators
+// TestVerifyCommit_FutureRevCustomTolerance checks that operators
 // can tighten or loosen the window via VerifierOptions.FutureRevTolerance.
 // A 30-second tolerance with a 1-minute-ahead rev is rejected; the same
 // rev under the default 5m tolerance would have been accepted (covered
 // in the WithinTolerance test above).
-func TestVerifyAndExpand_FutureRevCustomTolerance(t *testing.T) {
+func TestVerifyCommit_FutureRevCustomTolerance(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future3")
@@ -2862,21 +2841,21 @@ func TestVerifyAndExpand_FutureRevCustomTolerance(t *testing.T) {
 
 	v := futureRevTestVerifier(t, did, key, now, gt.Some(30*time.Second))
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var fre *sync.FutureRevError
 	require.ErrorAs(t, vErr, &fre)
 	assert.Equal(t, 30*time.Second, fre.Tolerance)
 	assert.Equal(t, uint64(1), v.Stats().FutureRevsRejected)
 }
 
-// TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck documents the
+// TestVerifyCommit_FutureRevUnparseableRevSkipsCheck documents the
 // best-effort behavior on malformed input: an unparseable envelope rev
 // does NOT trigger FutureRevError; the future-rev gate yields. With
 // the field-consistency gate (A2) in place, an unparseable envelope
 // rev that disagrees with the parseable inner rev is caught downstream
 // as a FieldMismatchError — the test asserts that's how the malformed
 // event surfaces, not as a future-rev rejection.
-func TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
+func TestVerifyCommit_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future4")
@@ -2901,7 +2880,7 @@ func TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
 
 	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	// A1 contract: future-rev gate must not trip on unparseable input.
 	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
 	// A2 contract: malformed envelope surfaces as FieldMismatchError
@@ -2910,11 +2889,11 @@ func TestVerifyAndExpand_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
 	assert.ErrorAs(t, vErr, &fme)
 }
 
-// TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance covers the
+// TestVerifyCommit_FutureRevDisabledByNegativeTolerance covers the
 // explicit operator opt-out: setting tolerance to a negative duration
 // disables the gate entirely. A far-future rev that would normally be
 // rejected lands as a first-sighting accept.
-func TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance(t *testing.T) {
+func TestVerifyCommit_FutureRevDisabledByNegativeTolerance(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future5")
@@ -2944,17 +2923,17 @@ func TestVerifyAndExpand_FutureRevDisabledByNegativeTolerance(t *testing.T) {
 
 	v := futureRevTestVerifier(t, did, key, now, gt.Some(-time.Second))
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr, "negative tolerance disables the future-rev gate")
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
 }
 
-// TestVerifyAndExpand_FutureRevSyncEvent asserts the same gate applies
+// TestVerifySync_FutureRev asserts the same gate applies
 // to #sync events, not just #commit. A sync event at a future rev is
 // rejected outright; chain state is untouched and no resync is
 // triggered (which would have hit the sync server otherwise).
-func TestVerifyAndExpand_FutureRevSyncEvent(t *testing.T) {
+func TestVerifySync_FutureRev(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future6")
@@ -2981,7 +2960,7 @@ func TestVerifyAndExpand_FutureRevSyncEvent(t *testing.T) {
 		Rev: string(farFutureRev),
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	_, vErr := v.VerifySync(context.Background(), syncEvt)
 	var fre *sync.FutureRevError
 	require.ErrorAs(t, vErr, &fre)
 	assert.Equal(t, did, fre.DID)
@@ -3031,7 +3010,7 @@ func TestNewVerifier_DefaultsApplyFutureRevTolerance(t *testing.T) {
 		Record:     map[string]any{"text": "ok"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 }
@@ -3141,14 +3120,14 @@ func TestFieldMismatchError_FormatAndUnwrap(t *testing.T) {
 	assert.Equal(t, "rev", target.Field)
 }
 
-// TestVerifyAndExpand_FieldMismatchRev is the security-relevant
+// TestVerifyCommit_FieldMismatchRev is the security-relevant
 // scenario: a misbehaving PDS replays an old signed commit but
 // relabels the firehose envelope's Rev to a higher value, hoping to
 // bypass our rev-replay drop and corrupt chain state with stale data.
 // The signed inner commit still says the original (older) rev, so the
 // signature still validates — only our envelope/inner cross-check
 // catches the swap. Bypasses policy; chain state is NOT advanced.
-func TestVerifyAndExpand_FieldMismatchRev(t *testing.T) {
+func TestVerifyCommit_FieldMismatchRev(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:fmrev1")
@@ -3175,7 +3154,7 @@ func TestVerifyAndExpand_FieldMismatchRev(t *testing.T) {
 
 	v, cs, hookFired, hookErr := fieldMismatchTestVerifier(t, did, key)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	var fme *sync.FieldMismatchError
 	require.ErrorAs(t, vErr, &fme)
 	assert.Nil(t, ops)
@@ -3196,14 +3175,14 @@ func TestVerifyAndExpand_FieldMismatchRev(t *testing.T) {
 	assert.Nil(t, state, "field mismatch must not advance chain state")
 }
 
-// TestVerifyAndExpand_FieldMismatchDID covers the misattribution
+// TestVerifyCommit_FieldMismatchDID covers the misattribution
 // vector: an attacker who controls any PDS can build a valid signed
 // commit for their own DID and wrap it in a firehose envelope that
 // claims a different ("victim") DID. Without this gate, signature
 // verification still rejects it (the victim's key can't verify the
 // attacker's sig) — but a FieldMismatchError is more precise and
 // fires before the more expensive signature check.
-func TestVerifyAndExpand_FieldMismatchDID(t *testing.T) {
+func TestVerifyCommit_FieldMismatchDID(t *testing.T) {
 	t.Parallel()
 
 	innerDID := atmos.DID("did:plc:attacker")
@@ -3231,7 +3210,7 @@ func TestVerifyAndExpand_FieldMismatchDID(t *testing.T) {
 
 	v, _, _, _ := fieldMismatchTestVerifier(t, envelopeDID, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var fme *sync.FieldMismatchError
 	require.ErrorAs(t, vErr, &fme)
 	assert.Equal(t, "did", fme.Field)
@@ -3244,10 +3223,10 @@ func TestVerifyAndExpand_FieldMismatchDID(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.SignatureFailures, "field check must short-circuit before signature verify")
 }
 
-// TestVerifyAndExpand_FieldMismatchVersion covers the spec MUST that
+// TestVerifyCommit_FieldMismatchVersion covers the spec MUST that
 // Sync 1.1 mandates commit version 3. A v2 commit on a 1.1 firehose
 // is a producer bug or a stale-data replay; we reject it outright.
-func TestVerifyAndExpand_FieldMismatchVersion(t *testing.T) {
+func TestVerifyCommit_FieldMismatchVersion(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:fmver1")
@@ -3273,7 +3252,7 @@ func TestVerifyAndExpand_FieldMismatchVersion(t *testing.T) {
 
 	v, _, _, _ := fieldMismatchTestVerifier(t, did, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var fme *sync.FieldMismatchError
 	require.ErrorAs(t, vErr, &fme)
 	assert.Equal(t, "version", fme.Field)
@@ -3282,12 +3261,12 @@ func TestVerifyAndExpand_FieldMismatchVersion(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().FieldMismatches)
 }
 
-// TestVerifyAndExpand_FieldMismatchPriorityVersionFirst documents the
+// TestVerifyCommit_FieldMismatchPriorityVersionFirst documents the
 // helper's check ordering: when more than one field disagrees, version
 // is reported first. The ordering is part of the contract because
 // operators interpreting metrics by Field label rely on consistent
 // labeling for identical underlying conditions.
-func TestVerifyAndExpand_FieldMismatchPriorityVersionFirst(t *testing.T) {
+func TestVerifyCommit_FieldMismatchPriorityVersionFirst(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:fmpri1")
@@ -3313,17 +3292,17 @@ func TestVerifyAndExpand_FieldMismatchPriorityVersionFirst(t *testing.T) {
 
 	v, _, _, _ := fieldMismatchTestVerifier(t, did, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var fme *sync.FieldMismatchError
 	require.ErrorAs(t, vErr, &fme)
 	assert.Equal(t, "version", fme.Field, "version takes priority over rev when both mismatch")
 }
 
-// TestVerifyAndExpand_FieldMismatchHappyPathUnchanged guards against a
+// TestVerifyCommit_FieldMismatchHappyPathUnchanged guards against a
 // regression where the new check spuriously rejects valid commits.
 // The standard happy-path commit (envelope and inner agree) must still
 // verify cleanly.
-func TestVerifyAndExpand_FieldMismatchHappyPathUnchanged(t *testing.T) {
+func TestVerifyCommit_FieldMismatchHappyPathUnchanged(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:fmhappy1")
@@ -3343,7 +3322,7 @@ func TestVerifyAndExpand_FieldMismatchHappyPathUnchanged(t *testing.T) {
 
 	v, _, _, _ := fieldMismatchTestVerifier(t, did, key)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().FieldMismatches)
@@ -3382,7 +3361,7 @@ func rewriteCARRoot(t *testing.T, in []byte, newRoot cbor.CID) []byte {
 	return out.Bytes()
 }
 
-// TestVerifyAndExpand_CARRootMismatchRejected covers issue #10: the
+// TestVerifyCommit_CARRootMismatchRejected covers issue #10: the
 // CAR's first root MUST equal the envelope's Commit link. A
 // misbehaving upstream that lists a different root in the CAR
 // header is rejected outright — bypasses VerifierPolicy because no
@@ -3394,7 +3373,7 @@ func rewriteCARRoot(t *testing.T, in []byte, newRoot cbor.CID) []byte {
 // trusts the CAR root) and atmos (which trusts the envelope link)
 // would disagree on which block is "the commit" and reach different
 // conclusions about a malformed event.
-func TestVerifyAndExpand_CARRootMismatchRejected(t *testing.T) {
+func TestVerifyCommit_CARRootMismatchRejected(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:carroot1")
@@ -3419,7 +3398,7 @@ func TestVerifyAndExpand_CARRootMismatchRejected(t *testing.T) {
 
 	v, _, hookFired, hookErr := fieldMismatchTestVerifier(t, did, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var fme *sync.FieldMismatchError
 	require.ErrorAs(t, vErr, &fme,
 		"CAR root mismatch must surface as FieldMismatchError")
@@ -3529,12 +3508,12 @@ func TestOpCIDMismatchError_FormatAndUnwrap(t *testing.T) {
 	assert.Equal(t, "create_cid_mismatch", target.Reason)
 }
 
-// TestVerifyAndExpand_OpCIDMismatchCreate covers the most direct
+// TestVerifyCommit_OpCIDMismatchCreate covers the most direct
 // attack: a create op declares a CID that doesn't match what the
 // post-state MST holds at that path. Without this gate, the verifier
 // would emit the wrong CID to consumers — they'd fetch records by the
 // envelope's CID, which the PDS may not even host.
-func TestVerifyAndExpand_OpCIDMismatchCreate(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchCreate(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid1")
@@ -3559,7 +3538,7 @@ func TestVerifyAndExpand_OpCIDMismatchCreate(t *testing.T) {
 
 	v, cs := opCIDMismatchTestVerifier(t, did, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var oce *sync.OpCIDMismatchError
 	require.ErrorAs(t, vErr, &oce)
 	assert.Equal(t, "create_cid_mismatch", oce.Reason)
@@ -3581,9 +3560,9 @@ func TestVerifyAndExpand_OpCIDMismatchCreate(t *testing.T) {
 	assert.Equal(t, commit.Rev, state.Rev)
 }
 
-// TestVerifyAndExpand_OpCIDMismatchUpdate covers the same shape on an
+// TestVerifyCommit_OpCIDMismatchUpdate covers the same shape on an
 // update op: claimed CID disagrees with MST tree value.
-func TestVerifyAndExpand_OpCIDMismatchUpdate(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchUpdate(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid2")
@@ -3610,20 +3589,20 @@ func TestVerifyAndExpand_OpCIDMismatchUpdate(t *testing.T) {
 	// the op-CID gate.
 	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var oce *sync.OpCIDMismatchError
 	require.ErrorAs(t, vErr, &oce)
 	assert.Equal(t, "update_cid_mismatch", oce.Reason)
 	assert.Equal(t, "app.bsky.feed.post/rec1", oce.Path)
 }
 
-// TestVerifyAndExpand_OpCIDMismatchDeletePathPresent covers a delete
+// TestVerifyCommit_OpCIDMismatchDeletePathPresent covers a delete
 // op whose path is still present in the post-state MST — i.e. the
 // commit claims to delete something but never actually removed it
 // from the tree. Concrete attack shape: emit a delete op for a record
 // the consumer cares about, hoping the consumer purges its index
 // while the PDS still has the record.
-func TestVerifyAndExpand_OpCIDMismatchDeletePathPresent(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchDeletePathPresent(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid3")
@@ -3659,7 +3638,7 @@ func TestVerifyAndExpand_OpCIDMismatchDeletePathPresent(t *testing.T) {
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
 	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var oce *sync.OpCIDMismatchError
 	require.ErrorAs(t, vErr, &oce)
 	assert.Equal(t, "delete_path_present", oce.Reason)
@@ -3667,10 +3646,10 @@ func TestVerifyAndExpand_OpCIDMismatchDeletePathPresent(t *testing.T) {
 	assert.True(t, oce.MSTCID.Defined(), "MSTCID should report the value still present at the deleted path")
 }
 
-// TestVerifyAndExpand_OpCIDMismatchCreateMissingCID covers a create
+// TestVerifyCommit_OpCIDMismatchCreateMissingCID covers a create
 // op with no CID. The lexicon allows op.CID to be optional but a
 // create without one is structurally meaningless; we reject.
-func TestVerifyAndExpand_OpCIDMismatchCreateMissingCID(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchCreateMissingCID(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid4")
@@ -3691,17 +3670,17 @@ func TestVerifyAndExpand_OpCIDMismatchCreateMissingCID(t *testing.T) {
 
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var oce *sync.OpCIDMismatchError
 	require.ErrorAs(t, vErr, &oce)
 	assert.Equal(t, "create_missing_cid", oce.Reason)
 	assert.False(t, oce.OpCID.Defined())
 }
 
-// TestVerifyAndExpand_OpCIDMismatchDeleteUnexpectedCID covers a
+// TestVerifyCommit_OpCIDMismatchDeleteUnexpectedCID covers a
 // delete op that carries a CID it shouldn't. Indigo's parseCommitOps
 // rejects this; we surface as a structural mismatch.
-func TestVerifyAndExpand_OpCIDMismatchDeleteUnexpectedCID(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchDeleteUnexpectedCID(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid5")
@@ -3726,18 +3705,18 @@ func TestVerifyAndExpand_OpCIDMismatchDeleteUnexpectedCID(t *testing.T) {
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
 	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var oce *sync.OpCIDMismatchError
 	require.ErrorAs(t, vErr, &oce)
 	assert.Equal(t, "delete_unexpected_cid", oce.Reason)
 	assert.True(t, oce.OpCID.Equal(bogus))
 }
 
-// TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync asserts the
+// TestVerifyCommit_OpCIDMismatchUnderPolicyResync asserts the
 // recovery semantics: under PolicyResync, an op-CID mismatch triggers
 // transparent resync (same path as inversion failure) and the
 // consumer sees ActionResync ops rather than the typed error.
-func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid6")
@@ -3785,7 +3764,7 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 	require.NoError(t, err)
 	commit.Ops[0].CID = gt.Some(lextypes.LexCIDLink{Link: bogus.String()})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
 
@@ -3807,11 +3786,11 @@ func TestVerifyAndExpand_OpCIDMismatchUnderPolicyResync(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
-// TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged asserts the new
+// TestVerifyCommit_OpCIDMismatchHappyPathUnchanged asserts the new
 // gate doesn't spuriously reject standard commits. Synthetic commits
 // from the test helper are always self-consistent; the counter must
 // stay zero.
-func TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged(t *testing.T) {
+func TestVerifyCommit_OpCIDMismatchHappyPathUnchanged(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:opcid7")
@@ -3831,7 +3810,7 @@ func TestVerifyAndExpand_OpCIDMismatchHappyPathUnchanged(t *testing.T) {
 
 	v, _ := opCIDMismatchTestVerifier(t, did, key)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().OpCIDMismatches)
@@ -3866,12 +3845,12 @@ func TestCommitTooLargeError_FormatAndUnwrap(t *testing.T) {
 	assert.Equal(t, "blocks", target.Field)
 }
 
-// TestVerifyAndExpand_OversizedBlocksRejected exercises the
+// TestVerifyCommit_OversizedBlocksRejected exercises the
 // MaxCommitBlocksBytes gate. The Blocks field is filled with bogus
 // bytes — the gate runs before any CAR parse, so we don't need
 // valid contents to test the size check, just enough bytes to
 // exceed the limit.
-func TestVerifyAndExpand_OversizedBlocksRejected(t *testing.T) {
+func TestVerifyCommit_OversizedBlocksRejected(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:big1")
@@ -3900,7 +3879,7 @@ func TestVerifyAndExpand_OversizedBlocksRejected(t *testing.T) {
 		Blocks: oversized,
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var tlErr *sync.CommitTooLargeError
 	require.ErrorAs(t, vErr, &tlErr)
 	assert.Equal(t, "blocks", tlErr.Field)
@@ -3912,11 +3891,11 @@ func TestVerifyAndExpand_OversizedBlocksRejected(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.InversionFailures, "size gate must run before CAR parse")
 }
 
-// TestVerifyAndExpand_OversizedOpsRejected exercises the MaxCommitOps
+// TestVerifyCommit_OversizedOpsRejected exercises the MaxCommitOps
 // gate. We construct a commit with 201 ops on distinct paths (so the
 // duplicate-path gate doesn't engage instead). Ops have empty CIDs;
 // the size check runs before any CID work.
-func TestVerifyAndExpand_OversizedOpsRejected(t *testing.T) {
+func TestVerifyCommit_OversizedOpsRejected(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:big2")
@@ -3948,7 +3927,7 @@ func TestVerifyAndExpand_OversizedOpsRejected(t *testing.T) {
 		Ops:  ops,
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var tlErr *sync.CommitTooLargeError
 	require.ErrorAs(t, vErr, &tlErr)
 	assert.Equal(t, "ops", tlErr.Field)
@@ -3957,11 +3936,11 @@ func TestVerifyAndExpand_OversizedOpsRejected(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().OversizedCommits)
 }
 
-// TestVerifyAndExpand_OversizedFiresHook asserts OnVerificationFailure
+// TestVerifyCommit_OversizedFiresHook asserts OnVerificationFailure
 // is invoked for size-limit rejections — the typed error is rare
 // enough in production that a callback-only consumer might miss it
 // otherwise.
-func TestVerifyAndExpand_OversizedFiresHook(t *testing.T) {
+func TestVerifyCommit_OversizedFiresHook(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:big3")
@@ -3990,18 +3969,18 @@ func TestVerifyAndExpand_OversizedFiresHook(t *testing.T) {
 		Blocks: make([]byte, sync.MaxCommitBlocksBytes+1),
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	require.Error(t, vErr)
 	var tlErr *sync.CommitTooLargeError
 	require.ErrorAs(t, hookErr, &tlErr, "hook must receive the typed CommitTooLargeError")
 }
 
-// TestVerifyAndExpand_OversizedBlocksTakesPriority asserts the gate's
+// TestVerifyCommit_OversizedBlocksTakesPriority asserts the gate's
 // ordering: when both blocks and ops exceed limits, "blocks" is
 // reported first. Ordering is part of the contract because metrics
 // labeled by Field need consistent labels for identical underlying
 // conditions.
-func TestVerifyAndExpand_OversizedBlocksTakesPriority(t *testing.T) {
+func TestVerifyCommit_OversizedBlocksTakesPriority(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:big4")
@@ -4034,18 +4013,18 @@ func TestVerifyAndExpand_OversizedBlocksTakesPriority(t *testing.T) {
 		Ops:    ops,
 	}
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var tlErr *sync.CommitTooLargeError
 	require.ErrorAs(t, vErr, &tlErr)
 	assert.Equal(t, "blocks", tlErr.Field, "blocks takes priority when both exceed limits")
 }
 
-// TestVerifyAndExpand_AtLimitAccepted guards against an off-by-one
+// TestVerifyCommit_AtLimitAccepted guards against an off-by-one
 // regression: a commit at exactly the limit (not over) should pass
 // the size gate. We use a synthetic commit that's well-formed up to
 // the size check; later gates may reject for other reasons but the
 // size counter must stay zero.
-func TestVerifyAndExpand_AtLimitAccepted(t *testing.T) {
+func TestVerifyCommit_AtLimitAccepted(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:big5")
@@ -4075,7 +4054,7 @@ func TestVerifyAndExpand_AtLimitAccepted(t *testing.T) {
 		Record:     map[string]any{"text": "ok"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().OversizedCommits)
@@ -4127,12 +4106,12 @@ func duplicatePathTestVerifier(t *testing.T, did atmos.DID, key crypto.PrivateKe
 	return v, cs
 }
 
-// TestVerifyAndExpand_DuplicatePathTwoCreates is the headline C3
+// TestVerifyCommit_DuplicatePathTwoCreates is the headline C3
 // test: a commit's ops list contains two creates on the same path.
 // A well-formed producer would have folded these. Our gate rejects
 // before any CAR work so an attacker can't use duplicate-path
 // commits as a way to confuse downstream consumer state machines.
-func TestVerifyAndExpand_DuplicatePathTwoCreates(t *testing.T) {
+func TestVerifyCommit_DuplicatePathTwoCreates(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:duppath1")
@@ -4159,7 +4138,7 @@ func TestVerifyAndExpand_DuplicatePathTwoCreates(t *testing.T) {
 
 	v, _ := duplicatePathTestVerifier(t, did, key)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var dpe *sync.DuplicatePathError
 	require.ErrorAs(t, vErr, &dpe)
 	assert.Equal(t, "app.bsky.feed.post/rec1", dpe.Path)
@@ -4175,14 +4154,14 @@ func TestVerifyAndExpand_DuplicatePathTwoCreates(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.OpCIDMismatches)
 }
 
-// TestVerifyAndExpand_DuplicatePathDeleteThenCreate covers the
+// TestVerifyCommit_DuplicatePathDeleteThenCreate covers the
 // race-state-machines scenario flagged in the typed error's doc:
 // a delete and a create on the same path within one commit. A
 // careless consumer could observe the create first (record now
 // exists in their index) then process the delete (record gone),
 // or vice versa — depending on iteration order. Rejecting the
 // commit closes the ambiguity.
-func TestVerifyAndExpand_DuplicatePathDeleteThenCreate(t *testing.T) {
+func TestVerifyCommit_DuplicatePathDeleteThenCreate(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:duppath2")
@@ -4214,16 +4193,16 @@ func TestVerifyAndExpand_DuplicatePathDeleteThenCreate(t *testing.T) {
 	v, _ := duplicatePathTestVerifier(t, did, key)
 	require.NoError(t, v.StateStore().SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData}))
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var dpe *sync.DuplicatePathError
 	require.ErrorAs(t, vErr, &dpe)
 	assert.Equal(t, uint64(1), v.Stats().DuplicatePaths)
 }
 
-// TestVerifyAndExpand_DuplicatePathHappyPathUnchanged guards against
+// TestVerifyCommit_DuplicatePathHappyPathUnchanged guards against
 // a regression where the new gate spuriously triggers on standard
 // commits. Two ops on DIFFERENT paths must verify cleanly.
-func TestVerifyAndExpand_DuplicatePathHappyPathUnchanged(t *testing.T) {
+func TestVerifyCommit_DuplicatePathHappyPathUnchanged(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:duphappy1")
@@ -4241,17 +4220,17 @@ func TestVerifyAndExpand_DuplicatePathHappyPathUnchanged(t *testing.T) {
 
 	v, _ := duplicatePathTestVerifier(t, did, key)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 2)
 	assert.Equal(t, uint64(0), v.Stats().DuplicatePaths)
 }
 
-// TestVerifyAndExpand_DuplicatePathUnderPolicyResync asserts
+// TestVerifyCommit_DuplicatePathUnderPolicyResync asserts
 // transparent recovery: a duplicate-path commit under PolicyResync
 // triggers a getRepo. The fake server returns the current authoritative
 // state; the consumer sees ActionResync ops.
-func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
+func TestVerifyCommit_DuplicatePathUnderPolicyResync(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:dupresync1")
@@ -4299,7 +4278,7 @@ func TestVerifyAndExpand_DuplicatePathUnderPolicyResync(t *testing.T) {
 		CID:    commit.Ops[0].CID,
 	})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
 
@@ -4366,14 +4345,14 @@ func TestResyncReason_Legacy(t *testing.T) {
 	assert.Equal(t, "legacy_commit", sync.ReasonLegacyCommit.String())
 }
 
-// TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError covers
+// TestVerifyCommit_LegacyCommitUnderRejectAndPolicyError covers
 // the strict-mode path: with LegacyCommitPolicy=LegacyReject and
 // VerifierPolicy=PolicyError, a v3-encoded commit with no prevData
 // and no op.Prev on update/delete surfaces as a precise
 // LegacyCommitError so operators can distinguish "PDS not yet on
 // Sync 1.1" from genuine corruption. The default LegacyAccept path
 // is exercised separately.
-func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
+func TestVerifyCommit_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy1")
@@ -4415,7 +4394,7 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var lcErr *sync.LegacyCommitError
 	require.ErrorAs(t, vErr, &lcErr)
 	assert.Equal(t, did, lcErr.DID)
@@ -4430,13 +4409,13 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyError(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.ChainBreaks, "legacy is not a chain break")
 }
 
-// TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync asserts
+// TestVerifyCommit_LegacyCommitUnderRejectAndPolicyResync asserts
 // the strict-mode recovery semantics: with LegacyCommitPolicy=
 // LegacyReject and VerifierPolicy=PolicyResync, a legacy commit
 // triggers a transparent resync (Reason: legacy_commit visible to
 // OnResync), consumers see ActionResync ops, and the resync counter
 // increments. The default LegacyAccept path is exercised separately.
-func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
+func TestVerifyCommit_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy2")
@@ -4485,7 +4464,7 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	}})
 	stripPrevData(commit)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
 
@@ -4510,12 +4489,12 @@ func TestVerifyAndExpand_LegacyCommitUnderRejectAndPolicyResync(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.InversionFailures)
 }
 
-// TestVerifyAndExpand_LegacyCommitFirstSightingUnaffected asserts the
+// TestVerifyCommit_LegacyCommitFirstSightingUnaffected asserts the
 // design choice baked into the gate: with state == nil there's no
 // prior chain to validate against, and a 1.1-compliant first commit
 // for an account legitimately has no prevData (no previous data CID
 // exists). We must not falsely flag first-sighting commits as legacy.
-func TestVerifyAndExpand_LegacyCommitFirstSightingUnaffected(t *testing.T) {
+func TestVerifyCommit_LegacyCommitFirstSightingUnaffected(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy3")
@@ -4549,20 +4528,20 @@ func TestVerifyAndExpand_LegacyCommitFirstSightingUnaffected(t *testing.T) {
 	// commit on a 1.1 repo looks like (no previous data to reference).
 	stripPrevData(commit)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().LegacyCommits)
 	assert.Equal(t, uint64(1), v.Stats().EventsVerified)
 }
 
-// TestVerifyAndExpand_LegacyCommitMixedPrevWins covers the boundary
+// TestVerifyCommit_LegacyCommitMixedPrevWins covers the boundary
 // between legacy and chain-break: a commit with no prevData but
 // where some update/delete op DOES carry prev. The producer is
 // clearly on 1.1 and just dropped prevData — surface as a chain
 // break, not legacy. Defends the helper's "any op.Prev set means
 // not legacy" rule.
-func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
+func TestVerifyCommit_LegacyCommitMixedPrevWins(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy4")
@@ -4602,7 +4581,7 @@ func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	// With op.Prev still set, inversion proceeds normally and produces
 	// the correct pre-state root — but the missing envelope prevData
 	// (decoded as the zero CID) doesn't equal seenData, so this
@@ -4615,13 +4594,13 @@ func TestVerifyAndExpand_LegacyCommitMixedPrevWins(t *testing.T) {
 	assert.Equal(t, uint64(1), v.Stats().ChainBreaks)
 }
 
-// TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject covers the
+// TestVerifyCommit_LegacyCommitCreateOnlyUnderReject covers the
 // create-only commit case under strict mode (LegacyReject + PolicyError).
 // With no update/delete ops to inspect, op.Prev gives no signal — but
 // a missing envelope prevData on a non-first-sighting commit is still
 // 1.0 shape (1.1 mandates prevData). Strict mode surfaces it as
 // legacy. The default LegacyAccept path is exercised separately.
-func TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject(t *testing.T) {
+func TestVerifyCommit_LegacyCommitCreateOnlyUnderReject(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy5")
@@ -4656,17 +4635,17 @@ func TestVerifyAndExpand_LegacyCommitCreateOnlyUnderReject(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var lcErr *sync.LegacyCommitError
 	require.ErrorAs(t, vErr, &lcErr)
 	assert.Equal(t, uint64(1), v.Stats().LegacyCommits)
 }
 
-// TestVerifyAndExpand_LegacyCommitHappyPathUnchanged guards against a
+// TestVerifyCommit_LegacyCommitHappyPathUnchanged guards against a
 // regression where the new gate spuriously triggers on standard
 // 1.1-shaped commits. The synthetic builder produces compliant
 // commits by default; the counter must stay zero.
-func TestVerifyAndExpand_LegacyCommitHappyPathUnchanged(t *testing.T) {
+func TestVerifyCommit_LegacyCommitHappyPathUnchanged(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacy6")
@@ -4700,7 +4679,7 @@ func TestVerifyAndExpand_LegacyCommitHappyPathUnchanged(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().LegacyCommits)
@@ -4725,13 +4704,13 @@ func TestVerifierOptions_LegacyAcceptIsDefault(t *testing.T) {
 	assert.Equal(t, sync.LegacyAccept, o.LegacyCommitPolicy.ValOr(sync.LegacyAccept))
 }
 
-// TestVerifyAndExpand_LegacyCommitAcceptedByDefault is the headline
+// TestVerifyCommit_LegacyCommitAcceptedByDefault is the headline
 // test for the new lenient default. A 1.0-shape commit that would
 // have been rejected under LegacyReject is accepted: ops flow through
 // to the consumer as normal (action=update), state advances to the
 // new data CID, and the LegacyCommits counter increments so operators
 // can still see non-upgraded upstreams. No resync is triggered.
-func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
+func TestVerifyCommit_LegacyCommitAcceptedByDefault(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacyacc1")
@@ -4770,7 +4749,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	require.Len(t, ops, 1)
 	assert.Equal(t, atmos.ActionUpdate, ops[0].Action, "ops should pass through with their original action, not be relabeled as resync")
@@ -4792,11 +4771,11 @@ func TestVerifyAndExpand_LegacyCommitAcceptedByDefault(t *testing.T) {
 	assert.Equal(t, commit.Rev, state.Rev)
 }
 
-// TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature asserts
+// TestVerifyCommit_LegacyCommitAcceptStillEnforcesSignature asserts
 // the lenient mode is lenient about the chain-link check ONLY. A
 // legacy commit signed with the wrong key still fails signature
 // verification — LegacyAccept doesn't open the door to forged commits.
-func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature(t *testing.T) {
+func TestVerifyCommit_LegacyCommitAcceptStillEnforcesSignature(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacyacc2")
@@ -4835,19 +4814,19 @@ func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesSignature(t *testing.T) 
 	})
 	require.NoError(t, err)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var sigErr *sync.SignatureError
 	require.ErrorAs(t, vErr, &sigErr, "LegacyAccept must NOT bypass signature verification")
 	assert.Equal(t, uint64(1), v.Stats().LegacyCommits)
 	assert.Equal(t, uint64(1), v.Stats().SignatureFailures)
 }
 
-// TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs asserts
+// TestVerifyCommit_LegacyCommitAcceptStillEnforcesOpCIDs asserts
 // the same for op-CID consistency: a legacy commit whose ops list
 // disagrees with its post-state MST is still rejected via the
 // existing op-CID gate. LegacyAccept skips ONLY the chain-link
 // check, not other structural validation.
-func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs(t *testing.T) {
+func TestVerifyCommit_LegacyCommitAcceptStillEnforcesOpCIDs(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacyacc3")
@@ -4887,19 +4866,19 @@ func TestVerifyAndExpand_LegacyCommitAcceptStillEnforcesOpCIDs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var oce *sync.OpCIDMismatchError
 	require.ErrorAs(t, vErr, &oce, "LegacyAccept must NOT bypass op-CID consistency")
 	assert.Equal(t, uint64(1), v.Stats().LegacyCommits)
 	assert.Equal(t, uint64(1), v.Stats().OpCIDMismatches)
 }
 
-// TestVerifyAndExpand_LegacyCommitAcceptChainsForward asserts that a
+// TestVerifyCommit_LegacyCommitAcceptChainsForward asserts that a
 // followup well-formed 1.1 commit, arriving after a legacy commit
 // was accepted, chains correctly off the legacy commit's data CID.
 // I.e. accepting the legacy commit didn't leave chain state in a
 // confused half-advanced spot.
-func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
+func TestVerifyCommit_LegacyCommitAcceptChainsForward(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:legacyacc4")
@@ -4937,7 +4916,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
 	require.True(t, ok)
 	stripPrevData(c1)
 
-	_, vErr := v.VerifyAndExpand(context.Background(), c1, nil)
+	_, vErr := v.VerifyCommit(context.Background(), c1)
 	require.NoError(t, vErr, "first legacy commit should be accepted")
 
 	// Commit 2: a normal 1.1 commit whose prevData points at commit-1's
@@ -4950,7 +4929,7 @@ func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
 		Record:     map[string]any{"text": "v2"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), c2, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), c2)
 	require.NoError(t, vErr, "1.1 followup must chain cleanly off the accepted legacy commit")
 	assert.Len(t, ops, 1)
 	assert.Equal(t, atmos.ActionUpdate, ops[0].Action)
@@ -4961,13 +4940,13 @@ func TestVerifyAndExpand_LegacyCommitAcceptChainsForward(t *testing.T) {
 	assert.Equal(t, uint64(0), stats.ChainBreaks)
 }
 
-// TestVerifyAndExpand_InversionFailureUnderPolicyResync exercises the
+// TestVerifyCommit_InversionFailureUnderPolicyResync exercises the
 // symmetric resync path for malformed CARs: an inversion failure under
 // PolicyResync should trigger transparent resync via getRepo. The
 // consumer sees ActionResync ops, and counters reflect both the
 // inversion failure and the resync. (Only chain-break-under-PolicyResync
 // was previously covered.)
-func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
+func TestVerifyCommit_InversionFailureUnderPolicyResync(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:invres1")
@@ -5016,7 +4995,7 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	}})
 	commit.Blocks = []byte{0xff, 0xff, 0xff} // garbage CAR
 
-	ops, err := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, err := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, err)
 	require.Nil(t, ops, "async resync: ops arrive via ResyncEvents()")
 
@@ -5038,14 +5017,14 @@ func TestVerifyAndExpand_InversionFailureUnderPolicyResync(t *testing.T) {
 	assert.Equal(t, uint64(1), stats.Resyncs)
 }
 
-// TestVerifyAndExpand_MissingRecordBlockCounter exercises the
+// TestVerifyCommit_MissingRecordBlockCounter exercises the
 // observability hook for upstreams that ship incomplete CARs: when a
 // create/update op declares a CID whose block isn't present in the
 // CAR, the verifier still emits the op (with empty BlockData) and
 // increments Stats.MissingRecordBlocksOps. Tests the observability
 // path; correctness of the verifier's decision (still accept, still
 // pass through) is unchanged.
-func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
+func TestVerifyCommit_MissingRecordBlockCounter(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:missingblk1")
@@ -5088,7 +5067,7 @@ func TestVerifyAndExpand_MissingRecordBlockCounter(t *testing.T) {
 	require.NoError(t, err)
 	commit.Blocks = stripBlockFromCAR(t, commit.Blocks, recordCID)
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr, "missing record block must NOT fail verification — counter only")
 	require.Len(t, ops, 1)
 	assert.Equal(t, atmos.ActionCreate, ops[0].Action)
@@ -5130,7 +5109,7 @@ func stripBlockFromCAR(t *testing.T, in []byte, target cbor.CID) []byte {
 	return out.Bytes()
 }
 
-// BenchmarkVerifyAndExpand_HappyPath measures the per-event hot path
+// BenchmarkVerifyCommit_HappyPath measures the per-event hot path
 // — a clean #commit that passes every gate (rev-replay, future-rev,
 // legacy detection, inversion, chain check, field consistency,
 // signature, op-CID consistency, state advance). The pre-state is a
@@ -5138,7 +5117,7 @@ func stripBlockFromCAR(t *testing.T, in []byte, target cbor.CID) []byte {
 // account; each iteration verifies an update of one record. Used to
 // quantify the savings from CAR-parse deduplication (B1) and to
 // guard against future regressions on the hot path.
-func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
+func BenchmarkVerifyCommit_HappyPath(b *testing.B) {
 	did := atmos.DID("did:plc:bench1")
 	key, err := crypto.GenerateP256()
 	require.NoError(b, err)
@@ -5187,7 +5166,7 @@ func BenchmarkVerifyAndExpand_HappyPath(b *testing.B) {
 		// its cost is constant and small relative to the verification
 		// work, so it doesn't meaningfully pollute the measurement.
 		_ = cs.SaveChain(ctx, did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: prevData})
-		ops, err := v.VerifyAndExpand(ctx, commit, nil)
+		ops, err := v.VerifyCommit(ctx, commit)
 		if err != nil {
 			b.Fatalf("verify: %v", err)
 		}
@@ -5477,12 +5456,12 @@ func TestVerifier_OnAccountEvent_InvalidDID(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid account DID")
 }
 
-// TestVerifyAndExpand_HostingTrackDoesNotGate is the headline assertion
+// TestVerifyCommit_HostingTrackDoesNotGate is the headline assertion
 // for the default policy: even after an #account event marks the DID
 // inactive, subsequent #commit events still verify normally.
 // Consumers under HostingTrack are expected to filter on their own
 // (or use HostingGate).
-func TestVerifyAndExpand_HostingTrackDoesNotGate(t *testing.T) {
+func TestVerifyCommit_HostingTrackDoesNotGate(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:track1")
@@ -5508,7 +5487,7 @@ func TestVerifyAndExpand_HostingTrackDoesNotGate(t *testing.T) {
 		Record:     map[string]any{"text": "ignored takedown"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().AccountsInactive)
@@ -5519,11 +5498,11 @@ func TestVerifyAndExpand_HostingTrackDoesNotGate(t *testing.T) {
 	assert.False(t, hosting.Active, "state was still tracked, just not gated")
 }
 
-// TestVerifyAndExpand_HostingGateDropsCommit is the headline
+// TestVerifyCommit_HostingGateDropsCommit is the headline
 // assertion for HostingGate: a #commit for a DID whose persisted
 // state is non-active returns AccountInactiveError, fires the hook,
 // increments the counter, and does not advance state.
-func TestVerifyAndExpand_HostingGateDropsCommit(t *testing.T) {
+func TestVerifyCommit_HostingGateDropsCommit(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:gate1")
@@ -5563,7 +5542,7 @@ func TestVerifyAndExpand_HostingGateDropsCommit(t *testing.T) {
 		Record:     map[string]any{"text": "should be dropped"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	var aiErr *sync.AccountInactiveError
 	require.ErrorAs(t, vErr, &aiErr)
 	assert.Nil(t, ops)
@@ -5581,7 +5560,7 @@ func TestVerifyAndExpand_HostingGateDropsCommit(t *testing.T) {
 	assert.Nil(t, chain, "gated commit must not advance chain state")
 }
 
-// TestVerifyAndExpand_HostingGateSkipsChainLoad asserts gate ordering:
+// TestVerifyCommit_HostingGateSkipsChainLoad asserts gate ordering:
 // when HostingGate rejects, the verifier must not have consulted the
 // chain store. Issue #7 from the review: a takedown-heavy upstream
 // otherwise pays a chain-store round trip per gated event for state
@@ -5590,7 +5569,7 @@ func TestVerifyAndExpand_HostingGateDropsCommit(t *testing.T) {
 // Wraps a real MemStateStore in countingChainStore so the test can
 // assert LoadChain count == 0 across the gated event. Hosting reads
 // (one for the gate's lookup) are expected and not asserted on.
-func TestVerifyAndExpand_HostingGateSkipsChainLoad(t *testing.T) {
+func TestVerifyCommit_HostingGateSkipsChainLoad(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:gateorder1")
@@ -5632,7 +5611,7 @@ func TestVerifyAndExpand_HostingGateSkipsChainLoad(t *testing.T) {
 		Record: map[string]any{"text": "should be gated"},
 	}})
 
-	_, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	_, vErr := v.VerifyCommit(context.Background(), commit)
 	var aiErr *sync.AccountInactiveError
 	require.ErrorAs(t, vErr, &aiErr)
 
@@ -5642,7 +5621,7 @@ func TestVerifyAndExpand_HostingGateSkipsChainLoad(t *testing.T) {
 		"gated commit must not advance chain state")
 }
 
-func TestVerifyAndExpand_HostingGateDropsSync(t *testing.T) {
+func TestVerifySync_HostingGateDrops(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:gate2")
@@ -5659,16 +5638,16 @@ func TestVerifyAndExpand_HostingGateDropsSync(t *testing.T) {
 		DID: string(did),
 		Rev: string(atmos.NewTIDNow(0)),
 	}
-	_, vErr := v.VerifyAndExpand(context.Background(), nil, syncEvt)
+	_, vErr := v.VerifySync(context.Background(), syncEvt)
 	var aiErr *sync.AccountInactiveError
 	require.ErrorAs(t, vErr, &aiErr)
 	assert.Equal(t, sync.StatusSuspended, aiErr.Status)
 	assert.Equal(t, uint64(1), v.Stats().AccountsInactive)
 }
 
-// TestVerifyAndExpand_HostingGateReactivation asserts that flipping
+// TestVerifyCommit_HostingGateReactivation asserts that flipping
 // state from inactive back to active re-enables verification.
-func TestVerifyAndExpand_HostingGateReactivation(t *testing.T) {
+func TestVerifyCommit_HostingGateReactivation(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:reactivate1")
@@ -5697,16 +5676,16 @@ func TestVerifyAndExpand_HostingGateReactivation(t *testing.T) {
 		Record:     map[string]any{"text": "back online"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr)
 	assert.Len(t, ops, 1)
 	assert.Equal(t, uint64(0), v.Stats().AccountsInactive)
 }
 
-// TestVerifyAndExpand_HostingGateFirstSightingAllows guards the
+// TestVerifyCommit_HostingGateFirstSightingAllows guards the
 // first-sighting behavior: with no persisted state, the verifier
 // permits the event (matches indigo's relay semantics).
-func TestVerifyAndExpand_HostingGateFirstSightingAllows(t *testing.T) {
+func TestVerifyCommit_HostingGateFirstSightingAllows(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:first1")
@@ -5726,7 +5705,7 @@ func TestVerifyAndExpand_HostingGateFirstSightingAllows(t *testing.T) {
 		Record:     map[string]any{"text": "first sighting"},
 	}})
 
-	ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
+	ops, vErr := v.VerifyCommit(context.Background(), commit)
 	require.NoError(t, vErr, "first sighting must be permitted under HostingGate")
 	assert.Len(t, ops, 1)
 }
