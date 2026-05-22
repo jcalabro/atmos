@@ -200,6 +200,73 @@ func TestScheduler_PanicRecovery(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
+// TestScheduler_PerKeyFIFOConcurrentAdd asserts that per-key ordering
+// holds even when AddWork is called from many goroutines pinned to the
+// same key. The non-test version of TestScheduler_PerKeyFIFO drives
+// AddWork sequentially from one goroutine, so it doesn't exercise the
+// AddWork→runChain handoff under contention. This test does.
+//
+// Strategy: the producer assigns monotonically-increasing values
+// (under a producer-side mutex so the wire order is well-defined),
+// then races them through AddWork. The handler observes them in the
+// order runChain delivers them; the test asserts strict monotonicity.
+func TestScheduler_PerKeyFIFOConcurrentAdd(t *testing.T) {
+	const Producers = 8
+	const PerProducer = 50
+	const Total = Producers * PerProducer
+
+	var (
+		observedMu sync.Mutex
+		observed   = make([]int, 0, Total)
+	)
+	s := NewScheduler(2, 0, func(ctx context.Context, n int) error {
+		observedMu.Lock()
+		observed = append(observed, n)
+		observedMu.Unlock()
+		return nil
+	}, nil)
+	defer s.Shutdown()
+
+	var (
+		producerMu sync.Mutex
+		nextVal    int
+	)
+	emit := func(ctx context.Context) error {
+		producerMu.Lock()
+		v := nextVal
+		nextVal++
+		err := s.AddWork(ctx, "did:plc:hot", v)
+		producerMu.Unlock()
+		return err
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(Producers)
+	for range Producers {
+		go func() {
+			defer wg.Done()
+			ctx := context.Background()
+			for range PerProducer {
+				require.NoError(t, emit(ctx))
+			}
+		}()
+	}
+	wg.Wait()
+
+	require.Eventually(t, func() bool {
+		observedMu.Lock()
+		defer observedMu.Unlock()
+		return len(observed) == Total
+	}, 5*time.Second, time.Millisecond)
+
+	observedMu.Lock()
+	defer observedMu.Unlock()
+	for i, v := range observed {
+		require.Equal(t, i, v,
+			"per-key FIFO violated under concurrent AddWork at index %d (got %d)", i, v)
+	}
+}
+
 // TestScheduler_WorkContextCancellation verifies that when the
 // scheduler's lifetime context is cancelled, in-flight do() invocations
 // observe the cancellation. This is what gives consumers prompt

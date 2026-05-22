@@ -5,9 +5,12 @@ package streaming
 // scheduler but not yet collected. Used to compute the watermark
 // cursor: min(inflight) - 1 is the highest seq we can safely persist.
 //
-// Bounded by Workers + total per-key queue depth, typically O(100s).
-// Linear inserts/removes are fine at this size and avoid the overhead
-// (and pointer chasing) of container/heap.
+// Bounded by Workers + total per-key queue depth across all active
+// keys. Concrete numbers under default Options.Parallelism = 32 and
+// keyQueueCap = 64: a single hot DID maxes ~65; ~50 simultaneously
+// active DIDs (one in-flight per worker plus a partial queue per key)
+// can push toward 1-2k. Linear inserts/removes remain cheap at this
+// size and avoid the overhead (and pointer chasing) of container/heap.
 type inflightSeqs struct {
 	xs []int64 // sorted ascending
 }
