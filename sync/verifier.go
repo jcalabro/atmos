@@ -99,13 +99,23 @@ func (s *HostingState) IsActive() bool {
 
 // Well-known #account status values. The spec's vocabulary is open;
 // callers may see other values and should preserve them verbatim.
+//
+// The verifier dispatches only on Active (via HostingState.IsActive);
+// Status is preserved for diagnostics and surfaced through
+// AccountInactiveError and OnAccountStateChanged. In particular, the
+// verifier does NOT proactively resync on Status==Desynchronized: the
+// next #commit for the DID will fail the chain-continuity check and
+// route through the normal async-resync path. Matches indigo tap's
+// behavior (cmd/tap/firehose.go ProcessAccount), which explicitly
+// no-ops on desynchronized and throttled. Consumers that want eager
+// repair can call Verifier.Resync from OnAccountStateChanged.
 const (
 	StatusTakendown      = "takendown"      // host/service-initiated removal (terms violation)
 	StatusSuspended      = "suspended"      // time-limited variant of takendown
 	StatusDeactivated    = "deactivated"    // user-initiated removal; also the migration starting state
 	StatusDeleted        = "deleted"        // user/host-initiated; conventionally permanent
 	StatusDesynchronized = "desynchronized" // sync 1.1: lost sync, repair pending; can co-exist with Active=true
-	StatusThrottled      = "throttled"      // sync 1.1: rate-limited; can co-exist with Active=true
+	StatusThrottled      = "throttled"      // sync 1.1: rate-limited; advisory only; can co-exist with Active=true
 )
 
 // StateStore persists per-DID state across firehose events. The
