@@ -200,6 +200,43 @@ func TestScheduler_PanicRecovery(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
+// TestScheduler_WorkContextCancellation verifies that when the
+// scheduler's lifetime context is cancelled, in-flight do() invocations
+// observe the cancellation. This is what gives consumers prompt
+// shutdown when they cancel Events(ctx): the readLoop's parent ctx is
+// the scheduler's ctx, so PLC lookups, CAR downloads, and StateStore
+// I/O inside the verifier all unblock.
+func TestScheduler_WorkContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	started := make(chan struct{})
+	finished := make(chan error, 1)
+	s := NewSchedulerWithContext(ctx, 1, 0, func(jctx context.Context, n int) error {
+		close(started)
+		select {
+		case <-jctx.Done():
+			finished <- jctx.Err()
+			return jctx.Err()
+		case <-time.After(5 * time.Second):
+			finished <- nil
+			return nil
+		}
+	}, nil)
+	defer s.Shutdown()
+
+	require.NoError(t, s.AddWork(context.Background(), "k", 1))
+	<-started
+	cancel()
+
+	select {
+	case err := <-finished:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("worker did not observe context cancellation")
+	}
+}
+
 func TestScheduler_AddWorkCancelled(t *testing.T) {
 	// One worker, hold it busy, fill so the next AddWork on a NEW key
 	// blocks on the unbuffered feeder.

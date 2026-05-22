@@ -10,8 +10,10 @@ import (
 
 // Scheduler dispatches per-key work units to a fixed pool of N workers
 // while guaranteeing that work units sharing a key run sequentially in
-// arrival order. Mirrors indigo's parallel scheduler with two
-// additions: per-key queue cap (drop-oldest) and panic recovery.
+// arrival order. Mirrors indigo's parallel scheduler with three
+// additions: per-key queue cap (drop-oldest), panic recovery, and a
+// scheduler-lifetime context that propagates into each do() call so
+// in-flight work observes shutdown.
 //
 // Zero value is not usable; callers must use NewScheduler.
 type Scheduler[Work any] struct {
@@ -20,6 +22,13 @@ type Scheduler[Work any] struct {
 	do          func(context.Context, Work) error
 	onDrop      func(Work)
 	onError     func(error) // set by NewSchedulerWithErrorHook; nil = ignore
+
+	// workCtx is passed to every do() invocation. Defaults to
+	// context.Background() unless NewSchedulerWithContext was used.
+	// Cancelling this context tells in-flight workers to abort their
+	// current unit; the scheduler still drains via Shutdown(), so
+	// callers should pair cancel() with Shutdown() for full teardown.
+	workCtx context.Context
 
 	feeder chan task[Work]
 
@@ -60,12 +69,59 @@ func NewScheduler[Work any](
 // that fires whenever a work unit returns a non-nil error or panics.
 // onError must not block. May be nil, in which case errors and panics
 // are silently ignored (equivalent to NewScheduler).
+//
+// do is invoked with context.Background(); to thread a cancellable
+// context into in-flight work (so consumer cancellation interrupts
+// blocking I/O), use NewSchedulerWithContext.
 func NewSchedulerWithErrorHook[Work any](
 	workers, keyQueueCap int,
 	do func(context.Context, Work) error,
 	onDrop func(Work),
 	onError func(error),
 ) *Scheduler[Work] {
+	return newScheduler(context.Background(), workers, keyQueueCap, do, onDrop, onError)
+}
+
+// NewSchedulerWithContext is NewScheduler with a scheduler-lifetime
+// context passed to every do() invocation. Cancelling workCtx tells
+// in-flight workers to abort their current unit (e.g. so a blocking
+// HTTP fetch inside do unblocks promptly when the consumer cancels).
+// workCtx does not stop the scheduler — call Shutdown() for that.
+//
+// onDrop and onError are nil (equivalent to NewScheduler's
+// silently-ignore behavior). Use newScheduler directly for both.
+func NewSchedulerWithContext[Work any](
+	workCtx context.Context,
+	workers, keyQueueCap int,
+	do func(context.Context, Work) error,
+	onDrop func(Work),
+) *Scheduler[Work] {
+	return newScheduler(workCtx, workers, keyQueueCap, do, onDrop, nil)
+}
+
+// NewSchedulerWithContextAndErrorHook is the most general constructor:
+// scheduler-lifetime ctx for in-flight cancellation, plus an onError
+// callback for do() errors and panics.
+func NewSchedulerWithContextAndErrorHook[Work any](
+	workCtx context.Context,
+	workers, keyQueueCap int,
+	do func(context.Context, Work) error,
+	onDrop func(Work),
+	onError func(error),
+) *Scheduler[Work] {
+	return newScheduler(workCtx, workers, keyQueueCap, do, onDrop, onError)
+}
+
+func newScheduler[Work any](
+	workCtx context.Context,
+	workers, keyQueueCap int,
+	do func(context.Context, Work) error,
+	onDrop func(Work),
+	onError func(error),
+) *Scheduler[Work] {
+	if workCtx == nil {
+		workCtx = context.Background()
+	}
 	if workers < 1 {
 		workers = 1
 	}
@@ -75,6 +131,7 @@ func NewSchedulerWithErrorHook[Work any](
 		do:          do,
 		onDrop:      onDrop,
 		onError:     onError,
+		workCtx:     workCtx,
 		feeder:      make(chan task[Work]),
 		active:      make(map[string][]Work),
 		stopped:     make(chan struct{}),
@@ -90,11 +147,11 @@ func NewSchedulerWithErrorHook[Work any](
 func (s *Scheduler[Work]) Workers() int { return s.workers }
 
 // Shutdown stops all workers, waiting for in-flight units to complete.
-// Work already dispatched runs to completion with the context passed
-// to do (currently context.Background()); cancellation mid-flight is
-// not supported. Pending units in active[key] queues are NOT processed;
-// callers can drain them externally before calling Shutdown if needed.
-// Idempotent.
+// Work already dispatched runs to completion under the scheduler's
+// workCtx; to interrupt in-flight work, cancel that context before
+// calling Shutdown. Pending units in active[key] queues are NOT
+// processed; callers can drain them externally before calling Shutdown
+// if needed. Idempotent.
 func (s *Scheduler[Work]) Shutdown() {
 	s.stopOnce.Do(func() {
 		close(s.stopped)
@@ -139,7 +196,8 @@ func (s *Scheduler[Work]) runChain(key string, work Work) {
 }
 
 // runOne executes a single work unit, recovering panics via gt.Recover.
-// Errors and panics are reported via onError when set.
+// Errors and panics are reported via onError when set. Work runs under
+// s.workCtx, so cancelling it interrupts blocking I/O inside do.
 func (s *Scheduler[Work]) runOne(work Work) {
 	var err error
 	defer func() {
@@ -148,7 +206,7 @@ func (s *Scheduler[Work]) runOne(work Work) {
 			s.onError(err)
 		}
 	}()
-	err = s.do(context.Background(), work)
+	err = s.do(s.workCtx, work)
 }
 
 // AddWork enqueues a unit of work for the given key.

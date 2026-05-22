@@ -8,6 +8,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/http"
+	stdsync "sync"
 	"testing"
 	"time"
 
@@ -711,6 +712,111 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	require.Equal(t, string(did), firstDrop.DID, "DropError should reference the offending DID")
 	require.Greater(t, firstDrop.Seq, int64(0), "DropError seq should be > 0")
 	require.Equal(t, 4, firstDrop.QueueLen, "QueueLen should match parallelism * 2")
+}
+
+// cancellableStateStore wraps a StateStore and blocks SaveChain on a
+// gate that only unblocks via context cancellation. Used to assert
+// that consumer ctx cancellation propagates into in-flight verifier I/O
+// under parallel mode (Finding 2).
+type cancellableStateStore struct {
+	inner       sync.StateStore
+	saveStarted chan struct{}
+	saveOnce    stdsync.Once
+}
+
+func (s *cancellableStateStore) LoadChain(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
+	return s.inner.LoadChain(ctx, did)
+}
+
+func (s *cancellableStateStore) SaveChain(ctx context.Context, did atmos.DID, state sync.ChainState) error {
+	s.saveOnce.Do(func() { close(s.saveStarted) })
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (s *cancellableStateStore) LoadHosting(ctx context.Context, did atmos.DID) (*sync.HostingState, error) {
+	return s.inner.LoadHosting(ctx, did)
+}
+
+func (s *cancellableStateStore) SaveHosting(ctx context.Context, did atmos.DID, state sync.HostingState) error {
+	return s.inner.SaveHosting(ctx, did, state)
+}
+
+func (s *cancellableStateStore) Delete(ctx context.Context, did atmos.DID) error {
+	return s.inner.Delete(ctx, did)
+}
+
+// TestVerifiedStream_ParallelCtxCancelsInflightVerifier asserts that
+// cancelling Events(ctx) under Parallelism > 1 promptly cancels the
+// scheduler's worker context, which propagates into VerifyAndExpand and
+// the StateStore I/O it does. Without ctx threading, the worker would
+// block in SaveChain indefinitely and Events() would hang on
+// sched.Shutdown() during the deferred teardown.
+func TestVerifiedStream_ParallelCtxCancelsInflightVerifier(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:ctxcancel")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	frames := buildVerifiedChainFrames(t, did, key, 1)
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+		// Hold the WS open so the connection isn't the thing that ends
+		// the iterator — only ctx cancellation should.
+		<-time.After(30 * time.Second)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	store := &cancellableStateStore{
+		inner:       sync.NewMemStateStore(),
+		saveStarted: make(chan struct{}),
+	}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: store,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	defer v.Close()
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Verifier:    gt.Some(v),
+		Parallelism: gt.Some(2),
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range client.Events(ctx) {
+		}
+	}()
+
+	// Wait for the verifier to enter SaveChain.
+	select {
+	case <-store.saveStarted:
+	case <-time.After(5 * time.Second):
+		cancel()
+		t.Fatal("SaveChain never started")
+	}
+
+	// Cancel and assert Events() returns promptly. Pre-fix, the
+	// scheduler's defer Shutdown() would wg.Wait() forever because the
+	// worker held context.Background() and never unblocked.
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Events() did not return within 2s of ctx cancellation; in-flight verifier work was not cancelled")
+	}
 }
 
 // TestVerifiedStream_CursorAdvancesPastDroppedSeq is the regression

@@ -924,12 +924,16 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 	var inflight inflightSeqs
 	var lastSeenSeq int64
 
-	sched := parallel.NewSchedulerWithErrorHook[schedJob](
+	sched := parallel.NewSchedulerWithContext[schedJob](
+		ctx,
 		c.parallelism,
 		queueCap,
 		func(jctx context.Context, j schedJob) error {
+			// jctx is the readLoop's ctx (consumer's parent ctx); a
+			// cancel propagates into VerifyAndExpand, OnAccountEvent,
+			// and the PLC/CAR network calls they make, so consumer
+			// shutdown unblocks any blocking I/O the verifier holds.
 			res := c.verifyOne(jctx, j.evt)
-			// Send result on parent ctx, not jctx: if the iterator stopped, we drop the result; if jctx alone is cancelled, we still deliver.
 			select {
 			case resultCh <- res:
 			case <-ctx.Done():
@@ -960,7 +964,6 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 				// stall the scheduler.
 			}
 		},
-		nil, // no onError hook in parallel path; verifyOne already returns errors via verifyResult
 	)
 	defer sched.Shutdown()
 
