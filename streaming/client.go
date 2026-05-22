@@ -915,6 +915,15 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 
 	queueCap := c.parallelism * 2
 
+	// inflight tracks seqs dispatched to the scheduler that have not
+	// yet produced a verifyResult. Drives the watermark cursor (cursor
+	// = min(inflight) - 1) and the connection-close drain. Owned by
+	// the dispatch goroutine; the scheduler's onDrop callback also
+	// mutates it, but onDrop is invoked synchronously on the dispatch
+	// goroutine inside AddWork, so no locking is required.
+	var inflight inflightSeqs
+	var lastSeenSeq int64
+
 	sched := parallel.NewSchedulerWithErrorHook[schedJob](
 		c.parallelism,
 		queueCap,
@@ -930,6 +939,20 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 		func(j schedJob) {
 			seq := j.evt.seqOf()
 			did := j.evt.repoOf()
+			// Release the dropped seq from the watermark cursor's
+			// inflight set: no worker will ever produce a verifyResult
+			// for this work, so without this the watermark stays pinned
+			// to seq forever (cursor freezes; drainResults hangs on
+			// connection close because inflight.Len() never reaches
+			// zero).
+			//
+			// Safe to mutate inflight here without locking: AddWork
+			// invokes onDrop synchronously on the caller's goroutine,
+			// and the only caller of AddWork is the dispatch goroutine
+			// — the same goroutine that owns inflight.
+			if seq > 0 {
+				inflight.Remove(seq)
+			}
 			select {
 			case asyncErr <- &DropError{DID: did, Seq: seq, QueueLen: queueCap}:
 			default:
@@ -965,10 +988,6 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 		resyncEvents = v.ResyncEvents()
 		verifierAsyncErrs = v.AsyncErrors()
 	}
-
-	// Watermark cursor and global seq state.
-	var inflight inflightSeqs
-	var lastSeenSeq int64
 
 	batch := make([]Event, 0, c.batchSize)
 	timer := time.NewTimer(c.batchTimeout)

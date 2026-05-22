@@ -712,3 +712,111 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	require.Greater(t, firstDrop.Seq, int64(0), "DropError seq should be > 0")
 	require.Equal(t, 4, firstDrop.QueueLen, "QueueLen should match parallelism * 2")
 }
+
+// TestVerifiedStream_CursorAdvancesPastDroppedSeq is the regression
+// test for the cursor-freeze bug where the parallel scheduler's onDrop
+// callback did not remove the displaced seq from the readLoop's
+// inflight set. Symptoms before the fix: the watermark cursor stays
+// pinned to the dropped seq forever, so persisted cursor never advances
+// past the first drop, and drainResults() hangs on connection close
+// because inflight.Len() never reaches zero.
+//
+// The test forces several drops, lets all surviving verifications drain,
+// and asserts the persisted cursor has advanced past every dropped seq.
+func TestVerifiedStream_CursorAdvancesPastDroppedSeq(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:dropcursor")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	const n = 60
+	frames := buildVerifiedChainFrames(t, did, key, n)
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	// Brief delay per SaveChain provokes the dispatch goroutine to
+	// outrun the workers and trigger drops, but is short enough that
+	// the surviving frames clear within the test deadline.
+	slowStore := &blockingStateStore{
+		inner: sync.NewMemStateStore(),
+		gate:  make(chan struct{}),
+	}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: slowStore,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	defer v.Close()
+
+	store := &mockCursorStore{}
+
+	// Parallelism=2 → keyQueueCap = 4. With 60 commits and a 50 ms
+	// SaveChain delay, the first ~5 fit (workers + queue) and the rest
+	// shed via drop-oldest. The fix ensures inflight tracking releases
+	// dropped seqs so the cursor watermark can still advance.
+	client := mustNewClient(t, Options{
+		URL:            wsURL(srv),
+		Verifier:       gt.Some(v),
+		Parallelism:    gt.Some(2),
+		CursorStore:    gt.Some[CursorStore](store),
+		CursorInterval: gt.Some(int64(1)), // checkpoint after every batch
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var (
+		dropCount   int
+		highestDrop int64
+		batches     int
+	)
+	for batch, iterErr := range client.Events(ctx) {
+		if iterErr != nil {
+			var de *DropError
+			if stderrors.As(iterErr, &de) {
+				dropCount++
+				if de.Seq > highestDrop {
+					highestDrop = de.Seq
+				}
+			}
+			continue
+		}
+		batches++
+		// Stop once we've observed both drops and at least one delivered
+		// batch with a seq above the highest drop, so we know the cursor
+		// has had a chance to advance past the freeze point.
+		if dropCount > 0 && len(batch) > 0 {
+			lastSeq := batch[len(batch)-1].seqOf()
+			if highestDrop > 0 && lastSeq > highestDrop {
+				cancel()
+			}
+		}
+	}
+
+	require.Greater(t, dropCount, 0, "test must observe drops to be meaningful")
+	require.Greater(t, highestDrop, int64(0))
+
+	// Cursor must have advanced past the highest dropped seq: the bug
+	// pinned it permanently below highestDrop.
+	finalCursor := client.Cursor()
+	require.Greater(t, finalCursor, highestDrop,
+		"cursor (%d) must advance past highest dropped seq (%d); the watermark must release dropped seqs from inflight",
+		finalCursor, highestDrop)
+
+	// Persisted cursor must reflect the same advance.
+	store.mu.Lock()
+	persisted := store.cursor
+	store.mu.Unlock()
+	require.Greater(t, persisted, highestDrop,
+		"persisted cursor (%d) must also advance past highest dropped seq (%d)",
+		persisted, highestDrop)
+}
