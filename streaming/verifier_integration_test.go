@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	stdsync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -712,6 +713,74 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	require.Equal(t, string(did), firstDrop.DID, "DropError should reference the offending DID")
 	require.Greater(t, firstDrop.Seq, int64(0), "DropError seq should be > 0")
 	require.Equal(t, 4, firstDrop.QueueLen, "QueueLen should match parallelism * 2")
+}
+
+// TestVerifiedStream_ParallelGapDetectionAcrossReconnect asserts that
+// the parallel readLoop seeds lastSeenSeq from the persisted cursor on
+// startup, so a relay that resumes outside our cursor window surfaces a
+// GapError. Pre-fix, lastSeenSeq was zero-initialized per readLoop
+// invocation, so the first frame after a reconnect always passed the
+// `lastSeenSeq > 0` guard and gaps were silent.
+func TestVerifiedStream_ParallelGapDetectionAcrossReconnect(t *testing.T) {
+	t.Parallel()
+
+	// Skip the verifier — gap detection runs in the dispatch goroutine
+	// before scheduler dispatch and is independent of verification.
+	// Drive #identity events directly.
+	var connCount atomic.Int32
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		ctx := context.Background()
+		n := connCount.Add(1)
+		if n == 1 {
+			// First connection: cursor advances to 100.
+			_ = conn.Write(ctx, websocket.MessageBinary,
+				buildFrame("#identity", buildIdentityBody(100, "did:plc:gap1")))
+			_ = conn.CloseNow()
+			return
+		}
+		// Reconnect: relay's outbox window has advanced past our
+		// cursor. Pre-fix: parallel mode silently accepted this.
+		// Post-fix: GapError surfaces.
+		_ = conn.Write(ctx, websocket.MessageBinary,
+			buildFrame("#identity", buildIdentityBody(5000, "did:plc:gap2")))
+		_ = conn.Close(websocket.StatusNormalClosure, "done")
+	})
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Parallelism: gt.Some(4),
+		Backoff: gt.Some(BackoffPolicy{
+			InitialDelay: gt.Some(10 * time.Millisecond),
+			MaxDelay:     gt.Some(50 * time.Millisecond),
+			Multiplier:   gt.Some(2.0),
+			Jitter:       gt.Some(false),
+		}),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var (
+		gapSeen *GapError
+		evts    int
+	)
+	for batch, iterErr := range client.Events(ctx) {
+		if iterErr != nil {
+			var ge *GapError
+			if stderrors.As(iterErr, &ge) {
+				gapSeen = ge
+			}
+			continue
+		}
+		evts += len(batch)
+		if gapSeen != nil && evts >= 2 {
+			cancel()
+		}
+	}
+
+	require.NotNil(t, gapSeen, "parallel mode must surface a GapError when the relay resumes past our cursor")
+	require.Equal(t, int64(101), gapSeen.Expected, "expected gap = lastSeenSeq+1 = 101")
+	require.Equal(t, int64(5000), gapSeen.Got)
 }
 
 // failingHostingStateStore returns errFailingHosting from SaveHosting,

@@ -922,7 +922,12 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 	// mutates it, but onDrop is invoked synchronously on the dispatch
 	// goroutine inside AddWork, so no locking is required.
 	var inflight inflightSeqs
-	var lastSeenSeq int64
+	// Seed lastSeenSeq from the persisted cursor so global gap
+	// detection survives reconnects. Without this, every reconnect
+	// resets to 0 and the first frame trivially passes the
+	// `lastSeenSeq > 0` guard, masking gaps when the relay's outbox
+	// window has advanced past our cursor.
+	lastSeenSeq := c.cursor.Load()
 
 	sched := parallel.NewSchedulerWithContext[schedJob](
 		ctx,
