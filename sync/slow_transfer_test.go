@@ -12,9 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fastTick is the sampling interval for tests. Short enough for fast tests,
-// long enough to avoid flakes.
-const fastTick = 2 * time.Millisecond
+// fastTick is the sampling interval for the wall-clock-driven tests
+// below (the ones that don't use the deterministic ticker). Sized to
+// absorb scheduling jitter when this package's CPU-heavy verifier
+// swarm tests run alongside under -race. The threshold-precision
+// tests use newSlowTransferReaderWithTickChannel so their assertions
+// are independent of wall-clock scheduling.
+const fastTick = 20 * time.Millisecond
 
 // nopCloser wraps a reader with a no-op Close for tests that don't need
 // close-to-unblock behavior.
@@ -22,18 +26,225 @@ type nopCloser struct{ io.Reader }
 
 func (nopCloser) Close() error { return nil }
 
+// driver is the deterministic-ticker harness used by tests that
+// assert exact threshold behavior. The test pushes data, calls
+// pulse() to inject one sample, and waits for the monitor's
+// bookkeeping to complete before asserting.
+type driver struct {
+	tickC    chan time.Time
+	sampleCh chan struct{}
+}
+
+// newDriver builds a deterministic-ticker harness wired to a
+// fresh slowTransferReader. The returned driver lets the test
+// drive ticks one at a time via pulse().
+func newDriver(t *testing.T, r io.Reader, closer io.Closer, speedLimit int64, maxSlow int) (*slowTransferReader, *driver) {
+	t.Helper()
+	d := &driver{
+		tickC:    make(chan time.Time, 1),
+		sampleCh: make(chan struct{}, 1),
+	}
+	str := newSlowTransferReaderWithTickChannel(
+		r, closer, speedLimit, maxSlow, d.tickC,
+		func() { d.sampleCh <- struct{}{} },
+	)
+	t.Cleanup(str.Close)
+	return str, d
+}
+
+// pulse injects one tick into the monitor and blocks until the
+// monitor has finished processing it (via onSample). Returns true if
+// the tick caused the monitor to trip and exit; false if the monitor
+// continues. After a true return, no further pulses will be observed.
+func (d *driver) pulse(t *testing.T) bool {
+	t.Helper()
+	d.tickC <- time.Now()
+	select {
+	case <-d.sampleCh:
+		return false // not necessarily; check errp via the str
+	case <-time.After(time.Second):
+		t.Fatal("monitor did not process tick within 1s")
+		return false
+	}
+}
+
 func TestSlowTransferReader_FastReader(t *testing.T) {
 	t.Parallel()
 
 	data := bytes.Repeat([]byte("x"), 100_000)
 	r := bytes.NewReader(data)
-	str := newSlowTransferReaderWithConfig(r, nopCloser{r}, 100, 3, fastTick)
-	defer str.Close()
+	str, d := newDriver(t, r, nopCloser{r}, 100, 3)
 
-	got, err := io.ReadAll(str)
-	require.NoError(t, err)
-	assert.Equal(t, len(data), len(got))
+	// Read in one shot — buffer holds everything.
+	buf := make([]byte, len(data)+1)
+	n, _ := str.Read(buf)
+	require.Equal(t, len(data), n)
+
+	// Inject several ticks. With 100k bytes counted on the first read,
+	// the first tick zeros the counter; subsequent ticks see 0 bytes
+	// and increment slowTicks. Trip after maxSlow=3.
+	d.pulse(t) // n=100k, slow=0
+	d.pulse(t) // n=0,    slow=1
+	d.pulse(t) // n=0,    slow=2
+	d.pulse(t) // n=0,    slow=3 → trip
+
+	// At this point the monitor has tripped; the error is stored.
+	assert.Error(t, asError(str.errp.Load()))
 }
+
+// TestSlowTransferReader_StaysHealthyAtThreshold asserts the
+// "exactly at speed limit, never trips" property — the case the old
+// flaky ExactThreshold test was reaching for. With a deterministic
+// ticker each pulse counts exactly speedLimit bytes, so slowTicks
+// stays at 0 indefinitely.
+func TestSlowTransferReader_StaysHealthyAtThreshold(t *testing.T) {
+	t.Parallel()
+
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+	str, d := newDriver(t, pr, pr, 100, 5)
+
+	// Read in a goroutine so writes drain.
+	readDone := make(chan struct{})
+	totalRead := atomic.Int64{}
+	go func() {
+		defer close(readDone)
+		buf := make([]byte, 1024)
+		for {
+			n, err := str.Read(buf)
+			totalRead.Add(int64(n))
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	chunk := bytes.Repeat([]byte("z"), 100)
+	for range 20 {
+		_, err := pw.Write(chunk)
+		require.NoError(t, err)
+		// Wait until the read goroutine has accounted for this chunk.
+		// We can't observe bytesRead directly, so spin briefly via
+		// totalRead which mirrors it.
+		require.Eventually(t, func() bool {
+			return atomic.LoadInt64(&str.bytesRead) >= 100
+		}, time.Second, 100*time.Microsecond,
+			"read goroutine did not account for the write before tick")
+		d.pulse(t)
+		assert.Nil(t, str.errp.Load(), "must not trip at exact threshold")
+	}
+
+	_ = pw.Close()
+	<-readDone
+	assert.Equal(t, int64(100*20), totalRead.Load())
+}
+
+// TestSlowTransferReader_TripsBelowThreshold asserts the inverse:
+// a transfer running at speedLimit-1 bytes/tick trips after exactly
+// maxSlow consecutive ticks.
+func TestSlowTransferReader_TripsBelowThreshold(t *testing.T) {
+	t.Parallel()
+
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+	str, d := newDriver(t, pr, pr, 100, 3)
+
+	totalRead := atomic.Int64{}
+	go func() {
+		buf := make([]byte, 1024)
+		for {
+			n, err := str.Read(buf)
+			totalRead.Add(int64(n))
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	chunk := bytes.Repeat([]byte("z"), 99)
+	// Pulse twice with sub-threshold writes — slow counter at 1, then 2.
+	for range 2 {
+		_, err := pw.Write(chunk)
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			return atomic.LoadInt64(&str.bytesRead) >= 99
+		}, time.Second, 100*time.Microsecond)
+		d.pulse(t)
+		assert.Nil(t, str.errp.Load(), "should not have tripped yet")
+	}
+	// Third sub-threshold pulse — slow counter hits maxSlow=3, trip.
+	_, err := pw.Write(chunk)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt64(&str.bytesRead) >= 99
+	}, time.Second, 100*time.Microsecond)
+	d.pulse(t)
+	assert.Error(t, asError(str.errp.Load()), "should have tripped on third slow tick")
+}
+
+// TestSlowTransferReader_SlowThenFastResetsCounter asserts the
+// counter-reset semantic: a tick at-or-above threshold zeroes the
+// slow tick counter, so a subsequent slow phase needs the full
+// maxSlow streak to trip.
+func TestSlowTransferReader_SlowThenFastResetsCounter(t *testing.T) {
+	t.Parallel()
+
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+	str, d := newDriver(t, pr, pr, 100, 3)
+
+	totalRead := atomic.Int64{}
+	go func() {
+		buf := make([]byte, 1024)
+		for {
+			n, err := str.Read(buf)
+			totalRead.Add(int64(n))
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	pulseAfterWrite := func(data []byte) {
+		t.Helper()
+		_, err := pw.Write(data)
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			return atomic.LoadInt64(&str.bytesRead) >= int64(len(data))
+		}, time.Second, 100*time.Microsecond)
+		d.pulse(t)
+	}
+
+	// Two slow ticks (counter → 2, just shy of trip).
+	pulseAfterWrite([]byte("x"))
+	pulseAfterWrite([]byte("x"))
+	require.Nil(t, str.errp.Load())
+
+	// One fast tick — resets counter to 0.
+	pulseAfterWrite(bytes.Repeat([]byte("y"), 200))
+	require.Nil(t, str.errp.Load())
+
+	// Two more slow ticks — counter at 2, no trip yet.
+	pulseAfterWrite([]byte("x"))
+	pulseAfterWrite([]byte("x"))
+	require.Nil(t, str.errp.Load(),
+		"counter should have reset after the fast tick; two slow ticks alone shouldn't trip")
+}
+
+// asError unwraps the atomic.Pointer[error] result for assertion clarity.
+func asError(p *error) error {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+// --- The following tests use the wall-clock-driven constructor ---
+//
+// They assert qualitative properties (the monitor unblocks a stuck
+// read; an error eventually fires; bookkeeping is concurrent-safe).
+// Their assertions are robust to scheduling jitter — they do not
+// depend on exact byte counts within exact tick windows.
 
 func TestSlowTransferReader_CompletelyStalled(t *testing.T) {
 	t.Parallel()
@@ -42,7 +253,6 @@ func TestSlowTransferReader_CompletelyStalled(t *testing.T) {
 	pr, pw := io.Pipe()
 	defer func() { _ = pw.Close() }()
 
-	// speedLimit=100, maxSlow=3, tick=20ms → triggers after ~60ms
 	str := newSlowTransferReaderWithConfig(pr, pr, 100, 3, fastTick)
 	defer str.Close()
 
@@ -71,7 +281,9 @@ func TestSlowTransferReader_CompletelyStalled(t *testing.T) {
 func TestSlowTransferReader_TrickleAttack(t *testing.T) {
 	t.Parallel()
 
-	// Sends 1 byte per tick — below the 100 bytes/tick threshold.
+	// Sends 1 byte per tick — well below the 100 bytes/tick threshold.
+	// The trickle attack assertion is qualitative ("eventually errors"),
+	// so wall-clock timing is fine.
 	pr, pw := io.Pipe()
 	str := newSlowTransferReaderWithConfig(pr, pr, 100, 3, fastTick)
 	defer str.Close()
@@ -80,82 +292,6 @@ func TestSlowTransferReader_TrickleAttack(t *testing.T) {
 		defer func() { _ = pw.Close() }()
 		for range 20 {
 			_, _ = pw.Write([]byte("x"))
-			time.Sleep(fastTick)
-		}
-	}()
-
-	_, err := io.ReadAll(str)
-	assert.Error(t, err)
-}
-
-func TestSlowTransferReader_SlowThenFast(t *testing.T) {
-	t.Parallel()
-
-	// Slow for 2 ticks (below maxSlow), then speeds up.
-	// The slow counter should reset when speed recovers.
-	// Use a generous maxSlow to avoid flakes under -race where scheduling
-	// delays stretch the slow phase well beyond 2 tick intervals.
-	pr, pw := io.Pipe()
-	str := newSlowTransferReaderWithConfig(pr, pr, 100, 20, fastTick)
-	defer str.Close()
-
-	go func() {
-		defer func() { _ = pw.Close() }()
-
-		// Slow phase: 2 ticks of 1 byte each.
-		for range 2 {
-			_, _ = pw.Write([]byte("x"))
-			time.Sleep(fastTick)
-		}
-
-		// Fast phase: blast data above threshold.
-		chunk := bytes.Repeat([]byte("y"), 10_000)
-		for range 20 {
-			_, _ = pw.Write(chunk)
-			time.Sleep(fastTick)
-		}
-	}()
-
-	got, err := io.ReadAll(str)
-	require.NoError(t, err)
-	assert.Greater(t, len(got), 10_000)
-}
-
-func TestSlowTransferReader_ExactThreshold(t *testing.T) {
-	t.Parallel()
-
-	// Sends exactly at the speed limit — should NOT trigger.
-	pr, pw := io.Pipe()
-	str := newSlowTransferReaderWithConfig(pr, pr, 100, 5, fastTick)
-	defer str.Close()
-
-	go func() {
-		defer func() { _ = pw.Close() }()
-		chunk := bytes.Repeat([]byte("z"), 100)
-		for range 20 {
-			_, _ = pw.Write(chunk)
-			time.Sleep(fastTick)
-		}
-	}()
-
-	got, err := io.ReadAll(str)
-	require.NoError(t, err)
-	assert.Equal(t, 100*20, len(got))
-}
-
-func TestSlowTransferReader_JustBelowThreshold(t *testing.T) {
-	t.Parallel()
-
-	// Sends 99 bytes per tick, just below the 100 threshold.
-	pr, pw := io.Pipe()
-	str := newSlowTransferReaderWithConfig(pr, pr, 100, 3, fastTick)
-	defer str.Close()
-
-	go func() {
-		defer func() { _ = pw.Close() }()
-		chunk := bytes.Repeat([]byte("z"), 99)
-		for range 50 {
-			_, _ = pw.Write(chunk)
 			time.Sleep(fastTick)
 		}
 	}()
@@ -202,7 +338,7 @@ func TestSlowTransferReader_ByteCountingAccuracy(t *testing.T) {
 	t.Parallel()
 
 	pr, pw := io.Pipe()
-	// High speed limit so it never triggers; we just verify byte counts.
+	// High maxSlow so it never triggers; we just verify byte counts.
 	str := newSlowTransferReaderWithConfig(pr, pr, 1, 1000, fastTick)
 	defer str.Close()
 

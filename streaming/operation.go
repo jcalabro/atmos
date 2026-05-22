@@ -10,16 +10,22 @@ import (
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/car"
+	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/atmos/repo"
 )
 
-// Action is the type of record mutation.
-type Action string
+// Action is the type of record mutation. Aliases [atmos.Action] so
+// streaming consumers and verifier consumers use the same type at the
+// boundary — no string-cast required when passing ops between layers.
+type Action = atmos.Action
 
+// Action constants. Re-exported from package atmos for ergonomic
+// access via streaming.ActionCreate etc.
 const (
-	ActionCreate Action = "create"
-	ActionUpdate Action = "update"
-	ActionDelete Action = "delete"
-	ActionResync Action = "resync"
+	ActionCreate = atmos.ActionCreate
+	ActionUpdate = atmos.ActionUpdate
+	ActionDelete = atmos.ActionDelete
+	ActionResync = atmos.ActionResync
 )
 
 // CBORUnmarshaler is implemented by all generated ATProto types.
@@ -29,14 +35,29 @@ type CBORUnmarshaler interface {
 
 // Operation is a single record mutation from a #commit or #sync event,
 // with convenient access to the underlying record data.
+//
+// CID identifies the new record block for create/update/resync ops.
+// For delete ops the CID is the zero value (use [cbor.CID.Defined] to
+// check). Jetstream commits carry the CID as a base32 string in the
+// JSON payload; on parse failure the field is left undefined and an
+// error is yielded alongside the op.
+//
+// Strongly-typed fields (Collection, RKey, Repo, Rev) carry the
+// canonical ATproto syntax types so consumers can call methods like
+// [atmos.TID.Time] or [atmos.DID.Method] without re-parsing. The
+// streaming layer does NOT re-validate these against the type's
+// strict syntax — the values come from the upstream PDS and from
+// repo path splits, and a malformed wire value yields a malformed
+// typed value. Consumers that need strict syntax checks should call
+// the corresponding Parse* function on the field.
 type Operation struct {
-	Action     Action // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
-	Collection string // e.g. "app.bsky.feed.post"
-	RKey       string // record key, e.g. "3abc123"
-	Repo       string // DID of the repo
-	Rev        string // commit revision
-	CID        []byte // raw CID bytes of the new record (nil for deletes)
-	blockData  []byte // CBOR bytes of the record block (nil for deletes)
+	Action     Action          // ActionCreate, ActionUpdate, ActionDelete, or ActionResync
+	Collection atmos.NSID      // e.g. "app.bsky.feed.post"
+	RKey       atmos.RecordKey // record key, e.g. "3abc123"
+	Repo       atmos.DID       // DID of the repo
+	Rev        atmos.TID       // commit revision
+	CID        cbor.CID        // record content hash; zero for deletes
+	blockData  []byte          // CBOR bytes of the record block (nil for deletes)
 }
 
 // BlockData returns the raw CBOR bytes of the record block, or nil for
@@ -64,36 +85,89 @@ func (o *Operation) Decode(dst CBORUnmarshaler) error {
 // callers that need to iterate multiple times should collect the results.
 func (e *Event) Operations() iter.Seq2[Operation, error] {
 	return func(yield func(Operation, error) bool) {
+		// Wrap yield to enforce strict validation when configured.
+		// On a successful yield (op, nil) we run validateOpFields;
+		// if it fails, we surface the syntax error in place of the
+		// op. Errors from upstream pass through unchanged.
+		actual := yield
+		if e.strictValidation {
+			actual = func(op Operation, err error) bool {
+				if err == nil {
+					if vErr := validateOpFields(op); vErr != nil {
+						return yield(Operation{}, vErr)
+					}
+				}
+				return yield(op, err)
+			}
+		}
+
+		if e.verifierRan {
+			for _, op := range e.verifiedOps {
+				if !actual(op, nil) {
+					return
+				}
+			}
+			return
+		}
 		if e.Commit != nil {
-			e.yieldCommitOps(yield)
+			e.yieldCommitOps(actual)
 			return
 		}
 		if e.Jetstream != nil && e.Jetstream.Commit != nil {
-			e.yieldJetstreamOp(yield)
+			e.yieldJetstreamOp(actual)
 			return
 		}
 		if e.Sync != nil && e.syncClient != nil {
-			e.yieldResyncOps(yield)
+			e.yieldResyncOps(actual)
 			return
 		}
 	}
+}
+
+// validateOpFields runs the typed-field syntax checks on op and
+// returns the first failure, or nil. Used by Operations() under
+// Options.StrictValidation. Errors are wrapped with a label naming
+// the offending field so consumers know which one failed.
+func validateOpFields(op Operation) error {
+	if err := op.Repo.Validate(); err != nil {
+		return fmt.Errorf("op.Repo: %w", err)
+	}
+	if err := op.Collection.Validate(); err != nil {
+		return fmt.Errorf("op.Collection: %w", err)
+	}
+	if err := op.RKey.Validate(); err != nil {
+		return fmt.Errorf("op.RKey: %w", err)
+	}
+	if err := op.Rev.Validate(); err != nil {
+		return fmt.Errorf("op.Rev: %w", err)
+	}
+	return nil
 }
 
 // yieldJetstreamOp yields a single operation from a Jetstream commit event.
 // Note: blockData is nil because Jetstream records are JSON (not CBOR), so
 // [Operation.Decode] will return an error. Use [JetstreamCommit.Record]
 // directly for the raw JSON payload.
+//
+// If the Jetstream commit's CID string fails to parse, the op is yielded
+// with an undefined CID alongside a parse error so callers can decide
+// whether to skip the event or surface it.
 func (e *Event) yieldJetstreamOp(yield func(Operation, error) bool) {
 	jc := e.Jetstream.Commit
 	op := Operation{
 		Action:     Action(jc.Operation),
-		Collection: jc.Collection,
-		RKey:       jc.RKey,
-		Repo:       e.Jetstream.DID,
-		Rev:        jc.Rev,
+		Collection: atmos.NSID(jc.Collection),
+		RKey:       atmos.RecordKey(jc.RKey),
+		Repo:       atmos.DID(e.Jetstream.DID),
+		Rev:        atmos.TID(jc.Rev),
 	}
 	if jc.CID != "" {
-		op.CID = []byte(jc.CID)
+		cid, err := cbor.ParseCIDString(jc.CID)
+		if err != nil {
+			yield(op, fmt.Errorf("jetstream: parse CID %q: %w", jc.CID, err))
+			return
+		}
+		op.CID = cid
 	}
 	yield(op, nil)
 }
@@ -109,27 +183,33 @@ func (e *Event) yieldCommitOps(yield func(Operation, error) bool) {
 		return
 	}
 
-	// Index blocks by CID string for fast lookup.
-	blockIdx := make(map[string][]byte, len(blocks))
+	// Index blocks by CID for fast lookup.
+	blockIdx := make(map[cbor.CID][]byte, len(blocks))
 	for _, b := range blocks {
-		blockIdx[b.CID.String()] = b.Data
+		blockIdx[b.CID] = b.Data
 	}
 
 	for _, op := range commit.Ops {
-		collection, rkey := splitPath(op.Path)
+		collection, rkey := repo.SplitMSTKey(op.Path)
 
 		o := Operation{
 			Action:     Action(op.Action),
-			Collection: collection,
-			RKey:       rkey,
-			Repo:       commit.Repo,
-			Rev:        commit.Rev,
+			Collection: atmos.NSID(collection),
+			RKey:       atmos.RecordKey(rkey),
+			Repo:       atmos.DID(commit.Repo),
+			Rev:        atmos.TID(commit.Rev),
 		}
 
 		if op.CID.HasVal() {
-			cidLink := op.CID.Val().Link
-			o.CID = []byte(cidLink)
-			o.blockData = blockIdx[cidLink]
+			cid, err := cbor.ParseCIDString(op.CID.Val().Link)
+			if err != nil {
+				if !yield(o, fmt.Errorf("op %s: parse CID: %w", op.Path, err)) {
+					return
+				}
+				continue
+			}
+			o.CID = cid
+			o.blockData = blockIdx[cid]
 		}
 
 		if !yield(o, nil) {
@@ -162,11 +242,11 @@ func (e *Event) yieldResyncOps(yield func(Operation, error) bool) {
 
 		op := Operation{
 			Action:     ActionResync,
-			Collection: rec.Collection,
-			RKey:       rec.RKey,
-			Repo:       e.Sync.DID,
-			Rev:        e.Sync.Rev,
-			CID:        rec.CID.Bytes(),
+			Collection: atmos.NSID(rec.Collection),
+			RKey:       atmos.RecordKey(rec.RKey),
+			Repo:       atmos.DID(e.Sync.DID),
+			Rev:        atmos.TID(e.Sync.Rev),
+			CID:        rec.CID,
 			blockData:  rec.Data,
 		}
 
@@ -188,7 +268,7 @@ func (o *Operation) Record(decode RecordDecoder) (any, error) {
 	if o.blockData == nil {
 		return nil, errors.New("no record data (delete operation)")
 	}
-	return decode(o.Collection, o.blockData)
+	return decode(string(o.Collection), o.blockData)
 }
 
 // ChainDecoders combines multiple RecordDecoders into one. Each decoder is
@@ -208,13 +288,4 @@ func ChainDecoders(decoders ...RecordDecoder) RecordDecoder {
 		}
 		return nil, fmt.Errorf("unknown collection: %s", collection)
 	}
-}
-
-// splitPath splits "app.bsky.feed.post/3abc" into ("app.bsky.feed.post", "3abc").
-func splitPath(path string) (collection, rkey string) {
-	i := strings.LastIndexByte(path, '/')
-	if i < 0 {
-		return path, ""
-	}
-	return path[:i], path[i+1:]
 }

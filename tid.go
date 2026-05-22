@@ -62,7 +62,7 @@ func (t TID) Integer() uint64 {
 		return 0
 	}
 	var v uint64
-	for i := 0; i < 13; i++ {
+	for i := range 13 {
 		v = (v << 5) | uint64(base32SortDecode(t[i]))
 	}
 	return v
@@ -84,6 +84,15 @@ func (t TID) ClockID() uint {
 		return 0
 	}
 	return uint(t.Integer() & 0x3FF)
+}
+
+// Validate reports whether t satisfies the TID syntax. Useful for
+// values constructed by string casts (rather than [ParseTID]) that
+// need a post-hoc syntax check. Returns nil on success or a typed
+// syntax error that names the offending input.
+func (t TID) Validate() error {
+	_, err := ParseTID(string(t))
+	return err
 }
 
 func (t TID) String() string {

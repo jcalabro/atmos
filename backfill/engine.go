@@ -16,6 +16,7 @@ import (
 	atmossync "github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // errOnCompleteRecorded is returned from tryRepo when Store.OnComplete
@@ -65,7 +66,7 @@ type Engine struct {
 	// pdsClients pools per-PDS sync clients when Options.Directory is
 	// set, keyed by the PDS endpoint URL. Lazily populated by
 	// syncClientForRepo.
-	pdsClients sync.Map
+	pdsClients *xsync.Map[string, *atmossync.Client]
 
 	// completed counts DIDs transitioned to StateComplete in this Run.
 	completed atomic.Int64
@@ -81,7 +82,10 @@ type Engine struct {
 
 // NewEngine constructs an Engine from opts.
 func NewEngine(opts Options) *Engine {
-	return &Engine{opts: opts}
+	return &Engine{
+		opts:       opts,
+		pdsClients: xsync.NewMap[string, *atmossync.Client](),
+	}
 }
 
 // Run drives the engine to completion. It enumerates listRepos via
@@ -482,8 +486,7 @@ func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmossyn
 		return e.opts.SyncClient
 	}
 
-	if v, ok := e.pdsClients.Load(pds); ok {
-		sc, _ := v.(*atmossync.Client)
+	if sc, ok := e.pdsClients.Load(pds); ok {
 		return sc
 	}
 	xc := &xrpc.Client{
@@ -496,6 +499,5 @@ func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmossyn
 		Directory: e.opts.Directory,
 	})
 	actual, _ := e.pdsClients.LoadOrStore(pds, sc)
-	stored, _ := actual.(*atmossync.Client)
-	return stored
+	return actual
 }

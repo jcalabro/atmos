@@ -3,6 +3,7 @@ package mst
 
 import (
 	"fmt"
+	"iter"
 	"unsafe"
 
 	"github.com/jcalabro/atmos/cbor"
@@ -45,6 +46,22 @@ func (s *MemBlockStore) GetBlock(cid cbor.CID) ([]byte, error) {
 func (s *MemBlockStore) PutBlock(cid cbor.CID, data []byte) error {
 	s.blocks[cid] = data
 	return nil
+}
+
+// All returns an iterator over every (cid, data) pair currently in
+// the store. Order is unspecified.
+//
+// Like all MemBlockStore methods, not safe for concurrent use;
+// concurrent mutation during iteration will panic per Go's map-
+// iteration semantics.
+func (s *MemBlockStore) All() iter.Seq2[cbor.CID, []byte] {
+	return func(yield func(cbor.CID, []byte) bool) {
+		for cid, data := range s.blocks {
+			if !yield(cid, data) {
+				return
+			}
+		}
+	}
 }
 
 // entry is an in-memory MST entry: a key/value pair with optional right subtree.
@@ -502,8 +519,18 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 			}
 			n.dirty = true
 
-			if len(n.entries) == 0 {
-				return n.left, nil
+			// If we collapsed all entries AND there's no remaining
+			// left subtree, this node is fully empty — return nil so
+			// the parent drops the pointer. Otherwise keep n: the
+			// canonical MST shape requires an empty-but-non-nil
+			// intermediate (entries=[], left=<child>) to fill the
+			// height gap between the parent and the surviving child.
+			// Indigo's `removeChild` enforces the same invariant via
+			// IsEmpty (entries==0). Returning n.left directly here
+			// would skip a height level and produce a non-canonical
+			// root.
+			if len(n.entries) == 0 && n.left == nil {
+				return nil, nil
 			}
 			return n, nil
 		}
@@ -520,12 +547,23 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 			if err != nil {
 				return nil, err
 			}
+			// Invariant: the parent must propagate the child's dirty
+			// state. The recursive removeNode may mutate the child in
+			// place (e.g. removing one of multiple entries) and return
+			// the same pointer; in that case our pointer comparison
+			// alone would miss the change and our cached CID would go
+			// stale. Marking dirty if the child is dirty (or if the
+			// pointer changed) keeps RootCID() correct without
+			// recomputing eagerly. Insert follows the same pattern in
+			// insertBelow.
 			if newChild != child {
 				if idx == 0 {
 					n.left = newChild
 				} else {
 					n.entries[idx-1].right = newChild
 				}
+				n.dirty = true
+			} else if newChild != nil && newChild.dirty {
 				n.dirty = true
 			}
 			return n, nil
@@ -543,6 +581,8 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 		if newChild != child {
 			n.entries[last].right = newChild
 			n.dirty = true
+		} else if newChild != nil && newChild.dirty {
+			n.dirty = true
 		}
 	} else if n.left != nil {
 		child := n.left
@@ -553,7 +593,21 @@ func (t *Tree) removeNode(n *node, key string) (*node, error) {
 		if newChild != child {
 			n.left = newChild
 			n.dirty = true
+		} else if newChild != nil && newChild.dirty {
+			n.dirty = true
 		}
+	}
+	// Trim trailing empty passthrough at THIS level: if the only
+	// remaining structure is `entries=[]` AND `left == nil`, this
+	// node is a fully-empty stub and our parent should treat us as
+	// nil. (We do NOT collapse `entries=[] && left != nil` because
+	// such an "empty intermediate" is a meaningful height-encoding
+	// placeholder in the canonical MST shape — it's the difference
+	// between a height-2 root pointing directly at a height-0 leaf
+	// (wrong) versus pointing at a height-1 stub that points at the
+	// height-0 leaf (canonical).)
+	if len(n.entries) == 0 && n.left == nil {
+		return nil, nil
 	}
 	return n, nil
 }

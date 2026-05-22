@@ -44,7 +44,7 @@ func (c *Client) client() *http.Client {
 		if c.HTTPClient.HasVal() {
 			c.httpClient = c.HTTPClient.Val()
 		} else {
-			c.httpClient = jttp.New(append(atprotoOpts(30*time.Second), jttp.WithNoRetries())...)
+			c.httpClient = jttp.New(append(ATProtoOpts(30*time.Second), jttp.WithNoRetries())...)
 		}
 	})
 	return c.httpClient

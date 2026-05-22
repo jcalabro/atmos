@@ -502,6 +502,98 @@ func TestInsertAndRemove(t *testing.T) {
 	}
 }
 
+// TestRemoveCanonicality_HeightGap exercises the canonical-shape
+// invariant when Remove is called on a tree where the removed key is
+// at a level below the root. The MST's canonical encoding fills
+// height gaps with empty intermediate nodes (entries=[], left=<child>),
+// and Remove must preserve them or reproduce them when an entry
+// removal collapses an intermediate.
+//
+// Both cases below were minimal failing inputs surfaced by a
+// side-by-side property test against indigo's reference MST. They
+// guard against:
+//
+//   - Stale empty stubs left dangling when an entry-removal in a
+//     deep subtree leaves the chain empty all the way down (the
+//     stub's parent must drop the pointer; its grandparent must NOT
+//     synthesize a new chain).
+//   - Over-collapse when an entry-removal at a height-N intermediate
+//     leaves entries=[] but left=<height-(N-1) child>: the canonical
+//     shape requires keeping the empty height-N intermediate as a
+//     pass-through, NOT replacing the parent's pointer with a direct
+//     pointer to the height-(N-1) child (which would skip a level).
+func TestRemoveCanonicality_HeightGap(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		insert    []struct{ k, v string }
+		removeIdx int
+	}{
+		{
+			// One height-2 root key; one height-0 key < it (LEFT
+			// branch); one height-0 key > it (RIGHT branch). Remove
+			// the right-side key. The resulting tree must look like
+			// a fresh build of {left, root}.
+			name: "right-side-collapse",
+			insert: []struct{ k, v string }{
+				{"app.bsky.feed.like/394091dd64a21", "bafyreieohcq6uxdidshjuchrv5df6hyh2m6zghpi64npixwl5flxkhe2qy"},
+				{"app.bsky.feed.like/32f5052c9fd15", "bafyreiha2j2hxgvxvo3owzpag472dnbiukf5nwfchaaqnxgaqd2yabpocq"},
+				{"app.bsky.feed.like/388dbf612972c", "bafyreihoqylfaloqqhz7eugn54nv6hcau67gwxxn2wjw6jw4zmwf4mjbge"},
+			},
+			removeIdx: 0,
+		},
+		{
+			// One height-2 root key; two height-0 keys both < it
+			// (both LEFT). Remove the second one. The intermediate
+			// at height 1 (which used to hold a height-1 entry) must
+			// remain as an empty pass-through so the surviving
+			// height-0 leaf isn't promoted directly under the height-2
+			// root.
+			name: "left-side-keep-intermediate",
+			insert: []struct{ k, v string }{
+				{"app.bsky.feed.like/32f5052c9fd15", "bafyreiha2j2hxgvxvo3owzpag472dnbiukf5nwfchaaqnxgaqd2yabpocq"},
+				{"app.bsky.feed.like/36ab9f1eb8f7d", "bafyreib37qtjlfhpmsjcr2nhjovqb4cc57er2wwmn67oggryf2anii4i7y"},
+				{"app.bsky.feed.like/388dbf612972c", "bafyreihoqylfaloqqhz7eugn54nv6hcau67gwxxn2wjw6jw4zmwf4mjbge"},
+			},
+			removeIdx: 1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store := NewMemBlockStore()
+			tree := NewTree(store)
+			for _, e := range tc.insert {
+				c, err := cbor.ParseCIDString(e.v)
+				require.NoError(t, err)
+				require.NoError(t, tree.Insert(e.k, c))
+			}
+			require.NoError(t, tree.Remove(tc.insert[tc.removeIdx].k))
+			rootAfter, err := tree.RootCID()
+			require.NoError(t, err)
+
+			// Oracle: a freshly-built tree containing the surviving
+			// keyset. The MST is canonical, so this must match the
+			// post-remove root exactly.
+			store2 := NewMemBlockStore()
+			tree2 := NewTree(store2)
+			for i, e := range tc.insert {
+				if i == tc.removeIdx {
+					continue
+				}
+				c, err := cbor.ParseCIDString(e.v)
+				require.NoError(t, err)
+				require.NoError(t, tree2.Insert(e.k, c))
+			}
+			expected, err := tree2.RootCID()
+			require.NoError(t, err)
+
+			assert.Equal(t, expected.String(), rootAfter.String(),
+				"Remove must leave the canonical MST root for the resulting keyset")
+		})
+	}
+}
+
 func TestRemoveAllKeys(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()
@@ -536,6 +628,80 @@ func TestRemoveNonexistent(t *testing.T) {
 	got, err := tree.Get("a")
 	require.NoError(t, err)
 	require.NotNil(t, got)
+}
+
+// TestRemoveSubtreeDirtyPropagation guards against a regression where
+// Tree.Remove descended into a child subtree, mutated the child in place,
+// and returned the same pointer; the parent did not mark itself dirty,
+// so a subsequent RootCID() returned a stale cached CID. This silently
+// broke sync.InvertCommit of Create-only commits on multi-record repos:
+// the inverted root would equal the post-state root rather than the
+// pre-state, falsely flagging legitimate firehose events as chain breaks.
+//
+// The trigger requires a parent node with a multi-entry child subtree,
+// where Remove targets one of the multiple entries: the child's
+// removeNode finds and edits the entry in place, returns the same node
+// pointer (since len(entries) is still > 0), and the buggy parent only
+// marked itself dirty when newChild != child.
+func TestRemoveSubtreeDirtyPropagation(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	// These keys use a known interop fixture set whose MST shape places
+	// 3fs2j at height 1 as the root entry, while 3ft2j and 3fu2j are
+	// height-0 keys that both live in the right subtree. Removing one of
+	// them while the other remains exercises the parent-doesn't-mark-
+	// dirty path: the right subtree mutates in place, returns the same
+	// pointer, and the root's cached CID would be stale.
+	store := NewMemBlockStore()
+	tree := NewTree(store)
+	keys := []string{
+		"com.example.record/3jqfcqzm3fn2j", // height 0, in left subtree
+		"com.example.record/3jqfcqzm3fo2j", // height 0, in left subtree
+		"com.example.record/3jqfcqzm3fs2j", // height 1, root entry
+		"com.example.record/3jqfcqzm3ft2j", // height 0, in right subtree
+		"com.example.record/3jqfcqzm3fu2j", // height 0, in right subtree
+	}
+	for _, k := range keys {
+		require.NoError(t, tree.Insert(k, val))
+	}
+
+	// Cache the root CID and all child CIDs by writing blocks.
+	rootBefore, err := tree.WriteBlocks(store)
+	require.NoError(t, err)
+
+	// Sanity: re-asking for RootCID yields the cached value.
+	cached, err := tree.RootCID()
+	require.NoError(t, err)
+	require.True(t, rootBefore.Equal(cached))
+
+	// Remove a key that lives in the right subtree alongside a sibling.
+	// The subtree mutates in place; the buggy code does not mark the root
+	// dirty, so RootCID() returns the stale cached rootBefore.
+	require.NoError(t, tree.Remove("com.example.record/3jqfcqzm3fu2j"))
+
+	rootAfterRemove, err := tree.RootCID()
+	require.NoError(t, err)
+	require.False(t, rootBefore.Equal(rootAfterRemove),
+		"after removing a record from a sibling-bearing subtree, RootCID "+
+			"returned the stale cached root: %s. The parent node did not "+
+			"propagate its child's dirty flag.", rootAfterRemove.String())
+
+	// Independent oracle: build the expected post-remove tree from scratch
+	// and compare its root CID. They must agree.
+	expectedStore := NewMemBlockStore()
+	expectedTree := NewTree(expectedStore)
+	for _, k := range keys {
+		if k == "com.example.record/3jqfcqzm3fu2j" {
+			continue
+		}
+		require.NoError(t, expectedTree.Insert(k, val))
+	}
+	expectedRoot, err := expectedTree.RootCID()
+	require.NoError(t, err)
+	assert.True(t, expectedRoot.Equal(rootAfterRemove),
+		"post-remove root CID disagrees with from-scratch oracle: want %s, got %s",
+		expectedRoot.String(), rootAfterRemove.String())
 }
 
 func TestGetFromEmptyTree(t *testing.T) {

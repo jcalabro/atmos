@@ -102,9 +102,9 @@ func jsFirehoseConnect(_ js.Value, args []js.Value) any {
 						"seq", evt.Seq,
 						"kind", "commit",
 						"operation", string(op.Action),
-						"collection", op.Collection,
-						"did", op.Repo,
-						"rkey", op.RKey,
+						"collection", string(op.Collection),
+						"did", string(op.Repo),
+						"rkey", string(op.RKey),
 					)
 
 					// Decode CBOR record to JSON for display.

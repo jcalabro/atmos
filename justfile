@@ -10,15 +10,22 @@ install-tools:
 
 # Lints the code
 lint:
-    golangci-lint run --timeout 1m ./...
+    golangci-lint run --timeout 3m ./...
+
+# Updates to latest go practices
+modernize:
+    modernize -w ./...
 
 # Runs the tests
 test *ARGS="./...":
+    just test-long -short {{ARGS}}
+
+test-long *ARGS="./...":
     gotestsum --format-hide-empty-pkg --format-icons hivis -- -count=1 {{ARGS}}
 
 # Runs the tests with the race detector enabled
 test-race *ARGS="./...":
-    gotestsum --format-hide-empty-pkg --format-icons hivis -- -race -count=1 {{ARGS}}
+    just test-long -race {{ARGS}}
 
 # Regenerates all API types from vendored lexicon schemas
 lexgen:
@@ -36,7 +43,7 @@ wasm:
 
 # Runs tests under GOOS=js/wasm via Node (closest to in-browser WASM)
 test-wasm:
-    PATH="$PATH:$(go env GOROOT)/lib/wasm" GOOS=js GOARCH=wasm go test -short -count=1 ./...
+    PATH="$PATH:$(go env GOROOT)/lib/wasm" GOOS=js GOARCH=wasm just test
 
 # Runs fuzz tests for the given duration (default 10s per target)
 fuzz DURATION="10s" *ARGS="./...":

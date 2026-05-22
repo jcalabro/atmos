@@ -130,7 +130,8 @@ func TestHappyPath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	// Cross-DID strict ordering: opt into Parallelism=1.
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	for batch, err := range client.Events(ctx) {
@@ -167,7 +168,10 @@ func TestSequenceGap(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: wsURL(srv)})
+	// Opt into strict-order (Parallelism=1) so global gap detection
+	// fires across DIDs. Under parallel mode, gaps are per-DID and a
+	// 2-event multi-DID stream produces no gap.
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
 
 	var (
 		events []Event
@@ -216,6 +220,8 @@ func TestReconnection(t *testing.T) {
 	defer cancel()
 
 	var reconnects atomic.Int32
+	// Parallelism=1: cursor advances on highest yielded seq across
+	// DIDs, so reconnect query reliably contains cursor=1.
 	client := mustNewClient(t, Options{
 		URL: wsURL(srv),
 		Backoff: gt.Some(BackoffPolicy{
@@ -227,6 +233,7 @@ func TestReconnection(t *testing.T) {
 		OnReconnect: gt.Some(func(attempt int, delay time.Duration) {
 			reconnects.Add(1)
 		}),
+		Parallelism: gt.Some(1),
 	})
 
 	var events []Event
@@ -577,10 +584,10 @@ func TestNewClient_DisabledSyncClient(t *testing.T) {
 
 	c, err := NewClient(Options{
 		URL:        "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
-		SyncClient: gt.Some[*sync.Client](nil), // explicit opt-out
+		SyncClient: gt.Some(sync.NewClient(sync.Options{DisableAutoResync: true})),
 	})
 	require.NoError(t, err)
-	assert.Nil(t, c.syncClient, "should disable sync client with gt.Some(nil)")
+	assert.Nil(t, c.syncClient, "DisableAutoResync should leave syncClient nil")
 }
 
 func TestNewClient_BadURL(t *testing.T) {
@@ -589,4 +596,38 @@ func TestNewClient_BadURL(t *testing.T) {
 	_, err := NewClient(Options{URL: "https://not-a-websocket-url"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "derive HTTP URL")
+}
+
+func TestOptions_ParallelismDefault(t *testing.T) {
+	t.Parallel()
+	c, err := NewClient(Options{
+		URL:      "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier: gt.Some[*sync.Verifier](nil),
+	})
+	require.NoError(t, err)
+	defer func() { _ = c.Close() }()
+	require.Equal(t, 32, c.parallelism)
+}
+
+func TestOptions_ParallelismExplicit(t *testing.T) {
+	t.Parallel()
+	c, err := NewClient(Options{
+		URL:         "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier:    gt.Some[*sync.Verifier](nil),
+		Parallelism: gt.Some(8),
+	})
+	require.NoError(t, err)
+	defer func() { _ = c.Close() }()
+	require.Equal(t, 8, c.parallelism)
+}
+
+func TestOptions_ParallelismRejectsNonPositive(t *testing.T) {
+	t.Parallel()
+	_, err := NewClient(Options{
+		URL:         "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier:    gt.Some[*sync.Verifier](nil),
+		Parallelism: gt.Some(0),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "parallelism")
 }

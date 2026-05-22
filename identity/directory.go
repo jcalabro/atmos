@@ -2,11 +2,11 @@ package identity
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"sync"
 
 	"github.com/jcalabro/atmos"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // identityCopy returns a shallow copy of id so callers cannot mutate cached entries.
@@ -35,7 +35,39 @@ type Directory struct {
 	Resolver Resolver
 	Cache    Cache // nil = no caching
 
-	flights sync.Map // map[string]*inflight
+	// SkipHandleVerification disables the bi-directional handle check
+	// during [LookupDID]: the DID document is fetched and parsed, but
+	// the declared handle is NOT resolved back to a DID. The returned
+	// Identity's Handle is set to [atmos.HandleInvalid].
+	//
+	// On the firehose verify hot path the handle is irrelevant —
+	// signature verification only needs the atproto signing key — and
+	// the second resolution (DNS plus an HTTPS GET to the user's own
+	// domain) is the dominant cost. Skipping it is the single biggest
+	// throughput win for verifier consumers; mirrors indigo's
+	// [identity.BaseDirectory.SkipHandleVerification].
+	//
+	// Leave false (default) for callers that need to know whether the
+	// account currently controls its declared handle (e.g. AppViews
+	// rendering @handles or auth flows). Set true for the firehose
+	// verifier and any consumer that only needs the signing key.
+	SkipHandleVerification bool
+
+	// flights coalesces in-progress lookups so concurrent callers
+	// requesting the same key share one resolver round-trip. Lazily
+	// initialized so &Directory{Resolver: ...} struct literals stay
+	// valid; flightMap returns the live map.
+	flightsOnce sync.Once
+	flights     *xsync.Map[string, *inflight]
+}
+
+// flightMap returns the lazily-initialized in-flight request coalesce
+// map, constructing it on first access.
+func (d *Directory) flightMap() *xsync.Map[string, *inflight] {
+	d.flightsOnce.Do(func() {
+		d.flights = xsync.NewMap[string, *inflight]()
+	})
+	return d.flights
 }
 
 // Lookup resolves an ATIdentifier (DID or handle) to a verified Identity.
@@ -99,8 +131,19 @@ func (d *Directory) LookupHandle(ctx context.Context, handle atmos.Handle) (*Ide
 func (d *Directory) LookupDID(ctx context.Context, did atmos.DID) (*Identity, error) {
 	key := "did:" + string(did)
 
+	// Fast-path cache hit: avoid the coalesce machinery entirely on the
+	// common case. The coalesce closure still re-checks the cache
+	// (covering the race where another goroutine populated it between
+	// the check here and joining a flight).
+	if d.Cache != nil {
+		if id, ok := d.Cache.Get(ctx, key); ok {
+			return identityCopy(id), nil
+		}
+	}
+
 	return d.coalesce(ctx, key, func(ctx context.Context) (*Identity, error) {
-		// Check cache.
+		// Race window: another goroutine may have populated the cache
+		// between our pre-check and acquiring the inflight slot.
 		if d.Cache != nil {
 			if id, ok := d.Cache.Get(ctx, key); ok {
 				return identityCopy(id), nil
@@ -118,8 +161,13 @@ func (d *Directory) LookupDID(ctx context.Context, did atmos.DID) (*Identity, er
 			return nil, err
 		}
 
-		// Bi-directional verification: resolve declared handle back to DID.
-		if id.Handle != atmos.HandleInvalid {
+		// Bi-directional verification: resolve declared handle back to
+		// DID. Skipped when SkipHandleVerification is set; in that
+		// case any handle the doc declares is reported as
+		// HandleInvalid because we have not confirmed it.
+		if d.SkipHandleVerification {
+			id.Handle = atmos.HandleInvalid
+		} else if id.Handle != atmos.HandleInvalid {
 			resolvedDID, err := d.Resolver.ResolveHandle(ctx, id.Handle)
 			if err != nil || resolvedDID != did {
 				id.Handle = atmos.HandleInvalid
@@ -157,12 +205,10 @@ func (d *Directory) cacheIdentity(ctx context.Context, id *Identity, handle atmo
 }
 
 func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Context) (*Identity, error)) (*Identity, error) {
+	flights := d.flightMap()
+
 	// Check for in-flight request.
-	if val, ok := d.flights.Load(key); ok {
-		f, ok := val.(*inflight)
-		if !ok {
-			return nil, fmt.Errorf("unexpected type in flights map")
-		}
+	if f, ok := flights.Load(key); ok {
 		select {
 		case <-f.done:
 			return identityCopy(f.id), f.err
@@ -172,16 +218,11 @@ func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Co
 	}
 
 	f := &inflight{done: make(chan struct{})}
-	actual, loaded := d.flights.LoadOrStore(key, f)
-	if loaded {
+	if actual, loaded := flights.LoadOrStore(key, f); loaded {
 		// Another goroutine won the race.
-		f, ok := actual.(*inflight)
-		if !ok {
-			return nil, fmt.Errorf("unexpected type in flights map")
-		}
 		select {
-		case <-f.done:
-			return identityCopy(f.id), f.err
+		case <-actual.done:
+			return identityCopy(actual.id), actual.err
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -190,6 +231,6 @@ func (d *Directory) coalesce(ctx context.Context, key string, fn func(context.Co
 	// We won — do the work.
 	f.id, f.err = fn(ctx)
 	close(f.done)
-	d.flights.Delete(key)
+	flights.Delete(key)
 	return f.id, f.err
 }

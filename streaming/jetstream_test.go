@@ -222,7 +222,7 @@ func TestIsJetstreamURL(t *testing.T) {
 		{"wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos", false},
 		{"wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels", false},
 		{"http://example.com/subscribe", true},
-		{"wss://example.com/api/v1/subscribe", true},
+		{"wss://example.com/api/v1/subscribe", false},
 		{"wss://example.com/subscribes", false},
 		{"", false},
 	}
@@ -311,7 +311,9 @@ func TestJetstream_Integration_MixedEvents(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
+	// Parallelism=1: this test asserts strict cross-DID ordering by
+	// index (events[0] is alice's commit, [1] is bob's account, etc.).
+	client := mustNewClient(t, Options{URL: jetstreamURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	for batch, err := range client.Events(ctx) {
@@ -357,12 +359,12 @@ func TestJetstream_Integration_ReconnectWithCursor(t *testing.T) {
 		if cursor == "" {
 			// First connection: send 2 commit events with time_us for cursor.
 			for _, ts := range []int64{1000001, 1000002} {
-				frame := []byte(fmt.Sprintf(`{
+				frame := fmt.Appendf(nil, `{
 					"did": "did:plc:test",
 					"time_us": %d,
 					"kind": "commit",
 					"commit": {"rev": "r1", "operation": "create", "collection": "a.b.c", "rkey": "k", "record": {}}
-				}`, ts))
+				}`, ts)
 				_ = conn.Write(ctx, websocket.MessageText, frame)
 			}
 			_ = conn.CloseNow()
@@ -472,7 +474,11 @@ func TestJetstream_Integration_ErrorFrame(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
+	// Parallelism=1: this test asserts the good event is yielded
+	// before the error in the same loop iteration; under parallel
+	// mode the worker may still be processing when the error frame
+	// arrives, leaving the event in flight at cancel time.
+	client := mustNewClient(t, Options{URL: jetstreamURL(srv), Parallelism: gt.Some(1)})
 
 	var events []Event
 	var errs []error

@@ -100,6 +100,15 @@ func (h Handle) ATIdentifier() ATIdentifier {
 	return ATIdentifier(h)
 }
 
+// Validate reports whether h satisfies the Handle syntax. Useful
+// for values constructed by string casts (rather than [ParseHandle])
+// that need a post-hoc syntax check. Returns nil on success or a
+// typed syntax error that names the offending input.
+func (h Handle) Validate() error {
+	_, err := ParseHandle(string(h))
+	return err
+}
+
 func (h Handle) String() string {
 	return string(h)
 }

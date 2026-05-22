@@ -39,6 +39,20 @@ type Event struct {
 	// Set by readLoop for lazy #sync handling. Unexported, single-goroutine.
 	ctx        context.Context
 	syncClient *sync.Client
+
+	// verifiedOps and verifierRan together encode the result of running
+	// a sync.Verifier on this event. When verifierRan is true,
+	// Operations() yields verifiedOps directly without re-decoding the
+	// CAR. An empty-but-verifierRan-true means "verifier saw zero ops" —
+	// distinct from "verifier never ran" (verifierRan=false).
+	verifiedOps []Operation
+	verifierRan bool
+
+	// strictValidation, when true, makes Operations() validate each
+	// op's typed fields (NSID, RecordKey, DID, TID) before yielding
+	// and surface a typed atmos syntax error for any that fail.
+	// Plumbed from Options.StrictValidation by readLoop.
+	strictValidation bool
 }
 
 // Labels returns the individual labels from a subscribeLabels event,
@@ -91,7 +105,7 @@ func decodeFrameHeader(data []byte) (frameHeader, int, error) {
 	}
 
 	var hdr frameHeader
-	for i := uint64(0); i < count; i++ {
+	for range count {
 		key, newPos, err := cbor.ReadText(data, pos)
 		if err != nil {
 			return frameHeader{}, 0, err
@@ -164,6 +178,23 @@ func (e *Event) seqOf() int64 {
 		return e.Jetstream.TimeUS
 	}
 	return e.Seq
+}
+
+// repoOf returns the DID associated with this event, or "" for events
+// that have no per-repo binding (#info frames, server-side error frames,
+// label streams). Used to key the parallel scheduler.
+func (e *Event) repoOf() string {
+	switch {
+	case e.Commit != nil:
+		return e.Commit.Repo
+	case e.Sync != nil:
+		return e.Sync.DID
+	case e.Identity != nil:
+		return e.Identity.DID
+	case e.Account != nil:
+		return e.Account.DID
+	}
+	return ""
 }
 
 // decodeLabelFrame decodes an ATProto subscribeLabels frame (two concatenated

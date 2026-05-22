@@ -239,7 +239,7 @@ func TestExtraFields_CrossFormatNoLeak(t *testing.T) {
 	count, pos, err := cbor.ReadMapHeader(cborOut, 0)
 	require.NoError(t, err)
 	var keys []string
-	for i := uint64(0); i < count; i++ {
+	for range count {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(cborOut, pos)
 		require.NoError(t, err)
 		keys = append(keys, string(cborOut[keyStart:keyEnd]))

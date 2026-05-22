@@ -236,12 +236,10 @@ func TestNonceStore_Concurrent(t *testing.T) {
 	store := NewNonceStore()
 	var wg sync.WaitGroup
 	for i := range 100 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			store.Set("https://example.com", strings.Repeat("x", i))
 			store.Get("https://example.com")
-		}()
+		})
 	}
 	wg.Wait()
 }

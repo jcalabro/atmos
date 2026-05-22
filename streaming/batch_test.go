@@ -130,10 +130,13 @@ func TestBatch_ErrorBreaksBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Parallelism=1: batch ordering before/after a DecodeError is
+	// strict, so first batch reliably has seq=1.
 	client := mustNewClient(t, Options{
 		URL:          wsURL(srv),
 		BatchSize:    gt.Some(100),
 		BatchTimeout: gt.Some(5 * time.Second),
+		Parallelism:  gt.Some(1),
 	})
 
 	var (
@@ -178,10 +181,14 @@ func TestBatch_GapBreaksBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Parallelism=1: this test relies on global gap detection across
+	// distinct DIDs (alice, bob, carol with seq 1, 2, 5). Per-DID gap
+	// detection would never fire since each DID only appears once.
 	client := mustNewClient(t, Options{
 		URL:          wsURL(srv),
 		BatchSize:    gt.Some(100),
 		BatchTimeout: gt.Some(5 * time.Second),
+		Parallelism:  gt.Some(1),
 	})
 
 	var (
@@ -228,10 +235,12 @@ func TestBatch_ConnectionLossFlushes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Parallelism=1: cross-DID seq-order is asserted explicitly below.
 	client := mustNewClient(t, Options{
 		URL:          wsURL(srv),
 		BatchSize:    gt.Some(100),
 		BatchTimeout: gt.Some(5 * time.Second),
+		Parallelism:  gt.Some(1),
 	})
 
 	var events []Event

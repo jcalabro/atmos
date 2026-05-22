@@ -11,24 +11,26 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/streaming/parallel"
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
+	"github.com/jcalabro/jttp"
 )
 
 const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
 
 // Options configures a streaming client.
 type Options struct {
-	// URL is the full WebSocket URL. The decoder is auto-detected: URLs
-	// containing "subscribeLabels" use the label decoder, all others use
-	// the repository decoder.
+	// URL is the full WebSocket URL. The decoder is auto-detected based
+	// on the HTTP path. Examples of such URLs:
 	//
-	// Examples:
-	//   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos"
-	//   "wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels"
+	//   Firehose:  "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos"
+	//   Jetstream: "wss://jetstream1.us-east.bsky.network/subscribe"
+	//   Labeler:   "wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels"
 	//
-	// Required.
+	// This field is required.
 	URL string
 
 	// Cursor is the initial sequence number to resume from. None means start
@@ -80,12 +82,66 @@ type Options struct {
 	DIDs gt.Option[[]string]
 
 	// SyncClient overrides the sync client used for automatic #sync
-	// re-fetching. By default, a sync client is auto-created from the
-	// WebSocket URL (the relay typically 302-redirects getRepo requests to
-	// the account's PDS). To disable automatic resync, set to
-	// gt.Some[*sync.Client](nil). This option is only used for repo
+	// re-fetching. By default, a sync client is auto-created from
+	// the WebSocket URL (the relay typically 302-redirects getRepo
+	// requests to the account's PDS). To disable automatic resync,
+	// set DisableAutoResync. This option is only used for repo
 	// consumption, not labels.
 	SyncClient gt.Option[*sync.Client]
+
+	// Verifier, when set, runs Sync 1.1 verification on every #commit
+	// and #sync event before they reach the consumer's Operations()
+	// iterator, AND feeds every #account event into the verifier's
+	// hosting-state tracker (so HostingPolicy=HostingGate can drop
+	// commits for takendown DIDs). None means no verification — events
+	// flow through unchanged (existing behavior).
+	//
+	// Only relevant for firehose streams.
+	//
+	// Pass gt.Some[*sync.Verifier](nil) to disable
+	Verifier gt.Option[*sync.Verifier]
+
+	// StrictValidation makes [Event.Operations] validate each op's
+	// typed fields (NSID, RecordKey, DID, TID) against the
+	// corresponding [atmos] syntax types before yielding. None or
+	// false (the default) is the relaxed behavior: typed fields
+	// carry whatever value the wire produced, and consumers that
+	// care about strict syntax call [atmos.NSID.Validate] etc.
+	// themselves. Set to gt.Some(true) to make the iterator yield
+	// (Operation{}, error) for any op whose fields don't parse.
+	StrictValidation gt.Option[bool]
+
+	// Parallelism is the number of workers in the per-DID FIFO scheduler
+	// that runs verification (and decoded-event dispatch when no verifier
+	// is configured). Default 32. Set to 1 to preserve strict global seq
+	// ordering across DIDs at the cost of throughput.
+	//
+	// All values share a single readLoop implementation; Parallelism = 1
+	// is the same code path as Parallelism > 1 with one worker and an
+	// unbounded per-key queue.
+	//
+	// With Parallelism > 1:
+	//   - Events for the same DID are delivered in seq order.
+	//   - Events for different DIDs may interleave; a single yielded
+	//     batch can contain seqs in completion order, not seq order.
+	//   - Cursor checkpoints advance on a watermark equal to (smallest
+	//     in-flight seq - 1) so on-restart no event is skipped.
+	//   - Global GapError detection still fires (the dispatch goroutine
+	//     reads frames single-threaded, so the relay's monotonic seq is
+	//     observable before scheduler dispatch).
+	//   - Per-DID queue overflow surfaces as *DropError; under sustained
+	//     loss faster than the consumer drains, additional drops are
+	//     coalesced via DropError.AdditionalDropsSuppressed rather than
+	//     blocking the dispatch goroutine.
+	//
+	// With Parallelism = 1:
+	//   - Strict cross-DID seq ordering: events yield in the order the
+	//     relay sent them.
+	//   - The per-key queue is unbounded, so DropError is unreachable.
+	//     A stalled worker pushes back through the bounded msgCh and
+	//     websocket OS buffer rather than shedding events.
+	//   - All other guarantees from Parallelism > 1 still hold.
+	Parallelism gt.Option[int]
 }
 
 // Client connects to an ATProto event stream (firehose or label stream).
@@ -97,9 +153,16 @@ type Client struct {
 	cursorInterval int64
 	batchSize      int
 	batchTimeout   time.Duration
+	parallelism    int
 	decode         func([]byte) (Event, error)
 	syncClient     *sync.Client // nil disables automatic #sync resync
 	isJetstream    bool
+
+	// ownsVerifier is true if NewClient auto-attached the default
+	// verifier (i.e. the caller didn't supply one). Close() shuts down
+	// the verifier only in that case; user-supplied verifiers are the
+	// user's responsibility to close.
+	ownsVerifier bool
 
 	// Lock-related fields, initialized in NewClient.
 	lock                DistributedLocker
@@ -131,6 +194,10 @@ func NewClient(opts Options) (*Client, error) {
 	if batchTimeout <= 0 {
 		return nil, errors.New("BatchTimeout must be > 0")
 	}
+	parallelism := opts.Parallelism.ValOr(32)
+	if parallelism < 1 {
+		return nil, errors.New("parallelism must be >= 1")
+	}
 
 	lk := DistributedLocker(NoopLock{})
 	var lockOpts *DistributedLockerOptions
@@ -158,27 +225,57 @@ func NewClient(opts Options) (*Client, error) {
 
 	decode := decodeFrame
 	isJS := false
-	if strings.Contains(opts.URL, "subscribeLabels") {
+	isLabels := isSubscribeLabels(opts.URL)
+	if isLabels {
 		decode = decodeLabelFrame
 	} else if isJetstreamURL(opts.URL) {
 		decode = decodeJetstreamFrame
 		isJS = true
 	}
 
+	ownsVerifier := false
+
 	// Resolve the sync client for automatic #sync resync.
 	// Jetstream and label streams don't need a sync client.
 	var sc *sync.Client
-	if opts.SyncClient.HasVal() {
-		sc = opts.SyncClient.Val() // may be nil (opt-out)
-	} else if !isJS && !strings.Contains(opts.URL, "subscribeLabels") {
+	switch {
+	case opts.SyncClient.HasVal():
+		if !opts.SyncClient.Val().DisableAutoResync() {
+			sc = opts.SyncClient.Val()
+		}
+	case !isJS && !isLabels:
 		// Auto-create from the WebSocket URL for repo streams.
 		httpURL, err := deriveHTTPURL(opts.URL)
 		if err != nil {
 			return nil, fmt.Errorf("derive HTTP URL for sync client: %w", err)
 		}
+
 		sc = sync.NewClient(sync.Options{
-			Client: &xrpc.Client{Host: httpURL},
+			Client: &xrpc.Client{
+				Host:       httpURL,
+				HTTPClient: gt.Some(jttp.New(xrpc.BulkDownloadOpts()...)),
+			},
 		})
+
+		if opts.Verifier.HasVal() {
+			if opts.Verifier.Val() == nil {
+				opts.Verifier = gt.None[*sync.Verifier]() // disable
+			}
+		} else {
+			// Auto-set a sync 1.1 verifier if none is provided and sync 1.1
+			// is not explicitly disabled
+			v, err := sync.NewVerifier(sync.VerifierOptions{
+				Directory:  identity.NewInMemoryDirectory(),
+				StateStore: sync.NewMemStateStore(),
+				SyncClient: gt.Some(sc),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create default verifier: %w", err)
+			}
+
+			opts.Verifier = gt.Some(v)
+			ownsVerifier = true
+		}
 	}
 
 	c := &Client{
@@ -186,9 +283,11 @@ func NewClient(opts Options) (*Client, error) {
 		cursorInterval:      interval,
 		batchSize:           batchSize,
 		batchTimeout:        batchTimeout,
+		parallelism:         parallelism,
 		decode:              decode,
 		syncClient:          sc,
 		isJetstream:         isJS,
+		ownsVerifier:        ownsVerifier,
 		lock:                lk,
 		lockOpts:            lockOpts,
 		leaseDuration:       leaseDur,
@@ -218,6 +317,27 @@ func NewClient(opts Options) (*Client, error) {
 	return c, nil
 }
 
+func isSubscribeLabels(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	// EqualFold because even though it's invalid, certain web frameworks
+	// that shall remain unnamed treat HTTP paths as case insensitive
+	// by default.
+	return strings.EqualFold(parsed.Path, "/xrpc/com.atproto.label.subscribeLabels")
+}
+
+func isJetstreamURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	return strings.EqualFold(parsed.Path, "/subscribe")
+}
+
 // Cursor returns the sequence number of the last successfully yielded event.
 // Safe to call concurrently.
 func (c *Client) Cursor() int64 {
@@ -225,10 +345,15 @@ func (c *Client) Cursor() int64 {
 }
 
 // Close gracefully shuts down the WebSocket connection. If a CursorStore is
-// configured, the current cursor is persisted (best-effort). Close does not
-// release the distributed lock — the lock is released when the [Events]
-// iterator terminates (via context cancellation or the caller breaking out
-// of the range loop).
+// configured, the current cursor is persisted (best-effort). If the client
+// auto-attached a verifier (no Verifier option supplied to NewClient), the
+// verifier is closed too — its worker pool stops and ResyncEvents /
+// AsyncErrors channels are drained. User-supplied verifiers are the
+// caller's responsibility.
+//
+// Close does not release the distributed lock — the lock is released when
+// the [Events] iterator terminates (via context cancellation or the caller
+// breaking out of the range loop).
 func (c *Client) Close() error {
 	if c.opts.CursorStore.HasVal() {
 		cur := c.cursor.Load()
@@ -237,6 +362,12 @@ func (c *Client) Close() error {
 			// cancelled parent contexts.
 			_ = c.opts.CursorStore.Val().SaveCursor(context.Background(), cur)
 		}
+	}
+
+	if c.ownsVerifier && c.opts.Verifier.HasVal() {
+		// Best-effort: verifier Close() is documented to be idempotent
+		// and never returns an error from in-flight workers.
+		_ = c.opts.Verifier.Val().Close()
 	}
 
 	conn := c.conn.Load()
@@ -316,9 +447,8 @@ func (c *Client) Events(ctx context.Context) iter.Seq2[[]Event, error] {
 }
 
 // consumeLoop connects to the WebSocket and reads events, reconnecting with
-// backoff on connection loss. Returns true only when the yield function
-// returns false (caller wants to stop iterating). Returns false when the
-// context is cancelled or connection errors occur.
+// backoff on connection loss. Returns true only when the caller wants to stop
+// iterating. Returns false when the context is cancelled or connection errors occur.
 func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) bool) bool {
 	attempt := 0
 	for {
@@ -334,7 +464,7 @@ func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) boo
 
 			// Non-retryable dial errors (e.g. wrong URL, non-WebSocket
 			// endpoint) are yielded to the caller.
-			if errors.As(err, new(*DialError)) {
+			if err, ok := errors.AsType[*DialError](err); ok {
 				return !yield(nil, err)
 			}
 
@@ -480,20 +610,141 @@ type readResult struct {
 	err  error
 }
 
-// readLoop reads messages from the WebSocket and yields batches of events.
-// A reader goroutine sends raw frames to a channel; the main select loop
-// decodes, accumulates, and flushes batches on three triggers: batch full,
-// timeout, or error. Returns true only when the yield function returns false
-// (caller wants to stop iterating). Returns false for context cancellation
-// and connection errors (caller should reconnect or exit).
+// readLoop runs the firehose with per-event work (verification and
+// dispatch) handled by a per-DID FIFO worker pool of c.parallelism
+// goroutines. Events for the same DID are always strictly ordered;
+// events for different DIDs may complete out of seq order at
+// parallelism > 1. Cursor advances on a watermark equal to the
+// smallest in-flight seq minus 1; a global seq tracker drives
+// GapError.
+//
+// At parallelism = 1 the per-key queue is unbounded (keyQueueCap = 0),
+// preserving backpressure semantics: if the lone worker stalls the
+// dispatch goroutine grows the per-key queue rather than displacing
+// work, and the bounded msgCh + websocket buffer eventually push back
+// on the relay. As a corollary, *DropError is unreachable at
+// parallelism = 1. At parallelism > 1, keyQueueCap = parallelism * 2
+// and per-DID queue overflow surfaces as *DropError.
+//
+// Returns true when the caller's yield function asked to stop
+// iterating; false on connection errors or context cancellation
+// (caller should reconnect or exit).
 func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
-	msgCh := make(chan readResult, 1)
+	// schedJob carries one decoded event through the scheduler.
+	type schedJob struct {
+		evt Event
+	}
+
+	// Result channel shared by all workers; the dispatch goroutine
+	// drains it and selects on the multiple channels listed below.
+	resultCh := make(chan verifyResult, 4096) // headroom for typical concurrent completions before backpressure on workers
+
+	// asyncErr fires drop notifications. Buffered so onDrop never
+	// blocks the scheduler.
+	asyncErr := make(chan error, 256) // enough for typical drop-rate spikes; overflow drops the drop notification
+
+	// At parallelism = 1 we deliberately disable per-key drop-oldest
+	// (keyQueueCap = 0) so the strict-order escape hatch preserves
+	// backpressure: a stalled lone worker grows the per-key queue, the
+	// dispatch goroutine eventually blocks on the bounded msgCh, and
+	// the websocket reader fills its OS buffer until the relay pushes
+	// back. DropError is therefore never emitted at parallelism = 1.
+	// At parallelism > 1, we cap the per-key queue at parallelism * 2;
+	// further arrivals for a key with a full queue surface as DropError
+	// via onDrop.
+	queueCap := 0
+	if c.parallelism > 1 {
+		queueCap = c.parallelism * 2
+	}
+
+	// inflight tracks seqs dispatched to the scheduler that have not
+	// yet produced a verifyResult. Drives the watermark cursor (cursor
+	// = min(inflight) - 1) and the connection-close drain. Owned by
+	// the dispatch goroutine; the scheduler's onDrop callback also
+	// mutates it, but onDrop is invoked synchronously on the dispatch
+	// goroutine inside AddWork, so no locking is required.
+	var inflight inflightSeqs
+	// suppressedDrops tracks DropError notifications that couldn't fit
+	// in the asyncErr buffer; the next successful send rolls the
+	// accumulated count into AdditionalDropsSuppressed so the consumer
+	// can reconcile total loss. Owned by the dispatch goroutine.
+	var suppressedDrops uint64
+	// Seed lastSeenSeq from the persisted cursor so global gap
+	// detection survives reconnects. Without this, every reconnect
+	// resets to 0 and the first frame trivially passes the
+	// `lastSeenSeq > 0` guard, masking gaps when the relay's outbox
+	// window has advanced past our cursor.
+	lastSeenSeq := c.cursor.Load()
+
+	sched := parallel.NewSchedulerWithContext(
+		ctx,
+		c.parallelism,
+		queueCap,
+		func(jctx context.Context, j schedJob) error {
+			// jctx is the readLoop's ctx (consumer's parent ctx); a
+			// cancel propagates into VerifyCommit/VerifySync,
+			// OnAccountEvent, and the PLC/CAR network calls they make,
+			// so consumer shutdown unblocks any blocking I/O the
+			// verifier holds.
+			res := c.verifyOne(jctx, j.evt)
+			select {
+			case resultCh <- res:
+			case <-ctx.Done():
+			}
+			return nil
+		},
+		func(j schedJob) {
+			seq := j.evt.seqOf()
+			did := j.evt.repoOf()
+			// Release the dropped seq from the watermark cursor's
+			// inflight set: no worker will ever produce a verifyResult
+			// for this work, so without this the watermark stays pinned
+			// to seq forever (cursor freezes; drainResults hangs on
+			// connection close because inflight.Len() never reaches
+			// zero).
+			//
+			// Safe to mutate inflight here without locking: AddWork
+			// invokes onDrop synchronously on the caller's goroutine,
+			// and the only caller of AddWork is the dispatch goroutine
+			// — the same goroutine that owns inflight.
+			if seq > 0 {
+				inflight.Remove(seq)
+			}
+			// suppressedDrops accumulates drop notifications that
+			// couldn't fit into the asyncErr buffer. When the next
+			// notification *does* land, it carries the suppressed count
+			// so consumers can reconcile total loss without us blocking
+			// the dispatch goroutine on a slow consumer. Owned by the
+			// dispatch goroutine (onDrop runs synchronously inside
+			// AddWork, on the dispatch goroutine).
+			err := &DropError{
+				DID:                       did,
+				Seq:                       seq,
+				QueueLen:                  queueCap,
+				AdditionalDropsSuppressed: suppressedDrops,
+			}
+			select {
+			case asyncErr <- err:
+				// Successfully sent — reset the suppressed counter
+				// since we've now accounted for everything up to this
+				// drop.
+				suppressedDrops = 0
+			default:
+				// asyncErr full: track the loss instead of blocking the
+				// dispatch goroutine. The next successful send will
+				// surface the accumulated count.
+				suppressedDrops++
+			}
+		},
+	)
+	defer sched.Shutdown()
 
 	// Reader goroutine: reads raw frames and sends them to msgCh.
 	// Guaranteed not to leak because consumeLoop calls conn.CloseNow()
 	// after readLoop returns, which forces the blocking conn.Read to
 	// fail. The ctx.Done() branch handles the case where the context
 	// is cancelled before the read completes.
+	msgCh := make(chan readResult, 1)
 	go func() {
 		for {
 			_, data, err := conn.Read(ctx)
@@ -508,103 +759,335 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 		}
 	}()
 
-	batch := make([]Event, 0, c.batchSize)
-	lastSeenSeq := c.cursor.Load()
+	// Verifier auxiliary channels (resync events, async errors).
+	var resyncEvents <-chan sync.ResyncEvent
+	var verifierAsyncErrs <-chan error
+	if c.opts.Verifier.HasVal() && c.opts.Verifier.Val() != nil {
+		v := c.opts.Verifier.Val()
+		resyncEvents = v.ResyncEvents()
+		verifierAsyncErrs = v.AsyncErrors()
+	}
 
+	batch := make([]Event, 0, c.batchSize)
 	timer := time.NewTimer(c.batchTimeout)
 	defer timer.Stop()
 
-	// flushBatch yields the current batch, updates the cursor, and resets
-	// state. Returns true if the caller wants to stop iterating. Does
-	// nothing and returns false if the batch is empty.
+	// flushBatch yields the current batch and updates the cursor to
+	// max(currentCursor, watermark). Returns true if the caller
+	// stopped iterating.
 	flushBatch := func() bool {
 		if len(batch) == 0 {
 			return false
 		}
-
-		// Find the last seq for cursor update.
-		var lastSeq int64
-		for i := len(batch) - 1; i >= 0; i-- {
-			if s := batch[i].seqOf(); s > 0 {
-				lastSeq = s
-				break
-			}
-		}
-
 		stopped := !yield(batch, nil)
-
-		// Update cursor after successful yield.
-		if lastSeq > 0 {
-			c.cursor.Store(lastSeq)
-			if c.opts.CursorStore.HasVal() {
-				prevCount := c.cursorCount
-				c.cursorCount += int64(len(batch))
-				if c.cursorCount/c.cursorInterval > prevCount/c.cursorInterval {
-					_ = c.opts.CursorStore.Val().SaveCursor(ctx, lastSeq)
+		if !stopped {
+			watermark := inflight.Min()
+			cur := c.cursor.Load()
+			var newCur int64
+			if watermark > 0 {
+				newCur = watermark - 1
+			} else {
+				// inflight empty: cursor = highest yielded seq.
+				for _, e := range batch {
+					if s := e.seqOf(); s > newCur {
+						newCur = s
+					}
+				}
+			}
+			if newCur > cur {
+				c.cursor.Store(newCur)
+				if c.opts.CursorStore.HasVal() {
+					prevCount := c.cursorCount
+					c.cursorCount += int64(len(batch))
+					if c.cursorCount/c.cursorInterval > prevCount/c.cursorInterval {
+						_ = c.opts.CursorStore.Val().SaveCursor(ctx, newCur)
+					}
 				}
 			}
 		}
-
 		batch = make([]Event, 0, c.batchSize)
 		return stopped
+	}
+
+	// drainResults is declared before dispatch so dispatch can call it
+	// from its DecodeError / GapError branches; the body is assigned
+	// below. This is a forward-reference dance: a func var declared
+	// here, then assigned by name later, lets dispatch reference
+	// drainResults without circular-init worries.
+	var drainResults func() bool
+
+	// dispatch decodes a frame and either (a) sends it directly to
+	// resultCh for events with no DID or (b) AddWork to scheduler.
+	// Returns false if the caller wants to stop iterating.
+	dispatch := func(data []byte) bool {
+		evt, err := c.decode(data)
+		if errors.Is(err, errUnknownType) || errors.Is(err, errUnknownOp) {
+			return true
+		}
+		if err != nil {
+			// Drain any results that completed while this frame was
+			// waiting in msgCh so events that arrived BEFORE the bad
+			// frame land in the batch ahead of the DecodeError. Without
+			// this, the dispatch goroutine could yield the error while
+			// pre-error events were still in flight in the scheduler,
+			// breaking the "partial batch flushes before error" contract
+			// that consumers rely on for ordered error handling.
+			if drainResults() {
+				return false
+			}
+			if flushBatch() {
+				return false
+			}
+			timer.Reset(c.batchTimeout)
+			return yield(nil, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)})
+		}
+
+		// Plumb context, sync client, and strict validation onto the
+		// event before it heads into the scheduler. Operations() reads
+		// these to lazy-fetch a #sync repo and to gate strict syntax
+		// validation per yielded op.
+		if evt.Sync != nil && c.syncClient != nil {
+			evt.ctx = ctx
+			evt.syncClient = c.syncClient
+		}
+		evt.strictValidation = c.opts.StrictValidation.ValOr(false)
+
+		// Global gap detection. The dispatch goroutine reads frames
+		// from msgCh single-threaded, so the relay's monotonic seq is
+		// observable here. Skipped on Jetstream (whose cursor is
+		// time_us, not seq).
+		seq := evt.seqOf()
+		did := evt.repoOf()
+		if seq > 0 && !c.isJetstream {
+			if lastSeenSeq > 0 && seq > lastSeenSeq+1 {
+				// Drain in-flight results so pre-gap events (any seq
+				// already dispatched but still verifying) reach the
+				// consumer ahead of the GapError. Same contract as the
+				// DecodeError path above.
+				if drainResults() {
+					return false
+				}
+				if flushBatch() {
+					return false
+				}
+				timer.Reset(c.batchTimeout)
+				if !yield(nil, &GapError{Expected: lastSeenSeq + 1, Got: seq}) {
+					return false
+				}
+			}
+			lastSeenSeq = seq
+		}
+
+		// Track in-flight for watermark cursor.
+		if seq > 0 {
+			inflight.Add(seq)
+		}
+
+		// All events flow through the scheduler — DID-less events
+		// (#info, label-stream Info) use a fixed empty key. The
+		// scheduler serializes work for any single key, so events for
+		// the empty key serialize with each other AND with the lone
+		// worker at Parallelism=1, preserving global cross-DID
+		// ordering. Pre-unification, DID-less events bypassed the
+		// scheduler with a direct resultCh send, which raced with
+		// in-flight DID work at N=1 and broke strict ordering (e.g.
+		// #info arriving before a still-verifying #commit it should
+		// follow).
+		if err := sched.AddWork(ctx, did, schedJob{evt: evt}); err != nil {
+			// Context cancelled mid-dispatch.
+			if seq > 0 {
+				inflight.Remove(seq) // we will not see a result
+			}
+			return false
+		}
+		return true
+	}
+
+	// drainResults pulls any pending results from resultCh into the
+	// batch (calling flushBatch on overflow) until inflight is empty.
+	// Used on connection-close paths AND before yielding GapError /
+	// DecodeError, so pre-error events in flight reach the consumer
+	// ahead of the error. Returns true if the caller stopped iterating.
+	drainResults = func() bool {
+		for inflight.Len() > 0 {
+			select {
+			case vr := <-resultCh:
+				// See the same handler in the main select below for the
+				// invariant rationale and accountErr fall-through.
+				if vr.accountErr != nil {
+					if flushBatch() {
+						return true
+					}
+					if !yield(nil, vr.accountErr) {
+						return true
+					}
+					batch = append(batch, vr.evt)
+					if seq := vr.evt.seqOf(); seq > 0 {
+						inflight.Remove(seq)
+					}
+					if len(batch) >= c.batchSize {
+						if flushBatch() {
+							return true
+						}
+					}
+					continue
+				}
+				if vr.hookErr != nil {
+					if seq := vr.evt.seqOf(); seq > 0 {
+						inflight.Remove(seq)
+					}
+					if flushBatch() {
+						return true
+					}
+					if !yield(nil, vr.hookErr) {
+						return true
+					}
+					continue
+				}
+				if vr.silentDrop {
+					if seq := vr.evt.seqOf(); seq > 0 {
+						inflight.Remove(seq)
+					}
+					continue
+				}
+				batch = append(batch, vr.evt)
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				if len(batch) >= c.batchSize {
+					if flushBatch() {
+						return true
+					}
+				}
+			case <-ctx.Done():
+				return false
+			}
+		}
+		return false
 	}
 
 	for {
 		select {
 		case res := <-msgCh:
 			if res.err != nil {
-				// Connection error or context cancelled — flush partial batch.
+				if drainResults() {
+					return true
+				}
 				if flushBatch() {
 					return true
 				}
 				return false
 			}
-
-			evt, err := c.decode(res.data)
-			if errors.Is(err, errUnknownType) || errors.Is(err, errUnknownOp) {
-				continue
+			if !dispatch(res.data) {
+				return flushBatch()
 			}
-			if err != nil {
-				// Decode error — flush batch, then yield error.
+
+		case vr := <-resultCh:
+			// Invariant: a single Event carries one wire frame, so
+			// accountErr (from #account) and hookErr/silentDrop (from
+			// #commit/#sync) are mutually exclusive in practice.
+			// verify_worker.go's defensive co-execution path stays
+			// correct only because of this invariant.
+			//
+			// accountErr — yield the error, then fall through to also
+			// deliver the raw #account event. The verifier's
+			// bookkeeping failed, but consumers may still want to react
+			// to the takedown/suspension wire-event itself, so we surface
+			// both rather than swallowing the event.
+			if vr.accountErr != nil {
 				if flushBatch() {
 					return true
 				}
 				timer.Reset(c.batchTimeout)
-				if !yield(nil, &DecodeError{Frame: res.data, Err: fmt.Errorf("decode: %w", err)}) {
+				if !yield(nil, vr.accountErr) {
 					return true
 				}
-				continue
-			}
-
-			// Attach context and sync client for lazy #sync handling.
-			if evt.Sync != nil && c.syncClient != nil {
-				evt.ctx = ctx
-				evt.syncClient = c.syncClient
-			}
-
-			// Sequence gap detection (firehose/labels only — Jetstream uses
-			// time_us as cursor which is not sequential).
-			seq := evt.seqOf()
-			if seq > 0 && !c.isJetstream {
-				if lastSeenSeq > 0 && seq > lastSeenSeq+1 {
+				batch = append(batch, vr.evt)
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				if len(batch) >= c.batchSize {
 					if flushBatch() {
 						return true
 					}
 					timer.Reset(c.batchTimeout)
-					if !yield(nil, &GapError{Expected: lastSeenSeq + 1, Got: seq}) {
-						return true
-					}
 				}
-				lastSeenSeq = seq
+				continue
 			}
-
-			batch = append(batch, evt)
-
+			if vr.hookErr != nil {
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				if flushBatch() {
+					return true
+				}
+				timer.Reset(c.batchTimeout)
+				if !yield(nil, vr.hookErr) {
+					return true
+				}
+				continue
+			}
+			if vr.silentDrop {
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				continue
+			}
+			batch = append(batch, vr.evt)
+			if seq := vr.evt.seqOf(); seq > 0 {
+				inflight.Remove(seq)
+			}
 			if len(batch) >= c.batchSize {
 				if flushBatch() {
 					return true
 				}
 				timer.Reset(c.batchTimeout)
+			}
+
+		case res, ok := <-resyncEvents:
+			if !ok {
+				resyncEvents = nil
+				continue
+			}
+			const chunkSize = 100
+			for i := 0; i < len(res.Ops); i += chunkSize {
+				end := i + chunkSize
+				if end > len(res.Ops) {
+					end = len(res.Ops)
+				}
+				ops := convertVerifierOps(res.Ops[i:end])
+				batch = append(batch, Event{verifierRan: true, verifiedOps: ops})
+				if len(batch) >= c.batchSize {
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+				}
+			}
+
+		case err, ok := <-verifierAsyncErrs:
+			if !ok {
+				verifierAsyncErrs = nil
+				continue
+			}
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, err) {
+				return true
+			}
+
+		case err := <-asyncErr:
+			// asyncErr is function-local and never closed by anyone, so
+			// the comma-ok form (which would handle channel close) is
+			// not needed.
+			if flushBatch() {
+				return true
+			}
+			timer.Reset(c.batchTimeout)
+			if !yield(nil, err) {
+				return true
 			}
 
 		case <-timer.C:
@@ -614,9 +1097,6 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			timer.Reset(c.batchTimeout)
 
 		case <-ctx.Done():
-			// Context cancelled (e.g. lock lost or parent cancel) while the
-			// reader goroutine exited via its own ctx.Done() branch without
-			// sending the error to msgCh. Flush any partial batch and exit.
 			if flushBatch() {
 				return true
 			}
@@ -655,4 +1135,24 @@ func deriveHTTPURL(wsURL string) (string, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String(), nil
+}
+
+// convertVerifierOps maps a slice of sync.VerifierOp to the streaming
+// layer's Operation type. Both types carry identical fields; this
+// helper exists to keep the two readLoop call sites (inline-verifier
+// path and async-resync chunking) from drifting if a field is added.
+func convertVerifierOps(vos []sync.VerifierOp) []Operation {
+	ops := make([]Operation, len(vos))
+	for i, vo := range vos {
+		ops[i] = Operation{
+			Action:     vo.Action,
+			Collection: vo.Collection,
+			RKey:       vo.RKey,
+			Repo:       vo.Repo,
+			Rev:        vo.Rev,
+			CID:        vo.CID,
+			blockData:  vo.BlockData,
+		}
+	}
+	return ops
 }

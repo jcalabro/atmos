@@ -126,6 +126,15 @@ func (n NSID) Name() string {
 	return s[idx+1:]
 }
 
+// Validate reports whether n satisfies the NSID syntax. Useful for
+// values constructed by string casts (rather than [ParseNSID]) that
+// need a post-hoc syntax check. Returns nil on success or a typed
+// syntax error that names the offending input.
+func (n NSID) Validate() error {
+	_, err := ParseNSID(string(n))
+	return err
+}
+
 // Normalize lowercases the domain segments but preserves the name segment's case.
 func (n NSID) Normalize() NSID {
 	s := string(n)

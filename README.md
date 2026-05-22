@@ -29,7 +29,7 @@
 | [`atmos/repo`](https://pkg.go.dev/github.com/jcalabro/atmos/repo) | atproto repository operations |
 | [`atmos/serviceauth`](https://pkg.go.dev/github.com/jcalabro/atmos/serviceauth) | inter-service JWT authentication |
 | [`atmos/streaming`](https://pkg.go.dev/github.com/jcalabro/atmos/streaming) | client for consuming event streams (firehose and labelers) |
-| [`atmos/sync`](https://pkg.go.dev/github.com/jcalabro/atmos/sync) | repository sync, commit verification, and repo enumeration |
+| [`atmos/sync`](https://pkg.go.dev/github.com/jcalabro/atmos/sync) | repository sync, commit verification, Sync 1.1 firehose verifier, and repo enumeration |
 | [`atmos/xrpc`](https://pkg.go.dev/github.com/jcalabro/atmos/xrpc) | lexicon-agnostic XRPC HTTP client |
 | [`atmos/xrpcserver`](https://pkg.go.dev/github.com/jcalabro/atmos/xrpcserver) | XRPC HTTP server with `/xrpc/{nsid}` routing and standard error envelopes |
 

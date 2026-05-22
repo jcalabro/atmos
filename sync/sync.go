@@ -1,5 +1,19 @@
-// Package sync implements ATProto repository sync: streaming repo downloads,
-// record iteration, commit verification, and repo enumeration.
+// Package sync implements AT Protocol repository sync: streaming repo
+// downloads, record iteration, commit verification, and repo
+// enumeration.
+//
+// For firehose consumers (com.atproto.sync.subscribeRepos), [Verifier]
+// implements the full Sync 1.1 validation pipeline: MST inversion
+// against prevData, per-DID chain tracking, signature verification
+// with key-rotation handling, op-CID consistency, and transparent
+// resync via getRepo on failure. Construct one with [NewVerifier] and
+// pass it in streaming.Options.Verifier.
+//
+// Most [VerifierOptions] fields are wrapped in gt.Option so an unset
+// option (the zero value) can be distinguished from a deliberately
+// chosen value. The defaults (PolicyResync, LegacyAccept, 5-minute
+// future-rev tolerance, 5/min resync rate limit with burst 5) are
+// suitable for most consumer applications.
 package sync
 
 import (
@@ -39,13 +53,30 @@ type ListReposPage struct {
 	NextCursor string
 }
 
-// Options configures a sync client.
+// Options configures a sync Client.
 type Options struct {
-	Client *xrpc.Client // required: points at PDS or relay
+	// Client points at the PDS or relay. Required.
+	//
+	// Per Sync 1.1, downstream consumers fetch repos via getRepo from
+	// their sync boundary — typically the same relay they consume the
+	// firehose from. Relays respond with a 302 to the account's PDS,
+	// so the [*xrpc.Client]'s underlying [*http.Client] MUST follow
+	// redirects for resync to work. The default [xrpc.NewHTTPClient]
+	// allows up to 5 redirect hops; operators passing a custom
+	// HTTPClient should preserve that behavior.
+	Client *xrpc.Client
 
-	// Directory enables commit signature verification via DID resolution.
-	// None = signatures not verified.
+	// Directory enables commit signature verification via DID
+	// resolution. None disables signature checks.
 	Directory gt.Option[*identity.Directory]
+
+	// DisableAutoResync turns off the streaming layer's automatic
+	// fetching for #sync events. With it set, #sync events flow
+	// through to the consumer unchanged but Operations() yields
+	// nothing for them. Useful when a custom Verifier handles
+	// resync logic, or when the consumer wants to handle #sync
+	// itself.
+	DisableAutoResync bool
 }
 
 // Client performs sync operations against a PDS or relay.
@@ -56,4 +87,10 @@ type Client struct {
 // NewClient creates a new sync client.
 func NewClient(opts Options) *Client {
 	return &Client{opts: opts}
+}
+
+// Returns whether or not this Client is configured to automatically
+// resync on #sync events
+func (c *Client) DisableAutoResync() bool {
+	return c.opts.DisableAutoResync
 }

@@ -6,12 +6,26 @@ package repo
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/mst"
 )
+
+// SplitMSTKey splits a record path of the form "collection/rkey"
+// (e.g. "app.bsky.feed.post/3jqfcqzm3fp2j") into its collection and
+// rkey components, splitting at the FIRST '/' so a malformed key
+// with multiple slashes still puts the intended NSID on the left.
+//
+// Returns (path, "") when path contains no '/' — callers can treat
+// that as "not a valid MST key" via [mst.IsValidMstKey] if they need
+// strict validation.
+func SplitMSTKey(path string) (collection, rkey string) {
+	collection, rkey, _ = strings.Cut(path, "/")
+	return collection, rkey
+}
 
 // Repo is an in-memory ATProto repository.
 type Repo struct {
