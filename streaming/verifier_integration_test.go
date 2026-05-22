@@ -714,6 +714,95 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	require.Equal(t, 4, firstDrop.QueueLen, "QueueLen should match parallelism * 2")
 }
 
+// failingHostingStateStore returns errFailingHosting from SaveHosting,
+// so OnAccountEvent surfaces an infrastructure error. All other
+// methods delegate to inner.
+type failingHostingStateStore struct {
+	inner sync.StateStore
+}
+
+var errFailingHosting = stderrors.New("synthetic SaveHosting failure")
+
+func (s *failingHostingStateStore) LoadChain(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
+	return s.inner.LoadChain(ctx, did)
+}
+func (s *failingHostingStateStore) SaveChain(ctx context.Context, did atmos.DID, st sync.ChainState) error {
+	return s.inner.SaveChain(ctx, did, st)
+}
+func (s *failingHostingStateStore) LoadHosting(ctx context.Context, did atmos.DID) (*sync.HostingState, error) {
+	return s.inner.LoadHosting(ctx, did)
+}
+func (s *failingHostingStateStore) SaveHosting(ctx context.Context, did atmos.DID, _ sync.HostingState) error {
+	return errFailingHosting
+}
+func (s *failingHostingStateStore) Delete(ctx context.Context, did atmos.DID) error {
+	return s.inner.Delete(ctx, did)
+}
+
+// TestVerifiedStream_AccountErrorStillDeliversEvent_Parallel asserts
+// the parallel readLoop preserves the serial path's invariant: an
+// OnAccountEvent infrastructure failure surfaces the error to the
+// consumer AND still delivers the raw #account event. The serial path
+// at client.go:735-756 has an explicit "Don't continue" comment to
+// document this; the parallel result handler must match it.
+func TestVerifiedStream_AccountErrorStillDeliversEvent_Parallel(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:accterr")
+
+	frames := [][]byte{
+		buildFrame("#account", buildAccountBodyWithStatus(1, string(did), false, sync.StatusTakendown)),
+	}
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	store := &failingHostingStateStore{inner: sync.NewMemStateStore()}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  &identity.Directory{Resolver: testutil.NewTrackingResolver()},
+		StateStore: store,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	defer v.Close()
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Verifier:    gt.Some(v),
+		Parallelism: gt.Some(2),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var (
+		accountEventDelivered bool
+		accountErrorYielded   bool
+	)
+	for batch, iterErr := range client.Events(ctx) {
+		if iterErr != nil {
+			if stderrors.Is(iterErr, errFailingHosting) {
+				accountErrorYielded = true
+			}
+			continue
+		}
+		for _, evt := range batch {
+			if evt.Account != nil && evt.Account.DID == string(did) {
+				accountEventDelivered = true
+			}
+		}
+		if accountEventDelivered && accountErrorYielded {
+			cancel()
+		}
+	}
+
+	require.True(t, accountErrorYielded, "verifier infra failure must surface to consumer")
+	require.True(t, accountEventDelivered,
+		"raw #account event must still be delivered after OnAccountEvent failure (serial-mode invariant)")
+}
+
 // cancellableStateStore wraps a StateStore and blocks SaveChain on a
 // gate that only unblocks via context cancellation. Used to assert
 // that consumer ctx cancellation propagates into in-flight verifier I/O

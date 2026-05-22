@@ -1114,6 +1114,8 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 		for inflight.Len() > 0 {
 			select {
 			case vr := <-resultCh:
+				// See the same handler in the main select below for the
+				// invariant rationale and accountErr fall-through.
 				if vr.accountErr != nil {
 					if flushBatch() {
 						return true
@@ -1121,7 +1123,16 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 					if !yield(nil, vr.accountErr) {
 						return true
 					}
-					// fall through to deliver the underlying event
+					batch = append(batch, vr.evt)
+					if seq := vr.evt.seqOf(); seq > 0 {
+						inflight.Remove(seq)
+					}
+					if len(batch) >= c.batchSize {
+						if flushBatch() {
+							return true
+						}
+					}
+					continue
 				}
 				if vr.hookErr != nil {
 					if seq := vr.evt.seqOf(); seq > 0 {
@@ -1177,6 +1188,15 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 			}
 
 		case vr := <-resultCh:
+			// Invariant: a single Event carries one wire frame, so
+			// accountErr (from #account) and hookErr/silentDrop (from
+			// #commit/#sync) are mutually exclusive in practice.
+			// verify_worker.go's defensive co-execution path stays
+			// correct only because of this invariant.
+			//
+			// accountErr — yield error, then fall through to deliver
+			// the raw #account event. Matches the serial path's
+			// explicit "Don't continue" comment (~line 752).
 			if vr.accountErr != nil {
 				if flushBatch() {
 					return true
@@ -1185,7 +1205,17 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 				if !yield(nil, vr.accountErr) {
 					return true
 				}
-				// fall through to deliver the underlying event
+				batch = append(batch, vr.evt)
+				if seq := vr.evt.seqOf(); seq > 0 {
+					inflight.Remove(seq)
+				}
+				if len(batch) >= c.batchSize {
+					if flushBatch() {
+						return true
+					}
+					timer.Reset(c.batchTimeout)
+				}
+				continue
 			}
 			if vr.hookErr != nil {
 				if seq := vr.evt.seqOf(); seq > 0 {
