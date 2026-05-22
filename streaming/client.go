@@ -637,11 +637,11 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 
 	// Result channel shared by all workers; the dispatch goroutine
 	// drains it and selects on the multiple channels listed below.
-	resultCh := make(chan verifyResult, 256) // headroom for typical concurrent completions before backpressure on workers
+	resultCh := make(chan verifyResult, 4096) // headroom for typical concurrent completions before backpressure on workers
 
 	// asyncErr fires drop notifications. Buffered so onDrop never
 	// blocks the scheduler.
-	asyncErr := make(chan error, 64) // enough for typical drop-rate spikes; overflow drops the drop notification
+	asyncErr := make(chan error, 256) // enough for typical drop-rate spikes; overflow drops the drop notification
 
 	// At parallelism = 1 we deliberately disable per-key drop-oldest
 	// (keyQueueCap = 0) so the strict-order escape hatch preserves

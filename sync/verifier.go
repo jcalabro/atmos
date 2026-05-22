@@ -194,7 +194,7 @@ type ResyncReason int
 const (
 	// ReasonChainBreak: incoming commit's prevData (or inverted root)
 	// did not match locally-tracked state.
-	ReasonChainBreak ResyncReason = iota
+	ReasonChainBreak ResyncReason = iota + 1
 
 	// ReasonInversionFailure: the commit's CAR diff could not be
 	// inverted (malformed CAR, missing blocks, structural breakage).
@@ -580,7 +580,7 @@ const (
 	// chain-continuity gate catching it. Signature and op-CID checks
 	// still rule out cross-DID rebroadcast and fabricated records.
 	// Use LegacyReject if that residual exposure is unacceptable.
-	LegacyAccept LegacyCommitPolicy = iota
+	LegacyAccept LegacyCommitPolicy = iota + 1
 
 	// LegacyReject routes legacy commits through the failure path.
 	// VerifierPolicy then decides: PolicyResync triggers a transparent
@@ -610,7 +610,7 @@ const (
 	// from StateStore.LoadHosting and apply their own filtering.
 	// Suitable for moderation tools, archivers, and any pipeline that
 	// wants to observe takendown accounts.
-	HostingTrack HostingPolicy = iota
+	HostingTrack HostingPolicy = iota + 1
 
 	// HostingGate persists hosting state AND drops #commit/#sync for
 	// non-active DIDs (returning *AccountInactiveError). Resyncs for
@@ -641,7 +641,7 @@ const (
 	// PolicyResync (default): on chain break or inversion failure,
 	// fetch the repo via getRepo and yield diffed ops as ActionResync.
 	// Consumers see a continuous stream.
-	PolicyResync VerifierPolicy = iota
+	PolicyResync VerifierPolicy = iota + 1
 
 	// PolicyError: on chain break or inversion failure, return a
 	// typed error. State still advances through the failure
