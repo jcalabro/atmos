@@ -977,6 +977,59 @@ func TestVerifiedStream_ParallelCtxCancelsInflightVerifier(t *testing.T) {
 	}
 }
 
+// TestDropError_SuppressedAccounting is a focused unit test for the
+// suppression counter logic in readLoopParallel's onDrop closure. The
+// closure is closed-over locals (suppressedDrops, asyncErr, queueCap),
+// so we re-implement the same logic in-line to exercise it directly.
+// This guards the contract: once asyncErr fills, subsequent drops are
+// counted via suppressedDrops and rolled into the next successful send.
+func TestDropError_SuppressedAccounting(t *testing.T) {
+	t.Parallel()
+
+	asyncErr := make(chan error, 4)
+	const queueCap = 4
+	var suppressedDrops uint64
+
+	emit := func(seq int64) {
+		err := &DropError{DID: "did:plc:test", Seq: seq, QueueLen: queueCap, AdditionalDropsSuppressed: suppressedDrops}
+		select {
+		case asyncErr <- err:
+			suppressedDrops = 0
+		default:
+			suppressedDrops++
+		}
+	}
+
+	// Fill the buffer (4 sends), then 6 more — those should be
+	// suppressed because nothing drains the channel.
+	for i := int64(1); i <= 4; i++ {
+		emit(i)
+	}
+	require.Equal(t, uint64(0), suppressedDrops)
+
+	for i := int64(5); i <= 10; i++ {
+		emit(i)
+	}
+	require.Equal(t, uint64(6), suppressedDrops, "6 drops should be suppressed once the buffer is full")
+
+	// Drain one slot to make room.
+	<-asyncErr
+
+	// Next emit should succeed AND carry the accumulated suppression.
+	emit(11)
+	require.Equal(t, uint64(0), suppressedDrops, "successful emit must reset the suppression counter")
+
+	// Drain remaining slots and verify the carried suppressed count.
+	var seenSuppressed uint64
+	for len(asyncErr) > 0 {
+		err := <-asyncErr
+		var de *DropError
+		require.True(t, stderrors.As(err, &de))
+		seenSuppressed += de.AdditionalDropsSuppressed
+	}
+	require.Equal(t, uint64(6), seenSuppressed, "consumer summing AdditionalDropsSuppressed must recover the lost count exactly")
+}
+
 // TestVerifiedStream_CursorAdvancesPastDroppedSeq is the regression
 // test for the cursor-freeze bug where the parallel scheduler's onDrop
 // callback did not remove the displaced seq from the readLoop's

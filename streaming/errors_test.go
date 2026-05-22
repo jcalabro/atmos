@@ -66,3 +66,10 @@ func TestDropError_Format(t *testing.T) {
 	require.Contains(t, e.Error(), "42")
 	require.Contains(t, e.Error(), "64")
 }
+
+func TestDropError_FormatWithSuppressed(t *testing.T) {
+	e := &DropError{DID: "did:plc:xyz", Seq: 42, QueueLen: 64, AdditionalDropsSuppressed: 7}
+	msg := e.Error()
+	require.Contains(t, msg, "did:plc:xyz")
+	require.Contains(t, msg, "+7 additional drops suppressed")
+}

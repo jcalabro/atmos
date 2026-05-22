@@ -17,19 +17,30 @@ func (e *GapError) Error() string {
 
 // DropError indicates that an event was dropped from the parallel
 // scheduler's per-DID queue because the queue was full. Surfaced via
-// the Verifier's AsyncErrors channel; consumers see it through the
-// (nil, err) iterator yield. Dropped events are silently lost from
-// the perspective of the consumer.
+// the streaming client's iterator as a (nil, err) yield. Dropped
+// events are silently lost from the perspective of the consumer.
 //
 // QueueLen is the per-DID queue capacity at the time of the drop;
 // callers can use this to tell whether the cap was set too low.
+//
+// AdditionalDropsSuppressed is non-zero when the internal drop-
+// notification channel filled before this DropError was delivered,
+// causing N other DropErrors to be coalesced into this one rather
+// than reported individually. Consumers that need exact loss accounting
+// should sum DropError.AdditionalDropsSuppressed + 1 across all
+// DropErrors yielded.
 type DropError struct {
-	DID      string
-	Seq      int64
-	QueueLen int
+	DID                       string
+	Seq                       int64
+	QueueLen                  int
+	AdditionalDropsSuppressed uint64
 }
 
 func (e *DropError) Error() string {
+	if e.AdditionalDropsSuppressed > 0 {
+		return fmt.Sprintf("event dropped: did=%s seq=%d queueLen=%d (+%d additional drops suppressed)",
+			e.DID, e.Seq, e.QueueLen, e.AdditionalDropsSuppressed)
+	}
 	return fmt.Sprintf("event dropped: did=%s seq=%d queueLen=%d", e.DID, e.Seq, e.QueueLen)
 }
 

@@ -922,6 +922,11 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 	// mutates it, but onDrop is invoked synchronously on the dispatch
 	// goroutine inside AddWork, so no locking is required.
 	var inflight inflightSeqs
+	// suppressedDrops tracks DropError notifications that couldn't fit
+	// in the asyncErr buffer; the next successful send rolls the
+	// accumulated count into AdditionalDropsSuppressed so the consumer
+	// can reconcile total loss. Owned by the dispatch goroutine.
+	var suppressedDrops uint64
 	// Seed lastSeenSeq from the persisted cursor so global gap
 	// detection survives reconnects. Without this, every reconnect
 	// resets to 0 and the first frame trivially passes the
@@ -962,11 +967,30 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 			if seq > 0 {
 				inflight.Remove(seq)
 			}
+			// suppressedDrops accumulates drop notifications that
+			// couldn't fit into the asyncErr buffer. When the next
+			// notification *does* land, it carries the suppressed count
+			// so consumers can reconcile total loss without us blocking
+			// the dispatch goroutine on a slow consumer. Owned by the
+			// dispatch goroutine (onDrop runs synchronously inside
+			// AddWork, on the dispatch goroutine).
+			err := &DropError{
+				DID:                       did,
+				Seq:                       seq,
+				QueueLen:                  queueCap,
+				AdditionalDropsSuppressed: suppressedDrops,
+			}
 			select {
-			case asyncErr <- &DropError{DID: did, Seq: seq, QueueLen: queueCap}:
+			case asyncErr <- err:
+				// Successfully sent — reset the suppressed counter
+				// since we've now accounted for everything up to this
+				// drop.
+				suppressedDrops = 0
 			default:
-				// asyncErr full: drop the drop notification rather than
-				// stall the scheduler.
+				// asyncErr full: track the loss instead of blocking the
+				// dispatch goroutine. The next successful send will
+				// surface the accumulated count.
+				suppressedDrops++
 			}
 		},
 	)

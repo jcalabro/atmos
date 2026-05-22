@@ -83,7 +83,11 @@
 //     visible even though verification runs concurrently.
 //   - Per-DID queue overflow surfaces as [*DropError] on the
 //     consumer's iter (alongside [GapError], [DecodeError], and
-//     verifier errors).
+//     verifier errors). Under sustained loss faster than the consumer
+//     drains, drops are coalesced via
+//     [DropError.AdditionalDropsSuppressed] rather than blocking the
+//     dispatch goroutine; consumers that need exact loss accounting
+//     should sum that field plus one across all DropErrors.
 //
 // To preserve the strict global-seq behavior of pre-1.2 atmos, set
 // Parallelism to 1.
