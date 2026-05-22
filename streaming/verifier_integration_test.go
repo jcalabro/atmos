@@ -679,7 +679,9 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	defer cancel()
 
 	// Parallelism=2 → per-DID queue cap = 2 * 2 = 4.
-	// (Parallelism=1 would use serial mode, bypassing the scheduler.)
+	// (At Parallelism=1 the per-key queue is unbounded by design — see
+	// TestSerialMode_NoDropErrorUnderBackpressure — so this test must
+	// use Parallelism > 1 to exercise the drop-oldest path at all.)
 	// With 100 commits arriving rapidly and 50ms SaveChain delay per
 	// commit, the dispatch goroutine will fill the queue faster than
 	// the workers can drain it, triggering drop-oldest.
@@ -809,11 +811,12 @@ func (s *failingHostingStateStore) Delete(ctx context.Context, did atmos.DID) er
 }
 
 // TestVerifiedStream_AccountErrorStillDeliversEvent_Parallel asserts
-// the parallel readLoop preserves the serial path's invariant: an
-// OnAccountEvent infrastructure failure surfaces the error to the
-// consumer AND still delivers the raw #account event. The serial path
-// at client.go:735-756 has an explicit "Don't continue" comment to
-// document this; the parallel result handler must match it.
+// that under Parallelism > 1, an OnAccountEvent infrastructure failure
+// surfaces the error to the consumer AND still delivers the raw
+// #account event. The result handler in readLoop must yield the
+// account event after yielding accountErr — swallowing the event
+// would silently mask takedowns/suspensions from consumers that don't
+// rely on the verifier's HostingState bookkeeping.
 func TestVerifiedStream_AccountErrorStillDeliversEvent_Parallel(t *testing.T) {
 	t.Parallel()
 
@@ -869,7 +872,7 @@ func TestVerifiedStream_AccountErrorStillDeliversEvent_Parallel(t *testing.T) {
 
 	require.True(t, accountErrorYielded, "verifier infra failure must surface to consumer")
 	require.True(t, accountEventDelivered,
-		"raw #account event must still be delivered after OnAccountEvent failure (serial-mode invariant)")
+		"raw #account event must still be delivered after OnAccountEvent failure")
 }
 
 // cancellableStateStore wraps a StateStore and blocks SaveChain on a
@@ -978,7 +981,7 @@ func TestVerifiedStream_ParallelCtxCancelsInflightVerifier(t *testing.T) {
 }
 
 // TestDropError_SuppressedAccounting is a focused unit test for the
-// suppression counter logic in readLoopParallel's onDrop closure. The
+// suppression counter logic in readLoop's onDrop closure. The
 // closure is closed-over locals (suppressedDrops, asyncErr, queueCap),
 // so we re-implement the same logic in-line to exercise it directly.
 // This guards the contract: once asyncErr fills, subsequent drops are
@@ -1136,4 +1139,155 @@ func TestVerifiedStream_CursorAdvancesPastDroppedSeq(t *testing.T) {
 	require.Greater(t, persisted, highestDrop,
 		"persisted cursor (%d) must also advance past highest dropped seq (%d)",
 		persisted, highestDrop)
+}
+
+// TestSerialMode_NoDropErrorUnderBackpressure pins down the contract
+// that Parallelism=1 preserves backpressure: a slow verifier under a
+// single hot DID must never emit a DropError. The single-worker setup
+// implies an unbounded per-key queue (or equivalent backpressure via the
+// reader goroutine blocking on conn.Read), so the dispatch goroutine
+// can never outrun the worker enough to displace queued work.
+//
+// This is the headline behavioral difference between N=1 and N>1: the
+// strict-order escape hatch must not silently drop events. The
+// blockingStateStore makes every SaveChain take 50ms; with 30 commits
+// and N=1, drops would surface within the test window if keyQueueCap
+// were finite.
+func TestSerialMode_NoDropErrorUnderBackpressure(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:serialnoback")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	const n = 30
+	frames := buildVerifiedChainFrames(t, did, key, n)
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+
+	slowStore := &blockingStateStore{
+		inner: sync.NewMemStateStore(),
+		gate:  make(chan struct{}),
+	}
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory:  dir,
+		StateStore: slowStore,
+		Policy:     gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	defer func() { _ = v.Close() }()
+
+	client := mustNewClient(t, Options{
+		URL:         wsURL(srv),
+		Verifier:    gt.Some(v),
+		Parallelism: gt.Some(1),
+	})
+
+	// Allow plenty of time for all 30 commits at 50ms each (~1.5s) plus
+	// scheduling slack.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var (
+		dropCount int
+		creates   int
+	)
+	for batch, iterErr := range client.Events(ctx) {
+		if iterErr != nil {
+			var de *DropError
+			if stderrors.As(iterErr, &de) {
+				dropCount++
+			}
+			continue
+		}
+		for _, evt := range batch {
+			for op, opErr := range evt.Operations() {
+				require.NoError(t, opErr)
+				if op.Action == ActionCreate {
+					creates++
+				}
+			}
+		}
+		if creates >= n {
+			cancel()
+		}
+	}
+
+	require.Equal(t, 0, dropCount,
+		"Parallelism=1 must preserve backpressure semantics: no DropError under sustained slow verification")
+	require.Equal(t, n, creates, "all commits must verify and surface as ops")
+}
+
+// TestSerialMode_CursorEqualsLastYieldedSeq pins the cursor semantic
+// for Parallelism=1: at every flushBatch boundary, the persisted cursor
+// equals the highest seq in the just-yielded batch. The watermark
+// formula min(inflight)-1 used by the parallel path is mathematically
+// equivalent at N=1 (only one event in flight at a time → after that
+// event yields, inflight is empty → cursor falls back to max yielded
+// seq), but this test pins the equivalence so the unification can't
+// accidentally regress strict-mode users that rely on cursor exactness.
+func TestSerialMode_CursorEqualsLastYieldedSeq(t *testing.T) {
+	t.Parallel()
+
+	const n = 10
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		ctx := context.Background()
+		for i := int64(1); i <= n; i++ {
+			_ = conn.Write(ctx, websocket.MessageBinary,
+				buildFrame("#identity", buildIdentityBody(i, "did:plc:serialcur")))
+		}
+		_ = conn.Close(websocket.StatusNormalClosure, "done")
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{
+		URL:          wsURL(srv),
+		BatchSize:    gt.Some(3),
+		BatchTimeout: gt.Some(5 * time.Second),
+		Parallelism:  gt.Some(1),
+	})
+
+	// Track every batch yielded along with the cursor visible *before*
+	// the next yield (i.e. the cursor stored after the previous batch).
+	var (
+		batches      [][]Event
+		cursorsAtTop []int64
+		seen         int
+	)
+	for batch, iterErr := range client.Events(ctx) {
+		if iterErr != nil {
+			continue
+		}
+		cursorsAtTop = append(cursorsAtTop, client.Cursor())
+		batches = append(batches, batch)
+		seen += len(batch)
+		if seen >= n {
+			cancel()
+		}
+	}
+
+	require.GreaterOrEqual(t, len(batches), 2, "need multiple batches to verify cursor advancement")
+	// Cursor at the top of batch i (i>0) must equal the highest seq
+	// from batch i-1.
+	for i := 1; i < len(batches); i++ {
+		prev := batches[i-1]
+		highest := prev[len(prev)-1].Seq
+		require.Equal(t, highest, cursorsAtTop[i],
+			"cursor at top of yield %d (%d) must equal max seq of prior batch (%d)",
+			i, cursorsAtTop[i], highest)
+	}
+	// After the iterator exits, the cursor reflects the last batch's
+	// highest seq.
+	final := batches[len(batches)-1]
+	require.Equal(t, final[len(final)-1].Seq, client.Cursor(),
+		"final cursor must equal max seq of final yielded batch")
 }

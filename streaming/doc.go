@@ -82,9 +82,9 @@
 //     this point; some events that completed after the watermark
 //     holder may be re-delivered (at-least-once).
 //   - [GapError] is fired on global seq gaps observed in the relay's
-//     monotonic counter, the same way as in serial mode. The dispatch
-//     goroutine reads frames single-threaded, so global ordering is
-//     visible even though verification runs concurrently.
+//     monotonic counter. The dispatch goroutine reads frames
+//     single-threaded, so global ordering is visible even though
+//     verification runs concurrently.
 //   - Per-DID queue overflow surfaces as [*DropError] on the
 //     consumer's iter (alongside [GapError], [DecodeError], and
 //     verifier errors). Under sustained loss faster than the consumer
@@ -94,5 +94,10 @@
 //     should sum that field plus one across all DropErrors.
 //
 // To preserve the strict global-seq behavior of pre-1.2 atmos, set
-// Parallelism to 1.
+// Parallelism to 1. At Parallelism = 1 the per-DID queue is unbounded
+// (no drop-oldest), so [*DropError] is unreachable: a stalled worker
+// pushes back through the bounded msgCh and the websocket buffer
+// rather than silently shedding events. Strict global ordering across
+// DIDs and lossless delivery are both preserved at the cost of
+// throughput.
 package streaming

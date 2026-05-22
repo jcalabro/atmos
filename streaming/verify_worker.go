@@ -46,8 +46,8 @@ func (c *Client) verifyOne(ctx context.Context, evt Event) verifyResult {
 	v := c.opts.Verifier.Val()
 
 	// #account: feed into HostingState. Doesn't suppress delivery.
-	// Restricted to firehose; jetstream's compact format isn't part
-	// of the verifier contract.
+	// Restricted to firehose; jetstream's isn't part of the verifier
+	// contract.
 	if !c.isJetstream && evt.Account != nil {
 		if aErr := v.OnAccountEvent(ctx, evt.Account); aErr != nil {
 			res.accountErr = fmt.Errorf("OnAccountEvent: %w", aErr)

@@ -1314,6 +1314,7 @@ func (v *Verifier) OnAccountEvent(ctx context.Context, evt *comatproto.SyncSubsc
 	if evt == nil {
 		return nil
 	}
+
 	did, err := atmos.ParseDID(evt.DID)
 	if err != nil {
 		return fmt.Errorf("verifier: invalid account DID %q: %w", evt.DID, err)
@@ -1323,8 +1324,7 @@ func (v *Verifier) OnAccountEvent(ctx context.Context, evt *comatproto.SyncSubsc
 	defer unlock()
 
 	// Replay drop: account events arriving at or below the persisted
-	// seq are re-deliveries from a reconnect. Idempotent in indigo's
-	// relay too (ingest.go:271 same-status no-op).
+	// seq are re-deliveries from a reconnect. Not an error; just ignore them.
 	prev, err := v.opts.StateStore.LoadHosting(ctx, did)
 	if err != nil {
 		return fmt.Errorf("verifier: load hosting state: %w", err)
