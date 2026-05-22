@@ -3,8 +3,6 @@ package streaming
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"strings"
 
 	"github.com/jcalabro/atmos/api/comatproto"
 )
@@ -115,19 +113,4 @@ func decodeJetstreamFrame(data []byte) (Event, error) {
 	}
 
 	return evt, nil
-}
-
-// isJetstreamURL returns true if the URL path ends with "/subscribe",
-// which is the conventional Jetstream endpoint path.
-func isJetstreamURL(rawURL string) bool {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-
-	// ToLower because even though it's invalid, certain web frameworks
-	// that shall remain unnamed treat HTTP paths as case insensitive
-	// by default
-	p := strings.ToLower(parsed.Path)
-	return strings.HasSuffix(p, "/subscribe")
 }

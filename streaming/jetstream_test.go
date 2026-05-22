@@ -222,7 +222,7 @@ func TestIsJetstreamURL(t *testing.T) {
 		{"wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos", false},
 		{"wss://mod.bsky.app/xrpc/com.atproto.label.subscribeLabels", false},
 		{"http://example.com/subscribe", true},
-		{"wss://example.com/api/v1/subscribe", true},
+		{"wss://example.com/api/v1/subscribe", false},
 		{"wss://example.com/subscribes", false},
 		{"", false},
 	}

@@ -221,7 +221,7 @@ func NewClient(opts Options) (*Client, error) {
 		isJS = true
 	}
 
-	autoVerifier := false
+	ownsVerifier := false
 
 	// Resolve the sync client for automatic #sync resync.
 	// Jetstream and label streams don't need a sync client.
@@ -238,12 +238,6 @@ func NewClient(opts Options) (*Client, error) {
 			return nil, fmt.Errorf("derive HTTP URL for sync client: %w", err)
 		}
 
-		// Use BulkDownloadOpts: getRepo can take minutes for the
-		// largest accounts (Bluesky's biggest are ~2.5M records / ~1
-		// GiB CAR). The default xrpc client's 30-second wall-clock
-		// timeout would prematurely kill those downloads even when
-		// they're progressing fine; BulkDownloadOpts replaces it with
-		// streaming-aware idle/min-rate guards.
 		sc = sync.NewClient(sync.Options{
 			Client: &xrpc.Client{
 				Host:       httpURL,
@@ -257,12 +251,7 @@ func NewClient(opts Options) (*Client, error) {
 			}
 		} else {
 			// Auto-set a sync 1.1 verifier if none is provided and sync 1.1
-			// is not explicitly disabled. The directory MUST be cached:
-			// without a cache every commit triggers PLC + handle round
-			// trips and consumer throughput collapses well below line
-			// rate. NewInMemoryDirectory ships with a sized in-memory
-			// LRU and skips bi-directional handle verification, which
-			// the verify path doesn't need.
+			// is not explicitly disabled
 			v, err := sync.NewVerifier(sync.VerifierOptions{
 				Directory:  identity.NewInMemoryDirectory(),
 				StateStore: sync.NewMemStateStore(),
@@ -273,7 +262,7 @@ func NewClient(opts Options) (*Client, error) {
 			}
 
 			opts.Verifier = gt.Some(v)
-			autoVerifier = true
+			ownsVerifier = true
 		}
 	}
 
@@ -286,7 +275,7 @@ func NewClient(opts Options) (*Client, error) {
 		decode:              decode,
 		syncClient:          sc,
 		isJetstream:         isJS,
-		ownsVerifier:        autoVerifier,
+		ownsVerifier:        ownsVerifier,
 		lock:                lk,
 		lockOpts:            lockOpts,
 		leaseDuration:       leaseDur,
@@ -326,6 +315,15 @@ func isSubscribeLabels(rawURL string) bool {
 	// that shall remain unnamed treat HTTP paths as case insensitive
 	// by default.
 	return strings.EqualFold(parsed.Path, "/xrpc/com.atproto.label.subscribeLabels")
+}
+
+func isJetstreamURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	return strings.EqualFold(parsed.Path, "/subscribe")
 }
 
 // Cursor returns the sequence number of the last successfully yielded event.
@@ -437,9 +435,8 @@ func (c *Client) Events(ctx context.Context) iter.Seq2[[]Event, error] {
 }
 
 // consumeLoop connects to the WebSocket and reads events, reconnecting with
-// backoff on connection loss. Returns true only when the yield function
-// returns false (caller wants to stop iterating). Returns false when the
-// context is cancelled or connection errors occur.
+// backoff on connection loss. Returns true only when the caller wants to stop
+// iterating. Returns false when the context is cancelled or connection errors occur.
 func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) bool) bool {
 	attempt := 0
 	for {
@@ -455,7 +452,7 @@ func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) boo
 
 			// Non-retryable dial errors (e.g. wrong URL, non-WebSocket
 			// endpoint) are yielded to the caller.
-			if errors.As(err, new(*DialError)) {
+			if err, ok := errors.AsType[*DialError](err); ok {
 				return !yield(nil, err)
 			}
 
