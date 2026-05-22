@@ -114,15 +114,21 @@ type Options struct {
 	// Parallelism is the number of workers in the per-DID FIFO scheduler
 	// that runs verification (and decoded-event dispatch when no verifier
 	// is configured). Default 32. Set to 1 to preserve strict global seq
-	// ordering at the cost of throughput.
+	// ordering across DIDs at the cost of throughput.
 	//
-	// With Parallelism > 1, events for different DIDs may be delivered
-	// out of seq order. Same-DID events are always delivered in seq
-	// order. Cursor checkpoints advance on a watermark equal to
-	// (smallest in-flight seq - 1) so on-restart no event is skipped.
-	//
-	// Sequence gap detection (GapError) becomes per-DID under parallel
-	// mode; under Parallelism = 1 it remains global.
+	// With Parallelism > 1:
+	//   - Events for the same DID are delivered in seq order.
+	//   - Events for different DIDs may interleave; a single yielded
+	//     batch can contain seqs in completion order, not seq order.
+	//   - Cursor checkpoints advance on a watermark equal to (smallest
+	//     in-flight seq - 1) so on-restart no event is skipped.
+	//   - Global GapError detection still fires (the dispatch goroutine
+	//     reads frames single-threaded, so the relay's monotonic seq is
+	//     observable before scheduler dispatch).
+	//   - Per-DID queue overflow surfaces as *DropError; under sustained
+	//     loss faster than the consumer drains, additional drops are
+	//     coalesced via DropError.AdditionalDropsSuppressed rather than
+	//     blocking the dispatch goroutine.
 	Parallelism gt.Option[int]
 }
 
@@ -1310,11 +1316,10 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 				return true
 			}
 
-		case err, ok := <-asyncErr:
-			if !ok {
-				asyncErr = nil
-				continue
-			}
+		case err := <-asyncErr:
+			// asyncErr is function-local and never closed by anyone, so
+			// the comma-ok form (which would handle channel close) is
+			// not needed.
 			if flushBatch() {
 				return true
 			}

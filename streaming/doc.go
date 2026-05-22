@@ -73,6 +73,10 @@
 //   - Events for different DIDs may interleave: an event with seq=N
 //     may yield AFTER an event with seq=N+1 if they belong to
 //     different DIDs.
+//   - A single yielded batch may contain seqs in completion order,
+//     NOT seq order — e.g. [seq=100 didA, seq=99 didB, seq=102 didA].
+//     Consumers must NOT assume monotonically increasing seqs within
+//     a batch; only same-DID ordering across batches is guaranteed.
 //   - The cursor advances to a watermark equal to the smallest seq
 //     still in flight, minus 1. Restarting the consumer resumes from
 //     this point; some events that completed after the watermark

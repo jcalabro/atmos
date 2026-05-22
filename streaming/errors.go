@@ -20,8 +20,10 @@ func (e *GapError) Error() string {
 // the streaming client's iterator as a (nil, err) yield. Dropped
 // events are silently lost from the perspective of the consumer.
 //
-// QueueLen is the per-DID queue capacity at the time of the drop;
-// callers can use this to tell whether the cap was set too low.
+// QueueLen is the per-DID queue capacity (currently Options.Parallelism
+// * 2). It is fixed for the lifetime of the client; this field exists
+// so the consumer can log a single drop and know whether the cap is
+// configured too low without consulting Options.
 //
 // AdditionalDropsSuppressed is non-zero when the internal drop-
 // notification channel filled before this DropError was delivered,
