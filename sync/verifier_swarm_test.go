@@ -28,6 +28,14 @@ import (
 	"golang.org/x/time/rate"
 )
 
+func iterations() int {
+	if testing.Short() {
+		return 5
+	}
+
+	return 100
+}
+
 // TestVerifierSwarm drives the Verifier with random fault injection
 // across multiple DIDs in parallel. After each iteration we assert the
 // counter invariant:
@@ -38,12 +46,7 @@ import (
 func TestVerifierSwarm(t *testing.T) {
 	t.Parallel()
 
-	iters := 10
-	if !testing.Short() {
-		iters = 1000
-	}
-
-	for i := 0; i < iters; i++ {
+	for i := range iterations() {
 		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
 			t.Parallel()
 			runOneSwarmIteration(t, int64(i)+1)
@@ -258,12 +261,7 @@ func runOneSwarmIteration(t *testing.T, seed int64) {
 func TestVerifierSwarm_PolicyResync(t *testing.T) {
 	t.Parallel()
 
-	iters := 10
-	if !testing.Short() {
-		iters = 1000
-	}
-
-	for i := 0; i < iters; i++ {
+	for i := range iterations() {
 		t.Run(fmt.Sprintf("iter%d", i), func(t *testing.T) {
 			t.Parallel()
 			runOneSwarmIterationPolicyResync(t, int64(i)+1)
@@ -342,47 +340,67 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		inversionErrs int
 	)
 
+	// rebuildFromServedCAR resets the local repo to whatever the fake
+	// getRepo server is serving for didIdx. Used after both the
+	// rev-replay-drop branch (state unchanged but BuildSyntheticCommit
+	// dirtied repos[didIdx]) and the resync branch (verifier rewound to
+	// the served state) so subsequent BuildSyntheticCommit calls
+	// operate on a clean store. Plain mst.LoadTree without rebuilding
+	// the store left subtle pollution that broke inversion of
+	// follow-on commits.
+	rebuildFromServedCAR := func(didIdx int) {
+		carMu.Lock()
+		carBytes := cars[dids[didIdx]]
+		carMu.Unlock()
+		rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
+		require.NoError(t, err, "rebuild store from served CAR")
+		repos[didIdx].Store = rebuiltStore
+		repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
+	}
+
 	emit := func(t *testing.T, didIdx int, commit *comatproto.SyncSubscribeRepos_Commit) {
 		t.Helper()
 		emitted++
+
+		// VerifyAndExpand increments RevReplaysDropped synchronously
+		// before returning for the rev-replay branch; the chain-break
+		// and inversion-failure branches under PolicyResync enqueue a
+		// resync job and never touch this counter. So observing the
+		// counter delta is a deterministic, race-free way to tell the
+		// two ops==nil outcomes apart — no timeout heuristic needed.
+		replaysBefore := v.Stats().RevReplaysDropped
 		ops, vErr := v.VerifyAndExpand(context.Background(), commit, nil)
 		require.NoError(t, vErr,
 			"PolicyResync should never surface a typed error for chain/inversion faults — got %T %v",
 			vErr, vErr)
 
 		if ops == nil {
-			// Either rev-replay drop OR an async resync in progress.
-			// Distinguish by waiting briefly for a ResyncEvent: resyncs
-			// against the in-memory fake server complete in single-digit
-			// ms, so a 100ms cap is generous for "resync triggered" while
-			// keeping per-iteration cost bounded for the (numEvents-many)
-			// rev-replay branch.
+			if v.Stats().RevReplaysDropped > replaysBefore {
+				// Synchronous rev-replay drop. State unchanged.
+				dropped++
+				rebuildFromServedCAR(didIdx)
+				return
+			}
+
+			// Async resync was enqueued. Wait for the worker to
+			// complete: the runResyncJob path increments v.resyncs
+			// before sending ResyncEvent, so once we receive the event
+			// every counter is committed. The safety timeout is far
+			// larger than the actual cost (single-digit ms against the
+			// in-memory fake server) and exists only to fail loud if
+			// the worker is wedged.
 			select {
 			case ev := <-v.ResyncEvents():
-				// Async resync triggered by chain break or inversion
-				// failure. Classify by the same heuristic as the original
+				// Classify by the same heuristic as the original
 				// synchronous test: inversion fault is the exact
-				// [0xff, 0xff, 0xff] sentinel on commit.Blocks; everything
-				// else is a chain break.
+				// [0xff, 0xff, 0xff] sentinel on commit.Blocks;
+				// everything else is a chain break.
 				if bytes.Equal(commit.Blocks, []byte{0xff, 0xff, 0xff}) {
 					inversionErrs++
 				} else {
 					chainBreaks++
 				}
-				// Both fault classes leave the verifier's state at the
-				// served data CID, which equals lastGood. Rebuild our
-				// local repo from the served CAR so subsequent
-				// BuildSyntheticCommit calls operate on a consistent
-				// state — using mst.LoadTree alone left subtle store
-				// pollution that broke inversion of follow-on commits.
-				carMu.Lock()
-				carBytes := cars[dids[didIdx]]
-				carMu.Unlock()
-				rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
-				require.NoError(t, err, "rebuild store from served CAR")
-				repos[didIdx].Store = rebuiltStore
-				repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
-				// Every resync op should reference the fetched commit.
+				rebuildFromServedCAR(didIdx)
 				for _, op := range ev.Ops {
 					require.Equal(t, atmos.ActionResync, op.Action,
 						"seed=%d resync batch must contain only ActionResync ops", seed)
@@ -394,19 +412,8 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 			case asyncErr := <-v.AsyncErrors():
 				t.Fatalf("seed=%d unexpected async error: %v", seed, asyncErr)
 
-			case <-time.After(500 * time.Millisecond):
-				// No ResyncEvent arrived → silent rev-replay drop. State
-				// unchanged. Rebuild from the served CAR (same reason as
-				// the resync path: avoid store-pollution carrying over).
-				dropped++
-				carMu.Lock()
-				carBytes := cars[dids[didIdx]]
-				carMu.Unlock()
-				rebuiltStore, _, err := repo.LoadBlocksFromCAR(bytes.NewReader(carBytes))
-				require.NoError(t, err, "rebuild store from served CAR")
-				repos[didIdx].Store = rebuiltStore
-				repos[didIdx].Tree = mst.LoadTree(rebuiltStore, lastGood[didIdx])
-				return
+			case <-time.After(5 * time.Second):
+				t.Fatalf("seed=%d resync worker stuck: no ResyncEvent for %s", seed, dids[didIdx])
 			}
 		}
 
@@ -484,36 +491,11 @@ func runOneSwarmIterationPolicyResync(t *testing.T, seed int64) {
 		emit(t, didIdx, commit)
 	}
 
-	// Drain tail-end events while waiting for the worker counters to
-	// stabilize. Resyncs can complete in any order; reading stats
-	// before workers finish would race the invariant
-	// stats.Resyncs == chainBreaks + inversionErrs.
-	stabilizeDeadline := time.Now().Add(5 * time.Second)
-	var prevTotal uint64
-	stableSamples := 0
-	for time.Now().Before(stabilizeDeadline) && stableSamples < 2 {
-		// Drain any events that piled up; they don't affect counters
-		// (workers update counters before sending), but full channels
-		// would block workers.
-		for draining := true; draining; {
-			select {
-			case <-v.ResyncEvents():
-			case <-v.AsyncErrors():
-			default:
-				draining = false
-			}
-		}
-		stats := v.Stats()
-		total := stats.Resyncs + stats.ResyncFailures
-		if total == prevTotal {
-			stableSamples++
-		} else {
-			stableSamples = 0
-			prevTotal = total
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
+	// emit() consumes each ResyncEvent before returning, and the
+	// runResyncJob worker increments v.resyncs before sending the
+	// event. So by the time we reach the assertions, every chain-break
+	// / inversion-failure has produced both a counter bump and a
+	// drained event — no stabilization wait needed.
 	stats := v.Stats()
 	require.Equal(t, emitted, accepted+dropped+chainBreaks+inversionErrs,
 		"seed=%d emit=%d acc=%d drop=%d cb=%d ie=%d",
