@@ -371,4 +371,3 @@ func TestReadLoopParallel_GapError(t *testing.T) {
 	require.Equal(t, int64(3), gapErr.Expected)
 	require.Equal(t, int64(4), gapErr.Got)
 }
-

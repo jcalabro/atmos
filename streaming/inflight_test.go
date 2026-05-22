@@ -7,6 +7,7 @@ import (
 )
 
 func TestInflightSeqs_AddRemoveMin(t *testing.T) {
+	t.Parallel()
 	var s inflightSeqs
 	require.Equal(t, int64(0), s.Min())
 	s.Add(5)
@@ -22,6 +23,7 @@ func TestInflightSeqs_AddRemoveMin(t *testing.T) {
 }
 
 func TestInflightSeqs_RemoveMissing(t *testing.T) {
+	t.Parallel()
 	var s inflightSeqs
 	s.Add(10)
 	s.Remove(99) // no-op

@@ -184,7 +184,7 @@ func NewClient(opts Options) (*Client, error) {
 	}
 	parallelism := opts.Parallelism.ValOr(32)
 	if parallelism < 1 {
-		return nil, errors.New("Parallelism must be >= 1")
+		return nil, errors.New("parallelism must be >= 1")
 	}
 
 	lk := DistributedLocker(NoopLock{})
@@ -1081,10 +1081,7 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 				return false
 			}
 			timer.Reset(c.batchTimeout)
-			if !yield(nil, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)}) {
-				return false
-			}
-			return true
+			return yield(nil, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)})
 		}
 
 		// Plumb context, sync client, and strict validation onto the
@@ -1216,10 +1213,7 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 				return false
 			}
 			if !dispatch(res.data) {
-				if flushBatch() {
-					return true
-				}
-				return false
+				return flushBatch()
 			}
 
 		case vr := <-resultCh:

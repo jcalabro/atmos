@@ -11,6 +11,7 @@ import (
 )
 
 func TestVerifyOne_NoVerifier(t *testing.T) {
+	t.Parallel()
 	c := &Client{} // no verifier
 	evt := Event{
 		Seq:    7,
@@ -25,6 +26,7 @@ func TestVerifyOne_NoVerifier(t *testing.T) {
 }
 
 func TestVerifyOne_NilVerifierOption(t *testing.T) {
+	t.Parallel()
 	// Verifier set but value is nil — the "disable" sentinel.
 	c := &Client{opts: Options{Verifier: gt.Some[*sync.Verifier](nil)}}
 	evt := Event{
@@ -39,6 +41,7 @@ func TestVerifyOne_NilVerifierOption(t *testing.T) {
 }
 
 func TestVerifyOne_LabelInfo(t *testing.T) {
+	t.Parallel()
 	c := &Client{}
 	evt := Event{LabelInfo: &comatproto.LabelSubscribeLabels_Info{}}
 	res := c.verifyOne(context.Background(), evt)

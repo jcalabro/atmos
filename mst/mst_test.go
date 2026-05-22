@@ -523,6 +523,7 @@ func TestInsertAndRemove(t *testing.T) {
 //     pass-through, NOT replacing the parent's pointer with a direct
 //     pointer to the height-(N-1) child (which would skip a level).
 func TestRemoveCanonicality_HeightGap(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name      string
 		insert    []struct{ k, v string }

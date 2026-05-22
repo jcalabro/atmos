@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/jcalabro/atmos/api/comatproto"
 )
 
 func TestGapError(t *testing.T) {
@@ -52,6 +52,7 @@ func TestGapError_DifferentValues(t *testing.T) {
 }
 
 func TestEvent_RepoOf(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, "did:plc:abc", (&Event{Commit: &comatproto.SyncSubscribeRepos_Commit{Repo: "did:plc:abc"}}).repoOf())
 	require.Equal(t, "did:plc:def", (&Event{Sync: &comatproto.SyncSubscribeRepos_Sync{DID: "did:plc:def"}}).repoOf())
 	require.Equal(t, "did:plc:ghi", (&Event{Identity: &comatproto.SyncSubscribeRepos_Identity{DID: "did:plc:ghi"}}).repoOf())
@@ -61,6 +62,7 @@ func TestEvent_RepoOf(t *testing.T) {
 }
 
 func TestDropError_Format(t *testing.T) {
+	t.Parallel()
 	e := &DropError{DID: "did:plc:xyz", Seq: 42, QueueLen: 64}
 	require.Contains(t, e.Error(), "did:plc:xyz")
 	require.Contains(t, e.Error(), "42")
@@ -68,6 +70,7 @@ func TestDropError_Format(t *testing.T) {
 }
 
 func TestDropError_FormatWithSuppressed(t *testing.T) {
+	t.Parallel()
 	e := &DropError{DID: "did:plc:xyz", Seq: 42, QueueLen: 64, AdditionalDropsSuppressed: 7}
 	msg := e.Error()
 	require.Contains(t, msg, "did:plc:xyz")

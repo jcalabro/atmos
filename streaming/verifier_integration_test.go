@@ -673,7 +673,7 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 		Policy: gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
-	defer v.Close()
+	defer func() { _ = v.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -835,7 +835,7 @@ func TestVerifiedStream_AccountErrorStillDeliversEvent_Parallel(t *testing.T) {
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
-	defer v.Close()
+	defer func() { _ = v.Close() }()
 
 	client := mustNewClient(t, Options{
 		URL:         wsURL(srv),
@@ -941,7 +941,7 @@ func TestVerifiedStream_ParallelCtxCancelsInflightVerifier(t *testing.T) {
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
-	defer v.Close()
+	defer func() { _ = v.Close() }()
 
 	client := mustNewClient(t, Options{
 		URL:         wsURL(srv),
@@ -1072,7 +1072,7 @@ func TestVerifiedStream_CursorAdvancesPastDroppedSeq(t *testing.T) {
 		Policy:     gt.Some(sync.PolicyError),
 	})
 	require.NoError(t, err)
-	defer v.Close()
+	defer func() { _ = v.Close() }()
 
 	store := &mockCursorStore{}
 

@@ -78,15 +78,15 @@ type VerifierDebugTimings struct {
 // package globals so multiple Verifier instances in the same process
 // (e.g. tests) don't cross-contaminate.
 type verifierDebugTimers struct {
-	lockWaitNs, lockWaitCount       atomic.Uint64
-	loadChainNs, loadChainCount     atomic.Uint64
-	decodeCARNs, decodeCARCount     atomic.Uint64
-	invertNs, invertCount           atomic.Uint64
-	sigVerifyNs, sigVerifyCount     atomic.Uint64
-	opCIDCheckNs, opCIDCheckCount   atomic.Uint64
-	buildOpsNs, buildOpsCount       atomic.Uint64
-	saveChainNs, saveChainCount     atomic.Uint64
-	totalNs, totalCount             atomic.Uint64
+	lockWaitNs, lockWaitCount     atomic.Uint64
+	loadChainNs, loadChainCount   atomic.Uint64
+	decodeCARNs, decodeCARCount   atomic.Uint64
+	invertNs, invertCount         atomic.Uint64
+	sigVerifyNs, sigVerifyCount   atomic.Uint64
+	opCIDCheckNs, opCIDCheckCount atomic.Uint64
+	buildOpsNs, buildOpsCount     atomic.Uint64
+	saveChainNs, saveChainCount   atomic.Uint64
+	totalNs, totalCount           atomic.Uint64
 }
 
 // addStageNs records a single sample for a stage timer. The pattern is

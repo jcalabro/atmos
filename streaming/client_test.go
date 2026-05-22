@@ -599,32 +599,35 @@ func TestNewClient_BadURL(t *testing.T) {
 }
 
 func TestOptions_ParallelismDefault(t *testing.T) {
+	t.Parallel()
 	c, err := NewClient(Options{
 		URL:      "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
 		Verifier: gt.Some[*sync.Verifier](nil),
 	})
 	require.NoError(t, err)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	require.Equal(t, 32, c.parallelism)
 }
 
 func TestOptions_ParallelismExplicit(t *testing.T) {
+	t.Parallel()
 	c, err := NewClient(Options{
 		URL:         "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
 		Verifier:    gt.Some[*sync.Verifier](nil),
 		Parallelism: gt.Some(8),
 	})
 	require.NoError(t, err)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	require.Equal(t, 8, c.parallelism)
 }
 
 func TestOptions_ParallelismRejectsNonPositive(t *testing.T) {
+	t.Parallel()
 	_, err := NewClient(Options{
 		URL:         "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
 		Verifier:    gt.Some[*sync.Verifier](nil),
 		Parallelism: gt.Some(0),
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Parallelism")
+	require.Contains(t, err.Error(), "parallelism")
 }

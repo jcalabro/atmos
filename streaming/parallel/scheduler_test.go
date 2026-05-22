@@ -12,6 +12,7 @@ import (
 )
 
 func TestScheduler_StartStop(t *testing.T) {
+	t.Parallel()
 	s := NewScheduler(2, 0, func(ctx context.Context, w int) error {
 		return nil
 	}, nil)
@@ -23,6 +24,7 @@ func TestScheduler_StartStop(t *testing.T) {
 }
 
 func TestScheduler_ShutdownIdempotent(t *testing.T) {
+	t.Parallel()
 	s := NewScheduler(2, 0, func(ctx context.Context, w int) error {
 		return nil
 	}, nil)
@@ -41,6 +43,7 @@ func TestScheduler_ShutdownIdempotent(t *testing.T) {
 }
 
 func TestScheduler_PerKeyFIFO(t *testing.T) {
+	t.Parallel()
 	const N = 100
 
 	var (
@@ -78,6 +81,7 @@ func TestScheduler_PerKeyFIFO(t *testing.T) {
 }
 
 func TestScheduler_CrossKeyParallel(t *testing.T) {
+	t.Parallel()
 	const Workers = 8
 	const Keys = 8
 
@@ -118,6 +122,7 @@ func TestScheduler_CrossKeyParallel(t *testing.T) {
 }
 
 func TestScheduler_DropOldest(t *testing.T) {
+	t.Parallel()
 	const Cap = 10
 	const Burst = 100
 
@@ -170,6 +175,7 @@ func TestScheduler_DropOldest(t *testing.T) {
 }
 
 func TestScheduler_PanicRecovery(t *testing.T) {
+	t.Parallel()
 	var (
 		mu   sync.Mutex
 		errs []error
@@ -211,6 +217,7 @@ func TestScheduler_PanicRecovery(t *testing.T) {
 // then races them through AddWork. The handler observes them in the
 // order runChain delivers them; the test asserts strict monotonicity.
 func TestScheduler_PerKeyFIFOConcurrentAdd(t *testing.T) {
+	t.Parallel()
 	const Producers = 8
 	const PerProducer = 50
 	const Total = Producers * PerProducer
@@ -274,6 +281,7 @@ func TestScheduler_PerKeyFIFOConcurrentAdd(t *testing.T) {
 // the scheduler's ctx, so PLC lookups, CAR downloads, and StateStore
 // I/O inside the verifier all unblock.
 func TestScheduler_WorkContextCancellation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -305,6 +313,7 @@ func TestScheduler_WorkContextCancellation(t *testing.T) {
 }
 
 func TestScheduler_AddWorkCancelled(t *testing.T) {
+	t.Parallel()
 	// One worker, hold it busy, fill so the next AddWork on a NEW key
 	// blocks on the unbuffered feeder.
 	gate := make(chan struct{})
