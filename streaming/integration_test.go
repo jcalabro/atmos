@@ -332,22 +332,15 @@ func TestReadLoopSerial_BackwardCompat(t *testing.T) {
 	require.Equal(t, []int64{1, 2, 3}, seqs)
 }
 
-func TestReadLoopParallel_GapErrorPerDID(t *testing.T) {
+func TestReadLoopParallel_GapError(t *testing.T) {
 	t.Parallel()
 
-	// Emit:
-	//   did:plc:a seq=1 → first sighting, no gap
-	//   did:plc:b seq=2 → first sighting (NOT a gap on A despite seq jump)
-	//   did:plc:a seq=3 → per-DID GAP on A (expected 2, got 3)
-	//
-	// A's prev was 1; current is 3. 3 > 1+1=2, so we expect GapError{DID: "a",
-	// Expected: 2, Got: 3}.
-
+	// Skip seq 3 to create a global gap.
 	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
 		writeFrames(conn,
 			buildFrame("#identity", buildIdentityBody(1, "did:plc:a")),
 			buildFrame("#identity", buildIdentityBody(2, "did:plc:b")),
-			buildFrame("#identity", buildIdentityBody(3, "did:plc:a")), // gap on A
+			buildFrame("#identity", buildIdentityBody(4, "did:plc:c")), // gap
 		)
 	})
 
@@ -360,7 +353,7 @@ func TestReadLoopParallel_GapErrorPerDID(t *testing.T) {
 	})
 
 	var gapErr *GapError
-	var allEventsSeen []int64
+	count := 0
 	for batch, err := range client.Events(ctx) {
 		if err != nil {
 			var ge *GapError
@@ -369,59 +362,13 @@ func TestReadLoopParallel_GapErrorPerDID(t *testing.T) {
 			}
 			continue
 		}
-		for _, evt := range batch {
-			if evt.Seq > 0 {
-				allEventsSeen = append(allEventsSeen, evt.Seq)
-			}
-		}
-		if gapErr != nil && len(allEventsSeen) >= 3 {
-			cancel()
-		}
-	}
-
-	require.NotNil(t, gapErr, "expected per-DID GapError")
-	require.Equal(t, "did:plc:a", gapErr.DID)
-	require.Equal(t, int64(2), gapErr.Expected)
-	require.Equal(t, int64(3), gapErr.Got)
-}
-
-func TestReadLoopParallel_NoGapOnCrossDIDJump(t *testing.T) {
-	t.Parallel()
-
-	// Three different DIDs, each with seq=1. Under per-DID tracking, no
-	// gaps should fire because each DID's seq sequence is contiguous
-	// (single seq). Under STRICT mode, the global seq stream 1, 1, 1
-	// would either fire false gaps or be considered replays — we don't
-	// run that path here.
-
-	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
-		writeFrames(conn,
-			buildFrame("#identity", buildIdentityBody(1, "did:plc:a")),
-			buildFrame("#identity", buildIdentityBody(2, "did:plc:b")),
-			buildFrame("#identity", buildIdentityBody(3, "did:plc:c")),
-		)
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	client := mustNewClient(t, Options{
-		URL:         wsURL(srv),
-		Parallelism: gt.Some(2),
-	})
-
-	var gotErr error
-	count := 0
-	for batch, err := range client.Events(ctx) {
-		if err != nil {
-			gotErr = err
-			break
-		}
 		count += len(batch)
-		if count >= 3 {
+		if gapErr != nil && count >= 3 {
 			cancel()
 		}
 	}
-	require.Nil(t, gotErr, "no gap should fire for cross-DID seq jumps; got: %v", gotErr)
-	require.Equal(t, 3, count)
+	require.NotNil(t, gapErr, "expected GapError")
+	require.Equal(t, int64(3), gapErr.Expected)
+	require.Equal(t, int64(4), gapErr.Got)
 }
+

@@ -77,8 +77,10 @@
 //     still in flight, minus 1. Restarting the consumer resumes from
 //     this point; some events that completed after the watermark
 //     holder may be re-delivered (at-least-once).
-//   - [GapError] is fired per-DID, not globally. The DID field
-//     identifies which repo's seq sequence skipped.
+//   - [GapError] is fired on global seq gaps observed in the relay's
+//     monotonic counter, the same way as in serial mode. The dispatch
+//     goroutine reads frames single-threaded, so global ordering is
+//     visible even though verification runs concurrently.
 //   - Per-DID queue overflow surfaces as [*DropError] on the
 //     consumer's iter (alongside [GapError], [DecodeError], and
 //     verifier errors).

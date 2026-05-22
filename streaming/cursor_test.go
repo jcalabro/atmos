@@ -218,6 +218,12 @@ func TestParallelReadLoop_WatermarkCursorMonotonic(t *testing.T) {
 
 	const N = 50
 	const Workers = 4
+	// Small BatchSize forces multiple yields so the test observes
+	// cursor advancement across iterations. flushBatch yields BEFORE
+	// it stores the new cursor, so any iteration's cursor read sees
+	// the previous batch's stored value; we need ≥2 iterations for
+	// the monotonicity check to mean anything.
+	const BatchSize = 5
 
 	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
 		frames := make([][]byte, 0, N)
@@ -234,6 +240,7 @@ func TestParallelReadLoop_WatermarkCursorMonotonic(t *testing.T) {
 	client := mustNewClient(t, Options{
 		URL:         wsURL(srv),
 		Parallelism: gt.Some(Workers),
+		BatchSize:   gt.Some(BatchSize),
 	})
 
 	var prev int64
@@ -249,5 +256,7 @@ func TestParallelReadLoop_WatermarkCursorMonotonic(t *testing.T) {
 		}
 	}
 	require.GreaterOrEqual(t, count, N, "expected to see all %d events", N)
-	require.GreaterOrEqual(t, prev, int64(1), "cursor should have advanced past 0")
+	// After the iterator exits, all flushBatch.Store calls have
+	// completed, so client.Cursor() reflects the final watermark.
+	require.GreaterOrEqual(t, client.Cursor(), int64(1), "cursor should have advanced past 0")
 }

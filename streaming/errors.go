@@ -5,21 +5,13 @@ import (
 	"fmt"
 )
 
-// GapError indicates missed sequence numbers in the firehose. Under
-// parallel verification (Options.Parallelism > 1), gaps are detected
-// per-DID rather than globally; DID identifies the repo whose seq
-// sequence skipped. Under strict-order mode (Parallelism = 1), DID is
-// empty and Expected/Got reference the global firehose stream.
+// GapError indicates missed sequence numbers in the firehose.
 type GapError struct {
-	DID      string // empty under strict-order mode
-	Expected int64
-	Got      int64
+	Expected int64 // lastSeq + 1
+	Got      int64 // actual seq received
 }
 
 func (e *GapError) Error() string {
-	if e.DID != "" {
-		return fmt.Sprintf("sequence gap on %s: expected %d, got %d", e.DID, e.Expected, e.Got)
-	}
 	return fmt.Sprintf("sequence gap: expected %d, got %d", e.Expected, e.Got)
 }
 

@@ -966,9 +966,9 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 		verifierAsyncErrs = v.AsyncErrors()
 	}
 
-	// Watermark cursor and per-DID seq state.
+	// Watermark cursor and global seq state.
 	var inflight inflightSeqs
-	perDIDSeq := make(map[string]int64)
+	var lastSeenSeq int64
 
 	batch := make([]Event, 0, c.batchSize)
 	timer := time.NewTimer(c.batchTimeout)
@@ -1038,20 +1038,23 @@ func (c *Client) readLoopParallel(ctx context.Context, conn *websocket.Conn, yie
 		}
 		evt.strictValidation = c.opts.StrictValidation.ValOr(false)
 
-		// Per-DID gap detection. Only firehose events with a real DID.
+		// Global gap detection. The dispatch goroutine reads frames
+		// from msgCh single-threaded, so the relay's monotonic seq is
+		// observable here. Skipped on Jetstream (whose cursor is
+		// time_us, not seq).
 		seq := evt.seqOf()
 		did := evt.repoOf()
-		if seq > 0 && !c.isJetstream && did != "" {
-			if last, ok := perDIDSeq[did]; ok && seq > last+1 {
+		if seq > 0 && !c.isJetstream {
+			if lastSeenSeq > 0 && seq > lastSeenSeq+1 {
 				if flushBatch() {
 					return false
 				}
 				timer.Reset(c.batchTimeout)
-				if !yield(nil, &GapError{DID: did, Expected: last + 1, Got: seq}) {
+				if !yield(nil, &GapError{Expected: lastSeenSeq + 1, Got: seq}) {
 					return false
 				}
 			}
-			perDIDSeq[did] = seq
+			lastSeenSeq = seq
 		}
 
 		// Track in-flight for watermark cursor.

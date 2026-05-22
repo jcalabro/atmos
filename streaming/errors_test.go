@@ -60,13 +60,6 @@ func TestEvent_RepoOf(t *testing.T) {
 	require.Equal(t, "", (&Event{}).repoOf())
 }
 
-func TestGapError_WithDID(t *testing.T) {
-	e := &GapError{DID: "did:plc:abc", Expected: 5, Got: 7}
-	require.Contains(t, e.Error(), "did:plc:abc")
-	require.Contains(t, e.Error(), "expected 5")
-	require.Contains(t, e.Error(), "got 7")
-}
-
 func TestDropError_Format(t *testing.T) {
 	e := &DropError{DID: "did:plc:xyz", Seq: 42, QueueLen: 64}
 	require.Contains(t, e.Error(), "did:plc:xyz")
