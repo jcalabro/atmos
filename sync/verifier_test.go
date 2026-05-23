@@ -3,10 +3,12 @@ package sync_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	mathrand "math/rand"
+	"reflect"
 	stdsync "sync"
 	"sync/atomic"
 	"testing"
@@ -78,6 +80,63 @@ func TestMemStateStore_DeleteMissingNoError(t *testing.T) {
 
 	store := sync.NewMemStateStore()
 	require.NoError(t, store.Delete(context.Background(), atmos.DID("did:plc:never-saved")))
+}
+
+func TestChainStateAndHostingState_JSONTags(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ChainState", func(t *testing.T) {
+		cid, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+		require.NoError(t, err)
+
+		// Verify struct tags via reflection so we don't depend on
+		// cbor.CID having a JSON encoding.
+		ty := reflect.TypeFor[sync.ChainState]()
+		f, _ := ty.FieldByName("Rev")
+		assert.Equal(t, "rev", f.Tag.Get("json"))
+		f, _ = ty.FieldByName("Data")
+		assert.Equal(t, "data", f.Tag.Get("json"))
+
+		// Sanity-check the JSON keys actually emitted, just for Rev
+		// (which has a stable JSON encoding).
+		buf, err := json.Marshal(sync.ChainState{Rev: "3l3qo2vutsw2b", Data: cid})
+		require.NoError(t, err)
+		var raw map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(buf, &raw))
+		_, hasRev := raw["rev"]
+		_, hasData := raw["data"]
+		assert.True(t, hasRev, "missing 'rev' key in %s", buf)
+		assert.True(t, hasData, "missing 'data' key in %s", buf)
+		assert.Len(t, raw, 2, "unexpected keys in %s", buf)
+	})
+
+	t.Run("HostingState", func(t *testing.T) {
+		ty := reflect.TypeFor[sync.HostingState]()
+		f, _ := ty.FieldByName("Active")
+		assert.Equal(t, "active", f.Tag.Get("json"))
+		f, _ = ty.FieldByName("Status")
+		assert.Equal(t, "status", f.Tag.Get("json"))
+		f, _ = ty.FieldByName("Seq")
+		assert.Equal(t, "seq", f.Tag.Get("json"))
+		f, _ = ty.FieldByName("Time")
+		assert.Equal(t, "time", f.Tag.Get("json"))
+
+		// Round-trip: HostingState has only stdlib-encodable fields,
+		// so values should survive JSON encode + decode unchanged.
+		want := sync.HostingState{
+			Active: false,
+			Status: sync.StatusTakendown,
+			Seq:    12345,
+			Time:   "2026-05-23T00:00:00Z",
+		}
+		buf, err := json.Marshal(want)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"active":false,"status":"takendown","seq":12345,"time":"2026-05-23T00:00:00Z"}`, string(buf))
+
+		var got sync.HostingState
+		require.NoError(t, json.Unmarshal(buf, &got))
+		assert.Equal(t, want, got)
+	})
 }
 
 func TestErrorTypes_FormatAndUnwrap(t *testing.T) {

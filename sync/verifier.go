@@ -67,8 +67,8 @@ const (
 // ChainState is per-DID chain-continuity state: the rev and MST root
 // CID of the last commit accepted.
 type ChainState struct {
-	Rev  string
-	Data cbor.CID
+	Rev  string   `json:"rev"`
+	Data cbor.CID `json:"data"`
 }
 
 // HostingState is per-DID hosting status, tracked from #account
@@ -77,15 +77,15 @@ type ChainState struct {
 // spec defines an open vocabulary, and unknown values must be
 // tolerated. See the Status* constants for well-known values.
 type HostingState struct {
-	Active bool
-	Status string // optional reason when !Active; empty when Active
-	Seq    int64  // seq of the source #account event (replay protection)
+	Active bool   `json:"active"`
+	Status string `json:"status"` // optional reason when !Active; empty when Active
+	Seq    int64  `json:"seq"`    // seq of the source #account event (replay protection)
 	// Time is the verbatim event timestamp from the firehose
 	// envelope. Stored unchanged for diagnostics; the verifier does
 	// NOT validate that it parses as an ISO-8601 datetime. Consumers
 	// that want a parsed time should call atmos.ParseDatetime
 	// themselves and tolerate malformed inputs.
-	Time string
+	Time string `json:"time"`
 }
 
 // IsActive reports whether s permits commit/sync events. A nil
