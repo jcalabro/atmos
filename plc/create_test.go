@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestCreateDIDRoundTrip(t *testing.T) {
 
 	op, did, err := CreateDID(CreateParams{
 		SigningKey:   sigKey,
-		RotationKeys: []crypto.PublicKey{rotKey.PublicKey()},
+		RotationKeys: []crypto.PrivateKey{rotKey},
 		Handle:       "alice.bsky.social",
 		PDS:          "https://pds.example.com",
 	})
@@ -35,8 +36,11 @@ func TestCreateDIDRoundTrip(t *testing.T) {
 	assert.Equal(t, "plc_operation", op.Type)
 	assert.Nil(t, op.Prev)
 
-	// Verify signature.
-	require.NoError(t, op.Verify(sigKey.PublicKey()))
+	// Verify signature: genesis is signed by the rotation key (PLC v0.1).
+	require.NoError(t, op.Verify(rotKey.PublicKey()))
+	// The atproto signing key has no authority over the chain — verification
+	// under it MUST fail. This locks in the v0.1 invariant.
+	require.Error(t, op.Verify(sigKey.PublicKey()))
 
 	// CID is computable.
 	cid, err := op.CID()
@@ -72,11 +76,133 @@ func TestCreateDIDMissingSigningKey(t *testing.T) {
 
 	_, _, err = CreateDID(CreateParams{
 		SigningKey:   nil,
-		RotationKeys: []crypto.PublicKey{rotKey.PublicKey()},
+		RotationKeys: []crypto.PrivateKey{rotKey},
 		Handle:       "alice.bsky.social",
 		PDS:          "https://pds.example.com",
 	})
 	assert.Error(t, err)
+}
+
+func TestCreateDIDNilRotationKeyEntry(t *testing.T) {
+	t.Parallel()
+
+	sigKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	rotKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	_, _, err = CreateDID(CreateParams{
+		SigningKey:   sigKey,
+		RotationKeys: []crypto.PrivateKey{rotKey, nil},
+		Handle:       "alice.bsky.social",
+		PDS:          "https://pds.example.com",
+	})
+	assert.Error(t, err)
+}
+
+// PLC spec: at most 5 rotation keys.
+func TestCreateDIDTooManyRotationKeys(t *testing.T) {
+	t.Parallel()
+
+	sigKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	keys := make([]crypto.PrivateKey, MaxRotationKeys+1)
+	for i := range keys {
+		k, err := crypto.GenerateP256()
+		require.NoError(t, err)
+		keys[i] = k
+	}
+
+	_, _, err = CreateDID(CreateParams{
+		SigningKey:   sigKey,
+		RotationKeys: keys,
+		Handle:       "alice.bsky.social",
+		PDS:          "https://pds.example.com",
+	})
+	assert.Error(t, err)
+}
+
+// PLC spec: rotation keys must have no duplication.
+func TestCreateDIDDuplicateRotationKeys(t *testing.T) {
+	t.Parallel()
+
+	sigKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	rotKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	_, _, err = CreateDID(CreateParams{
+		SigningKey:   sigKey,
+		RotationKeys: []crypto.PrivateKey{rotKey, rotKey},
+		Handle:       "alice.bsky.social",
+		PDS:          "https://pds.example.com",
+	})
+	assert.Error(t, err)
+}
+
+func TestCreateDIDInvalidHandle(t *testing.T) {
+	t.Parallel()
+
+	sigKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	rotKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	cases := []struct {
+		name   string
+		handle string
+	}{
+		{"empty", ""},
+		{"single label", "alice"},
+		{"contains scheme", "at://alice.bsky.social"},
+		{"contains space", "alice .bsky.social"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := CreateDID(CreateParams{
+				SigningKey:   sigKey,
+				RotationKeys: []crypto.PrivateKey{rotKey},
+				Handle:       atmos.Handle(tc.handle),
+				PDS:          "https://pds.example.com",
+			})
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestCreateDIDInvalidPDS(t *testing.T) {
+	t.Parallel()
+
+	sigKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	rotKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	cases := []struct {
+		name string
+		pds  string
+	}{
+		{"empty", ""},
+		{"no scheme", "pds.example.com"},
+		{"wrong scheme", "ftp://pds.example.com"},
+		{"missing host", "https://"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := CreateDID(CreateParams{
+				SigningKey:   sigKey,
+				RotationKeys: []crypto.PrivateKey{rotKey},
+				Handle:       "alice.bsky.social",
+				PDS:          tc.pds,
+			})
+			assert.Error(t, err)
+		})
+	}
 }
 
 func TestUpdateChain(t *testing.T) {
@@ -90,7 +216,7 @@ func TestUpdateChain(t *testing.T) {
 
 	genesis, _, err := CreateDID(CreateParams{
 		SigningKey:   sigKey,
-		RotationKeys: []crypto.PublicKey{rotKey.PublicKey()},
+		RotationKeys: []crypto.PrivateKey{rotKey},
 		Handle:       "alice.bsky.social",
 		PDS:          "https://pds.example.com",
 	})
@@ -110,12 +236,19 @@ func TestUpdateChain(t *testing.T) {
 	assert.Equal(t, genesis.RotationKeys, update.RotationKeys)
 	assert.Equal(t, genesis.VerificationMethods, update.VerificationMethods)
 
-	require.NoError(t, update.Sign(sigKey))
-	require.NoError(t, update.Verify(sigKey.PublicKey()))
+	// Updates are signed by a rotation key (PLC v0.1).
+	require.NoError(t, update.Sign(rotKey))
+	require.NoError(t, update.Verify(rotKey.PublicKey()))
+	require.Error(t, update.Verify(sigKey.PublicKey()))
 
 	updateCID, err := update.CID()
 	require.NoError(t, err)
 	assert.NotEqual(t, genesisCID, updateCID)
+
+	// did:plc is derived from the genesis op only — DID() on an update must
+	// refuse rather than silently returning an unrelated string.
+	_, err = update.DID()
+	assert.ErrorIs(t, err, ErrNotGenesis)
 }
 
 func TestUpdateOpInheritsCopies(t *testing.T) {
@@ -129,7 +262,7 @@ func TestUpdateOpInheritsCopies(t *testing.T) {
 
 	genesis, _, err := CreateDID(CreateParams{
 		SigningKey:   sigKey,
-		RotationKeys: []crypto.PublicKey{rotKey.PublicKey()},
+		RotationKeys: []crypto.PrivateKey{rotKey},
 		Handle:       "alice.bsky.social",
 		PDS:          "https://pds.example.com",
 	})
@@ -164,7 +297,7 @@ func TestUpdateOpAllOverrides(t *testing.T) {
 
 	genesis, _, err := CreateDID(CreateParams{
 		SigningKey:   sigKey,
-		RotationKeys: []crypto.PublicKey{rotKey.PublicKey()},
+		RotationKeys: []crypto.PrivateKey{rotKey},
 		Handle:       "alice.bsky.social",
 		PDS:          "https://pds.example.com",
 	})
@@ -190,8 +323,9 @@ func TestUpdateOpAllOverrides(t *testing.T) {
 	assert.Equal(t, []string{"at://bob.example.com"}, update.AlsoKnownAs)
 	assert.Equal(t, "https://new-pds.example.com", update.Services["atproto_pds"].Endpoint)
 
-	require.NoError(t, update.Sign(sigKey))
-	require.NoError(t, update.Verify(sigKey.PublicKey()))
+	// Updates are signed by a rotation key (PLC v0.1).
+	require.NoError(t, update.Sign(rotKey))
+	require.NoError(t, update.Verify(rotKey.PublicKey()))
 }
 
 func TestTombstoneChain(t *testing.T) {
@@ -205,7 +339,7 @@ func TestTombstoneChain(t *testing.T) {
 
 	genesis, _, err := CreateDID(CreateParams{
 		SigningKey:   sigKey,
-		RotationKeys: []crypto.PublicKey{rotKey.PublicKey()},
+		RotationKeys: []crypto.PrivateKey{rotKey},
 		Handle:       "alice.bsky.social",
 		PDS:          "https://pds.example.com",
 	})
@@ -218,6 +352,8 @@ func TestTombstoneChain(t *testing.T) {
 	assert.Equal(t, "plc_tombstone", ts.Type)
 	assert.Equal(t, genesisCID, ts.Prev)
 
-	require.NoError(t, ts.Sign(sigKey))
-	require.NoError(t, ts.Verify(sigKey.PublicKey()))
+	// Tombstones are signed by a rotation key (PLC v0.1).
+	require.NoError(t, ts.Sign(rotKey))
+	require.NoError(t, ts.Verify(rotKey.PublicKey()))
+	require.Error(t, ts.Verify(sigKey.PublicKey()))
 }

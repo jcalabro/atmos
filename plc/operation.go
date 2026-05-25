@@ -25,6 +25,10 @@ var (
 	ErrNotSigned = errors.New("plc: operation is not signed")
 	// ErrNotFound is returned when a DID does not exist in the PLC directory.
 	ErrNotFound = errors.New("plc: DID not found")
+	// ErrNotGenesis is returned when DID derivation is attempted on a
+	// non-genesis operation. did:plc identifiers are derived from the
+	// genesis op only (prev == nil).
+	ErrNotGenesis = errors.New("plc: operation is not a genesis op (prev != nil)")
 )
 
 // Operation is a PLC operation (plc_operation type).
@@ -139,7 +143,14 @@ func (op *Operation) CID() (string, error) {
 // DID computes the did:plc: identifier from a signed genesis operation.
 // The signed CBOR bytes are SHA-256 hashed, base32-lower encoded, and
 // truncated to 24 characters.
+//
+// Returns ErrNotGenesis if the op has a non-nil Prev: did:plc identifiers
+// are derived from the genesis op only, and computing it from an update
+// would yield an unrelated string.
 func (op *Operation) DID() (atmos.DID, error) {
+	if op.Prev != nil {
+		return "", ErrNotGenesis
+	}
 	data, err := op.SignedBytes()
 	if err != nil {
 		return "", err
