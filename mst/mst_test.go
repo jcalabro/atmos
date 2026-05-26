@@ -704,6 +704,80 @@ func TestRemoveSubtreeDirtyPropagation(t *testing.T) {
 		expectedRoot.String(), rootAfterRemove.String())
 }
 
+// TestLazyLoadEmptyIntermediateHeight guards against a regression in
+// ensureLoaded that miscomputed the height of empty-entries intermediate
+// nodes — the height-fillers the canonical MST shape requires whenever
+// a parent and its only descendant span more than one height level.
+//
+// Failure mode: ensureLoaded derives n.height from entries[0].key, so a
+// node with len(entries)==0 was left at height 0. Any subsequent
+// Insert/Remove whose path descended through that empty intermediate
+// then misinterpreted it as a height-0 node and built a non-canonical
+// tower of synthetic intermediates above it. The resulting root CID
+// did not match a from-scratch rebuild of the same key set.
+//
+// Symptom in production: sync.InvertCommit on commits whose touched
+// path traverses an empty intermediate produced wrong roots, surfacing
+// as InversionIncompleteError under the verifier's lenient mode at
+// non-trivial rates (~1.4% of firehose commits during a smoke test).
+//
+// Trigger requires a height gap >1 between a node and its descendants,
+// followed by a lazy reload (so the tree is reconstructed from blocks
+// rather than mutated in place). The keys below produce a root at
+// height 4 over a single height-0 leaf, forcing empty intermediates at
+// heights 3, 2, and 1; the test then re-loads the saved blocks and
+// inserts a second height-0 leaf via a path that necessarily traverses
+// one of those empty intermediates.
+func TestLazyLoadEmptyIntermediateHeight(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	// Heights chosen via HeightForKey on these literal strings:
+	//   "com.example.record/0000057" → height 4 (root entry)
+	//   "com.example.record/0000000" → height 0
+	//   "com.example.record/0000001" → height 0
+	rootKey := "com.example.record/0000057"
+	leafKey1 := "com.example.record/0000000"
+	leafKey2 := "com.example.record/0000001"
+	require.Equal(t, uint8(4), HeightForKey(rootKey),
+		"test fixture key %q changed height; pick a new height-4 key", rootKey)
+	require.Equal(t, uint8(0), HeightForKey(leafKey1))
+	require.Equal(t, uint8(0), HeightForKey(leafKey2))
+
+	// Build {rootKey, leafKey1} and persist its blocks, then drop the
+	// in-memory tree state by constructing a fresh Tree handle bound to
+	// the same store. That forces the next operation to re-load every
+	// node from blocks, which is what exposes the height-tracking bug.
+	store := NewMemBlockStore()
+	staged := NewTree(store)
+	require.NoError(t, staged.Insert(rootKey, val))
+	require.NoError(t, staged.Insert(leafKey1, val))
+	stagedRoot, err := staged.WriteBlocks(store)
+	require.NoError(t, err)
+
+	// Lazy reload: LoadTree only stubs the root; descendant nodes are
+	// fetched on demand via ensureLoaded.
+	reloaded := LoadTree(store, stagedRoot)
+	require.NoError(t, reloaded.Insert(leafKey2, val))
+
+	gotRoot, err := reloaded.RootCID()
+	require.NoError(t, err)
+
+	// Independent oracle: build the same key set from scratch. The MST
+	// is canonical, so this is the only acceptable root CID.
+	oracle := NewTree(NewMemBlockStore())
+	for _, k := range []string{rootKey, leafKey1, leafKey2} {
+		require.NoError(t, oracle.Insert(k, val))
+	}
+	wantRoot, err := oracle.RootCID()
+	require.NoError(t, err)
+
+	assert.True(t, wantRoot.Equal(gotRoot),
+		"lazy-load + Insert produced a non-canonical root: want %s, got %s "+
+			"(likely an empty-entries intermediate node lost its height during ensureLoaded)",
+		wantRoot.String(), gotRoot.String())
+}
+
 func TestGetFromEmptyTree(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()

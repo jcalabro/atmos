@@ -882,9 +882,35 @@ func (t *Tree) ensureLoaded(n *node) error {
 		}
 	}
 
-	// Determine height from entries (all entries at same level have same height).
+	// Determine height from entries (all entries at same level have same
+	// height). For empty-entries intermediate nodes — canonical
+	// height-fillers between a parent and its only descendant — entries
+	// is empty and we cannot derive height from a key. We rely on the
+	// parent having seeded n.height when it constructed this stub
+	// below; ensureLoaded preserves that seeded value here.
 	if len(n.entries) > 0 {
 		n.height = HeightForKey(n.entries[0].key)
+	}
+
+	// Seed each newly-constructed child stub with its expected height.
+	// In the canonical MST every edge spans exactly one height level,
+	// so child.height = n.height - 1. The child's own ensureLoaded
+	// will preserve this value when its entries list is empty (an
+	// empty-entries intermediate), which is the case where height
+	// would otherwise default to zero and break Insert/Remove paths
+	// that traverse the empty intermediate. Indigo handles the same
+	// case via a post-load ensureHeights walk
+	// (atproto/repo/mst/encoding.go); we propagate eagerly during the
+	// existing lazy load instead.
+	if n.height > 0 {
+		if n.left != nil {
+			n.left.height = n.height - 1
+		}
+		for i := range n.entries {
+			if n.entries[i].right != nil {
+				n.entries[i].right.height = n.height - 1
+			}
+		}
 	}
 
 	return nil
