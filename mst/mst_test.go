@@ -778,6 +778,78 @@ func TestLazyLoadEmptyIntermediateHeight(t *testing.T) {
 		wantRoot.String(), gotRoot.String())
 }
 
+// TestLazyLoadRemoveTrimsThroughUnloadedStub guards against a
+// regression in Tree.Remove's top-trim loop. When Remove deleted the
+// last entry from a multi-level root and left behind a non-nil
+// (entries==[], left=<unloaded stub>) passthrough, the trim loop
+// collapsed onto that stub but then re-tested `len(stub.entries) == 0
+// && stub.left == nil` against a node that hadn't been loaded from
+// blocks. An unloaded stub has entries==nil and left==nil at the Go
+// level — both checks pass — so the loop walked off the end of the
+// chain and emptied the tree, dropping every record below the
+// removed key.
+//
+// Symptom in production: sync.InvertCommit on a single-op `create`
+// commit whose pre-state has 1 root entry plus a left subtree
+// returned the empty-MST CID. The verifier surfaced that as
+// InversionIncompleteError under lenient mode.
+//
+// Trigger: lazy-load a tree whose canonical shape is (height-N root
+// entry, height-(N-1) left subtree), then Remove the root entry.
+// The h=2/h=1 split below mirrors the firehose shape we caught — a
+// 2-record repo (e.g. profile + first follow) where the create's
+// inversion removes the only height-2 entry.
+func TestLazyLoadRemoveTrimsThroughUnloadedStub(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	// Heights chosen via HeightForKey on these literal strings:
+	//   "col.lection/0000019" → height 2 (root entry, will be removed)
+	//   "col.lection/0000005" → height 1 (lone survivor, in left subtree)
+	rootKey := "col.lection/0000019"
+	leafKey := "col.lection/0000005"
+	require.Equal(t, uint8(2), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-2 key", rootKey)
+	require.Equal(t, uint8(1), HeightForKey(leafKey),
+		"test fixture %q changed height; pick a new height-1 key", leafKey)
+	require.Less(t, leafKey, rootKey,
+		"leafKey must sort before rootKey so it lands in the left subtree")
+
+	// Build {rootKey, leafKey} and persist its blocks.
+	store := NewMemBlockStore()
+	staged := NewTree(store)
+	require.NoError(t, staged.Insert(rootKey, val))
+	require.NoError(t, staged.Insert(leafKey, val))
+	stagedRoot, err := staged.WriteBlocks(store)
+	require.NoError(t, err)
+
+	// Lazy reload, then Remove the root entry. Tree.Remove's trim loop
+	// must follow the left chain via ensureLoaded, not bare pointer
+	// inspection on stub nodes.
+	reloaded := LoadTree(store, stagedRoot)
+	require.NoError(t, reloaded.Remove(rootKey))
+
+	gotRoot, err := reloaded.RootCID()
+	require.NoError(t, err)
+
+	// Independent oracle: a tree containing only leafKey.
+	oracle := NewTree(NewMemBlockStore())
+	require.NoError(t, oracle.Insert(leafKey, val))
+	wantRoot, err := oracle.RootCID()
+	require.NoError(t, err)
+
+	assert.True(t, wantRoot.Equal(gotRoot),
+		"lazy-load + Remove produced an empty root (or wrong root): want %s, got %s "+
+			"(likely Tree.Remove's trim loop walked through an unloaded stub)",
+		wantRoot.String(), gotRoot.String())
+
+	// Sanity: leafKey must still be retrievable from the trimmed tree.
+	got, err := reloaded.Get(leafKey)
+	require.NoError(t, err)
+	require.NotNil(t, got, "leafKey was dropped by the trim loop")
+	require.True(t, val.Equal(*got))
+}
+
 func TestGetFromEmptyTree(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()

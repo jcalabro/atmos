@@ -471,13 +471,21 @@ func (t *Tree) Remove(key string) error {
 	if err != nil {
 		return err
 	}
-	// Trim the top: collapse empty root nodes that only have a left child.
-	for newRoot != nil && len(newRoot.entries) == 0 {
-		if newRoot.left != nil {
-			newRoot = newRoot.left
-		} else {
-			newRoot = nil
+	// Trim the top: collapse empty-passthrough root nodes that only
+	// have a left child. ensureLoaded each candidate before testing —
+	// an unloaded stub looks like an empty node (entries==nil and
+	// left==nil) at the Go level, but on disk it may carry a real
+	// child subtree. Without loading it first, the loop would walk
+	// off the end of the chain and produce an empty tree, dropping
+	// every record below the removed key.
+	for newRoot != nil {
+		if err := t.ensureLoaded(newRoot); err != nil {
+			return err
 		}
+		if len(newRoot.entries) > 0 {
+			break
+		}
+		newRoot = newRoot.left
 	}
 	t.root = newRoot
 	return nil
