@@ -577,3 +577,31 @@ func TestJetstream_Integration_UnknownKindSkipped(t *testing.T) {
 	require.Len(t, events, 1)
 	assert.Equal(t, "did:plc:b", events[0].Jetstream.DID)
 }
+
+func TestJetstreamEvent_CursorFieldRoundtrip(t *testing.T) {
+	in := JetstreamEvent{
+		DID:    "did:plc:test",
+		TimeUS: 1700000000000000,
+		Cursor: 12345,
+		Kind:   JetstreamKindCommit,
+	}
+	b, err := json.Marshal(&in)
+	require.NoError(t, err)
+	require.Contains(t, string(b), `"cursor":12345`)
+
+	var out JetstreamEvent
+	require.NoError(t, json.Unmarshal(b, &out))
+	require.Equal(t, in.Cursor, out.Cursor)
+}
+
+func TestJetstreamEvent_CursorOmittedWhenZero(t *testing.T) {
+	in := JetstreamEvent{
+		DID:    "did:plc:test",
+		TimeUS: 1700000000000000,
+		Kind:   JetstreamKindCommit,
+	}
+	b, err := json.Marshal(&in)
+	require.NoError(t, err)
+	require.NotContains(t, string(b), `"cursor"`,
+		"cursor:0 should be omitted on the wire so legacy v1 frames don't carry a misleading 0")
+}

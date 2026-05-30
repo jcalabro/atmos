@@ -23,8 +23,14 @@ const (
 
 // JetstreamEvent is the top-level JSON envelope from a Jetstream server.
 type JetstreamEvent struct {
-	DID      string                                  `json:"did"`
-	TimeUS   int64                                   `json:"time_us"`
+	DID    string `json:"did"`
+	TimeUS int64  `json:"time_us"`
+	// Cursor is the jetstream-v2 monotonic per-event sequence number.
+	// JSON numbers up to 2^53 are exactly representable; v2 seq values
+	// won't approach that ceiling for centuries. Omitted from the wire
+	// when zero so legacy v1 frames (which never carried a seq) don't
+	// gain a misleading "cursor":0.
+	Cursor   uint64                                  `json:"cursor,omitempty"`
 	Kind     string                                  `json:"kind"`
 	Commit   *JetstreamCommit                        `json:"commit,omitempty"`
 	Account  *comatproto.SyncSubscribeRepos_Account  `json:"account,omitempty"`
@@ -81,6 +87,7 @@ func decodeJetstreamFrame(data []byte) (Event, error) {
 	js := &JetstreamEvent{
 		DID:      raw.DID,
 		TimeUS:   raw.TimeUS,
+		Cursor:   raw.Cursor,
 		Kind:     raw.Kind,
 		Commit:   raw.Commit,
 		Account:  raw.Account,
