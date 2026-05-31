@@ -12,7 +12,7 @@ import (
 func dial(ctx context.Context, u string) (*websocket.Conn, *http.Response, error) {
 	return websocket.Dial(ctx, u, &websocket.DialOptions{
 		HTTPHeader: http.Header{
-			"User-Agent": []string{"mono/v0.1"},
+			"User-Agent": []string{"atmos/v0.1"},
 		},
 	})
 }
