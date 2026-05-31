@@ -579,6 +579,8 @@ func TestJetstream_Integration_UnknownKindSkipped(t *testing.T) {
 }
 
 func TestJetstreamEvent_CursorFieldRoundtrip(t *testing.T) {
+	t.Parallel()
+
 	in := JetstreamEvent{
 		DID:    "did:plc:test",
 		TimeUS: 1700000000000000,
@@ -595,6 +597,8 @@ func TestJetstreamEvent_CursorFieldRoundtrip(t *testing.T) {
 }
 
 func TestJetstreamEvent_CursorOmittedWhenZero(t *testing.T) {
+	t.Parallel()
+
 	in := JetstreamEvent{
 		DID:    "did:plc:test",
 		TimeUS: 1700000000000000,
