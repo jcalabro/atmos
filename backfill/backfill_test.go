@@ -877,13 +877,13 @@ func TestEngine_Cancellation(t *testing.T) {
 	require.Less(t, store.completeCalls.Load(), int32(n/2))
 }
 
-// TestEngine_ShuffleBatchRandomizesOrder verifies that the engine
-// shuffles its batch before dispatching. The test server returns 3
-// entries per page; with ShuffleBatchSize=30 the engine must
+// TestEngine_BatchRandomizesOrder verifies that the engine shuffles
+// its batch before dispatching. The test server returns 3 entries per
+// page; with BatchSize=30 the engine must
 // accumulate all 10 pages before any dispatch happens, and the
 // dispatched order should differ from the listRepos enumeration
 // order.
-func TestEngine_ShuffleBatchRandomizesOrder(t *testing.T) {
+func TestEngine_BatchRandomizesOrder(t *testing.T) {
 	t.Parallel()
 
 	const n = 30
@@ -904,10 +904,10 @@ func TestEngine_ShuffleBatchRandomizesOrder(t *testing.T) {
 	var order []string
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:       sc,
-		Store:            store,
-		Workers:          gt.Some(1),
-		ShuffleBatchSize: gt.Some(n),
+		SyncClient: sc,
+		Store:      store,
+		Workers:    gt.Some(1),
+		BatchSize:  gt.Some(n),
 		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			mu.Lock()
 			order = append(order, string(did))
@@ -1051,7 +1051,9 @@ func TestEngine_OnCompleteFailure_DoesNotCallOnFail(t *testing.T) {
 		}),
 	})
 
-	require.NoError(t, engine.Run(context.Background()))
+	err := engine.Run(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "OnComplete recording failed")
 
 	require.Equal(t, int32(1), handlerCalls.Load(), "handler ran exactly once (no retries on OnComplete failure)")
 	require.Equal(t, int32(1), store.completeCalls.Load(), "OnComplete attempted exactly once")
@@ -1069,7 +1071,8 @@ func TestEngine_OnCompleteFailure_DoesNotCallOnFail(t *testing.T) {
 
 // TestEngine_OnFailFailure_SurfacesViaOnError verifies that when
 // Store.OnFail itself fails, OnError fires twice: once with the
-// original handler error, once with the wrapped on_fail error.
+// original handler error, once with the wrapped on_fail error, and
+// Run aborts before checkpointing unrecorded terminal state.
 func TestEngine_OnFailFailure_SurfacesViaOnError(t *testing.T) {
 	t.Parallel()
 
@@ -1099,7 +1102,10 @@ func TestEngine_OnFailFailure_SurfacesViaOnError(t *testing.T) {
 		}),
 	})
 
-	require.NoError(t, engine.Run(context.Background()))
+	err := engine.Run(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "on_fail")
+	require.Contains(t, err.Error(), "storage exploded")
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -1541,11 +1547,12 @@ func TestEngine_StartCursor_PassedToListRepos(t *testing.T) {
 	require.Equal(t, "resume-token-x", firstCursor)
 }
 
-// TestEngine_OnPageComplete_FiresPerPage confirms OnPageComplete is
-// called once per listRepos page, with the cursor the relay returned
-// for that page. testServer paginates 3 entries per page; with 4 DIDs
-// we get two pages (3 + 1).
-func TestEngine_OnPageComplete_FiresPerPage(t *testing.T) {
+// TestEngine_OnBatchComplete_FiresPerBatch confirms OnBatchComplete
+// is called once per completed batch, with the cursor the relay
+// returned for the final page in that batch. testServer paginates 3
+// entries per page; with BatchSize=3 and 4 DIDs we get two batches
+// (3 + 1).
+func TestEngine_OnBatchComplete_FiresPerBatch(t *testing.T) {
 	t.Parallel()
 
 	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
@@ -1563,8 +1570,9 @@ func TestEngine_OnPageComplete_FiresPerPage(t *testing.T) {
 	engine := backfill.NewEngine(backfill.Options{
 		SyncClient: sc,
 		Store:      store,
+		BatchSize:  gt.Some(3),
 		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
-		OnPageComplete: gt.Some(func(cursor string) error {
+		OnBatchComplete: gt.Some(func(cursor string) error {
 			mu.Lock()
 			defer mu.Unlock()
 			observedCursors = append(observedCursors, cursor)
@@ -1583,24 +1591,10 @@ func TestEngine_OnPageComplete_FiresPerPage(t *testing.T) {
 	require.Equal(t, "", observedCursors[1], "final page cursor must be empty")
 }
 
-// TestEngine_OnPageComplete_DispatchesPageBeforeCallback verifies the
-// soundness invariant: every DID on a page is on the worker channel
-// before OnPageComplete fires for that page. Without this guarantee
-// a crash between OnPageComplete and the next dispatch would leave
-// DIDs in StateDiscovered with their cursor "covered."
-//
-// The engine guarantees DIDs are *enqueued* (synchronous channel send
-// returned) before the callback runs — handler completion is async.
-// We exercise this by blocking handlers: with Workers=1 the jobs
-// channel buffer is 2, so once a handler parks, the producer can
-// enqueue at most two more jobs before any further dispatch blocks.
-// Page boundaries flush the per-page batch *before* OnPageComplete,
-// so page-complete-2 cannot fire until page-2's dispatches succeed —
-// which requires worker progress, which we withhold. Therefore, while
-// handlers are blocked, page-complete fires at most once (for page 1,
-// whose three dispatches fit between buffer + the parked worker
-// slot). page-complete-2 must NEVER fire until handlers run.
-func TestEngine_OnPageComplete_DispatchesPageBeforeCallback(t *testing.T) {
+// TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback verifies the
+// checkpoint invariant: OnBatchComplete does not fire until every
+// eligible job in the batch has reached a terminal state.
+func TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback(t *testing.T) {
 	t.Parallel()
 
 	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd", "did:plc:eee", "did:plc:fff"}
@@ -1614,20 +1608,21 @@ func TestEngine_OnPageComplete_DispatchesPageBeforeCallback(t *testing.T) {
 
 	var handlerEntered atomic.Int32
 	handlerRelease := make(chan struct{})
-	var pageCompleteCalls atomic.Int32
+	var batchCompleteCalls atomic.Int32
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
 		SyncClient: sc,
 		Store:      store,
 		Workers:    gt.Some(1),
+		BatchSize:  gt.Some(6),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			handlerEntered.Add(1)
 			<-handlerRelease
 			return nil
 		}),
-		OnPageComplete: gt.Some(func(_ string) error {
-			pageCompleteCalls.Add(1)
+		OnBatchComplete: gt.Some(func(_ string) error {
+			batchCompleteCalls.Add(1)
 			return nil
 		}),
 	})
@@ -1637,30 +1632,28 @@ func TestEngine_OnPageComplete_DispatchesPageBeforeCallback(t *testing.T) {
 		done <- engine.Run(context.Background())
 	}()
 
-	// Wait for the worker to park inside a handler. After this, the
-	// producer is blocked attempting to dispatch page-2 jobs (channel
-	// is saturated: 2 buffered + 1 in-flight). page-complete-2 cannot
-	// fire because the page-2 batch flush precedes it.
+	// Wait for the worker to park inside a handler. OnBatchComplete
+	// must not fire while any job from the batch is still running.
 	require.Eventually(t, func() bool {
 		return handlerEntered.Load() >= 1
 	}, 5*time.Second, time.Millisecond, "worker never entered a handler")
 
 	// Give the producer plenty of opportunity to misbehave and fire
-	// page-complete-2 prematurely. The flush invariant says it can't.
+	// the callback before the blocked handler finishes.
 	time.Sleep(50 * time.Millisecond)
-	require.LessOrEqual(t, pageCompleteCalls.Load(), int32(1),
-		"page-complete-2 fired while page-2 dispatches are still blocked — flush invariant broken")
+	require.Equal(t, int32(0), batchCompleteCalls.Load(),
+		"batch-complete fired while a batch job was still running")
 
 	close(handlerRelease)
 	require.NoError(t, <-done)
 
 	require.Equal(t, int32(6), handlerEntered.Load(), "every DID's handler must run")
-	require.Equal(t, int32(2), pageCompleteCalls.Load(), "6 DIDs / 3 per page = 2 pages")
+	require.Equal(t, int32(1), batchCompleteCalls.Load(), "6 DIDs with BatchSize=6 = 1 batch")
 }
 
-// TestEngine_OnPageCompleteError_AbortsRun confirms an error from
+// TestEngine_OnBatchCompleteError_AbortsRun confirms an error from
 // the callback aborts the Run with a wrapped error.
-func TestEngine_OnPageCompleteError_AbortsRun(t *testing.T) {
+func TestEngine_OnBatchCompleteError_AbortsRun(t *testing.T) {
 	t.Parallel()
 
 	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
@@ -1678,7 +1671,7 @@ func TestEngine_OnPageCompleteError_AbortsRun(t *testing.T) {
 		SyncClient: sc,
 		Store:      store,
 		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
-		OnPageComplete: gt.Some(func(_ string) error {
+		OnBatchComplete: gt.Some(func(_ string) error {
 			return wantErr
 		}),
 	})
@@ -1686,5 +1679,5 @@ func TestEngine_OnPageCompleteError_AbortsRun(t *testing.T) {
 	err := engine.Run(context.Background())
 	require.Error(t, err)
 	require.ErrorIs(t, err, wantErr)
-	require.Contains(t, err.Error(), "on_page_complete")
+	require.Contains(t, err.Error(), "on_batch_complete")
 }

@@ -37,18 +37,21 @@
 //
 // By default each Run() walks listRepos from the beginning. To resume
 // from a prior Run's progress, set Options.StartCursor to the cursor
-// last persisted via Options.OnPageComplete.
+// last persisted via Options.OnBatchComplete.
 //
-// Cursor advancement granularity is per page: when OnPageComplete
-// fires, every DID on that page (and prior pages) has been queued
-// onto the worker channel — either it's already StateComplete and
-// was skipped at Lookup, or it'll reach StateComplete (or
-// StateFailed) via the worker pool. A new Run with that cursor
+// Cursor advancement granularity is controlled by Options.BatchSize.
+// BatchSize counts every listRepos entry, including inactive and
+// already-complete repos. The engine still fetches listRepos in pages
+// of 1000 (the remote protocol cap), so batch boundaries are aligned
+// to page boundaries. When OnBatchComplete fires, every eligible DID
+// covered by that batch has reached StateComplete or StateFailed for
+// this Run. If the Store cannot persist one of those terminal states,
+// Run aborts before advancing the cursor. A new Run with that cursor
 // starts at the page after the saved one.
 //
 // The cursor is opaque; treat it as a string. Persist it durably
 // (e.g., in your Store's underlying database) before returning from
-// the OnPageComplete callback if you want crash-after-this-page to
+// the OnBatchComplete callback if you want crash-after-this-batch to
 // skip the same work on restart.
 //
 // # Extension surface

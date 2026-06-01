@@ -78,37 +78,48 @@ type Options struct {
 	// client.
 	HTTPClient gt.Option[*http.Client]
 
-	// ShuffleBatchSize is the number of repos to accumulate before
-	// shuffling and dispatching to workers. listRepos returns DIDs
-	// roughly in creation order, so small batches cluster on the
-	// same few PDS hosts; accumulating more before shuffle spreads
-	// work across many more PDSes in parallel. None = 100_000.
-	ShuffleBatchSize gt.Option[int]
+	// BatchSize is the target number of listRepos entries to
+	// reconcile before shuffling eligible repos, dispatching them to
+	// workers, waiting for those workers to finish, and firing
+	// OnBatchComplete. It counts every entry returned by listRepos,
+	// including inactive and already-complete repos.
+	//
+	// listRepos itself is still fetched in pages of 1000, which is the
+	// remote protocol cap. Batch boundaries therefore occur only at
+	// page boundaries: values below 1000 behave like 1000, and the
+	// actual batch size can exceed BatchSize by up to 999 entries.
+	//
+	// Larger values improve PDS load spreading during full-network
+	// backfills because listRepos is roughly creation-ordered and
+	// small batches can cluster on the same large PDS hosts.
+	// None = 1000.
+	BatchSize gt.Option[int]
 
 	// StartCursor is the starting cursor passed to
 	// SyncClient.ListRepos. None = "" (start from the beginning).
-	// Set this to the value last persisted via OnPageComplete to
-	// resume past the last fully-reconciled page from a prior Run.
+	// Set this to the value last persisted via OnBatchComplete to
+	// resume past the last fully-completed batch from a prior Run.
 	StartCursor gt.Option[string]
 
-	// OnPageComplete fires after every entry on a listRepos page has
-	// been reconciled (Store.OnDiscover/OnUpdate calls landed) AND
-	// every eligible job from that page has been pushed onto the
-	// worker channel. The cursor argument is the relay's NextCursor
-	// for this page — pass it as StartCursor on the next Run() to
-	// skip every entry up through this page.
+	// OnBatchComplete fires after a batch has been fully reconciled
+	// and every eligible repo scheduled by that batch has reached a
+	// terminal state for this Run: StateComplete after a successful
+	// handler call, or StateFailed after retry exhaustion or a
+	// non-transient error.
 	//
-	// Workers may still be downloading in the background when this
-	// fires; that's fine because anything not at StateComplete on
-	// restart will be re-dispatched once it's seen again. The
-	// guarantee is: any DID the persisted cursor "covers" has been
-	// queued at least once.
+	// If the Store cannot persist a terminal state, Run aborts before
+	// this callback fires for the affected batch.
+	//
+	// The cursor argument is the relay's NextCursor for the final
+	// listRepos page included in the completed batch. Pass it as
+	// StartCursor on the next Run() to skip every entry covered by
+	// this batch.
 	//
 	// Errors from this callback abort the Run with a wrapped error.
 	//
 	// None = no callback. Engines that don't need cursor persistence
 	// pay no cost.
-	OnPageComplete gt.Option[func(cursor string) error]
+	OnBatchComplete gt.Option[func(cursor string) error]
 }
 
 // Stats summarises engine progress, delivered to Options.OnProgress

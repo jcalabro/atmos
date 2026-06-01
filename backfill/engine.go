@@ -41,9 +41,8 @@ const listReposPageLimit = 1000
 // defaultWorkers is the default value of Options.Workers.
 const defaultWorkers = 50
 
-// defaultShuffleBatchSize is the default value of
-// Options.ShuffleBatchSize.
-const defaultShuffleBatchSize = 100_000
+// defaultBatchSize is the default value of Options.BatchSize.
+const defaultBatchSize = listReposPageLimit
 
 // defaultMaxRetries is the default value of Options.MaxRetries.
 const defaultMaxRetries = 5
@@ -145,6 +144,7 @@ func (e *Engine) Run(ctx context.Context) error {
 
 type repoJob struct {
 	entry atmossync.ListReposEntry
+	done  chan<- error
 }
 
 func (e *Engine) validate() error {
@@ -167,27 +167,28 @@ func (e *Engine) workerCount() int {
 	return defaultWorkers
 }
 
-func (e *Engine) shuffleBatchSize() int {
-	return e.opts.ShuffleBatchSize.ValOr(defaultShuffleBatchSize)
+func (e *Engine) batchSize() int {
+	if e.opts.BatchSize.HasVal() && e.opts.BatchSize.Val() > 0 {
+		return e.opts.BatchSize.Val()
+	}
+	return defaultBatchSize
 }
 
 // producerLoop walks the listRepos pages, reconciles every entry
-// against the Store, dispatches eligible DIDs in shuffled batches
-// of up to shuffleBatchSize(), and fires OnPageComplete (if set)
-// at every page boundary after that page's batch has been flushed.
+// against the Store, accumulates pages until at least batchSize()
+// listRepos entries have been seen, then dispatches eligible DIDs in
+// a shuffled batch. It waits for every dispatched job in the batch to
+// finish before firing OnBatchComplete, so a persisted cursor only
+// covers work that has reached StateComplete or StateFailed.
 //
-// Per-page flush is what makes cursor advancement sound: if we fired
-// OnPageComplete with a partial batch still buffered, a crash before
-// dispatch would leave those StateDiscovered DIDs orphaned. Flushing
-// at the boundary guarantees every DID covered by the persisted
-// cursor is on the worker channel (or already StateComplete).
-//
-// As a side effect, the shuffle batch is now bounded above by the
-// page size (1000 today) rather than ShuffleBatchSize, so wider
-// load-spreading would require a larger relay page cap.
+// BatchSize counts all listRepos entries, not only dispatched jobs.
+// Boundaries are page-aligned because the relay cursor only resumes
+// at page boundaries.
 func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
 	startCursor := e.opts.StartCursor.ValOr("")
-	batch := make([]repoJob, 0, e.shuffleBatchSize())
+	batch := make([]repoJob, 0, e.batchSize())
+	batchEntries := 0
+	batchCursor := ""
 
 	for page, err := range e.opts.SyncClient.ListRepos(ctx, listReposPageLimit, startCursor) {
 		if ctx.Err() != nil {
@@ -196,6 +197,8 @@ func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
 		if err != nil {
 			return fmt.Errorf("backfill: listRepos: %w", err)
 		}
+		batchEntries += len(page.Entries)
+		batchCursor = page.NextCursor
 
 		for _, entry := range page.Entries {
 			job, dispatch, err := e.reconcile(ctx, entry)
@@ -206,36 +209,20 @@ func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
 				continue
 			}
 			batch = append(batch, job)
-			if len(batch) >= e.shuffleBatchSize() {
-				if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
-					return err
-				}
-				batch = batch[:0]
-			}
 		}
 
-		// Page is fully reconciled. Flush the buffered batch before
-		// firing OnPageComplete so the persisted cursor never advances
-		// past undispatched DIDs.
-		if len(batch) > 0 {
-			if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
+		if batchEntries >= e.batchSize() {
+			if err := e.finishBatch(ctx, jobs, batch, batchCursor); err != nil {
 				return err
 			}
 			batch = batch[:0]
-		}
-
-		if cb := e.opts.OnPageComplete; cb.HasVal() {
-			if err := cb.Val()(page.NextCursor); err != nil {
-				return fmt.Errorf("backfill: on_page_complete: %w", err)
-			}
+			batchEntries = 0
+			batchCursor = ""
 		}
 	}
 
-	// Defensive: per-page flush above handles everything in the
-	// normal case. Keep the post-loop drain in case future ListRepos
-	// changes ever yield mid-page partial batches.
-	if len(batch) > 0 {
-		if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
+	if batchEntries > 0 {
+		if err := e.finishBatch(ctx, jobs, batch, batchCursor); err != nil {
 			return err
 		}
 	}
@@ -280,14 +267,41 @@ func (e *Engine) reconcile(ctx context.Context, entry atmossync.ListReposEntry) 
 	return repoJob{entry: entry}, true, nil
 }
 
-// dispatchBatch shuffles and pushes each job onto the workers channel.
+// finishBatch shuffles and pushes each job onto the workers channel,
+// waits for every pushed job to finish, then invokes OnBatchComplete.
+func (e *Engine) finishBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob, cursor string) error {
+	if err := e.dispatchBatch(ctx, jobs, batch); err != nil {
+		return err
+	}
+	if cb := e.opts.OnBatchComplete; cb.HasVal() {
+		if err := cb.Val()(cursor); err != nil {
+			return fmt.Errorf("backfill: on_batch_complete: %w", err)
+		}
+	}
+	return nil
+}
+
+// dispatchBatch shuffles, pushes each job onto the workers channel,
+// and waits for each pushed job to finish.
 func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob) error {
 	rand.Shuffle(len(batch), func(i, j int) { batch[i], batch[j] = batch[j], batch[i] })
+	done := make(chan error, len(batch))
 	for _, job := range batch {
+		job.done = done
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case jobs <- job:
+		}
+	}
+	for range len(batch) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-done:
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -301,15 +315,20 @@ func (e *Engine) workerLoop(ctx context.Context, jobs <-chan repoJob) {
 		if ctx.Err() != nil {
 			return
 		}
-		e.processRepo(ctx, job)
+		err := e.processRepo(ctx, job)
+		if job.done != nil {
+			job.done <- err
+		}
 	}
 }
 
-// processRepo runs the retry/backoff loop around tryRepo. The final
-// outcome is reported via Store.OnComplete (success path inside
-// tryRepo) or Store.OnFail (here, after retries exhaust or the error
-// is non-transient).
-func (e *Engine) processRepo(ctx context.Context, job repoJob) {
+// processRepo runs the retry/backoff loop around tryRepo. Nil means
+// the final outcome was durably reported via Store.OnComplete
+// (success path inside tryRepo) or Store.OnFail (here, after retries
+// exhaust or the error is non-transient). A non-nil error means the
+// job did not reach a persisted terminal state and the batch must not
+// checkpoint.
+func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 	maxRetries := e.opts.MaxRetries.ValOr(defaultMaxRetries)
 	baseDelay := e.opts.RetryBaseDelay.ValOr(defaultRetryBaseDelay)
 	maxDelay := e.opts.RetryMaxDelay.ValOr(defaultRetryMaxDelay)
@@ -317,18 +336,17 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) {
 	for attempt := range maxRetries + 1 {
 		err := e.tryRepo(ctx, job)
 		if err == nil {
-			return
+			return nil
 		}
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		if errors.Is(err, errOnCompleteRecorded) {
-			return
+			return err
 		}
 
 		if !xrpc.IsTransient(err) || attempt >= maxRetries {
-			e.recordFail(ctx, job.entry.DID, err, attempt+1)
-			return
+			return e.recordFail(ctx, job.entry.DID, err, attempt+1)
 		}
 
 		delay := backoffDelay(baseDelay, maxDelay, attempt)
@@ -338,8 +356,7 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) {
 		if ra := xrpc.RetryAfter(err); !ra.IsZero() {
 			wait := time.Until(ra)
 			if wait > maxDelay {
-				e.recordFail(ctx, job.entry.DID, fmt.Errorf("server requested %s delay exceeds RetryMaxDelay %s: %w", wait, maxDelay, err), attempt+1)
-				return
+				return e.recordFail(ctx, job.entry.DID, fmt.Errorf("server requested %s delay exceeds RetryMaxDelay %s: %w", wait, maxDelay, err), attempt+1)
 			}
 			if wait > delay {
 				delay = wait
@@ -349,10 +366,11 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) {
 		select {
 		case <-ctx.Done():
 			t.Stop()
-			return
+			return ctx.Err()
 		case <-t.C:
 		}
 	}
+	return nil
 }
 
 // backoffDelay returns base * 2^attempt, capped at maxDelay, with
@@ -378,11 +396,10 @@ func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
 }
 
 // recordFail reports a final failure: fires OnError, persists via
-// Store.OnFail, and surfaces a Store.OnFail error via OnError too. ctx
-// may already be cancelled here (e.g., producer error cancelled
-// runCtx); callers can pass a fresh background context if they need
-// the failure recorded regardless.
-func (e *Engine) recordFail(ctx context.Context, did atmos.DID, err error, attempts int) {
+// Store.OnFail, and surfaces a Store.OnFail error via OnError too. It
+// returns a non-nil error only when Store.OnFail could not persist the
+// terminal state.
+func (e *Engine) recordFail(ctx context.Context, did atmos.DID, err error, attempts int) error {
 	if onErr := e.opts.OnError; onErr.HasVal() {
 		onErr.Val()(did, err)
 	}
@@ -393,7 +410,9 @@ func (e *Engine) recordFail(ctx context.Context, did atmos.DID, err error, attem
 		if onErr := e.opts.OnError; onErr.HasVal() {
 			onErr.Val()(did, fmt.Errorf("backfill: store on_fail: %w", storeErr))
 		}
+		return fmt.Errorf("backfill: store on_fail %s: %w", did, storeErr)
 	}
+	return nil
 }
 
 // tryRepo executes a single download+parse+handle attempt. On nil
