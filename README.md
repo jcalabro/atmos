@@ -13,7 +13,11 @@
 | Package | Description |
 |-|-|
 | [`atmos`](https://pkg.go.dev/github.com/jcalabro/atmos) | syntax types (DID, Handle, NSID, etc.) |
-| [`atmos/api`](https://pkg.go.dev/github.com/jcalabro/atmos/api) | generated XRPC types and client functions for the `com.atproto.*`, `app.bsky.*`, etc. lexicons |
+| [`atmos/api/bsky`](https://pkg.go.dev/github.com/jcalabro/atmos/api/bsky) | generated XRPC types and client functions for the `app.bsky.*` lexicons |
+| [`atmos/api/chatbsky`](https://pkg.go.dev/github.com/jcalabro/atmos/api/chatbsky) | generated XRPC types and client functions for the `chat.bsky.*` lexicons |
+| [`atmos/api/comatproto`](https://pkg.go.dev/github.com/jcalabro/atmos/api/comatproto) | generated XRPC types and client functions for the `com.atproto.*` lexicons |
+| [`atmos/api/lextypes`](https://pkg.go.dev/github.com/jcalabro/atmos/api/lextypes) | shared generated Lexicon helper types, including blob, CID link, and open union support |
+| [`atmos/api/ozone`](https://pkg.go.dev/github.com/jcalabro/atmos/api/ozone) | generated XRPC types and client functions for the `tools.ozone.*` lexicons |
 | [`atmos/backfill`](https://pkg.go.dev/github.com/jcalabro/atmos/backfill) | concurrent engine for downloading and processing all repositories from a relay or PDS |
 | [`atmos/car`](https://pkg.go.dev/github.com/jcalabro/atmos/car) | CAR files |
 | [`atmos/cbor`](https://pkg.go.dev/github.com/jcalabro/atmos/cbor) | DAG-CBOR implementation |
@@ -29,7 +33,9 @@
 | [`atmos/repo`](https://pkg.go.dev/github.com/jcalabro/atmos/repo) | atproto repository operations |
 | [`atmos/serviceauth`](https://pkg.go.dev/github.com/jcalabro/atmos/serviceauth) | inter-service JWT authentication |
 | [`atmos/streaming`](https://pkg.go.dev/github.com/jcalabro/atmos/streaming) | client for consuming event streams (firehose and labelers) |
+| [`atmos/streaming/parallel`](https://pkg.go.dev/github.com/jcalabro/atmos/streaming/parallel) | per-key FIFO scheduler used to parallelize stream verification while preserving same-DID order |
 | [`atmos/sync`](https://pkg.go.dev/github.com/jcalabro/atmos/sync) | repository sync, commit verification, Sync 1.1 firehose verifier, and repo enumeration |
+| [`atmos/wasm`](https://pkg.go.dev/github.com/jcalabro/atmos/wasm) | WebAssembly build that exposes atmos syntax, CBOR, crypto, OAuth, identity, XRPC, and firehose helpers to browser JavaScript |
 | [`atmos/xrpc`](https://pkg.go.dev/github.com/jcalabro/atmos/xrpc) | lexicon-agnostic XRPC HTTP client |
 | [`atmos/xrpcserver`](https://pkg.go.dev/github.com/jcalabro/atmos/xrpcserver) | XRPC HTTP server with `/xrpc/{nsid}` routing and standard error envelopes |
 
