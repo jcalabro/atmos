@@ -669,6 +669,12 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 	// accumulated count into AdditionalDropsSuppressed so the consumer
 	// can reconcile total loss. Owned by the dispatch goroutine.
 	var suppressedDrops uint64
+	// pendingResults tracks all jobs dispatched to the scheduler, including
+	// seq-less control frames such as #info and server-side error frames.
+	// inflight only tracks seq-bearing events for cursor watermarking; drains
+	// must use pendingResults so a connection close cannot race ahead of a
+	// seq-less scheduler result and drop it.
+	var pendingResults int
 	// Seed lastSeenSeq from the persisted cursor so global gap
 	// detection survives reconnects. Without this, every reconnect
 	// resets to 0 and the first frame trivially passes the
@@ -710,6 +716,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			if seq > 0 {
 				inflight.Remove(seq)
 			}
+			pendingResults--
 			// suppressedDrops accumulates drop notifications that
 			// couldn't fit into the asyncErr buffer. When the next
 			// notification *does* land, it carries the suppressed count
@@ -900,18 +907,21 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			}
 			return false
 		}
+		pendingResults++
 		return true
 	}
 
 	// drainResults pulls any pending results from resultCh into the
-	// batch (calling flushBatch on overflow) until inflight is empty.
-	// Used on connection-close paths AND before yielding GapError /
-	// DecodeError, so pre-error events in flight reach the consumer
-	// ahead of the error. Returns true if the caller stopped iterating.
+	// batch (calling flushBatch on overflow) until every scheduler job
+	// has produced a result. Used on connection-close paths AND before
+	// yielding GapError / DecodeError, so pre-error events in flight
+	// reach the consumer ahead of the error. Returns true if the caller
+	// stopped iterating.
 	drainResults = func() bool {
-		for inflight.Len() > 0 {
+		for pendingResults > 0 {
 			select {
 			case vr := <-resultCh:
+				pendingResults--
 				// See the same handler in the main select below for the
 				// invariant rationale and accountErr fall-through.
 				if vr.accountErr != nil {
@@ -983,6 +993,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			}
 
 		case vr := <-resultCh:
+			pendingResults--
 			// Invariant: a single Event carries one wire frame, so
 			// accountErr (from #account) and hookErr/silentDrop (from
 			// #commit/#sync) are mutually exclusive in practice.
