@@ -8,6 +8,10 @@ install-tools:
     go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
     go install gotest.tools/gotestsum@v1.13.0
 
+# Builds and installs all tools to the GOBIN on the local machine
+install:
+    go install ./cmd/...
+
 # Lints the code
 lint:
     golangci-lint run --timeout 3m ./...
@@ -20,6 +24,7 @@ modernize:
 test *ARGS="./...":
     just test-long -short {{ARGS}}
 
+# Runs the tests (including long-running tests)
 test-long *ARGS="./...":
     gotestsum --format-hide-empty-pkg --format-icons hivis -- -count=1 {{ARGS}}
 
