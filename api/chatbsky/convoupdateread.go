@@ -9,6 +9,11 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// Error name constants for ConvoUpdateRead.
+const (
+	ErrConvoUpdateRead_InvalidConvo = "InvalidConvo"
+)
+
 // Precomputed JSON key tokens for ConvoUpdateRead_Output.
 var (
 	jsonKey_ConvoUpdateRead_Output_dollar_type = []byte("\"$type\":")
@@ -462,6 +467,8 @@ type ConvoUpdateRead_Input struct {
 }
 
 // ConvoUpdateRead calls the XRPC procedure "chat.bsky.convo.updateRead".
+//
+// Updates the read state of a conversation from, optionally specifying the last read message.
 func ConvoUpdateRead(ctx context.Context, c *xrpc.Client, input *ConvoUpdateRead_Input) (*ConvoUpdateRead_Output, error) {
 	var out ConvoUpdateRead_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.updateRead", input, &out)

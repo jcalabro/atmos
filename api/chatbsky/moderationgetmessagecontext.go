@@ -256,9 +256,9 @@ func (s *ModerationGetMessageContext_Output) UnmarshalCBORAt(data []byte, pos in
 
 // ModerationGetMessageContext_Output_Messages is a union type.
 type ModerationGetMessageContext_Output_Messages struct {
-	ConvoDefs_MessageView        gt.Ref[ConvoDefs_MessageView]
-	ConvoDefs_DeletedMessageView gt.Ref[ConvoDefs_DeletedMessageView]
-	Unknown                      gt.Ref[lextypes.UnknownUnionVariant]
+	ConvoDefs_MessageView       gt.Ref[ConvoDefs_MessageView]
+	ConvoDefs_SystemMessageView gt.Ref[ConvoDefs_SystemMessageView]
+	Unknown                     gt.Ref[lextypes.UnknownUnionVariant]
 }
 
 func (u ModerationGetMessageContext_Output_Messages) MarshalJSON() ([]byte, error) {
@@ -271,9 +271,9 @@ func (u ModerationGetMessageContext_Output_Messages) AppendJSON(buf []byte) ([]b
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendJSON(buf)
 	}
-	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := *u.ConvoDefs_DeletedMessageView.Val()
-		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -305,13 +305,13 @@ func (u *ModerationGetMessageContext_Output_Messages) UnmarshalJSONAt(data []byt
 		}
 		u.ConvoDefs_MessageView = gt.SomeRef(v)
 		return endPos, nil
-	case "chat.bsky.convo.defs#deletedMessageView":
-		var v ConvoDefs_DeletedMessageView
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
 		endPos, err = v.UnmarshalJSONAt(data, pos)
 		if err != nil {
 			return 0, err
 		}
-		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
 		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
@@ -329,9 +329,9 @@ func (u ModerationGetMessageContext_Output_Messages) AppendCBOR(buf []byte) ([]b
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return v.AppendCBOR(buf)
 	}
-	if u.ConvoDefs_DeletedMessageView.HasVal() {
-		v := *u.ConvoDefs_DeletedMessageView.Val()
-		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -359,13 +359,13 @@ func (u *ModerationGetMessageContext_Output_Messages) UnmarshalCBORAt(data []byt
 		}
 		u.ConvoDefs_MessageView = gt.SomeRef(v)
 		return pos, nil
-	case "chat.bsky.convo.defs#deletedMessageView":
-		var v ConvoDefs_DeletedMessageView
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
 		pos, err = v.UnmarshalCBORAt(data, pos)
 		if err != nil {
 			return 0, err
 		}
-		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -389,7 +389,7 @@ type ModerationGetMessageContext_Output struct {
 }
 
 // ModerationGetMessageContext calls the XRPC query "chat.bsky.moderation.getMessageContext".
-func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
+func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int64, before int64, convoId string, maxInterleavedSystemMessages int64, messageId string) (*ModerationGetMessageContext_Output, error) {
 	params := map[string]any{}
 	if after != 0 {
 		params["after"] = after
@@ -399,6 +399,9 @@ func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int6
 	}
 	if convoId != "" {
 		params["convoId"] = convoId
+	}
+	if maxInterleavedSystemMessages != 0 {
+		params["maxInterleavedSystemMessages"] = maxInterleavedSystemMessages
 	}
 	params["messageId"] = messageId
 	var out ModerationGetMessageContext_Output

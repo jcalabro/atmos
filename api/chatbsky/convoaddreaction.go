@@ -10,6 +10,8 @@ import (
 
 // Error name constants for ConvoAddReaction.
 const (
+	ErrConvoAddReaction_InvalidConvo           = "InvalidConvo"
+	ErrConvoAddReaction_ReactionNotAllowed     = "ReactionNotAllowed"     // Indicates that reactions are not allowed on this message, e.g. because it is a system message.
 	ErrConvoAddReaction_ReactionMessageDeleted = "ReactionMessageDeleted" // Indicates that the message has been deleted and reactions can no longer be added/removed.
 	ErrConvoAddReaction_ReactionLimitReached   = "ReactionLimitReached"   // Indicates that the message has the maximum number of reactions allowed for a single user, and the...
 	ErrConvoAddReaction_ReactionInvalidValue   = "ReactionInvalidValue"   // Indicates the value for the reaction is not acceptable. In general, this means it is not an emoji.

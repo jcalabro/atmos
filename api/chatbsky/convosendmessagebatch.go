@@ -244,6 +244,12 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalJSONAt(data []byte, pos int) 
 	}
 }
 
+// Error name constants for ConvoSendMessageBatch.
+const (
+	ErrConvoSendMessageBatch_ConvoLocked  = "ConvoLocked"
+	ErrConvoSendMessageBatch_InvalidConvo = "InvalidConvo"
+)
+
 // Precomputed JSON key tokens for ConvoSendMessageBatch_Output.
 var (
 	jsonKey_ConvoSendMessageBatch_Output_dollar_type = []byte("\"$type\":")
@@ -727,6 +733,8 @@ type ConvoSendMessageBatch_Input struct {
 }
 
 // ConvoSendMessageBatch calls the XRPC procedure "chat.bsky.convo.sendMessageBatch".
+//
+// Sends a batch of messages to a conversation.
 func ConvoSendMessageBatch(ctx context.Context, c *xrpc.Client, input *ConvoSendMessageBatch_Input) (*ConvoSendMessageBatch_Output, error) {
 	var out ConvoSendMessageBatch_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.sendMessageBatch", input, &out)

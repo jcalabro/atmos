@@ -412,7 +412,7 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, po
 
 type GraphGetSuggestedFollowsByActor_Output struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
-	IsFallback    gt.Option[bool]         `json:"isFallback,omitzero"` // If true, response has fallen-back to generic results, and is not scoped using relativeToDid
+	IsFallback    gt.Option[bool]         `json:"isFallback,omitzero"` // DEPRECATED, unused. Previously: if true, response has fallen-back to generic results, and is not ...
 	RecId         gt.Option[int64]        `json:"recId,omitzero"`      // DEPRECATED: use recIdStr instead.
 	RecIdStr      gt.Option[string]       `json:"recIdStr,omitzero"`   // Snowflake for this recommendation, use when submitting recommendation events.
 	Suggestions   []ActorDefs_ProfileView `json:"suggestions"`

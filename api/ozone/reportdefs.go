@@ -2,6 +2,15 @@
 
 package ozone
 
+import (
+	"encoding/json"
+	"fmt"
+	comatproto "github.com/jcalabro/atmos/api/comatproto"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
+	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
+)
+
 const (
 	ReportDefs_ReasonAppeal                   = "tools.ozone.report.defs#reasonAppeal"                   // Appeal a previously taken moderation action
 	ReportDefs_ReasonChildSafetyCSAM          = "tools.ozone.report.defs#reasonChildSafetyCSAM"          // Child sexual abuse material (CSAM). These reports will be sent only be sent to the application's ...
@@ -45,6 +54,2679 @@ const (
 	ReportDefs_ReasonViolenceTrafficking      = "tools.ozone.report.defs#reasonViolenceTrafficking"      // Human trafficking
 
 )
+
+// ReportDefs_AssignmentActivity is a "assignmentActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a moderator being assigned to a report.
+type ReportDefs_AssignmentActivity struct {
+	LexiconTypeID  string            `json:"$type,omitempty"`
+	PreviousStatus gt.Option[string] `json:"previousStatus,omitzero"` // The report's status before this activity. Populated automatically from the report row; not requir...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_AssignmentActivity.
+var (
+	cborKey_ReportDefs_AssignmentActivity_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_AssignmentActivity_previousStatus = cbor.AppendTextKey(nil, "previousStatus")
+)
+
+func (s *ReportDefs_AssignmentActivity) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_AssignmentActivity) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.PreviousStatus.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_AssignmentActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "previousStatus", buf)
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_AssignmentActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_AssignmentActivity) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_AssignmentActivity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "previousStatus" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PreviousStatus = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_AssignmentActivity.
+var (
+	jsonKey_ReportDefs_AssignmentActivity_dollar_type    = []byte("\"$type\":")
+	jsonKey_ReportDefs_AssignmentActivity_previousStatus = []byte("\"previousStatus\":")
+)
+
+func (s *ReportDefs_AssignmentActivity) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_AssignmentActivity) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_AssignmentActivity_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.PreviousStatus.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_AssignmentActivity_previousStatus...)
+		buf = cbor.AppendJSONString(buf, s.PreviousStatus.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_AssignmentActivity) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_AssignmentActivity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "previousStatus":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PreviousStatus = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_AssignmentView is a "assignmentView" in the tools.ozone.report.defs schema.
+type ReportDefs_AssignmentView struct {
+	LexiconTypeID string                         `json:"$type,omitempty"`
+	DID           string                         `json:"did"`
+	EndAt         gt.Option[string]              `json:"endAt,omitzero"`
+	Id            int64                          `json:"id"`
+	Moderator     gt.Option[TeamDefs_Member]     `json:"moderator,omitzero"` // The moderator assigned to this report
+	Queue         gt.Option[QueueDefs_QueueView] `json:"queue,omitzero"`
+	ReportId      int64                          `json:"reportId"`
+	StartAt       string                         `json:"startAt"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_AssignmentView.
+var (
+	cborKey_ReportDefs_AssignmentView_id          = cbor.AppendTextKey(nil, "id")
+	cborKey_ReportDefs_AssignmentView_did         = cbor.AppendTextKey(nil, "did")
+	cborKey_ReportDefs_AssignmentView_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_AssignmentView_endAt       = cbor.AppendTextKey(nil, "endAt")
+	cborKey_ReportDefs_AssignmentView_queue       = cbor.AppendTextKey(nil, "queue")
+	cborKey_ReportDefs_AssignmentView_startAt     = cbor.AppendTextKey(nil, "startAt")
+	cborKey_ReportDefs_AssignmentView_reportId    = cbor.AppendTextKey(nil, "reportId")
+	cborKey_ReportDefs_AssignmentView_moderator   = cbor.AppendTextKey(nil, "moderator")
+)
+
+func (s *ReportDefs_AssignmentView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_AssignmentView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.EndAt.HasVal() {
+		n++
+	}
+	if s.Queue.HasVal() {
+		n++
+	}
+	if s.Moderator.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "endAt", buf)
+		if s.EndAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_endAt...)
+			buf = cbor.AppendText(buf, s.EndAt.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "queue", buf)
+		if s.Queue.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_queue...)
+			{
+				v := s.Queue.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "startAt", buf)
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_startAt...)
+		buf = cbor.AppendText(buf, s.StartAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportId", buf)
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_reportId...)
+		buf = cbor.AppendInt(buf, s.ReportId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "moderator", buf)
+		if s.Moderator.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_moderator...)
+			{
+				v := s.Moderator.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.EndAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_endAt...)
+			buf = cbor.AppendText(buf, s.EndAt.Val())
+		}
+		if s.Queue.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_queue...)
+			{
+				v := s.Queue.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_startAt...)
+		buf = cbor.AppendText(buf, s.StartAt)
+		buf = append(buf, cborKey_ReportDefs_AssignmentView_reportId...)
+		buf = cbor.AppendInt(buf, s.ReportId)
+		if s.Moderator.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_AssignmentView_moderator...)
+			{
+				v := s.Moderator.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_AssignmentView) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_AssignmentView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "endAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.EndAt = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "queue" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v QueueDefs_QueueView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Queue = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "startAt" {
+				s.StartAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "reportId" {
+				s.ReportId, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "moderator" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v TeamDefs_Member
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Moderator = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_AssignmentView.
+var (
+	jsonKey_ReportDefs_AssignmentView_dollar_type = []byte("\"$type\":")
+	jsonKey_ReportDefs_AssignmentView_did         = []byte("\"did\":")
+	jsonKey_ReportDefs_AssignmentView_endAt       = []byte("\"endAt\":")
+	jsonKey_ReportDefs_AssignmentView_id          = []byte("\"id\":")
+	jsonKey_ReportDefs_AssignmentView_moderator   = []byte("\"moderator\":")
+	jsonKey_ReportDefs_AssignmentView_queue       = []byte("\"queue\":")
+	jsonKey_ReportDefs_AssignmentView_reportId    = []byte("\"reportId\":")
+	jsonKey_ReportDefs_AssignmentView_startAt     = []byte("\"startAt\":")
+)
+
+func (s *ReportDefs_AssignmentView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_AssignmentView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_AssignmentView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_AssignmentView_did...)
+	buf = cbor.AppendJSONString(buf, s.DID)
+	first = false
+	if s.EndAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_AssignmentView_endAt...)
+		buf = cbor.AppendJSONString(buf, s.EndAt.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_AssignmentView_id...)
+	buf = cbor.AppendJSONInt(buf, s.Id)
+	first = false
+	if s.Moderator.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_AssignmentView_moderator...)
+		{
+			v := s.Moderator.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.Queue.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_AssignmentView_queue...)
+		{
+			v := s.Queue.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_AssignmentView_reportId...)
+	buf = cbor.AppendJSONInt(buf, s.ReportId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_AssignmentView_startAt...)
+	buf = cbor.AppendJSONString(buf, s.StartAt)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_AssignmentView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_AssignmentView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "did":
+			s.DID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "endAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.EndAt = gt.Some(v)
+			}
+		case "id":
+			s.Id, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "moderator":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v TeamDefs_Member
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Moderator = gt.Some(v)
+			}
+		case "queue":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v QueueDefs_QueueView
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Queue = gt.Some(v)
+			}
+		case "reportId":
+			s.ReportId, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "startAt":
+			s.StartAt, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_CloseActivity is a "closeActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being closed.
+type ReportDefs_CloseActivity struct {
+	LexiconTypeID  string            `json:"$type,omitempty"`
+	PreviousStatus gt.Option[string] `json:"previousStatus,omitzero"` // The report's status before this activity. Populated automatically from the report row; not requir...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_CloseActivity.
+var (
+	cborKey_ReportDefs_CloseActivity_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_CloseActivity_previousStatus = cbor.AppendTextKey(nil, "previousStatus")
+)
+
+func (s *ReportDefs_CloseActivity) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_CloseActivity) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.PreviousStatus.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_CloseActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "previousStatus", buf)
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_CloseActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_CloseActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_CloseActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_CloseActivity) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_CloseActivity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "previousStatus" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PreviousStatus = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_CloseActivity.
+var (
+	jsonKey_ReportDefs_CloseActivity_dollar_type    = []byte("\"$type\":")
+	jsonKey_ReportDefs_CloseActivity_previousStatus = []byte("\"previousStatus\":")
+)
+
+func (s *ReportDefs_CloseActivity) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_CloseActivity) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_CloseActivity_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.PreviousStatus.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_CloseActivity_previousStatus...)
+		buf = cbor.AppendJSONString(buf, s.PreviousStatus.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_CloseActivity) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_CloseActivity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "previousStatus":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PreviousStatus = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_EscalationActivity is a "escalationActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being escalated.
+type ReportDefs_EscalationActivity struct {
+	LexiconTypeID  string            `json:"$type,omitempty"`
+	PreviousStatus gt.Option[string] `json:"previousStatus,omitzero"` // The report's status before this activity. Populated automatically from the report row; not requir...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_EscalationActivity.
+var (
+	cborKey_ReportDefs_EscalationActivity_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_EscalationActivity_previousStatus = cbor.AppendTextKey(nil, "previousStatus")
+)
+
+func (s *ReportDefs_EscalationActivity) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_EscalationActivity) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.PreviousStatus.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_EscalationActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "previousStatus", buf)
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_EscalationActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_EscalationActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_EscalationActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_EscalationActivity) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_EscalationActivity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "previousStatus" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PreviousStatus = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_EscalationActivity.
+var (
+	jsonKey_ReportDefs_EscalationActivity_dollar_type    = []byte("\"$type\":")
+	jsonKey_ReportDefs_EscalationActivity_previousStatus = []byte("\"previousStatus\":")
+)
+
+func (s *ReportDefs_EscalationActivity) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_EscalationActivity) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_EscalationActivity_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.PreviousStatus.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_EscalationActivity_previousStatus...)
+		buf = cbor.AppendJSONString(buf, s.PreviousStatus.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_EscalationActivity) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_EscalationActivity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "previousStatus":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PreviousStatus = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_HistoricalStats is a "historicalStats" in the tools.ozone.report.defs schema.
+//
+// A single daily snapshot of report statistics for a calendar date.
+type ReportDefs_HistoricalStats struct {
+	LexiconTypeID      string            `json:"$type,omitempty"`
+	ActionRate         gt.Option[int64]  `json:"actionRate,omitzero"`         // Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+	ActionedCount      gt.Option[int64]  `json:"actionedCount,omitzero"`      // Number of reports closed during this day.
+	AvgHandlingTimeSec gt.Option[int64]  `json:"avgHandlingTimeSec,omitzero"` // Average time in seconds from report creation (or moderator assignment) to close.
+	ComputedAt         gt.Option[string] `json:"computedAt,omitzero"`         // When this snapshot was last computed.
+	Date               string            `json:"date"`                        // The calendar date this snapshot covers (YYYY-MM-DD).
+	EscalatedCount     gt.Option[int64]  `json:"escalatedCount,omitzero"`     // Number of reports escalated during this day.
+	InboundCount       gt.Option[int64]  `json:"inboundCount,omitzero"`       // Reports received during this day.
+	PendingCount       gt.Option[int64]  `json:"pendingCount,omitzero"`       // Number of reports not closed at time of computation.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_HistoricalStats.
+var (
+	cborKey_ReportDefs_HistoricalStats_date               = cbor.AppendTextKey(nil, "date")
+	cborKey_ReportDefs_HistoricalStats_dollar_type        = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_HistoricalStats_actionRate         = cbor.AppendTextKey(nil, "actionRate")
+	cborKey_ReportDefs_HistoricalStats_computedAt         = cbor.AppendTextKey(nil, "computedAt")
+	cborKey_ReportDefs_HistoricalStats_inboundCount       = cbor.AppendTextKey(nil, "inboundCount")
+	cborKey_ReportDefs_HistoricalStats_pendingCount       = cbor.AppendTextKey(nil, "pendingCount")
+	cborKey_ReportDefs_HistoricalStats_actionedCount      = cbor.AppendTextKey(nil, "actionedCount")
+	cborKey_ReportDefs_HistoricalStats_escalatedCount     = cbor.AppendTextKey(nil, "escalatedCount")
+	cborKey_ReportDefs_HistoricalStats_avgHandlingTimeSec = cbor.AppendTextKey(nil, "avgHandlingTimeSec")
+)
+
+func (s *ReportDefs_HistoricalStats) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_HistoricalStats) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.ActionRate.HasVal() {
+		n++
+	}
+	if s.ComputedAt.HasVal() {
+		n++
+	}
+	if s.InboundCount.HasVal() {
+		n++
+	}
+	if s.PendingCount.HasVal() {
+		n++
+	}
+	if s.ActionedCount.HasVal() {
+		n++
+	}
+	if s.EscalatedCount.HasVal() {
+		n++
+	}
+	if s.AvgHandlingTimeSec.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "date", buf)
+		buf = append(buf, cborKey_ReportDefs_HistoricalStats_date...)
+		buf = cbor.AppendText(buf, s.Date)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actionRate", buf)
+		if s.ActionRate.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_actionRate...)
+			buf = cbor.AppendInt(buf, s.ActionRate.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "computedAt", buf)
+		if s.ComputedAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_computedAt...)
+			buf = cbor.AppendText(buf, s.ComputedAt.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "inboundCount", buf)
+		if s.InboundCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_inboundCount...)
+			buf = cbor.AppendInt(buf, s.InboundCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "pendingCount", buf)
+		if s.PendingCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_pendingCount...)
+			buf = cbor.AppendInt(buf, s.PendingCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actionedCount", buf)
+		if s.ActionedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_actionedCount...)
+			buf = cbor.AppendInt(buf, s.ActionedCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "escalatedCount", buf)
+		if s.EscalatedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_escalatedCount...)
+			buf = cbor.AppendInt(buf, s.EscalatedCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "avgHandlingTimeSec", buf)
+		if s.AvgHandlingTimeSec.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_avgHandlingTimeSec...)
+			buf = cbor.AppendInt(buf, s.AvgHandlingTimeSec.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ReportDefs_HistoricalStats_date...)
+		buf = cbor.AppendText(buf, s.Date)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.ActionRate.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_actionRate...)
+			buf = cbor.AppendInt(buf, s.ActionRate.Val())
+		}
+		if s.ComputedAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_computedAt...)
+			buf = cbor.AppendText(buf, s.ComputedAt.Val())
+		}
+		if s.InboundCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_inboundCount...)
+			buf = cbor.AppendInt(buf, s.InboundCount.Val())
+		}
+		if s.PendingCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_pendingCount...)
+			buf = cbor.AppendInt(buf, s.PendingCount.Val())
+		}
+		if s.ActionedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_actionedCount...)
+			buf = cbor.AppendInt(buf, s.ActionedCount.Val())
+		}
+		if s.EscalatedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_escalatedCount...)
+			buf = cbor.AppendInt(buf, s.EscalatedCount.Val())
+		}
+		if s.AvgHandlingTimeSec.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_HistoricalStats_avgHandlingTimeSec...)
+			buf = cbor.AppendInt(buf, s.AvgHandlingTimeSec.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_HistoricalStats) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_HistoricalStats) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "date" {
+				s.Date, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "actionRate" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActionRate = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "computedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ComputedAt = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "inboundCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.InboundCount = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "pendingCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PendingCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "actionedCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActionedCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "escalatedCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.EscalatedCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "avgHandlingTimeSec" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AvgHandlingTimeSec = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_HistoricalStats.
+var (
+	jsonKey_ReportDefs_HistoricalStats_dollar_type        = []byte("\"$type\":")
+	jsonKey_ReportDefs_HistoricalStats_actionRate         = []byte("\"actionRate\":")
+	jsonKey_ReportDefs_HistoricalStats_actionedCount      = []byte("\"actionedCount\":")
+	jsonKey_ReportDefs_HistoricalStats_avgHandlingTimeSec = []byte("\"avgHandlingTimeSec\":")
+	jsonKey_ReportDefs_HistoricalStats_computedAt         = []byte("\"computedAt\":")
+	jsonKey_ReportDefs_HistoricalStats_date               = []byte("\"date\":")
+	jsonKey_ReportDefs_HistoricalStats_escalatedCount     = []byte("\"escalatedCount\":")
+	jsonKey_ReportDefs_HistoricalStats_inboundCount       = []byte("\"inboundCount\":")
+	jsonKey_ReportDefs_HistoricalStats_pendingCount       = []byte("\"pendingCount\":")
+)
+
+func (s *ReportDefs_HistoricalStats) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_HistoricalStats) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.ActionRate.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_actionRate...)
+		buf = cbor.AppendJSONInt(buf, s.ActionRate.Val())
+		first = false
+	}
+	if s.ActionedCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_actionedCount...)
+		buf = cbor.AppendJSONInt(buf, s.ActionedCount.Val())
+		first = false
+	}
+	if s.AvgHandlingTimeSec.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_avgHandlingTimeSec...)
+		buf = cbor.AppendJSONInt(buf, s.AvgHandlingTimeSec.Val())
+		first = false
+	}
+	if s.ComputedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_computedAt...)
+		buf = cbor.AppendJSONString(buf, s.ComputedAt.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_HistoricalStats_date...)
+	buf = cbor.AppendJSONString(buf, s.Date)
+	first = false
+	if s.EscalatedCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_escalatedCount...)
+		buf = cbor.AppendJSONInt(buf, s.EscalatedCount.Val())
+		first = false
+	}
+	if s.InboundCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_inboundCount...)
+		buf = cbor.AppendJSONInt(buf, s.InboundCount.Val())
+		first = false
+	}
+	if s.PendingCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_HistoricalStats_pendingCount...)
+		buf = cbor.AppendJSONInt(buf, s.PendingCount.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_HistoricalStats) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_HistoricalStats) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "actionRate":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ActionRate = gt.Some(v)
+			}
+		case "actionedCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ActionedCount = gt.Some(v)
+			}
+		case "avgHandlingTimeSec":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AvgHandlingTimeSec = gt.Some(v)
+			}
+		case "computedAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ComputedAt = gt.Some(v)
+			}
+		case "date":
+			s.Date, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "escalatedCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.EscalatedCount = gt.Some(v)
+			}
+		case "inboundCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.InboundCount = gt.Some(v)
+			}
+		case "pendingCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PendingCount = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_LiveStats is a "liveStats" in the tools.ozone.report.defs schema.
+//
+// Live statistics for reports for the current calendar day, filterable by queue, moderator, or report type.
+type ReportDefs_LiveStats struct {
+	LexiconTypeID      string            `json:"$type,omitempty"`
+	ActionRate         gt.Option[int64]  `json:"actionRate,omitzero"`         // Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+	ActionedCount      gt.Option[int64]  `json:"actionedCount,omitzero"`      // Number of reports closed today.
+	AvgHandlingTimeSec gt.Option[int64]  `json:"avgHandlingTimeSec,omitzero"` // Average time in seconds from report creation (or moderator assignment) to close.
+	EscalatedCount     gt.Option[int64]  `json:"escalatedCount,omitzero"`     // Number of reports escalated today.
+	InboundCount       gt.Option[int64]  `json:"inboundCount,omitzero"`       // Reports received today.
+	LastUpdated        gt.Option[string] `json:"lastUpdated,omitzero"`        // When these statistics were last computed.
+	PendingCount       gt.Option[int64]  `json:"pendingCount,omitzero"`       // Number of reports currently not closed.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_LiveStats.
+var (
+	cborKey_ReportDefs_LiveStats_dollar_type        = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_LiveStats_actionRate         = cbor.AppendTextKey(nil, "actionRate")
+	cborKey_ReportDefs_LiveStats_lastUpdated        = cbor.AppendTextKey(nil, "lastUpdated")
+	cborKey_ReportDefs_LiveStats_inboundCount       = cbor.AppendTextKey(nil, "inboundCount")
+	cborKey_ReportDefs_LiveStats_pendingCount       = cbor.AppendTextKey(nil, "pendingCount")
+	cborKey_ReportDefs_LiveStats_actionedCount      = cbor.AppendTextKey(nil, "actionedCount")
+	cborKey_ReportDefs_LiveStats_escalatedCount     = cbor.AppendTextKey(nil, "escalatedCount")
+	cborKey_ReportDefs_LiveStats_avgHandlingTimeSec = cbor.AppendTextKey(nil, "avgHandlingTimeSec")
+)
+
+func (s *ReportDefs_LiveStats) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_LiveStats) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.ActionRate.HasVal() {
+		n++
+	}
+	if s.LastUpdated.HasVal() {
+		n++
+	}
+	if s.InboundCount.HasVal() {
+		n++
+	}
+	if s.PendingCount.HasVal() {
+		n++
+	}
+	if s.ActionedCount.HasVal() {
+		n++
+	}
+	if s.EscalatedCount.HasVal() {
+		n++
+	}
+	if s.AvgHandlingTimeSec.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actionRate", buf)
+		if s.ActionRate.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_actionRate...)
+			buf = cbor.AppendInt(buf, s.ActionRate.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lastUpdated", buf)
+		if s.LastUpdated.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_lastUpdated...)
+			buf = cbor.AppendText(buf, s.LastUpdated.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "inboundCount", buf)
+		if s.InboundCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_inboundCount...)
+			buf = cbor.AppendInt(buf, s.InboundCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "pendingCount", buf)
+		if s.PendingCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_pendingCount...)
+			buf = cbor.AppendInt(buf, s.PendingCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actionedCount", buf)
+		if s.ActionedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_actionedCount...)
+			buf = cbor.AppendInt(buf, s.ActionedCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "escalatedCount", buf)
+		if s.EscalatedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_escalatedCount...)
+			buf = cbor.AppendInt(buf, s.EscalatedCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "avgHandlingTimeSec", buf)
+		if s.AvgHandlingTimeSec.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_avgHandlingTimeSec...)
+			buf = cbor.AppendInt(buf, s.AvgHandlingTimeSec.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.ActionRate.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_actionRate...)
+			buf = cbor.AppendInt(buf, s.ActionRate.Val())
+		}
+		if s.LastUpdated.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_lastUpdated...)
+			buf = cbor.AppendText(buf, s.LastUpdated.Val())
+		}
+		if s.InboundCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_inboundCount...)
+			buf = cbor.AppendInt(buf, s.InboundCount.Val())
+		}
+		if s.PendingCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_pendingCount...)
+			buf = cbor.AppendInt(buf, s.PendingCount.Val())
+		}
+		if s.ActionedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_actionedCount...)
+			buf = cbor.AppendInt(buf, s.ActionedCount.Val())
+		}
+		if s.EscalatedCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_escalatedCount...)
+			buf = cbor.AppendInt(buf, s.EscalatedCount.Val())
+		}
+		if s.AvgHandlingTimeSec.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_LiveStats_avgHandlingTimeSec...)
+			buf = cbor.AppendInt(buf, s.AvgHandlingTimeSec.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_LiveStats) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_LiveStats) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "actionRate" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActionRate = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "lastUpdated" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.LastUpdated = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "inboundCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.InboundCount = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "pendingCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PendingCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "actionedCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActionedCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "escalatedCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.EscalatedCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "avgHandlingTimeSec" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AvgHandlingTimeSec = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_LiveStats.
+var (
+	jsonKey_ReportDefs_LiveStats_dollar_type        = []byte("\"$type\":")
+	jsonKey_ReportDefs_LiveStats_actionRate         = []byte("\"actionRate\":")
+	jsonKey_ReportDefs_LiveStats_actionedCount      = []byte("\"actionedCount\":")
+	jsonKey_ReportDefs_LiveStats_avgHandlingTimeSec = []byte("\"avgHandlingTimeSec\":")
+	jsonKey_ReportDefs_LiveStats_escalatedCount     = []byte("\"escalatedCount\":")
+	jsonKey_ReportDefs_LiveStats_inboundCount       = []byte("\"inboundCount\":")
+	jsonKey_ReportDefs_LiveStats_lastUpdated        = []byte("\"lastUpdated\":")
+	jsonKey_ReportDefs_LiveStats_pendingCount       = []byte("\"pendingCount\":")
+)
+
+func (s *ReportDefs_LiveStats) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_LiveStats) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.ActionRate.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_actionRate...)
+		buf = cbor.AppendJSONInt(buf, s.ActionRate.Val())
+		first = false
+	}
+	if s.ActionedCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_actionedCount...)
+		buf = cbor.AppendJSONInt(buf, s.ActionedCount.Val())
+		first = false
+	}
+	if s.AvgHandlingTimeSec.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_avgHandlingTimeSec...)
+		buf = cbor.AppendJSONInt(buf, s.AvgHandlingTimeSec.Val())
+		first = false
+	}
+	if s.EscalatedCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_escalatedCount...)
+		buf = cbor.AppendJSONInt(buf, s.EscalatedCount.Val())
+		first = false
+	}
+	if s.InboundCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_inboundCount...)
+		buf = cbor.AppendJSONInt(buf, s.InboundCount.Val())
+		first = false
+	}
+	if s.LastUpdated.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_lastUpdated...)
+		buf = cbor.AppendJSONString(buf, s.LastUpdated.Val())
+		first = false
+	}
+	if s.PendingCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_LiveStats_pendingCount...)
+		buf = cbor.AppendJSONInt(buf, s.PendingCount.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_LiveStats) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_LiveStats) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "actionRate":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ActionRate = gt.Some(v)
+			}
+		case "actionedCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ActionedCount = gt.Some(v)
+			}
+		case "avgHandlingTimeSec":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AvgHandlingTimeSec = gt.Some(v)
+			}
+		case "escalatedCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.EscalatedCount = gt.Some(v)
+			}
+		case "inboundCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.InboundCount = gt.Some(v)
+			}
+		case "lastUpdated":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.LastUpdated = gt.Some(v)
+			}
+		case "pendingCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PendingCount = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_NoteActivity is a "noteActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a note on a report. Use internalNote for moderator-only notes or publicNote for reporter-visible notes (or both).
+type ReportDefs_NoteActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_NoteActivity.
+var (
+	cborKey_ReportDefs_NoteActivity_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ReportDefs_NoteActivity) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_NoteActivity) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_NoteActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_NoteActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_NoteActivity) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_NoteActivity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_NoteActivity.
+var (
+	jsonKey_ReportDefs_NoteActivity_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ReportDefs_NoteActivity) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_NoteActivity) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_NoteActivity_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_NoteActivity) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_NoteActivity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_QueueActivity is a "queueActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being routed to a queue.
+type ReportDefs_QueueActivity struct {
+	LexiconTypeID  string            `json:"$type,omitempty"`
+	PreviousStatus gt.Option[string] `json:"previousStatus,omitzero"` // The report's status before this activity. Populated automatically from the report row; not requir...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_QueueActivity.
+var (
+	cborKey_ReportDefs_QueueActivity_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_QueueActivity_previousStatus = cbor.AppendTextKey(nil, "previousStatus")
+)
+
+func (s *ReportDefs_QueueActivity) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_QueueActivity) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.PreviousStatus.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_QueueActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "previousStatus", buf)
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_QueueActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_QueueActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_QueueActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_QueueActivity) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_QueueActivity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "previousStatus" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PreviousStatus = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_QueueActivity.
+var (
+	jsonKey_ReportDefs_QueueActivity_dollar_type    = []byte("\"$type\":")
+	jsonKey_ReportDefs_QueueActivity_previousStatus = []byte("\"previousStatus\":")
+)
+
+func (s *ReportDefs_QueueActivity) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_QueueActivity) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_QueueActivity_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.PreviousStatus.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_QueueActivity_previousStatus...)
+		buf = cbor.AppendJSONString(buf, s.PreviousStatus.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_QueueActivity) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_QueueActivity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "previousStatus":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PreviousStatus = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
 
 // ReportDefs_ReasonType is a string type.
 type ReportDefs_ReasonType = string
@@ -92,3 +2774,2517 @@ const (
 	ReportDefs_ReasonType_Tools_ozone_report_defs_reasonSelfHarmSubstances       = "tools.ozone.report.defs#reasonSelfHarmSubstances"
 	ReportDefs_ReasonType_Tools_ozone_report_defs_reasonSelfHarmOther            = "tools.ozone.report.defs#reasonSelfHarmOther"
 )
+
+// ReportDefs_ReopenActivity is a "reopenActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a closed report being reopened. Only valid when the report is in 'closed' status.
+type ReportDefs_ReopenActivity struct {
+	LexiconTypeID  string            `json:"$type,omitempty"`
+	PreviousStatus gt.Option[string] `json:"previousStatus,omitzero"` // The report's status before this activity. Populated automatically from the report row; not requir...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_ReopenActivity.
+var (
+	cborKey_ReportDefs_ReopenActivity_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_ReopenActivity_previousStatus = cbor.AppendTextKey(nil, "previousStatus")
+)
+
+func (s *ReportDefs_ReopenActivity) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReopenActivity) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.PreviousStatus.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReopenActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "previousStatus", buf)
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReopenActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReopenActivity_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.PreviousStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReopenActivity_previousStatus...)
+			buf = cbor.AppendText(buf, s.PreviousStatus.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_ReopenActivity) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReopenActivity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "previousStatus" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PreviousStatus = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_ReopenActivity.
+var (
+	jsonKey_ReportDefs_ReopenActivity_dollar_type    = []byte("\"$type\":")
+	jsonKey_ReportDefs_ReopenActivity_previousStatus = []byte("\"previousStatus\":")
+)
+
+func (s *ReportDefs_ReopenActivity) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReopenActivity) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReopenActivity_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.PreviousStatus.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReopenActivity_previousStatus...)
+		buf = cbor.AppendJSONString(buf, s.PreviousStatus.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_ReopenActivity) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReopenActivity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "previousStatus":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PreviousStatus = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_ReportActivityView is a "reportActivityView" in the tools.ozone.report.defs schema.
+//
+// A single activity entry on a report.
+type ReportDefs_ReportActivityView struct {
+	LexiconTypeID string                                 `json:"$type,omitempty"`
+	Activity      ReportDefs_ReportActivityView_Activity `json:"activity"`              // The typed activity object describing what occurred.
+	CreatedAt     string                                 `json:"createdAt"`             // When this activity was created
+	CreatedBy     string                                 `json:"createdBy"`             // DID of the actor who created this activity, or the service DID for automated activities.
+	Id            int64                                  `json:"id"`                    // Activity ID
+	InternalNote  gt.Option[string]                      `json:"internalNote,omitzero"` // Optional moderator-only note. Not visible to reporters.
+	IsAutomated   bool                                   `json:"isAutomated"`           // True if this activity was created by an automated process (e.g. queue router) rather than a direc...
+	Meta          json.RawMessage                        `json:"meta,omitempty"`        // Extensible JSON payload for loose activity-specific metadata (e.g. assignmentId).
+	Moderator     gt.Option[TeamDefs_Member]             `json:"moderator,omitzero"`    // Full member record of the moderator who created this activity
+	PublicNote    gt.Option[string]                      `json:"publicNote,omitzero"`   // Optional public note, potentially visible to the reporter.
+	ReportId      int64                                  `json:"reportId"`              // ID of the report this activity belongs to
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// ReportDefs_ReportActivityView_Activity is a union type.
+type ReportDefs_ReportActivityView_Activity struct {
+	ReportDefs_QueueActivity      gt.Ref[ReportDefs_QueueActivity]
+	ReportDefs_AssignmentActivity gt.Ref[ReportDefs_AssignmentActivity]
+	ReportDefs_EscalationActivity gt.Ref[ReportDefs_EscalationActivity]
+	ReportDefs_CloseActivity      gt.Ref[ReportDefs_CloseActivity]
+	ReportDefs_ReopenActivity     gt.Ref[ReportDefs_ReopenActivity]
+	ReportDefs_NoteActivity       gt.Ref[ReportDefs_NoteActivity]
+	Unknown                       gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u ReportDefs_ReportActivityView_Activity) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u ReportDefs_ReportActivityView_Activity) AppendJSON(buf []byte) ([]byte, error) {
+	if u.ReportDefs_QueueActivity.HasVal() {
+		v := *u.ReportDefs_QueueActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#queueActivity"
+		return v.AppendJSON(buf)
+	}
+	if u.ReportDefs_AssignmentActivity.HasVal() {
+		v := *u.ReportDefs_AssignmentActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#assignmentActivity"
+		return v.AppendJSON(buf)
+	}
+	if u.ReportDefs_EscalationActivity.HasVal() {
+		v := *u.ReportDefs_EscalationActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#escalationActivity"
+		return v.AppendJSON(buf)
+	}
+	if u.ReportDefs_CloseActivity.HasVal() {
+		v := *u.ReportDefs_CloseActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#closeActivity"
+		return v.AppendJSON(buf)
+	}
+	if u.ReportDefs_ReopenActivity.HasVal() {
+		v := *u.ReportDefs_ReopenActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#reopenActivity"
+		return v.AppendJSON(buf)
+	}
+	if u.ReportDefs_NoteActivity.HasVal() {
+		v := *u.ReportDefs_NoteActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#noteActivity"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ReportDefs_ReportActivityView_Activity")
+}
+
+func (u *ReportDefs_ReportActivityView_Activity) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *ReportDefs_ReportActivityView_Activity) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "tools.ozone.report.defs#queueActivity":
+		var v ReportDefs_QueueActivity
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_QueueActivity = gt.SomeRef(v)
+		return endPos, nil
+	case "tools.ozone.report.defs#assignmentActivity":
+		var v ReportDefs_AssignmentActivity
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_AssignmentActivity = gt.SomeRef(v)
+		return endPos, nil
+	case "tools.ozone.report.defs#escalationActivity":
+		var v ReportDefs_EscalationActivity
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_EscalationActivity = gt.SomeRef(v)
+		return endPos, nil
+	case "tools.ozone.report.defs#closeActivity":
+		var v ReportDefs_CloseActivity
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_CloseActivity = gt.SomeRef(v)
+		return endPos, nil
+	case "tools.ozone.report.defs#reopenActivity":
+		var v ReportDefs_ReopenActivity
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_ReopenActivity = gt.SomeRef(v)
+		return endPos, nil
+	case "tools.ozone.report.defs#noteActivity":
+		var v ReportDefs_NoteActivity
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_NoteActivity = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u ReportDefs_ReportActivityView_Activity) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u ReportDefs_ReportActivityView_Activity) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.ReportDefs_QueueActivity.HasVal() {
+		v := *u.ReportDefs_QueueActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#queueActivity"
+		return v.AppendCBOR(buf)
+	}
+	if u.ReportDefs_AssignmentActivity.HasVal() {
+		v := *u.ReportDefs_AssignmentActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#assignmentActivity"
+		return v.AppendCBOR(buf)
+	}
+	if u.ReportDefs_EscalationActivity.HasVal() {
+		v := *u.ReportDefs_EscalationActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#escalationActivity"
+		return v.AppendCBOR(buf)
+	}
+	if u.ReportDefs_CloseActivity.HasVal() {
+		v := *u.ReportDefs_CloseActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#closeActivity"
+		return v.AppendCBOR(buf)
+	}
+	if u.ReportDefs_ReopenActivity.HasVal() {
+		v := *u.ReportDefs_ReopenActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#reopenActivity"
+		return v.AppendCBOR(buf)
+	}
+	if u.ReportDefs_NoteActivity.HasVal() {
+		v := *u.ReportDefs_NoteActivity.Val()
+		v.LexiconTypeID = "tools.ozone.report.defs#noteActivity"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ReportDefs_ReportActivityView_Activity")
+}
+
+func (u *ReportDefs_ReportActivityView_Activity) UnmarshalCBOR(data []byte) error {
+	_, err := u.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (u *ReportDefs_ReportActivityView_Activity) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "tools.ozone.report.defs#queueActivity":
+		var v ReportDefs_QueueActivity
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_QueueActivity = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.report.defs#assignmentActivity":
+		var v ReportDefs_AssignmentActivity
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_AssignmentActivity = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.report.defs#escalationActivity":
+		var v ReportDefs_EscalationActivity
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_EscalationActivity = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.report.defs#closeActivity":
+		var v ReportDefs_CloseActivity
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_CloseActivity = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.report.defs#reopenActivity":
+		var v ReportDefs_ReopenActivity
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_ReopenActivity = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.report.defs#noteActivity":
+		var v ReportDefs_NoteActivity
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ReportDefs_NoteActivity = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
+// Precomputed CBOR key tokens for ReportDefs_ReportActivityView.
+var (
+	cborKey_ReportDefs_ReportActivityView_id           = cbor.AppendTextKey(nil, "id")
+	cborKey_ReportDefs_ReportActivityView_meta         = cbor.AppendTextKey(nil, "meta")
+	cborKey_ReportDefs_ReportActivityView_dollar_type  = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_ReportActivityView_activity     = cbor.AppendTextKey(nil, "activity")
+	cborKey_ReportDefs_ReportActivityView_reportId     = cbor.AppendTextKey(nil, "reportId")
+	cborKey_ReportDefs_ReportActivityView_createdAt    = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_ReportDefs_ReportActivityView_createdBy    = cbor.AppendTextKey(nil, "createdBy")
+	cborKey_ReportDefs_ReportActivityView_moderator    = cbor.AppendTextKey(nil, "moderator")
+	cborKey_ReportDefs_ReportActivityView_publicNote   = cbor.AppendTextKey(nil, "publicNote")
+	cborKey_ReportDefs_ReportActivityView_isAutomated  = cbor.AppendTextKey(nil, "isAutomated")
+	cborKey_ReportDefs_ReportActivityView_internalNote = cbor.AppendTextKey(nil, "internalNote")
+)
+
+func (s *ReportDefs_ReportActivityView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 6 + countExtra(s.extra, extraEncodingCBOR)
+	if true {
+		n++
+	}
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.Moderator.HasVal() {
+		n++
+	}
+	if s.PublicNote.HasVal() {
+		n++
+	}
+	if s.InternalNote.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "meta", buf)
+		if true {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_meta...)
+			buf = cbor.AppendNull(buf)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "activity", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_activity...)
+		{
+			var err error
+			buf, err = s.Activity.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportId", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_reportId...)
+		buf = cbor.AppendInt(buf, s.ReportId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdBy", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "moderator", buf)
+		if s.Moderator.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_moderator...)
+			{
+				v := s.Moderator.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "publicNote", buf)
+		if s.PublicNote.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_publicNote...)
+			buf = cbor.AppendText(buf, s.PublicNote.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "isAutomated", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_isAutomated...)
+		buf = cbor.AppendBool(buf, s.IsAutomated)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "internalNote", buf)
+		if s.InternalNote.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_internalNote...)
+			buf = cbor.AppendText(buf, s.InternalNote.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		if true {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_meta...)
+			buf = cbor.AppendNull(buf)
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_activity...)
+		{
+			var err error
+			buf, err = s.Activity.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_reportId...)
+		buf = cbor.AppendInt(buf, s.ReportId)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_createdBy...)
+		buf = cbor.AppendText(buf, s.CreatedBy)
+		if s.Moderator.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_moderator...)
+			{
+				v := s.Moderator.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.PublicNote.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_publicNote...)
+			buf = cbor.AppendText(buf, s.PublicNote.Val())
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportActivityView_isAutomated...)
+		buf = cbor.AppendBool(buf, s.IsAutomated)
+		if s.InternalNote.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_internalNote...)
+			buf = cbor.AppendText(buf, s.InternalNote.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_ReportActivityView) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReportActivityView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "meta" {
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "activity" {
+				pos, err = s.Activity.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "reportId" {
+				s.ReportId, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "createdBy" {
+				s.CreatedBy, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "moderator" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v TeamDefs_Member
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Moderator = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "publicNote" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.PublicNote = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "isAutomated" {
+				s.IsAutomated, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "internalNote" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.InternalNote = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_ReportActivityView.
+var (
+	jsonKey_ReportDefs_ReportActivityView_dollar_type  = []byte("\"$type\":")
+	jsonKey_ReportDefs_ReportActivityView_activity     = []byte("\"activity\":")
+	jsonKey_ReportDefs_ReportActivityView_createdAt    = []byte("\"createdAt\":")
+	jsonKey_ReportDefs_ReportActivityView_createdBy    = []byte("\"createdBy\":")
+	jsonKey_ReportDefs_ReportActivityView_id           = []byte("\"id\":")
+	jsonKey_ReportDefs_ReportActivityView_internalNote = []byte("\"internalNote\":")
+	jsonKey_ReportDefs_ReportActivityView_isAutomated  = []byte("\"isAutomated\":")
+	jsonKey_ReportDefs_ReportActivityView_meta         = []byte("\"meta\":")
+	jsonKey_ReportDefs_ReportActivityView_moderator    = []byte("\"moderator\":")
+	jsonKey_ReportDefs_ReportActivityView_publicNote   = []byte("\"publicNote\":")
+	jsonKey_ReportDefs_ReportActivityView_reportId     = []byte("\"reportId\":")
+)
+
+func (s *ReportDefs_ReportActivityView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReportActivityView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_activity...)
+	{
+		var err error
+		buf, err = s.Activity.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_createdAt...)
+	buf = cbor.AppendJSONString(buf, s.CreatedAt)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_createdBy...)
+	buf = cbor.AppendJSONString(buf, s.CreatedBy)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_id...)
+	buf = cbor.AppendJSONInt(buf, s.Id)
+	first = false
+	if s.InternalNote.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_internalNote...)
+		buf = cbor.AppendJSONString(buf, s.InternalNote.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_isAutomated...)
+	buf = cbor.AppendJSONBool(buf, s.IsAutomated)
+	first = false
+	if true {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_meta...)
+		buf = append(buf, s.Meta...)
+		first = false
+	}
+	if s.Moderator.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_moderator...)
+		{
+			v := s.Moderator.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.PublicNote.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_publicNote...)
+		buf = cbor.AppendJSONString(buf, s.PublicNote.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_reportId...)
+	buf = cbor.AppendJSONInt(buf, s.ReportId)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_ReportActivityView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReportActivityView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "activity":
+			pos, err = s.Activity.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "createdAt":
+			s.CreatedAt, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "createdBy":
+			s.CreatedBy, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "id":
+			s.Id, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "internalNote":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.InternalNote = gt.Some(v)
+			}
+		case "isAutomated":
+			s.IsAutomated, pos, err = cbor.ReadJSONBool(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "meta":
+			{
+				start := pos
+				pos, err = cbor.SkipJSONValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Meta = json.RawMessage(data[start:pos])
+			}
+		case "moderator":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v TeamDefs_Member
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Moderator = gt.Some(v)
+			}
+		case "publicNote":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.PublicNote = gt.Some(v)
+			}
+		case "reportId":
+			s.ReportId, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_ReportAssignment is a "reportAssignment" in the tools.ozone.report.defs schema.
+//
+// Information about the moderator currently assigned to a report.
+type ReportDefs_ReportAssignment struct {
+	LexiconTypeID string                     `json:"$type,omitempty"`
+	AssignedAt    string                     `json:"assignedAt"`         // When the report was assigned
+	DID           string                     `json:"did"`                // DID of the assigned moderator
+	Moderator     gt.Option[TeamDefs_Member] `json:"moderator,omitzero"` // Full member record of the assigned moderator
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_ReportAssignment.
+var (
+	cborKey_ReportDefs_ReportAssignment_did         = cbor.AppendTextKey(nil, "did")
+	cborKey_ReportDefs_ReportAssignment_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_ReportAssignment_moderator   = cbor.AppendTextKey(nil, "moderator")
+	cborKey_ReportDefs_ReportAssignment_assignedAt  = cbor.AppendTextKey(nil, "assignedAt")
+)
+
+func (s *ReportDefs_ReportAssignment) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReportAssignment) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.Moderator.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportAssignment_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReportAssignment_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "moderator", buf)
+		if s.Moderator.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportAssignment_moderator...)
+			{
+				v := s.Moderator.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "assignedAt", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportAssignment_assignedAt...)
+		buf = cbor.AppendText(buf, s.AssignedAt)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ReportDefs_ReportAssignment_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReportAssignment_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Moderator.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportAssignment_moderator...)
+			{
+				v := s.Moderator.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportAssignment_assignedAt...)
+		buf = cbor.AppendText(buf, s.AssignedAt)
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_ReportAssignment) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReportAssignment) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "moderator" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v TeamDefs_Member
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Moderator = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "assignedAt" {
+				s.AssignedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_ReportAssignment.
+var (
+	jsonKey_ReportDefs_ReportAssignment_dollar_type = []byte("\"$type\":")
+	jsonKey_ReportDefs_ReportAssignment_assignedAt  = []byte("\"assignedAt\":")
+	jsonKey_ReportDefs_ReportAssignment_did         = []byte("\"did\":")
+	jsonKey_ReportDefs_ReportAssignment_moderator   = []byte("\"moderator\":")
+)
+
+func (s *ReportDefs_ReportAssignment) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReportAssignment) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportAssignment_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportAssignment_assignedAt...)
+	buf = cbor.AppendJSONString(buf, s.AssignedAt)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportAssignment_did...)
+	buf = cbor.AppendJSONString(buf, s.DID)
+	first = false
+	if s.Moderator.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportAssignment_moderator...)
+		{
+			v := s.Moderator.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_ReportAssignment) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReportAssignment) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "assignedAt":
+			s.AssignedAt, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "did":
+			s.DID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "moderator":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v TeamDefs_Member
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Moderator = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ReportDefs_ReportView is a "reportView" in the tools.ozone.report.defs schema.
+type ReportDefs_ReportView struct {
+	LexiconTypeID      string                                      `json:"$type,omitempty"`
+	ActionEventIds     []int64                                     `json:"actionEventIds,omitempty"`    // Array of moderation event IDs representing actions taken on this report (sorted DESC, most recent...
+	ActionNote         gt.Option[string]                           `json:"actionNote,omitzero"`         // Note sent to reporter when report was actioned
+	Actions            []ModerationDefs_ModEventView               `json:"actions,omitempty"`           // Optional: expanded action events
+	Assignment         gt.Option[ReportDefs_ReportAssignment]      `json:"assignment,omitzero"`         // Information about moderator currently assigned to this report (if any)
+	Comment            gt.Option[string]                           `json:"comment,omitzero"`            // Comment provided by the reporter
+	CreatedAt          string                                      `json:"createdAt"`                   // When the report was created
+	EventId            int64                                       `json:"eventId"`                     // ID of the moderation event that created this report
+	Id                 int64                                       `json:"id"`                          // Report ID
+	IsMuted            gt.Option[bool]                             `json:"isMuted,omitzero"`            // Whether this report is muted. A report is muted if the reporter was muted or the subject was mute...
+	Queue              gt.Option[QueueDefs_QueueView]              `json:"queue,omitzero"`              // The queue this report is assigned to (if any)
+	QueuedAt           gt.Option[string]                           `json:"queuedAt,omitzero"`           // When the report was assigned to its current queue
+	RelatedReportCount gt.Option[int64]                            `json:"relatedReportCount,omitzero"` // Number of other pending reports on the same subject
+	ReportType         comatproto.ModerationDefs_ReasonType        `json:"reportType"`                  // Type of report
+	ReportedBy         string                                      `json:"reportedBy"`                  // DID of the user who made the report
+	Reporter           ModerationDefs_SubjectView                  `json:"reporter"`                    // Full subject view of the reporter account
+	Status             string                                      `json:"status"`                      // Current status of the report
+	Subject            ModerationDefs_SubjectView                  `json:"subject"`                     // The subject that was reported with full details
+	SubjectStatus      gt.Option[ModerationDefs_SubjectStatusView] `json:"subjectStatus,omitzero"`      // Current status of the reported subject
+	UpdatedAt          gt.Option[string]                           `json:"updatedAt,omitzero"`          // When the report was last updated
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ReportDefs_ReportView.
+var (
+	cborKey_ReportDefs_ReportView_id                 = cbor.AppendTextKey(nil, "id")
+	cborKey_ReportDefs_ReportView_dollar_type        = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_ReportView_queue              = cbor.AppendTextKey(nil, "queue")
+	cborKey_ReportDefs_ReportView_status             = cbor.AppendTextKey(nil, "status")
+	cborKey_ReportDefs_ReportView_actions            = cbor.AppendTextKey(nil, "actions")
+	cborKey_ReportDefs_ReportView_comment            = cbor.AppendTextKey(nil, "comment")
+	cborKey_ReportDefs_ReportView_eventId            = cbor.AppendTextKey(nil, "eventId")
+	cborKey_ReportDefs_ReportView_isMuted            = cbor.AppendTextKey(nil, "isMuted")
+	cborKey_ReportDefs_ReportView_subject            = cbor.AppendTextKey(nil, "subject")
+	cborKey_ReportDefs_ReportView_queuedAt           = cbor.AppendTextKey(nil, "queuedAt")
+	cborKey_ReportDefs_ReportView_reporter           = cbor.AppendTextKey(nil, "reporter")
+	cborKey_ReportDefs_ReportView_createdAt          = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_ReportDefs_ReportView_updatedAt          = cbor.AppendTextKey(nil, "updatedAt")
+	cborKey_ReportDefs_ReportView_actionNote         = cbor.AppendTextKey(nil, "actionNote")
+	cborKey_ReportDefs_ReportView_assignment         = cbor.AppendTextKey(nil, "assignment")
+	cborKey_ReportDefs_ReportView_reportType         = cbor.AppendTextKey(nil, "reportType")
+	cborKey_ReportDefs_ReportView_reportedBy         = cbor.AppendTextKey(nil, "reportedBy")
+	cborKey_ReportDefs_ReportView_subjectStatus      = cbor.AppendTextKey(nil, "subjectStatus")
+	cborKey_ReportDefs_ReportView_actionEventIds     = cbor.AppendTextKey(nil, "actionEventIds")
+	cborKey_ReportDefs_ReportView_relatedReportCount = cbor.AppendTextKey(nil, "relatedReportCount")
+)
+
+func (s *ReportDefs_ReportView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReportView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 8 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.Queue.HasVal() {
+		n++
+	}
+	if len(s.Actions) > 0 {
+		n++
+	}
+	if s.Comment.HasVal() {
+		n++
+	}
+	if s.IsMuted.HasVal() {
+		n++
+	}
+	if s.QueuedAt.HasVal() {
+		n++
+	}
+	if s.UpdatedAt.HasVal() {
+		n++
+	}
+	if s.ActionNote.HasVal() {
+		n++
+	}
+	if s.Assignment.HasVal() {
+		n++
+	}
+	if s.SubjectStatus.HasVal() {
+		n++
+	}
+	if len(s.ActionEventIds) > 0 {
+		n++
+	}
+	if s.RelatedReportCount.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReportView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "queue", buf)
+		if s.Queue.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_queue...)
+			{
+				v := s.Queue.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "status", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actions", buf)
+		if len(s.Actions) > 0 {
+			buf = append(buf, cborKey_ReportDefs_ReportView_actions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
+			for _, item := range s.Actions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "comment", buf)
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "eventId", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_eventId...)
+		buf = cbor.AppendInt(buf, s.EventId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "isMuted", buf)
+		if s.IsMuted.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_isMuted...)
+			buf = cbor.AppendBool(buf, s.IsMuted.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "queuedAt", buf)
+		if s.QueuedAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_queuedAt...)
+			buf = cbor.AppendText(buf, s.QueuedAt.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reporter", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_reporter...)
+		{
+			var err error
+			buf, err = s.Reporter.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "updatedAt", buf)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actionNote", buf)
+		if s.ActionNote.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_actionNote...)
+			buf = cbor.AppendText(buf, s.ActionNote.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "assignment", buf)
+		if s.Assignment.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_assignment...)
+			{
+				v := s.Assignment.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportType", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_reportType...)
+		buf = cbor.AppendText(buf, s.ReportType)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportedBy", buf)
+		buf = append(buf, cborKey_ReportDefs_ReportView_reportedBy...)
+		buf = cbor.AppendText(buf, s.ReportedBy)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectStatus", buf)
+		if s.SubjectStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_subjectStatus...)
+			{
+				v := s.SubjectStatus.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actionEventIds", buf)
+		if len(s.ActionEventIds) > 0 {
+			buf = append(buf, cborKey_ReportDefs_ReportView_actionEventIds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ActionEventIds)))
+			for _, item := range s.ActionEventIds {
+				buf = cbor.AppendInt(buf, item)
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedReportCount", buf)
+		if s.RelatedReportCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_relatedReportCount...)
+			buf = cbor.AppendInt(buf, s.RelatedReportCount.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ReportDefs_ReportView_id...)
+		buf = cbor.AppendInt(buf, s.Id)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ReportDefs_ReportView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Queue.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_queue...)
+			{
+				v := s.Queue.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportView_status...)
+		buf = cbor.AppendText(buf, s.Status)
+		if len(s.Actions) > 0 {
+			buf = append(buf, cborKey_ReportDefs_ReportView_actions...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actions)))
+			for _, item := range s.Actions {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.Comment.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_comment...)
+			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportView_eventId...)
+		buf = cbor.AppendInt(buf, s.EventId)
+		if s.IsMuted.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_isMuted...)
+			buf = cbor.AppendBool(buf, s.IsMuted.Val())
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportView_subject...)
+		{
+			var err error
+			buf, err = s.Subject.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.QueuedAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_queuedAt...)
+			buf = cbor.AppendText(buf, s.QueuedAt.Val())
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportView_reporter...)
+		{
+			var err error
+			buf, err = s.Reporter.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportView_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
+		if s.ActionNote.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_actionNote...)
+			buf = cbor.AppendText(buf, s.ActionNote.Val())
+		}
+		if s.Assignment.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_assignment...)
+			{
+				v := s.Assignment.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ReportDefs_ReportView_reportType...)
+		buf = cbor.AppendText(buf, s.ReportType)
+		buf = append(buf, cborKey_ReportDefs_ReportView_reportedBy...)
+		buf = cbor.AppendText(buf, s.ReportedBy)
+		if s.SubjectStatus.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_subjectStatus...)
+			{
+				v := s.SubjectStatus.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if len(s.ActionEventIds) > 0 {
+			buf = append(buf, cborKey_ReportDefs_ReportView_actionEventIds...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ActionEventIds)))
+			for _, item := range s.ActionEventIds {
+				buf = cbor.AppendInt(buf, item)
+			}
+		}
+		if s.RelatedReportCount.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_relatedReportCount...)
+			buf = cbor.AppendInt(buf, s.RelatedReportCount.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ReportDefs_ReportView) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReportView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "queue" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v QueueDefs_QueueView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Queue = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "status" {
+				s.Status, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "actions" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Actions = make([]ModerationDefs_ModEventView, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Actions[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "comment" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Comment = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "eventId" {
+				s.EventId, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "isMuted" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsMuted = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "subject" {
+				pos, err = s.Subject.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "queuedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.QueuedAt = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "reporter" {
+				pos, err = s.Reporter.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "updatedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.UpdatedAt = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "actionNote" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActionNote = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "assignment" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ReportDefs_ReportAssignment
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Assignment = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "reportType" {
+				s.ReportType, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "reportedBy" {
+				s.ReportedBy, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "subjectStatus" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ModerationDefs_SubjectStatusView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.SubjectStatus = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "actionEventIds" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.ActionEventIds = make([]int64, arrLen)
+					for idx := range arrLen {
+						s.ActionEventIds[idx], pos, err = cbor.ReadInt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "relatedReportCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedReportCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ReportDefs_ReportView.
+var (
+	jsonKey_ReportDefs_ReportView_dollar_type        = []byte("\"$type\":")
+	jsonKey_ReportDefs_ReportView_actionEventIds     = []byte("\"actionEventIds\":")
+	jsonKey_ReportDefs_ReportView_actionNote         = []byte("\"actionNote\":")
+	jsonKey_ReportDefs_ReportView_actions            = []byte("\"actions\":")
+	jsonKey_ReportDefs_ReportView_assignment         = []byte("\"assignment\":")
+	jsonKey_ReportDefs_ReportView_comment            = []byte("\"comment\":")
+	jsonKey_ReportDefs_ReportView_createdAt          = []byte("\"createdAt\":")
+	jsonKey_ReportDefs_ReportView_eventId            = []byte("\"eventId\":")
+	jsonKey_ReportDefs_ReportView_id                 = []byte("\"id\":")
+	jsonKey_ReportDefs_ReportView_isMuted            = []byte("\"isMuted\":")
+	jsonKey_ReportDefs_ReportView_queue              = []byte("\"queue\":")
+	jsonKey_ReportDefs_ReportView_queuedAt           = []byte("\"queuedAt\":")
+	jsonKey_ReportDefs_ReportView_relatedReportCount = []byte("\"relatedReportCount\":")
+	jsonKey_ReportDefs_ReportView_reportType         = []byte("\"reportType\":")
+	jsonKey_ReportDefs_ReportView_reportedBy         = []byte("\"reportedBy\":")
+	jsonKey_ReportDefs_ReportView_reporter           = []byte("\"reporter\":")
+	jsonKey_ReportDefs_ReportView_status             = []byte("\"status\":")
+	jsonKey_ReportDefs_ReportView_subject            = []byte("\"subject\":")
+	jsonKey_ReportDefs_ReportView_subjectStatus      = []byte("\"subjectStatus\":")
+	jsonKey_ReportDefs_ReportView_updatedAt          = []byte("\"updatedAt\":")
+)
+
+func (s *ReportDefs_ReportView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ReportDefs_ReportView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if len(s.ActionEventIds) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_actionEventIds...)
+		buf = append(buf, '[')
+		for i, item := range s.ActionEventIds {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONInt(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	if s.ActionNote.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_actionNote...)
+		buf = cbor.AppendJSONString(buf, s.ActionNote.Val())
+		first = false
+	}
+	if len(s.Actions) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_actions...)
+		buf = append(buf, '[')
+		for i, item := range s.Actions {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	if s.Assignment.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_assignment...)
+		{
+			v := s.Assignment.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.Comment.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_comment...)
+		buf = cbor.AppendJSONString(buf, s.Comment.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_createdAt...)
+	buf = cbor.AppendJSONString(buf, s.CreatedAt)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_eventId...)
+	buf = cbor.AppendJSONInt(buf, s.EventId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_id...)
+	buf = cbor.AppendJSONInt(buf, s.Id)
+	first = false
+	if s.IsMuted.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_isMuted...)
+		buf = cbor.AppendJSONBool(buf, s.IsMuted.Val())
+		first = false
+	}
+	if s.Queue.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_queue...)
+		{
+			v := s.Queue.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.QueuedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_queuedAt...)
+		buf = cbor.AppendJSONString(buf, s.QueuedAt.Val())
+		first = false
+	}
+	if s.RelatedReportCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_relatedReportCount...)
+		buf = cbor.AppendJSONInt(buf, s.RelatedReportCount.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_reportType...)
+	buf = cbor.AppendJSONString(buf, s.ReportType)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_reportedBy...)
+	buf = cbor.AppendJSONString(buf, s.ReportedBy)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_reporter...)
+	{
+		var err error
+		buf, err = s.Reporter.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_status...)
+	buf = cbor.AppendJSONString(buf, s.Status)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ReportDefs_ReportView_subject...)
+	{
+		var err error
+		buf, err = s.Subject.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if s.SubjectStatus.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_subjectStatus...)
+		{
+			v := s.SubjectStatus.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.UpdatedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_updatedAt...)
+		buf = cbor.AppendJSONString(buf, s.UpdatedAt.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ReportDefs_ReportView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ReportDefs_ReportView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "actionEventIds":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ActionEventIds = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem int64
+					elem, pos, err = cbor.ReadJSONInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ActionEventIds = append(s.ActionEventIds, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "actionNote":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ActionNote = gt.Some(v)
+			}
+		case "actions":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Actions = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ModerationDefs_ModEventView
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Actions = append(s.Actions, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "assignment":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ReportDefs_ReportAssignment
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Assignment = gt.Some(v)
+			}
+		case "comment":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Comment = gt.Some(v)
+			}
+		case "createdAt":
+			s.CreatedAt, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "eventId":
+			s.EventId, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "id":
+			s.Id, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "isMuted":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.IsMuted = gt.Some(v)
+			}
+		case "queue":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v QueueDefs_QueueView
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Queue = gt.Some(v)
+			}
+		case "queuedAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.QueuedAt = gt.Some(v)
+			}
+		case "relatedReportCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedReportCount = gt.Some(v)
+			}
+		case "reportType":
+			s.ReportType, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "reportedBy":
+			s.ReportedBy, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "reporter":
+			pos, err = s.Reporter.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "status":
+			s.Status, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "subject":
+			pos, err = s.Subject.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "subjectStatus":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ModerationDefs_SubjectStatusView
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.SubjectStatus = gt.Some(v)
+			}
+		case "updatedAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.UpdatedAt = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}

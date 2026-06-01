@@ -3,11 +3,629 @@
 package chatbsky
 
 import (
+	"encoding/json"
+	"fmt"
 	bsky "github.com/jcalabro/atmos/api/bsky"
 	comatproto "github.com/jcalabro/atmos/api/comatproto"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
+
+// ActorDefs_DirectConvoMember is a "directConvoMember" in the chat.bsky.actor.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ActorDefs_DirectConvoMember struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ActorDefs_DirectConvoMember.
+var (
+	cborKey_ActorDefs_DirectConvoMember_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ActorDefs_DirectConvoMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ActorDefs_DirectConvoMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_DirectConvoMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_DirectConvoMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ActorDefs_DirectConvoMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ActorDefs_DirectConvoMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ActorDefs_DirectConvoMember.
+var (
+	jsonKey_ActorDefs_DirectConvoMember_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ActorDefs_DirectConvoMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ActorDefs_DirectConvoMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_DirectConvoMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ActorDefs_DirectConvoMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ActorDefs_DirectConvoMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ActorDefs_GroupConvoMember is a "groupConvoMember" in the chat.bsky.actor.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. A current group convo member.
+type ActorDefs_GroupConvoMember struct {
+	LexiconTypeID string                                `json:"$type,omitempty"`
+	AddedBy       gt.Option[ActorDefs_ProfileViewBasic] `json:"addedBy,omitzero"` // Who added this member. Only present if the member was added (instead of joining via link).
+	Role          ActorDefs_MemberRole                  `json:"role"`             // The member's role within this conversation. Only present in group conversation member lists.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ActorDefs_GroupConvoMember.
+var (
+	cborKey_ActorDefs_GroupConvoMember_role        = cbor.AppendTextKey(nil, "role")
+	cborKey_ActorDefs_GroupConvoMember_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ActorDefs_GroupConvoMember_addedBy     = cbor.AppendTextKey(nil, "addedBy")
+)
+
+func (s *ActorDefs_GroupConvoMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ActorDefs_GroupConvoMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.AddedBy.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "role", buf)
+		buf = append(buf, cborKey_ActorDefs_GroupConvoMember_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_GroupConvoMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "addedBy", buf)
+		if s.AddedBy.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_GroupConvoMember_addedBy...)
+			{
+				v := s.AddedBy.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ActorDefs_GroupConvoMember_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_GroupConvoMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.AddedBy.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_GroupConvoMember_addedBy...)
+			{
+				v := s.AddedBy.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ActorDefs_GroupConvoMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ActorDefs_GroupConvoMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "role" {
+				s.Role, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "addedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileViewBasic
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AddedBy = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ActorDefs_GroupConvoMember.
+var (
+	jsonKey_ActorDefs_GroupConvoMember_dollar_type = []byte("\"$type\":")
+	jsonKey_ActorDefs_GroupConvoMember_addedBy     = []byte("\"addedBy\":")
+	jsonKey_ActorDefs_GroupConvoMember_role        = []byte("\"role\":")
+)
+
+func (s *ActorDefs_GroupConvoMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ActorDefs_GroupConvoMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_GroupConvoMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.AddedBy.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_GroupConvoMember_addedBy...)
+		{
+			v := s.AddedBy.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ActorDefs_GroupConvoMember_role...)
+	buf = cbor.AppendJSONString(buf, s.Role)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ActorDefs_GroupConvoMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ActorDefs_GroupConvoMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "addedBy":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ActorDefs_ProfileViewBasic
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AddedBy = gt.Some(v)
+			}
+		case "role":
+			s.Role, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ActorDefs_MemberRole is a string type.
+type ActorDefs_MemberRole = string
+
+// ActorDefs_MemberRole known values.
+const (
+	ActorDefs_MemberRole_Owner    = "owner"
+	ActorDefs_MemberRole_Standard = "standard"
+)
+
+// ActorDefs_PastGroupConvoMember is a "pastGroupConvoMember" in the chat.bsky.actor.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. A past group convo member.
+type ActorDefs_PastGroupConvoMember struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ActorDefs_PastGroupConvoMember.
+var (
+	cborKey_ActorDefs_PastGroupConvoMember_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ActorDefs_PastGroupConvoMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ActorDefs_PastGroupConvoMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_PastGroupConvoMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ActorDefs_PastGroupConvoMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ActorDefs_PastGroupConvoMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ActorDefs_PastGroupConvoMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ActorDefs_PastGroupConvoMember.
+var (
+	jsonKey_ActorDefs_PastGroupConvoMember_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ActorDefs_PastGroupConvoMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ActorDefs_PastGroupConvoMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_PastGroupConvoMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ActorDefs_PastGroupConvoMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ActorDefs_PastGroupConvoMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
@@ -15,9 +633,11 @@ type ActorDefs_ProfileViewBasic struct {
 	Associated    gt.Option[bsky.ActorDefs_ProfileAssociated] `json:"associated,omitzero"`
 	Avatar        gt.Option[string]                           `json:"avatar,omitzero"`
 	ChatDisabled  gt.Option[bool]                             `json:"chatDisabled,omitzero"` // Set to true when the actor cannot actively participate in conversations
+	CreatedAt     gt.Option[string]                           `json:"createdAt,omitzero"`
 	DID           string                                      `json:"did"`
 	DisplayName   gt.Option[string]                           `json:"displayName,omitzero"`
 	Handle        string                                      `json:"handle"`
+	Kind          gt.Option[ActorDefs_ProfileViewBasic_Kind]  `json:"kind,omitzero"` // Union field that has data specific to different kinds of convos.
 	Labels        []comatproto.LabelDefs_Label                `json:"labels,omitempty"`
 	Verification  gt.Option[bsky.ActorDefs_VerificationState] `json:"verification,omitzero"`
 	Viewer        gt.Option[bsky.ActorDefs_ViewerState]       `json:"viewer,omitzero"`
@@ -26,14 +646,169 @@ type ActorDefs_ProfileViewBasic struct {
 	extra []extraField
 }
 
+// ActorDefs_ProfileViewBasic_Kind is a union type.
+type ActorDefs_ProfileViewBasic_Kind struct {
+	ActorDefs_DirectConvoMember    gt.Ref[ActorDefs_DirectConvoMember]
+	ActorDefs_GroupConvoMember     gt.Ref[ActorDefs_GroupConvoMember]
+	ActorDefs_PastGroupConvoMember gt.Ref[ActorDefs_PastGroupConvoMember]
+	Unknown                        gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u ActorDefs_ProfileViewBasic_Kind) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u ActorDefs_ProfileViewBasic_Kind) AppendJSON(buf []byte) ([]byte, error) {
+	if u.ActorDefs_DirectConvoMember.HasVal() {
+		v := *u.ActorDefs_DirectConvoMember.Val()
+		v.LexiconTypeID = "chat.bsky.actor.defs#directConvoMember"
+		return v.AppendJSON(buf)
+	}
+	if u.ActorDefs_GroupConvoMember.HasVal() {
+		v := *u.ActorDefs_GroupConvoMember.Val()
+		v.LexiconTypeID = "chat.bsky.actor.defs#groupConvoMember"
+		return v.AppendJSON(buf)
+	}
+	if u.ActorDefs_PastGroupConvoMember.HasVal() {
+		v := *u.ActorDefs_PastGroupConvoMember.Val()
+		v.LexiconTypeID = "chat.bsky.actor.defs#pastGroupConvoMember"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_ProfileViewBasic_Kind")
+}
+
+func (u *ActorDefs_ProfileViewBasic_Kind) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *ActorDefs_ProfileViewBasic_Kind) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.actor.defs#directConvoMember":
+		var v ActorDefs_DirectConvoMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ActorDefs_DirectConvoMember = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.actor.defs#groupConvoMember":
+		var v ActorDefs_GroupConvoMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ActorDefs_GroupConvoMember = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.actor.defs#pastGroupConvoMember":
+		var v ActorDefs_PastGroupConvoMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ActorDefs_PastGroupConvoMember = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u ActorDefs_ProfileViewBasic_Kind) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u ActorDefs_ProfileViewBasic_Kind) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.ActorDefs_DirectConvoMember.HasVal() {
+		v := *u.ActorDefs_DirectConvoMember.Val()
+		v.LexiconTypeID = "chat.bsky.actor.defs#directConvoMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.ActorDefs_GroupConvoMember.HasVal() {
+		v := *u.ActorDefs_GroupConvoMember.Val()
+		v.LexiconTypeID = "chat.bsky.actor.defs#groupConvoMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.ActorDefs_PastGroupConvoMember.HasVal() {
+		v := *u.ActorDefs_PastGroupConvoMember.Val()
+		v.LexiconTypeID = "chat.bsky.actor.defs#pastGroupConvoMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_ProfileViewBasic_Kind")
+}
+
+func (u *ActorDefs_ProfileViewBasic_Kind) UnmarshalCBOR(data []byte) error {
+	_, err := u.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (u *ActorDefs_ProfileViewBasic_Kind) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.actor.defs#directConvoMember":
+		var v ActorDefs_DirectConvoMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ActorDefs_DirectConvoMember = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.actor.defs#groupConvoMember":
+		var v ActorDefs_GroupConvoMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ActorDefs_GroupConvoMember = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.actor.defs#pastGroupConvoMember":
+		var v ActorDefs_PastGroupConvoMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ActorDefs_PastGroupConvoMember = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
 // Precomputed CBOR key tokens for ActorDefs_ProfileViewBasic.
 var (
 	cborKey_ActorDefs_ProfileViewBasic_did          = cbor.AppendTextKey(nil, "did")
+	cborKey_ActorDefs_ProfileViewBasic_kind         = cbor.AppendTextKey(nil, "kind")
 	cborKey_ActorDefs_ProfileViewBasic_dollar_type  = cbor.AppendTextKey(nil, "$type")
 	cborKey_ActorDefs_ProfileViewBasic_avatar       = cbor.AppendTextKey(nil, "avatar")
 	cborKey_ActorDefs_ProfileViewBasic_handle       = cbor.AppendTextKey(nil, "handle")
 	cborKey_ActorDefs_ProfileViewBasic_labels       = cbor.AppendTextKey(nil, "labels")
 	cborKey_ActorDefs_ProfileViewBasic_viewer       = cbor.AppendTextKey(nil, "viewer")
+	cborKey_ActorDefs_ProfileViewBasic_createdAt    = cbor.AppendTextKey(nil, "createdAt")
 	cborKey_ActorDefs_ProfileViewBasic_associated   = cbor.AppendTextKey(nil, "associated")
 	cborKey_ActorDefs_ProfileViewBasic_displayName  = cbor.AppendTextKey(nil, "displayName")
 	cborKey_ActorDefs_ProfileViewBasic_chatDisabled = cbor.AppendTextKey(nil, "chatDisabled")
@@ -46,6 +821,9 @@ func (s *ActorDefs_ProfileViewBasic) MarshalCBOR() ([]byte, error) {
 
 func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.Kind.HasVal() {
+		n++
+	}
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -56,6 +834,9 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Viewer.HasVal() {
+		n++
+	}
+	if s.CreatedAt.HasVal() {
 		n++
 	}
 	if s.Associated.HasVal() {
@@ -76,6 +857,20 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
 		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "kind", buf)
+		if s.Kind.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_kind...)
+			{
+				v := s.Kind.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
@@ -114,6 +909,11 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 					}
 				}
 			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "associated", buf)
 		if s.Associated.HasVal() {
@@ -157,6 +957,19 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 	} else {
 		buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_did...)
 		buf = cbor.AppendText(buf, s.DID)
+		if s.Kind.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_kind...)
+			{
+				v := s.Kind.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
@@ -190,6 +1003,10 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 					}
 				}
 			}
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
 		}
 		if s.Associated.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_associated...)
@@ -261,6 +1078,26 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "kind" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ActorDefs_ProfileViewBasic_Kind
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Kind = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 5:
 			if string(data[keyStart:keyEnd]) == "$type" {
 				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
@@ -317,6 +1154,26 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 						return 0, err
 					}
 					s.Viewer = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.CreatedAt = gt.Some(v)
 				}
 			} else {
 				valueStart := pos
@@ -415,9 +1272,11 @@ var (
 	jsonKey_ActorDefs_ProfileViewBasic_associated   = []byte("\"associated\":")
 	jsonKey_ActorDefs_ProfileViewBasic_avatar       = []byte("\"avatar\":")
 	jsonKey_ActorDefs_ProfileViewBasic_chatDisabled = []byte("\"chatDisabled\":")
+	jsonKey_ActorDefs_ProfileViewBasic_createdAt    = []byte("\"createdAt\":")
 	jsonKey_ActorDefs_ProfileViewBasic_did          = []byte("\"did\":")
 	jsonKey_ActorDefs_ProfileViewBasic_displayName  = []byte("\"displayName\":")
 	jsonKey_ActorDefs_ProfileViewBasic_handle       = []byte("\"handle\":")
+	jsonKey_ActorDefs_ProfileViewBasic_kind         = []byte("\"kind\":")
 	jsonKey_ActorDefs_ProfileViewBasic_labels       = []byte("\"labels\":")
 	jsonKey_ActorDefs_ProfileViewBasic_verification = []byte("\"verification\":")
 	jsonKey_ActorDefs_ProfileViewBasic_viewer       = []byte("\"viewer\":")
@@ -471,6 +1330,14 @@ func (s *ActorDefs_ProfileViewBasic) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONBool(buf, s.ChatDisabled.Val())
 		first = false
 	}
+	if s.CreatedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_ProfileViewBasic_createdAt...)
+		buf = cbor.AppendJSONString(buf, s.CreatedAt.Val())
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -491,6 +1358,23 @@ func (s *ActorDefs_ProfileViewBasic) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_ProfileViewBasic_handle...)
 	buf = cbor.AppendJSONString(buf, s.Handle)
 	first = false
+	if s.Kind.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_ProfileViewBasic_kind...)
+		{
+			v := s.Kind.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
 	if len(s.Labels) > 0 {
 		if !first {
 			buf = append(buf, ',')
@@ -631,6 +1515,20 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalJSONAt(data []byte, pos int) (int,
 				}
 				s.ChatDisabled = gt.Some(v)
 			}
+		case "createdAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.CreatedAt = gt.Some(v)
+			}
 		case "did":
 			s.DID, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
@@ -654,6 +1552,20 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalJSONAt(data []byte, pos int) (int,
 			s.Handle, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "kind":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ActorDefs_ProfileViewBasic_Kind
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Kind = gt.Some(v)
 			}
 		case "labels":
 			if !cbor.IsJSONNull(data, pos) {

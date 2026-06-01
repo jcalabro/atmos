@@ -9,6 +9,11 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// Error name constants for ConvoAcceptConvo.
+const (
+	ErrConvoAcceptConvo_InvalidConvo = "InvalidConvo"
+)
+
 // Precomputed JSON key tokens for ConvoAcceptConvo_Output.
 var (
 	jsonKey_ConvoAcceptConvo_Output_dollar_type = []byte("\"$type\":")
@@ -420,6 +425,8 @@ type ConvoAcceptConvo_Input struct {
 }
 
 // ConvoAcceptConvo calls the XRPC procedure "chat.bsky.convo.acceptConvo".
+//
+// Marks a conversation as accepted, so it is shown in the list of accepted convos instead on the request convos.
 func ConvoAcceptConvo(ctx context.Context, c *xrpc.Client, input *ConvoAcceptConvo_Input) (*ConvoAcceptConvo_Output, error) {
 	var out ConvoAcceptConvo_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.acceptConvo", input, &out)

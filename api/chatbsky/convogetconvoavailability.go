@@ -279,7 +279,7 @@ type ConvoGetConvoAvailability_Output struct {
 
 // ConvoGetConvoAvailability calls the XRPC query "chat.bsky.convo.getConvoAvailability".
 //
-// Get whether the requester and the other members can chat. If an existing convo is found for these members, it is returned.
+// Check whether the requester and the other members can start a 1-1 chat. Only applicable to direct (non-group) conversations. If an existing convo is found for these members, it is returned. Does not create a new convo if it doesn't exist.
 func ConvoGetConvoAvailability(ctx context.Context, c *xrpc.Client, members []string) (*ConvoGetConvoAvailability_Output, error) {
 	params := map[string]any{}
 	params["members"] = members

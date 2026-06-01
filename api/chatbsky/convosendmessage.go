@@ -8,6 +8,12 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 )
 
+// Error name constants for ConvoSendMessage.
+const (
+	ErrConvoSendMessage_ConvoLocked  = "ConvoLocked"
+	ErrConvoSendMessage_InvalidConvo = "InvalidConvo"
+)
+
 // ConvoSendMessage_Output is an alias for ConvoDefs_MessageView.
 type ConvoSendMessage_Output = ConvoDefs_MessageView
 
@@ -247,6 +253,8 @@ type ConvoSendMessage_Input struct {
 }
 
 // ConvoSendMessage calls the XRPC procedure "chat.bsky.convo.sendMessage".
+//
+// Sends a message to a conversation.
 func ConvoSendMessage(ctx context.Context, c *xrpc.Client, input *ConvoSendMessage_Input) (*ConvoSendMessage_Output, error) {
 	var out ConvoSendMessage_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.sendMessage", input, &out)

@@ -8,6 +8,11 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 )
 
+// Error name constants for ConvoGetConvo.
+const (
+	ErrConvoGetConvo_InvalidConvo = "InvalidConvo"
+)
+
 // Precomputed JSON key tokens for ConvoGetConvo_Output.
 var (
 	jsonKey_ConvoGetConvo_Output_dollar_type = []byte("\"$type\":")
@@ -211,6 +216,8 @@ type ConvoGetConvo_Output struct {
 }
 
 // ConvoGetConvo calls the XRPC query "chat.bsky.convo.getConvo".
+//
+// Gets an existing conversation by its ID.
 func ConvoGetConvo(ctx context.Context, c *xrpc.Client, convoId string) (*ConvoGetConvo_Output, error) {
 	params := map[string]any{}
 	params["convoId"] = convoId

@@ -29,6 +29,7 @@ var (
 	jsonKey_ModerationEmitEvent_Input_event           = []byte("\"event\":")
 	jsonKey_ModerationEmitEvent_Input_externalId      = []byte("\"externalId\":")
 	jsonKey_ModerationEmitEvent_Input_modTool         = []byte("\"modTool\":")
+	jsonKey_ModerationEmitEvent_Input_reportAction    = []byte("\"reportAction\":")
 	jsonKey_ModerationEmitEvent_Input_subject         = []byte("\"subject\":")
 	jsonKey_ModerationEmitEvent_Input_subjectBlobCids = []byte("\"subjectBlobCids\":")
 )
@@ -81,6 +82,23 @@ func (s *ModerationEmitEvent_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, jsonKey_ModerationEmitEvent_Input_modTool...)
 		{
 			v := s.ModTool.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.ReportAction.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationEmitEvent_Input_reportAction...)
+		{
+			v := s.ReportAction.Val()
 			{
 				var err error
 				buf, err = v.AppendJSON(buf)
@@ -201,6 +219,20 @@ func (s *ModerationEmitEvent_Input) UnmarshalJSONAt(data []byte, pos int) (int, 
 				}
 				s.ModTool = gt.Some(v)
 			}
+		case "reportAction":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ModerationEmitEvent_ReportAction
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ReportAction = gt.Some(v)
+			}
 		case "subject":
 			pos, err = s.Subject.UnmarshalJSONAt(data, pos)
 			if err != nil {
@@ -253,6 +285,7 @@ var (
 	cborKey_ModerationEmitEvent_Input_subject         = cbor.AppendTextKey(nil, "subject")
 	cborKey_ModerationEmitEvent_Input_createdBy       = cbor.AppendTextKey(nil, "createdBy")
 	cborKey_ModerationEmitEvent_Input_externalId      = cbor.AppendTextKey(nil, "externalId")
+	cborKey_ModerationEmitEvent_Input_reportAction    = cbor.AppendTextKey(nil, "reportAction")
 	cborKey_ModerationEmitEvent_Input_subjectBlobCids = cbor.AppendTextKey(nil, "subjectBlobCids")
 )
 
@@ -269,6 +302,9 @@ func (s *ModerationEmitEvent_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.ExternalId.HasVal() {
+		n++
+	}
+	if s.ReportAction.HasVal() {
 		n++
 	}
 	if len(s.SubjectBlobCids) > 0 {
@@ -322,6 +358,20 @@ func (s *ModerationEmitEvent_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ModerationEmitEvent_Input_externalId...)
 			buf = cbor.AppendText(buf, s.ExternalId.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportAction", buf)
+		if s.ReportAction.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_reportAction...)
+			{
+				v := s.ReportAction.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectBlobCids", buf)
 		if len(s.SubjectBlobCids) > 0 {
 			buf = append(buf, cborKey_ModerationEmitEvent_Input_subjectBlobCids...)
@@ -370,6 +420,19 @@ func (s *ModerationEmitEvent_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.ExternalId.HasVal() {
 			buf = append(buf, cborKey_ModerationEmitEvent_Input_externalId...)
 			buf = cbor.AppendText(buf, s.ExternalId.Val())
+		}
+		if s.ReportAction.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_Input_reportAction...)
+			{
+				v := s.ReportAction.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 		if len(s.SubjectBlobCids) > 0 {
 			buf = append(buf, cborKey_ModerationEmitEvent_Input_subjectBlobCids...)
@@ -469,6 +532,26 @@ func (s *ModerationEmitEvent_Input) UnmarshalCBORAt(data []byte, pos int) (int, 
 						return 0, err
 					}
 					s.ExternalId = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "reportAction" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ModerationEmitEvent_ReportAction
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReportAction = gt.Some(v)
 				}
 			} else {
 				valueStart := pos
@@ -1388,13 +1471,14 @@ func (u *ModerationEmitEvent_Input_Event) UnmarshalCBORAt(data []byte, pos int) 
 }
 
 type ModerationEmitEvent_Input struct {
-	LexiconTypeID   string                            `json:"$type,omitempty"`
-	CreatedBy       string                            `json:"createdBy"`
-	Event           ModerationEmitEvent_Input_Event   `json:"event"`
-	ExternalId      gt.Option[string]                 `json:"externalId,omitzero"` // An optional external ID for the event, used to deduplicate events from external systems. Fails wh...
-	ModTool         gt.Option[ModerationDefs_ModTool] `json:"modTool,omitzero"`
-	Subject         ModerationEmitEvent_Input_Subject `json:"subject"`
-	SubjectBlobCids []string                          `json:"subjectBlobCids,omitempty"`
+	LexiconTypeID   string                                      `json:"$type,omitempty"`
+	CreatedBy       string                                      `json:"createdBy"`
+	Event           ModerationEmitEvent_Input_Event             `json:"event"`
+	ExternalId      gt.Option[string]                           `json:"externalId,omitzero"` // An optional external ID for the event, used to deduplicate events from external systems. Fails wh...
+	ModTool         gt.Option[ModerationDefs_ModTool]           `json:"modTool,omitzero"`
+	ReportAction    gt.Option[ModerationEmitEvent_ReportAction] `json:"reportAction,omitzero"` // Optional report-level targeting. If provided, this event will be linked to specific reports and r...
+	Subject         ModerationEmitEvent_Input_Subject           `json:"subject"`
+	SubjectBlobCids []string                                    `json:"subjectBlobCids,omitempty"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -1406,4 +1490,437 @@ type ModerationEmitEvent_Input struct {
 func ModerationEmitEvent(ctx context.Context, c *xrpc.Client, input *ModerationEmitEvent_Input) (*ModerationEmitEvent_Output, error) {
 	var out ModerationEmitEvent_Output
 	return &out, c.Procedure(ctx, "tools.ozone.moderation.emitEvent", input, &out)
+}
+
+// ModerationEmitEvent_ReportAction is a "reportAction" in the tools.ozone.moderation.emitEvent schema.
+//
+// Target specific reports when emitting a moderation event
+type ModerationEmitEvent_ReportAction struct {
+	LexiconTypeID string            `json:"$type,omitempty"`
+	All           gt.Option[bool]   `json:"all,omitzero"`    // Target ALL reports on the subject
+	Ids           []int64           `json:"ids,omitempty"`   // Target specific report IDs
+	Note          gt.Option[string] `json:"note,omitzero"`   // Note to send to reporter(s) when actioning their report
+	Types         []string          `json:"types,omitempty"` // Target reports matching these report types on the subject (fully qualified NSIDs)
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ModerationEmitEvent_ReportAction.
+var (
+	cborKey_ModerationEmitEvent_ReportAction_all         = cbor.AppendTextKey(nil, "all")
+	cborKey_ModerationEmitEvent_ReportAction_ids         = cbor.AppendTextKey(nil, "ids")
+	cborKey_ModerationEmitEvent_ReportAction_note        = cbor.AppendTextKey(nil, "note")
+	cborKey_ModerationEmitEvent_ReportAction_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ModerationEmitEvent_ReportAction_types       = cbor.AppendTextKey(nil, "types")
+)
+
+func (s *ModerationEmitEvent_ReportAction) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ModerationEmitEvent_ReportAction) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.All.HasVal() {
+		n++
+	}
+	if len(s.Ids) > 0 {
+		n++
+	}
+	if s.Note.HasVal() {
+		n++
+	}
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if len(s.Types) > 0 {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "all", buf)
+		if s.All.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_all...)
+			buf = cbor.AppendBool(buf, s.All.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "ids", buf)
+		if len(s.Ids) > 0 {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_ids...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ids)))
+			for _, item := range s.Ids {
+				buf = cbor.AppendInt(buf, item)
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "note", buf)
+		if s.Note.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_note...)
+			buf = cbor.AppendText(buf, s.Note.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "types", buf)
+		if len(s.Types) > 0 {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_types...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Types)))
+			for _, item := range s.Types {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.All.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_all...)
+			buf = cbor.AppendBool(buf, s.All.Val())
+		}
+		if len(s.Ids) > 0 {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_ids...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Ids)))
+			for _, item := range s.Ids {
+				buf = cbor.AppendInt(buf, item)
+			}
+		}
+		if s.Note.HasVal() {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_note...)
+			buf = cbor.AppendText(buf, s.Note.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if len(s.Types) > 0 {
+			buf = append(buf, cborKey_ModerationEmitEvent_ReportAction_types...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Types)))
+			for _, item := range s.Types {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ModerationEmitEvent_ReportAction) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ModerationEmitEvent_ReportAction) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "all" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.All = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "ids" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Ids = make([]int64, arrLen)
+					for idx := range arrLen {
+						s.Ids[idx], pos, err = cbor.ReadInt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "note" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Note = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "types" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Types = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Types[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ModerationEmitEvent_ReportAction.
+var (
+	jsonKey_ModerationEmitEvent_ReportAction_dollar_type = []byte("\"$type\":")
+	jsonKey_ModerationEmitEvent_ReportAction_all         = []byte("\"all\":")
+	jsonKey_ModerationEmitEvent_ReportAction_ids         = []byte("\"ids\":")
+	jsonKey_ModerationEmitEvent_ReportAction_note        = []byte("\"note\":")
+	jsonKey_ModerationEmitEvent_ReportAction_types       = []byte("\"types\":")
+)
+
+func (s *ModerationEmitEvent_ReportAction) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ModerationEmitEvent_ReportAction) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationEmitEvent_ReportAction_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.All.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationEmitEvent_ReportAction_all...)
+		buf = cbor.AppendJSONBool(buf, s.All.Val())
+		first = false
+	}
+	if len(s.Ids) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationEmitEvent_ReportAction_ids...)
+		buf = append(buf, '[')
+		for i, item := range s.Ids {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONInt(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	if s.Note.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationEmitEvent_ReportAction_note...)
+		buf = cbor.AppendJSONString(buf, s.Note.Val())
+		first = false
+	}
+	if len(s.Types) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationEmitEvent_ReportAction_types...)
+		buf = append(buf, '[')
+		for i, item := range s.Types {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ModerationEmitEvent_ReportAction) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ModerationEmitEvent_ReportAction) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "all":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.All = gt.Some(v)
+			}
+		case "ids":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Ids = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem int64
+					elem, pos, err = cbor.ReadJSONInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Ids = append(s.Ids, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "note":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Note = gt.Some(v)
+			}
+		case "types":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Types = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem string
+					elem, pos, err = cbor.ReadJSONString(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Types = append(s.Types, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
 }

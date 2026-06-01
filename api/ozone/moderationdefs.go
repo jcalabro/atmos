@@ -3518,6 +3518,233 @@ func (s *ModerationDefs_CancelScheduledTakedownEvent) UnmarshalJSONAt(data []byt
 	}
 }
 
+// ModerationDefs_ConvoView is a "convoView" in the tools.ozone.moderation.defs schema.
+type ModerationDefs_ConvoView struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	ConvoId       string `json:"convoId"`
+	DID           string `json:"did"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ModerationDefs_ConvoView.
+var (
+	cborKey_ModerationDefs_ConvoView_did         = cbor.AppendTextKey(nil, "did")
+	cborKey_ModerationDefs_ConvoView_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ModerationDefs_ConvoView_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ModerationDefs_ConvoView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ModerationDefs_ConvoView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
+		buf = append(buf, cborKey_ModerationDefs_ConvoView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationDefs_ConvoView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ModerationDefs_ConvoView_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ModerationDefs_ConvoView_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ModerationDefs_ConvoView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ModerationDefs_ConvoView_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ModerationDefs_ConvoView) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ModerationDefs_ConvoView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ModerationDefs_ConvoView.
+var (
+	jsonKey_ModerationDefs_ConvoView_dollar_type = []byte("\"$type\":")
+	jsonKey_ModerationDefs_ConvoView_convoId     = []byte("\"convoId\":")
+	jsonKey_ModerationDefs_ConvoView_did         = []byte("\"did\":")
+)
+
+func (s *ModerationDefs_ConvoView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ModerationDefs_ConvoView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationDefs_ConvoView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ModerationDefs_ConvoView_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ModerationDefs_ConvoView_did...)
+	buf = cbor.AppendJSONString(buf, s.DID)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ModerationDefs_ConvoView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ModerationDefs_ConvoView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "did":
+			s.DID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ModerationDefs_IdentityEvent is a "identityEvent" in the tools.ozone.moderation.defs schema.
 //
 // Logs identity related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
@@ -7874,10 +8101,11 @@ func (s *ModerationDefs_ModEventReverseTakedown) UnmarshalJSONAt(data []byte, po
 //
 // Add/Remove a tag on a subject
 type ModerationDefs_ModEventTag struct {
-	LexiconTypeID string            `json:"$type,omitempty"`
-	Add           []string          `json:"add"`              // Tags to be added to the subject. If already exists, won't be duplicated.
-	Comment       gt.Option[string] `json:"comment,omitzero"` // Additional comment about added/removed tags.
-	Remove        []string          `json:"remove"`           // Tags to be removed to the subject. Ignores a tag If it doesn't exist, won't be duplicated.
+	LexiconTypeID   string            `json:"$type,omitempty"`
+	Add             []string          `json:"add"`                      // Tags to be added to the subject. If already exists, won't be duplicated.
+	Comment         gt.Option[string] `json:"comment,omitzero"`         // Additional comment about added/removed tags.
+	DurationInHours gt.Option[int64]  `json:"durationInHours,omitzero"` // Indicates how long the tags being added should remain before automatically being removed. Only ap...
+	Remove          []string          `json:"remove"`                   // Tags to be removed to the subject. Ignores a tag If it doesn't exist, won't be duplicated.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -7885,10 +8113,11 @@ type ModerationDefs_ModEventTag struct {
 
 // Precomputed CBOR key tokens for ModerationDefs_ModEventTag.
 var (
-	cborKey_ModerationDefs_ModEventTag_add         = cbor.AppendTextKey(nil, "add")
-	cborKey_ModerationDefs_ModEventTag_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_ModerationDefs_ModEventTag_remove      = cbor.AppendTextKey(nil, "remove")
-	cborKey_ModerationDefs_ModEventTag_comment     = cbor.AppendTextKey(nil, "comment")
+	cborKey_ModerationDefs_ModEventTag_add             = cbor.AppendTextKey(nil, "add")
+	cborKey_ModerationDefs_ModEventTag_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ModerationDefs_ModEventTag_remove          = cbor.AppendTextKey(nil, "remove")
+	cborKey_ModerationDefs_ModEventTag_comment         = cbor.AppendTextKey(nil, "comment")
+	cborKey_ModerationDefs_ModEventTag_durationInHours = cbor.AppendTextKey(nil, "durationInHours")
 )
 
 func (s *ModerationDefs_ModEventTag) MarshalCBOR() ([]byte, error) {
@@ -7901,6 +8130,9 @@ func (s *ModerationDefs_ModEventTag) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Comment.HasVal() {
+		n++
+	}
+	if s.DurationInHours.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -7928,6 +8160,11 @@ func (s *ModerationDefs_ModEventTag) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ModerationDefs_ModEventTag_comment...)
 			buf = cbor.AppendText(buf, s.Comment.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "durationInHours", buf)
+		if s.DurationInHours.HasVal() {
+			buf = append(buf, cborKey_ModerationDefs_ModEventTag_durationInHours...)
+			buf = cbor.AppendInt(buf, s.DurationInHours.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ModerationDefs_ModEventTag_add...)
@@ -7947,6 +8184,10 @@ func (s *ModerationDefs_ModEventTag) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.Comment.HasVal() {
 			buf = append(buf, cborKey_ModerationDefs_ModEventTag_comment...)
 			buf = cbor.AppendText(buf, s.Comment.Val())
+		}
+		if s.DurationInHours.HasVal() {
+			buf = append(buf, cborKey_ModerationDefs_ModEventTag_durationInHours...)
+			buf = cbor.AppendInt(buf, s.DurationInHours.Val())
 		}
 	}
 	return buf, nil
@@ -8052,6 +8293,26 @@ func (s *ModerationDefs_ModEventTag) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "durationInHours" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.DurationInHours = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -8066,10 +8327,11 @@ func (s *ModerationDefs_ModEventTag) UnmarshalCBORAt(data []byte, pos int) (int,
 
 // Precomputed JSON key tokens for ModerationDefs_ModEventTag.
 var (
-	jsonKey_ModerationDefs_ModEventTag_dollar_type = []byte("\"$type\":")
-	jsonKey_ModerationDefs_ModEventTag_add         = []byte("\"add\":")
-	jsonKey_ModerationDefs_ModEventTag_comment     = []byte("\"comment\":")
-	jsonKey_ModerationDefs_ModEventTag_remove      = []byte("\"remove\":")
+	jsonKey_ModerationDefs_ModEventTag_dollar_type     = []byte("\"$type\":")
+	jsonKey_ModerationDefs_ModEventTag_add             = []byte("\"add\":")
+	jsonKey_ModerationDefs_ModEventTag_comment         = []byte("\"comment\":")
+	jsonKey_ModerationDefs_ModEventTag_durationInHours = []byte("\"durationInHours\":")
+	jsonKey_ModerationDefs_ModEventTag_remove          = []byte("\"remove\":")
 )
 
 func (s *ModerationDefs_ModEventTag) MarshalJSON() ([]byte, error) {
@@ -8106,6 +8368,14 @@ func (s *ModerationDefs_ModEventTag) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_ModerationDefs_ModEventTag_comment...)
 		buf = cbor.AppendJSONString(buf, s.Comment.Val())
+		first = false
+	}
+	if s.DurationInHours.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ModerationDefs_ModEventTag_durationInHours...)
+		buf = cbor.AppendJSONInt(buf, s.DurationInHours.Val())
 		first = false
 	}
 	if !first {
@@ -8206,6 +8476,20 @@ func (s *ModerationDefs_ModEventTag) UnmarshalJSONAt(data []byte, pos int) (int,
 					return 0, err
 				}
 				s.Comment = gt.Some(v)
+			}
+		case "durationInHours":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.DurationInHours = gt.Some(v)
 			}
 		case "remove":
 			if !cbor.IsJSONNull(data, pos) {
@@ -10125,6 +10409,7 @@ type ModerationDefs_ModEventView_Subject struct {
 	AdminDefs_RepoRef    gt.Ref[comatproto.AdminDefs_RepoRef]
 	RepoStrongRef        gt.Ref[comatproto.RepoStrongRef]
 	ConvoDefs_MessageRef gt.Ref[chatbsky.ConvoDefs_MessageRef]
+	ConvoDefs_ConvoRef   gt.Ref[chatbsky.ConvoDefs_ConvoRef]
 	Unknown              gt.Ref[lextypes.UnknownUnionVariant]
 }
 
@@ -10146,6 +10431,11 @@ func (u ModerationDefs_ModEventView_Subject) AppendJSON(buf []byte) ([]byte, err
 	if u.ConvoDefs_MessageRef.HasVal() {
 		v := *u.ConvoDefs_MessageRef.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_ConvoRef.HasVal() {
+		v := *u.ConvoDefs_ConvoRef.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#convoRef"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -10193,6 +10483,14 @@ func (u *ModerationDefs_ModEventView_Subject) UnmarshalJSONAt(data []byte, pos i
 		}
 		u.ConvoDefs_MessageRef = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.convo.defs#convoRef":
+		var v chatbsky.ConvoDefs_ConvoRef
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_ConvoRef = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -10217,6 +10515,11 @@ func (u ModerationDefs_ModEventView_Subject) AppendCBOR(buf []byte) ([]byte, err
 	if u.ConvoDefs_MessageRef.HasVal() {
 		v := *u.ConvoDefs_MessageRef.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_ConvoRef.HasVal() {
+		v := *u.ConvoDefs_ConvoRef.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#convoRef"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -10259,6 +10562,14 @@ func (u *ModerationDefs_ModEventView_Subject) UnmarshalCBORAt(data []byte, pos i
 			return 0, err
 		}
 		u.ConvoDefs_MessageRef = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#convoRef":
+		var v chatbsky.ConvoDefs_ConvoRef
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_ConvoRef = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -11626,6 +11937,7 @@ type ModerationDefs_ModEventViewDetail_Subject struct {
 	ModerationDefs_RepoViewNotFound   gt.Ref[ModerationDefs_RepoViewNotFound]
 	ModerationDefs_RecordView         gt.Ref[ModerationDefs_RecordView]
 	ModerationDefs_RecordViewNotFound gt.Ref[ModerationDefs_RecordViewNotFound]
+	ModerationDefs_ConvoView          gt.Ref[ModerationDefs_ConvoView]
 	Unknown                           gt.Ref[lextypes.UnknownUnionVariant]
 }
 
@@ -11652,6 +11964,11 @@ func (u ModerationDefs_ModEventViewDetail_Subject) AppendJSON(buf []byte) ([]byt
 	if u.ModerationDefs_RecordViewNotFound.HasVal() {
 		v := *u.ModerationDefs_RecordViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordViewNotFound"
+		return v.AppendJSON(buf)
+	}
+	if u.ModerationDefs_ConvoView.HasVal() {
+		v := *u.ModerationDefs_ConvoView.Val()
+		v.LexiconTypeID = "tools.ozone.moderation.defs#convoView"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -11707,6 +12024,14 @@ func (u *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSONAt(data []byte,
 		}
 		u.ModerationDefs_RecordViewNotFound = gt.SomeRef(v)
 		return endPos, nil
+	case "tools.ozone.moderation.defs#convoView":
+		var v ModerationDefs_ConvoView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ModerationDefs_ConvoView = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -11736,6 +12061,11 @@ func (u ModerationDefs_ModEventViewDetail_Subject) AppendCBOR(buf []byte) ([]byt
 	if u.ModerationDefs_RecordViewNotFound.HasVal() {
 		v := *u.ModerationDefs_RecordViewNotFound.Val()
 		v.LexiconTypeID = "tools.ozone.moderation.defs#recordViewNotFound"
+		return v.AppendCBOR(buf)
+	}
+	if u.ModerationDefs_ConvoView.HasVal() {
+		v := *u.ModerationDefs_ConvoView.Val()
+		v.LexiconTypeID = "tools.ozone.moderation.defs#convoView"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -11786,6 +12116,14 @@ func (u *ModerationDefs_ModEventViewDetail_Subject) UnmarshalCBORAt(data []byte,
 			return 0, err
 		}
 		u.ModerationDefs_RecordViewNotFound = gt.SomeRef(v)
+		return pos, nil
+	case "tools.ozone.moderation.defs#convoView":
+		var v ModerationDefs_ConvoView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ModerationDefs_ConvoView = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -19463,6 +19801,7 @@ type ModerationDefs_SubjectStatusView_Subject struct {
 	AdminDefs_RepoRef    gt.Ref[comatproto.AdminDefs_RepoRef]
 	RepoStrongRef        gt.Ref[comatproto.RepoStrongRef]
 	ConvoDefs_MessageRef gt.Ref[chatbsky.ConvoDefs_MessageRef]
+	ConvoDefs_ConvoRef   gt.Ref[chatbsky.ConvoDefs_ConvoRef]
 	Unknown              gt.Ref[lextypes.UnknownUnionVariant]
 }
 
@@ -19484,6 +19823,11 @@ func (u ModerationDefs_SubjectStatusView_Subject) AppendJSON(buf []byte) ([]byte
 	if u.ConvoDefs_MessageRef.HasVal() {
 		v := *u.ConvoDefs_MessageRef.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_ConvoRef.HasVal() {
+		v := *u.ConvoDefs_ConvoRef.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#convoRef"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -19531,6 +19875,14 @@ func (u *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSONAt(data []byte, 
 		}
 		u.ConvoDefs_MessageRef = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.convo.defs#convoRef":
+		var v chatbsky.ConvoDefs_ConvoRef
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_ConvoRef = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -19555,6 +19907,11 @@ func (u ModerationDefs_SubjectStatusView_Subject) AppendCBOR(buf []byte) ([]byte
 	if u.ConvoDefs_MessageRef.HasVal() {
 		v := *u.ConvoDefs_MessageRef.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_ConvoRef.HasVal() {
+		v := *u.ConvoDefs_ConvoRef.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#convoRef"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -19597,6 +19954,14 @@ func (u *ModerationDefs_SubjectStatusView_Subject) UnmarshalCBORAt(data []byte, 
 			return 0, err
 		}
 		u.ConvoDefs_MessageRef = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#convoRef":
+		var v chatbsky.ConvoDefs_ConvoRef
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_ConvoRef = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos

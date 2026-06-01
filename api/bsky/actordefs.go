@@ -6580,8 +6580,9 @@ func (s *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalJSONAt(data [
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedChat struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	AllowIncoming string `json:"allowIncoming"`
+	LexiconTypeID     string            `json:"$type,omitempty"`
+	AllowGroupInvites gt.Option[string] `json:"allowGroupInvites,omitzero"`
+	AllowIncoming     string            `json:"allowIncoming"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -6589,8 +6590,9 @@ type ActorDefs_ProfileAssociatedChat struct {
 
 // Precomputed CBOR key tokens for ActorDefs_ProfileAssociatedChat.
 var (
-	cborKey_ActorDefs_ProfileAssociatedChat_dollar_type   = cbor.AppendTextKey(nil, "$type")
-	cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming = cbor.AppendTextKey(nil, "allowIncoming")
+	cborKey_ActorDefs_ProfileAssociatedChat_dollar_type       = cbor.AppendTextKey(nil, "$type")
+	cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming     = cbor.AppendTextKey(nil, "allowIncoming")
+	cborKey_ActorDefs_ProfileAssociatedChat_allowGroupInvites = cbor.AppendTextKey(nil, "allowGroupInvites")
 )
 
 func (s *ActorDefs_ProfileAssociatedChat) MarshalCBOR() ([]byte, error) {
@@ -6600,6 +6602,9 @@ func (s *ActorDefs_ProfileAssociatedChat) MarshalCBOR() ([]byte, error) {
 func (s *ActorDefs_ProfileAssociatedChat) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.AllowGroupInvites.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -6613,6 +6618,11 @@ func (s *ActorDefs_ProfileAssociatedChat) AppendCBOR(buf []byte) ([]byte, error)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allowIncoming", buf)
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
 		buf = cbor.AppendText(buf, s.AllowIncoming)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allowGroupInvites", buf)
+		if s.AllowGroupInvites.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowGroupInvites...)
+			buf = cbor.AppendText(buf, s.AllowGroupInvites.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
@@ -6621,6 +6631,10 @@ func (s *ActorDefs_ProfileAssociatedChat) AppendCBOR(buf []byte) ([]byte, error)
 		}
 		buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowIncoming...)
 		buf = cbor.AppendText(buf, s.AllowIncoming)
+		if s.AllowGroupInvites.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ProfileAssociatedChat_allowGroupInvites...)
+			buf = cbor.AppendText(buf, s.AllowGroupInvites.Val())
+		}
 	}
 	return buf, nil
 }
@@ -6671,6 +6685,26 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBORAt(data []byte, pos int) 
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "allowGroupInvites" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AllowGroupInvites = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -6685,8 +6719,9 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalCBORAt(data []byte, pos int) 
 
 // Precomputed JSON key tokens for ActorDefs_ProfileAssociatedChat.
 var (
-	jsonKey_ActorDefs_ProfileAssociatedChat_dollar_type   = []byte("\"$type\":")
-	jsonKey_ActorDefs_ProfileAssociatedChat_allowIncoming = []byte("\"allowIncoming\":")
+	jsonKey_ActorDefs_ProfileAssociatedChat_dollar_type       = []byte("\"$type\":")
+	jsonKey_ActorDefs_ProfileAssociatedChat_allowGroupInvites = []byte("\"allowGroupInvites\":")
+	jsonKey_ActorDefs_ProfileAssociatedChat_allowIncoming     = []byte("\"allowIncoming\":")
 )
 
 func (s *ActorDefs_ProfileAssociatedChat) MarshalJSON() ([]byte, error) {
@@ -6702,6 +6737,14 @@ func (s *ActorDefs_ProfileAssociatedChat) AppendJSON(buf []byte) ([]byte, error)
 		}
 		buf = append(buf, jsonKey_ActorDefs_ProfileAssociatedChat_dollar_type...)
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.AllowGroupInvites.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_ProfileAssociatedChat_allowGroupInvites...)
+		buf = cbor.AppendJSONString(buf, s.AllowGroupInvites.Val())
 		first = false
 	}
 	if !first {
@@ -6754,6 +6797,20 @@ func (s *ActorDefs_ProfileAssociatedChat) UnmarshalJSONAt(data []byte, pos int) 
 			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "allowGroupInvites":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AllowGroupInvites = gt.Some(v)
 			}
 		case "allowIncoming":
 			s.AllowIncoming, pos, err = cbor.ReadJSONString(data, pos)
@@ -11171,6 +11228,7 @@ type ActorDefs_StatusView struct {
 	ExpiresAt     gt.Option[string]                     `json:"expiresAt,omitzero"`  // The date when this status will expire. The application might choose to no longer return the statu...
 	IsActive      gt.Option[bool]                       `json:"isActive,omitzero"`   // True if the status is not expired, false if it is expired. Only present if expiration was set.
 	IsDisabled    gt.Option[bool]                       `json:"isDisabled,omitzero"` // True if the user's go-live access has been disabled by a moderator, false otherwise.
+	Labels        []comatproto.LabelDefs_Label          `json:"labels,omitempty"`
 	Record        json.RawMessage                       `json:"record"`
 	Status        string                                `json:"status"` // The status for the account.
 	URI           gt.Option[string]                     `json:"uri,omitzero"`
@@ -11284,6 +11342,7 @@ var (
 	cborKey_ActorDefs_StatusView_uri         = cbor.AppendTextKey(nil, "uri")
 	cborKey_ActorDefs_StatusView_dollar_type = cbor.AppendTextKey(nil, "$type")
 	cborKey_ActorDefs_StatusView_embed       = cbor.AppendTextKey(nil, "embed")
+	cborKey_ActorDefs_StatusView_labels      = cbor.AppendTextKey(nil, "labels")
 	cborKey_ActorDefs_StatusView_record      = cbor.AppendTextKey(nil, "record")
 	cborKey_ActorDefs_StatusView_status      = cbor.AppendTextKey(nil, "status")
 	cborKey_ActorDefs_StatusView_isActive    = cbor.AppendTextKey(nil, "isActive")
@@ -11307,6 +11366,9 @@ func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Embed.HasVal() {
+		n++
+	}
+	if len(s.Labels) > 0 {
 		n++
 	}
 	if s.IsActive.HasVal() {
@@ -11347,6 +11409,18 @@ func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
 					if err != nil {
 						return nil, err
 					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_StatusView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -11395,6 +11469,17 @@ func (s *ActorDefs_StatusView) AppendCBOR(buf []byte) ([]byte, error) {
 					if err != nil {
 						return nil, err
 					}
+				}
+			}
+		}
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_ActorDefs_StatusView_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -11493,7 +11578,22 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 6:
-			if string(data[keyStart:keyEnd]) == "record" {
+			if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "record" {
 				pos, err = cbor.SkipValue(data, pos)
 				if err != nil {
 					return 0, err
@@ -11591,6 +11691,7 @@ var (
 	jsonKey_ActorDefs_StatusView_expiresAt   = []byte("\"expiresAt\":")
 	jsonKey_ActorDefs_StatusView_isActive    = []byte("\"isActive\":")
 	jsonKey_ActorDefs_StatusView_isDisabled  = []byte("\"isDisabled\":")
+	jsonKey_ActorDefs_StatusView_labels      = []byte("\"labels\":")
 	jsonKey_ActorDefs_StatusView_record      = []byte("\"record\":")
 	jsonKey_ActorDefs_StatusView_status      = []byte("\"status\":")
 	jsonKey_ActorDefs_StatusView_uri         = []byte("\"uri\":")
@@ -11658,6 +11759,25 @@ func (s *ActorDefs_StatusView) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_ActorDefs_StatusView_isDisabled...)
 		buf = cbor.AppendJSONBool(buf, s.IsDisabled.Val())
+		first = false
+	}
+	if len(s.Labels) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_StatusView_labels...)
+		buf = append(buf, '[')
+		for i, item := range s.Labels {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
 		first = false
 	}
 	if !first {
@@ -11794,6 +11914,33 @@ func (s *ActorDefs_StatusView) UnmarshalJSONAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 				s.IsDisabled = gt.Some(v)
+			}
+		case "labels":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Labels = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem comatproto.LabelDefs_Label
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Labels = append(s.Labels, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		case "record":
 			{
@@ -12596,11 +12743,13 @@ func (s *ActorDefs_VerificationState) UnmarshalJSONAt(data []byte, pos int) (int
 //
 // An individual verification for an associated subject.
 type ActorDefs_VerificationView struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	CreatedAt     string `json:"createdAt"` // Timestamp when the verification was created.
-	IsValid       bool   `json:"isValid"`   // True if the verification passes validation, otherwise false.
-	Issuer        string `json:"issuer"`    // The user who issued this verification.
-	URI           string `json:"uri"`       // The AT-URI of the verification record.
+	LexiconTypeID     string            `json:"$type,omitempty"`
+	CreatedAt         string            `json:"createdAt"`                  // Timestamp when the verification was created.
+	IsValid           bool              `json:"isValid"`                    // True if the verification passes validation, otherwise false.
+	Issuer            string            `json:"issuer"`                     // The user who issued this verification.
+	IssuerDisplayName gt.Option[string] `json:"issuerDisplayName,omitzero"` // The display name of the issuer.
+	IssuerHandle      gt.Option[string] `json:"issuerHandle,omitzero"`      // The handle of the issuer.
+	URI               string            `json:"uri"`                        // The AT-URI of the verification record.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -12608,11 +12757,13 @@ type ActorDefs_VerificationView struct {
 
 // Precomputed CBOR key tokens for ActorDefs_VerificationView.
 var (
-	cborKey_ActorDefs_VerificationView_uri         = cbor.AppendTextKey(nil, "uri")
-	cborKey_ActorDefs_VerificationView_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_ActorDefs_VerificationView_issuer      = cbor.AppendTextKey(nil, "issuer")
-	cborKey_ActorDefs_VerificationView_isValid     = cbor.AppendTextKey(nil, "isValid")
-	cborKey_ActorDefs_VerificationView_createdAt   = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_ActorDefs_VerificationView_uri               = cbor.AppendTextKey(nil, "uri")
+	cborKey_ActorDefs_VerificationView_dollar_type       = cbor.AppendTextKey(nil, "$type")
+	cborKey_ActorDefs_VerificationView_issuer            = cbor.AppendTextKey(nil, "issuer")
+	cborKey_ActorDefs_VerificationView_isValid           = cbor.AppendTextKey(nil, "isValid")
+	cborKey_ActorDefs_VerificationView_createdAt         = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_ActorDefs_VerificationView_issuerHandle      = cbor.AppendTextKey(nil, "issuerHandle")
+	cborKey_ActorDefs_VerificationView_issuerDisplayName = cbor.AppendTextKey(nil, "issuerDisplayName")
 )
 
 func (s *ActorDefs_VerificationView) MarshalCBOR() ([]byte, error) {
@@ -12622,6 +12773,12 @@ func (s *ActorDefs_VerificationView) MarshalCBOR() ([]byte, error) {
 func (s *ActorDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.IssuerHandle.HasVal() {
+		n++
+	}
+	if s.IssuerDisplayName.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -12644,6 +12801,16 @@ func (s *ActorDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		buf = append(buf, cborKey_ActorDefs_VerificationView_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "issuerHandle", buf)
+		if s.IssuerHandle.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_VerificationView_issuerHandle...)
+			buf = cbor.AppendText(buf, s.IssuerHandle.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "issuerDisplayName", buf)
+		if s.IssuerDisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_VerificationView_issuerDisplayName...)
+			buf = cbor.AppendText(buf, s.IssuerDisplayName.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorDefs_VerificationView_uri...)
@@ -12658,6 +12825,14 @@ func (s *ActorDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendBool(buf, s.IsValid)
 		buf = append(buf, cborKey_ActorDefs_VerificationView_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
+		if s.IssuerHandle.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_VerificationView_issuerHandle...)
+			buf = cbor.AppendText(buf, s.IssuerHandle.Val())
+		}
+		if s.IssuerDisplayName.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_VerificationView_issuerDisplayName...)
+			buf = cbor.AppendText(buf, s.IssuerDisplayName.Val())
+		}
 	}
 	return buf, nil
 }
@@ -12750,6 +12925,46 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 12:
+			if string(data[keyStart:keyEnd]) == "issuerHandle" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IssuerHandle = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "issuerDisplayName" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IssuerDisplayName = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -12764,11 +12979,13 @@ func (s *ActorDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int,
 
 // Precomputed JSON key tokens for ActorDefs_VerificationView.
 var (
-	jsonKey_ActorDefs_VerificationView_dollar_type = []byte("\"$type\":")
-	jsonKey_ActorDefs_VerificationView_createdAt   = []byte("\"createdAt\":")
-	jsonKey_ActorDefs_VerificationView_isValid     = []byte("\"isValid\":")
-	jsonKey_ActorDefs_VerificationView_issuer      = []byte("\"issuer\":")
-	jsonKey_ActorDefs_VerificationView_uri         = []byte("\"uri\":")
+	jsonKey_ActorDefs_VerificationView_dollar_type       = []byte("\"$type\":")
+	jsonKey_ActorDefs_VerificationView_createdAt         = []byte("\"createdAt\":")
+	jsonKey_ActorDefs_VerificationView_isValid           = []byte("\"isValid\":")
+	jsonKey_ActorDefs_VerificationView_issuer            = []byte("\"issuer\":")
+	jsonKey_ActorDefs_VerificationView_issuerDisplayName = []byte("\"issuerDisplayName\":")
+	jsonKey_ActorDefs_VerificationView_issuerHandle      = []byte("\"issuerHandle\":")
+	jsonKey_ActorDefs_VerificationView_uri               = []byte("\"uri\":")
 )
 
 func (s *ActorDefs_VerificationView) MarshalJSON() ([]byte, error) {
@@ -12804,6 +13021,22 @@ func (s *ActorDefs_VerificationView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ActorDefs_VerificationView_issuer...)
 	buf = cbor.AppendJSONString(buf, s.Issuer)
 	first = false
+	if s.IssuerDisplayName.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_VerificationView_issuerDisplayName...)
+		buf = cbor.AppendJSONString(buf, s.IssuerDisplayName.Val())
+		first = false
+	}
+	if s.IssuerHandle.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_VerificationView_issuerHandle...)
+		buf = cbor.AppendJSONString(buf, s.IssuerHandle.Val())
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -12869,6 +13102,34 @@ func (s *ActorDefs_VerificationView) UnmarshalJSONAt(data []byte, pos int) (int,
 			s.Issuer, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "issuerDisplayName":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.IssuerDisplayName = gt.Some(v)
+			}
+		case "issuerHandle":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.IssuerHandle = gt.Some(v)
 			}
 		case "uri":
 			s.URI, pos, err = cbor.ReadJSONString(data, pos)

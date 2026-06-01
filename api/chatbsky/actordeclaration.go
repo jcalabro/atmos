@@ -4,6 +4,7 @@ package chatbsky
 
 import (
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 const (
@@ -15,8 +16,9 @@ const (
 //
 // A declaration of a Bluesky chat account.
 type ActorDeclaration struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=chat.bsky.actor.declaration"`
-	AllowIncoming string `json:"allowIncoming"`
+	LexiconTypeID     string            `json:"$type,omitempty" cborgen:"$type,const=chat.bsky.actor.declaration"`
+	AllowGroupInvites gt.Option[string] `json:"allowGroupInvites,omitzero"` // [NOTE: This is under active development and should be considered unstable while this note is here...
+	AllowIncoming     string            `json:"allowIncoming"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -24,8 +26,9 @@ type ActorDeclaration struct {
 
 // Precomputed CBOR key tokens for ActorDeclaration.
 var (
-	cborKey_ActorDeclaration_dollar_type   = cbor.AppendTextKey(nil, "$type")
-	cborKey_ActorDeclaration_allowIncoming = cbor.AppendTextKey(nil, "allowIncoming")
+	cborKey_ActorDeclaration_dollar_type       = cbor.AppendTextKey(nil, "$type")
+	cborKey_ActorDeclaration_allowIncoming     = cbor.AppendTextKey(nil, "allowIncoming")
+	cborKey_ActorDeclaration_allowGroupInvites = cbor.AppendTextKey(nil, "allowGroupInvites")
 )
 
 func (s *ActorDeclaration) MarshalCBOR() ([]byte, error) {
@@ -33,7 +36,11 @@ func (s *ActorDeclaration) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ActorDeclaration) AppendCBOR(buf []byte) ([]byte, error) {
-	buf = cbor.AppendMapHeader(buf, uint64(2+countExtra(s.extra, extraEncodingCBOR)))
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.AllowGroupInvites.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
 	if len(s.extra) > 0 {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
@@ -42,12 +49,21 @@ func (s *ActorDeclaration) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allowIncoming", buf)
 		buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
 		buf = cbor.AppendText(buf, s.AllowIncoming)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allowGroupInvites", buf)
+		if s.AllowGroupInvites.HasVal() {
+			buf = append(buf, cborKey_ActorDeclaration_allowGroupInvites...)
+			buf = cbor.AppendText(buf, s.AllowGroupInvites.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorDeclaration_dollar_type...)
 		buf = cbor.AppendText(buf, s.LexiconTypeID)
 		buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
 		buf = cbor.AppendText(buf, s.AllowIncoming)
+		if s.AllowGroupInvites.HasVal() {
+			buf = append(buf, cborKey_ActorDeclaration_allowGroupInvites...)
+			buf = cbor.AppendText(buf, s.AllowGroupInvites.Val())
+		}
 	}
 	return buf, nil
 }
@@ -98,6 +114,26 @@ func (s *ActorDeclaration) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "allowGroupInvites" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AllowGroupInvites = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -112,8 +148,9 @@ func (s *ActorDeclaration) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 
 // Precomputed JSON key tokens for ActorDeclaration.
 var (
-	jsonKey_ActorDeclaration_dollar_type   = []byte("\"$type\":")
-	jsonKey_ActorDeclaration_allowIncoming = []byte("\"allowIncoming\":")
+	jsonKey_ActorDeclaration_dollar_type       = []byte("\"$type\":")
+	jsonKey_ActorDeclaration_allowGroupInvites = []byte("\"allowGroupInvites\":")
+	jsonKey_ActorDeclaration_allowIncoming     = []byte("\"allowIncoming\":")
 )
 
 func (s *ActorDeclaration) MarshalJSON() ([]byte, error) {
@@ -129,6 +166,14 @@ func (s *ActorDeclaration) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_ActorDeclaration_dollar_type...)
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.AllowGroupInvites.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDeclaration_allowGroupInvites...)
+		buf = cbor.AppendJSONString(buf, s.AllowGroupInvites.Val())
 		first = false
 	}
 	if !first {
@@ -181,6 +226,20 @@ func (s *ActorDeclaration) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "allowGroupInvites":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AllowGroupInvites = gt.Some(v)
 			}
 		case "allowIncoming":
 			s.AllowIncoming, pos, err = cbor.ReadJSONString(data, pos)

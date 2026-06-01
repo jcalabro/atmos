@@ -12,11 +12,17 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// Error name constants for ConvoGetMessages.
+const (
+	ErrConvoGetMessages_InvalidConvo = "InvalidConvo"
+)
+
 // Precomputed JSON key tokens for ConvoGetMessages_Output.
 var (
-	jsonKey_ConvoGetMessages_Output_dollar_type = []byte("\"$type\":")
-	jsonKey_ConvoGetMessages_Output_cursor      = []byte("\"cursor\":")
-	jsonKey_ConvoGetMessages_Output_messages    = []byte("\"messages\":")
+	jsonKey_ConvoGetMessages_Output_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoGetMessages_Output_cursor          = []byte("\"cursor\":")
+	jsonKey_ConvoGetMessages_Output_messages        = []byte("\"messages\":")
+	jsonKey_ConvoGetMessages_Output_relatedProfiles = []byte("\"relatedProfiles\":")
 )
 
 func (s *ConvoGetMessages_Output) MarshalJSON() ([]byte, error) {
@@ -59,6 +65,25 @@ func (s *ConvoGetMessages_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	if len(s.RelatedProfiles) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoGetMessages_Output_relatedProfiles...)
+		buf = append(buf, '[')
+		for i, item := range s.RelatedProfiles {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
 			continue
@@ -145,6 +170,33 @@ func (s *ConvoGetMessages_Output) UnmarshalJSONAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
@@ -159,9 +211,10 @@ func (s *ConvoGetMessages_Output) UnmarshalJSONAt(data []byte, pos int) (int, er
 
 // Precomputed CBOR key tokens for ConvoGetMessages_Output.
 var (
-	cborKey_ConvoGetMessages_Output_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_ConvoGetMessages_Output_cursor      = cbor.AppendTextKey(nil, "cursor")
-	cborKey_ConvoGetMessages_Output_messages    = cbor.AppendTextKey(nil, "messages")
+	cborKey_ConvoGetMessages_Output_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoGetMessages_Output_cursor          = cbor.AppendTextKey(nil, "cursor")
+	cborKey_ConvoGetMessages_Output_messages        = cbor.AppendTextKey(nil, "messages")
+	cborKey_ConvoGetMessages_Output_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
 )
 
 func (s *ConvoGetMessages_Output) MarshalCBOR() ([]byte, error) {
@@ -174,6 +227,9 @@ func (s *ConvoGetMessages_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Cursor.HasVal() {
+		n++
+	}
+	if len(s.RelatedProfiles) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -199,6 +255,18 @@ func (s *ConvoGetMessages_Output) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoGetMessages_Output_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
@@ -216,6 +284,17 @@ func (s *ConvoGetMessages_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			buf, err = item.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
+			}
+		}
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoGetMessages_Output_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -298,6 +377,30 @@ func (s *ConvoGetMessages_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -314,6 +417,7 @@ func (s *ConvoGetMessages_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 type ConvoGetMessages_Output_Messages struct {
 	ConvoDefs_MessageView        gt.Ref[ConvoDefs_MessageView]
 	ConvoDefs_DeletedMessageView gt.Ref[ConvoDefs_DeletedMessageView]
+	ConvoDefs_SystemMessageView  gt.Ref[ConvoDefs_SystemMessageView]
 	Unknown                      gt.Ref[lextypes.UnknownUnionVariant]
 }
 
@@ -330,6 +434,11 @@ func (u ConvoGetMessages_Output_Messages) AppendJSON(buf []byte) ([]byte, error)
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
 		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -369,6 +478,14 @@ func (u *ConvoGetMessages_Output_Messages) UnmarshalJSONAt(data []byte, pos int)
 		}
 		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -388,6 +505,11 @@ func (u ConvoGetMessages_Output_Messages) AppendCBOR(buf []byte) ([]byte, error)
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
 		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -423,6 +545,14 @@ func (u *ConvoGetMessages_Output_Messages) UnmarshalCBORAt(data []byte, pos int)
 		}
 		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
 		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
+		return pos, nil
 	default:
 		startPos := pos
 		pos, err = cbor.SkipValue(data, pos)
@@ -437,15 +567,18 @@ func (u *ConvoGetMessages_Output_Messages) UnmarshalCBORAt(data []byte, pos int)
 }
 
 type ConvoGetMessages_Output struct {
-	LexiconTypeID string                             `json:"$type,omitempty"`
-	Cursor        gt.Option[string]                  `json:"cursor,omitzero"`
-	Messages      []ConvoGetMessages_Output_Messages `json:"messages"`
+	LexiconTypeID   string                             `json:"$type,omitempty"`
+	Cursor          gt.Option[string]                  `json:"cursor,omitzero"`
+	Messages        []ConvoGetMessages_Output_Messages `json:"messages"`
+	RelatedProfiles []ActorDefs_ProfileViewBasic       `json:"relatedProfiles,omitempty"` // Set of all members who authored or reacted to the returned messages. Members referred to by syste...
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
 }
 
 // ConvoGetMessages calls the XRPC query "chat.bsky.convo.getMessages".
+//
+// Returns a page of messages from a conversation.
 func ConvoGetMessages(ctx context.Context, c *xrpc.Client, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
 	params := map[string]any{}
 	params["convoId"] = convoId

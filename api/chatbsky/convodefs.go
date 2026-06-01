@@ -11,26 +11,409 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// ConvoDefs_ConvoKind is a string type.
+type ConvoDefs_ConvoKind = string
+
+// ConvoDefs_ConvoKind known values.
+const (
+	ConvoDefs_ConvoKind_Direct = "direct"
+	ConvoDefs_ConvoKind_Group  = "group"
+)
+
+// ConvoDefs_ConvoLockStatus is a string type.
+type ConvoDefs_ConvoLockStatus = string
+
+// ConvoDefs_ConvoLockStatus known values.
+const (
+	ConvoDefs_ConvoLockStatus_Unlocked           = "unlocked"
+	ConvoDefs_ConvoLockStatus_Locked             = "locked"
+	ConvoDefs_ConvoLockStatus_Locked_permanently = "locked-permanently"
+)
+
+// ConvoDefs_ConvoRef is a "convoRef" in the chat.bsky.convo.defs schema.
+type ConvoDefs_ConvoRef struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	ConvoId       string `json:"convoId"`
+	DID           string `json:"did"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_ConvoRef.
+var (
+	cborKey_ConvoDefs_ConvoRef_did         = cbor.AppendTextKey(nil, "did")
+	cborKey_ConvoDefs_ConvoRef_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_ConvoRef_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_ConvoRef) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_ConvoRef) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ConvoRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_ConvoRef_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_ConvoRef_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ConvoRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_ConvoRef_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_ConvoRef) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_ConvoRef) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_ConvoRef.
+var (
+	jsonKey_ConvoDefs_ConvoRef_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_ConvoRef_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_ConvoRef_did         = []byte("\"did\":")
+)
+
+func (s *ConvoDefs_ConvoRef) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_ConvoRef) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_ConvoRef_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_ConvoRef_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_ConvoRef_did...)
+	buf = cbor.AppendJSONString(buf, s.DID)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_ConvoRef) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_ConvoRef) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "did":
+			s.DID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_ConvoStatus is a string type.
+type ConvoDefs_ConvoStatus = string
+
+// ConvoDefs_ConvoStatus known values.
+const (
+	ConvoDefs_ConvoStatus_Request  = "request"
+	ConvoDefs_ConvoStatus_Accepted = "accepted"
+)
+
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ConvoView struct {
 	LexiconTypeID string                                      `json:"$type,omitempty"`
 	Id            string                                      `json:"id"`
+	Kind          gt.Option[ConvoDefs_ConvoView_Kind]         `json:"kind,omitzero"` // Union field that has data specific to different kinds of convos.
 	LastMessage   gt.Option[ConvoDefs_ConvoView_LastMessage]  `json:"lastMessage,omitzero"`
 	LastReaction  gt.Option[ConvoDefs_ConvoView_LastReaction] `json:"lastReaction,omitzero"`
-	Members       []ActorDefs_ProfileViewBasic                `json:"members"`
+	Members       []ActorDefs_ProfileViewBasic                `json:"members"` // Members of this conversation. For direct convos, it will be an immutable list of the 2 members. F...
 	Muted         bool                                        `json:"muted"`
 	Rev           string                                      `json:"rev"`
-	Status        gt.Option[string]                           `json:"status,omitzero"`
+	Status        gt.Option[ConvoDefs_ConvoStatus]            `json:"status,omitzero"` // Convo status for the viewer member (not the convo itself).
 	UnreadCount   int64                                       `json:"unreadCount"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
 }
 
+// ConvoDefs_ConvoView_Kind is a union type.
+type ConvoDefs_ConvoView_Kind struct {
+	ConvoDefs_DirectConvo gt.Ref[ConvoDefs_DirectConvo]
+	ConvoDefs_GroupConvo  gt.Ref[ConvoDefs_GroupConvo]
+	Unknown               gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u ConvoDefs_ConvoView_Kind) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_ConvoView_Kind) AppendJSON(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_DirectConvo.HasVal() {
+		v := *u.ConvoDefs_DirectConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#directConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_GroupConvo.HasVal() {
+		v := *u.ConvoDefs_GroupConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#groupConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_ConvoView_Kind")
+}
+
+func (u *ConvoDefs_ConvoView_Kind) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_ConvoView_Kind) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#directConvo":
+		var v ConvoDefs_DirectConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_DirectConvo = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#groupConvo":
+		var v ConvoDefs_GroupConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_GroupConvo = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u ConvoDefs_ConvoView_Kind) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_ConvoView_Kind) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_DirectConvo.HasVal() {
+		v := *u.ConvoDefs_DirectConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#directConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_GroupConvo.HasVal() {
+		v := *u.ConvoDefs_GroupConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#groupConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_ConvoView_Kind")
+}
+
+func (u *ConvoDefs_ConvoView_Kind) UnmarshalCBOR(data []byte) error {
+	_, err := u.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_ConvoView_Kind) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#directConvo":
+		var v ConvoDefs_DirectConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_DirectConvo = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#groupConvo":
+		var v ConvoDefs_GroupConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_GroupConvo = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
 // ConvoDefs_ConvoView_LastMessage is a union type.
 type ConvoDefs_ConvoView_LastMessage struct {
 	ConvoDefs_MessageView        gt.Ref[ConvoDefs_MessageView]
 	ConvoDefs_DeletedMessageView gt.Ref[ConvoDefs_DeletedMessageView]
+	ConvoDefs_SystemMessageView  gt.Ref[ConvoDefs_SystemMessageView]
 	Unknown                      gt.Ref[lextypes.UnknownUnionVariant]
 }
 
@@ -47,6 +430,11 @@ func (u ConvoDefs_ConvoView_LastMessage) AppendJSON(buf []byte) ([]byte, error) 
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
 		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -86,6 +474,14 @@ func (u *ConvoDefs_ConvoView_LastMessage) UnmarshalJSONAt(data []byte, pos int) 
 		}
 		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -105,6 +501,11 @@ func (u ConvoDefs_ConvoView_LastMessage) AppendCBOR(buf []byte) ([]byte, error) 
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
 		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -139,6 +540,14 @@ func (u *ConvoDefs_ConvoView_LastMessage) UnmarshalCBORAt(data []byte, pos int) 
 			return 0, err
 		}
 		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -256,6 +665,7 @@ func (u *ConvoDefs_ConvoView_LastReaction) UnmarshalCBORAt(data []byte, pos int)
 var (
 	cborKey_ConvoDefs_ConvoView_id           = cbor.AppendTextKey(nil, "id")
 	cborKey_ConvoDefs_ConvoView_rev          = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_ConvoView_kind         = cbor.AppendTextKey(nil, "kind")
 	cborKey_ConvoDefs_ConvoView_dollar_type  = cbor.AppendTextKey(nil, "$type")
 	cborKey_ConvoDefs_ConvoView_muted        = cbor.AppendTextKey(nil, "muted")
 	cborKey_ConvoDefs_ConvoView_status       = cbor.AppendTextKey(nil, "status")
@@ -271,6 +681,9 @@ func (s *ConvoDefs_ConvoView) MarshalCBOR() ([]byte, error) {
 
 func (s *ConvoDefs_ConvoView) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 5 + countExtra(s.extra, extraEncodingCBOR)
+	if s.Kind.HasVal() {
+		n++
+	}
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -292,6 +705,20 @@ func (s *ConvoDefs_ConvoView) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
 		buf = append(buf, cborKey_ConvoDefs_ConvoView_rev...)
 		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "kind", buf)
+		if s.Kind.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_kind...)
+			{
+				v := s.Kind.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ConvoDefs_ConvoView_dollar_type...)
@@ -352,6 +779,19 @@ func (s *ConvoDefs_ConvoView) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Id)
 		buf = append(buf, cborKey_ConvoDefs_ConvoView_rev...)
 		buf = cbor.AppendText(buf, s.Rev)
+		if s.Kind.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_ConvoView_kind...)
+			{
+				v := s.Kind.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ConvoDefs_ConvoView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
@@ -440,6 +880,26 @@ func (s *ConvoDefs_ConvoView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				s.Rev, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "kind" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ConvoDefs_ConvoView_Kind
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Kind = gt.Some(v)
 				}
 			} else {
 				valueStart := pos
@@ -573,6 +1033,7 @@ func (s *ConvoDefs_ConvoView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 var (
 	jsonKey_ConvoDefs_ConvoView_dollar_type  = []byte("\"$type\":")
 	jsonKey_ConvoDefs_ConvoView_id           = []byte("\"id\":")
+	jsonKey_ConvoDefs_ConvoView_kind         = []byte("\"kind\":")
 	jsonKey_ConvoDefs_ConvoView_lastMessage  = []byte("\"lastMessage\":")
 	jsonKey_ConvoDefs_ConvoView_lastReaction = []byte("\"lastReaction\":")
 	jsonKey_ConvoDefs_ConvoView_members      = []byte("\"members\":")
@@ -603,6 +1064,23 @@ func (s *ConvoDefs_ConvoView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ConvoDefs_ConvoView_id...)
 	buf = cbor.AppendJSONString(buf, s.Id)
 	first = false
+	if s.Kind.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_ConvoView_kind...)
+		{
+			v := s.Kind.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
 	if s.LastMessage.HasVal() {
 		if !first {
 			buf = append(buf, ',')
@@ -729,6 +1207,20 @@ func (s *ConvoDefs_ConvoView) UnmarshalJSONAt(data []byte, pos int) (int, error)
 			s.Id, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "kind":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ConvoDefs_ConvoView_Kind
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Kind = gt.Some(v)
 			}
 		case "lastMessage":
 			if cbor.IsJSONNull(data, pos) {
@@ -1128,7 +1620,689 @@ func (s *ConvoDefs_DeletedMessageView) UnmarshalJSONAt(data []byte, pos int) (in
 	}
 }
 
+// ConvoDefs_DirectConvo is a "directConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ConvoDefs_DirectConvo struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_DirectConvo.
+var (
+	cborKey_ConvoDefs_DirectConvo_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_DirectConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_DirectConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_DirectConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_DirectConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_DirectConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_DirectConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_DirectConvo.
+var (
+	jsonKey_ConvoDefs_DirectConvo_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ConvoDefs_DirectConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_DirectConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_DirectConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_DirectConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_DirectConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_GroupConvo is a "groupConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ConvoDefs_GroupConvo struct {
+	LexiconTypeID          string                            `json:"$type,omitempty"`
+	CreatedAt              string                            `json:"createdAt"`
+	JoinLink               gt.Option[GroupDefs_JoinLinkView] `json:"joinLink,omitzero"`
+	JoinRequestCount       gt.Option[int64]                  `json:"joinRequestCount,omitzero"`       // The total number of pending join requests for the group conversation. Only present for the owner....
+	LockStatus             ConvoDefs_ConvoLockStatus         `json:"lockStatus"`                      // The lock status of the conversation.
+	MemberCount            int64                             `json:"memberCount"`                     // The total number of members in the group conversation.
+	MemberLimit            int64                             `json:"memberLimit"`                     // The maximum number of members allowed in the group conversation.
+	Name                   string                            `json:"name"`                            // The display name of the group conversation.
+	UnreadJoinRequestCount gt.Option[int64]                  `json:"unreadJoinRequestCount,omitzero"` // The number of unread join requests for the group conversation. Only present for the owner.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_GroupConvo.
+var (
+	cborKey_ConvoDefs_GroupConvo_name                   = cbor.AppendTextKey(nil, "name")
+	cborKey_ConvoDefs_GroupConvo_dollar_type            = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_GroupConvo_joinLink               = cbor.AppendTextKey(nil, "joinLink")
+	cborKey_ConvoDefs_GroupConvo_createdAt              = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_ConvoDefs_GroupConvo_lockStatus             = cbor.AppendTextKey(nil, "lockStatus")
+	cborKey_ConvoDefs_GroupConvo_memberCount            = cbor.AppendTextKey(nil, "memberCount")
+	cborKey_ConvoDefs_GroupConvo_memberLimit            = cbor.AppendTextKey(nil, "memberLimit")
+	cborKey_ConvoDefs_GroupConvo_joinRequestCount       = cbor.AppendTextKey(nil, "joinRequestCount")
+	cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount = cbor.AppendTextKey(nil, "unreadJoinRequestCount")
+)
+
+func (s *ConvoDefs_GroupConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_GroupConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 5 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.JoinLink.HasVal() {
+		n++
+	}
+	if s.JoinRequestCount.HasVal() {
+		n++
+	}
+	if s.UnreadJoinRequestCount.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "name", buf)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "joinLink", buf)
+		if s.JoinLink.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_joinLink...)
+			{
+				v := s.JoinLink.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lockStatus", buf)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_lockStatus...)
+		buf = cbor.AppendText(buf, s.LockStatus)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "memberCount", buf)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_memberCount...)
+		buf = cbor.AppendInt(buf, s.MemberCount)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "memberLimit", buf)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_memberLimit...)
+		buf = cbor.AppendInt(buf, s.MemberLimit)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "joinRequestCount", buf)
+		if s.JoinRequestCount.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_joinRequestCount...)
+			buf = cbor.AppendInt(buf, s.JoinRequestCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "unreadJoinRequestCount", buf)
+		if s.UnreadJoinRequestCount.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount...)
+			buf = cbor.AppendInt(buf, s.UnreadJoinRequestCount.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_name...)
+		buf = cbor.AppendText(buf, s.Name)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.JoinLink.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_joinLink...)
+			{
+				v := s.JoinLink.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_createdAt...)
+		buf = cbor.AppendText(buf, s.CreatedAt)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_lockStatus...)
+		buf = cbor.AppendText(buf, s.LockStatus)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_memberCount...)
+		buf = cbor.AppendInt(buf, s.MemberCount)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_memberLimit...)
+		buf = cbor.AppendInt(buf, s.MemberLimit)
+		if s.JoinRequestCount.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_joinRequestCount...)
+			buf = cbor.AppendInt(buf, s.JoinRequestCount.Val())
+		}
+		if s.UnreadJoinRequestCount.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount...)
+			buf = cbor.AppendInt(buf, s.UnreadJoinRequestCount.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_GroupConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_GroupConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "name" {
+				s.Name, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "joinLink" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GroupDefs_JoinLinkView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinLink = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				s.CreatedAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "lockStatus" {
+				s.LockStatus, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "memberCount" {
+				s.MemberCount, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "memberLimit" {
+				s.MemberLimit, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 16:
+			if string(data[keyStart:keyEnd]) == "joinRequestCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.JoinRequestCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 22:
+			if string(data[keyStart:keyEnd]) == "unreadJoinRequestCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.UnreadJoinRequestCount = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_GroupConvo.
+var (
+	jsonKey_ConvoDefs_GroupConvo_dollar_type            = []byte("\"$type\":")
+	jsonKey_ConvoDefs_GroupConvo_createdAt              = []byte("\"createdAt\":")
+	jsonKey_ConvoDefs_GroupConvo_joinLink               = []byte("\"joinLink\":")
+	jsonKey_ConvoDefs_GroupConvo_joinRequestCount       = []byte("\"joinRequestCount\":")
+	jsonKey_ConvoDefs_GroupConvo_lockStatus             = []byte("\"lockStatus\":")
+	jsonKey_ConvoDefs_GroupConvo_memberCount            = []byte("\"memberCount\":")
+	jsonKey_ConvoDefs_GroupConvo_memberLimit            = []byte("\"memberLimit\":")
+	jsonKey_ConvoDefs_GroupConvo_name                   = []byte("\"name\":")
+	jsonKey_ConvoDefs_GroupConvo_unreadJoinRequestCount = []byte("\"unreadJoinRequestCount\":")
+)
+
+func (s *ConvoDefs_GroupConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_GroupConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_GroupConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_createdAt...)
+	buf = cbor.AppendJSONString(buf, s.CreatedAt)
+	first = false
+	if s.JoinLink.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_GroupConvo_joinLink...)
+		{
+			v := s.JoinLink.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.JoinRequestCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_GroupConvo_joinRequestCount...)
+		buf = cbor.AppendJSONInt(buf, s.JoinRequestCount.Val())
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_lockStatus...)
+	buf = cbor.AppendJSONString(buf, s.LockStatus)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_memberCount...)
+	buf = cbor.AppendJSONInt(buf, s.MemberCount)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_memberLimit...)
+	buf = cbor.AppendJSONInt(buf, s.MemberLimit)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_name...)
+	buf = cbor.AppendJSONString(buf, s.Name)
+	first = false
+	if s.UnreadJoinRequestCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_GroupConvo_unreadJoinRequestCount...)
+		buf = cbor.AppendJSONInt(buf, s.UnreadJoinRequestCount.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_GroupConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_GroupConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "createdAt":
+			s.CreatedAt, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "joinLink":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v GroupDefs_JoinLinkView
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.JoinLink = gt.Some(v)
+			}
+		case "joinRequestCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.JoinRequestCount = gt.Some(v)
+			}
+		case "lockStatus":
+			s.LockStatus, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "memberCount":
+			s.MemberCount, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "memberLimit":
+			s.MemberLimit, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "name":
+			s.Name, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "unreadJoinRequestCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.UnreadJoinRequestCount = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogAcceptConvo is a "logAcceptConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer accepted a convo, and it can be moved out of the request inbox. Can be direct or group.
 type ConvoDefs_LogAcceptConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -1355,13 +2529,377 @@ func (s *ConvoDefs_LogAcceptConvo) UnmarshalJSONAt(data []byte, pos int) (int, e
 	}
 }
 
+// ConvoDefs_LogAddMember is a "logAddMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member was added to a group convo. The member who was added gets a logBeginConvo (to create the convo) but also a logAddMember (to show the system message as the first message the user sees).
+type ConvoDefs_LogAddMember struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataAddMember
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogAddMember.
+var (
+	cborKey_ConvoDefs_LogAddMember_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogAddMember_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogAddMember_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogAddMember_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogAddMember_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogAddMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogAddMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogAddMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogAddMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogAddMember_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogAddMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogAddMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogAddMember.
+var (
+	jsonKey_ConvoDefs_LogAddMember_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogAddMember_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogAddMember_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogAddMember_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogAddMember_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogAddMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogAddMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogAddMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogAddMember_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogAddMember_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogAddMember_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogAddMember_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogAddMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogAddMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogAddReaction is a "logAddReaction" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a reaction was added to a message.
 type ConvoDefs_LogAddReaction struct {
-	LexiconTypeID string                           `json:"$type,omitempty"`
-	ConvoId       string                           `json:"convoId"`
-	Message       ConvoDefs_LogAddReaction_Message `json:"message"`
-	Reaction      ConvoDefs_ReactionView           `json:"reaction"`
-	Rev           string                           `json:"rev"`
+	LexiconTypeID   string                           `json:"$type,omitempty"`
+	ConvoId         string                           `json:"convoId"`
+	Message         ConvoDefs_LogAddReaction_Message `json:"message"`
+	Reaction        ConvoDefs_ReactionView           `json:"reaction"`
+	RelatedProfiles []ActorDefs_ProfileViewBasic     `json:"relatedProfiles,omitempty"` // Profiles referred in the message and reaction views. This isn't required for compatibility, becau...
+	Rev             string                           `json:"rev"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -1495,11 +3033,12 @@ func (u *ConvoDefs_LogAddReaction_Message) UnmarshalCBORAt(data []byte, pos int)
 
 // Precomputed CBOR key tokens for ConvoDefs_LogAddReaction.
 var (
-	cborKey_ConvoDefs_LogAddReaction_rev         = cbor.AppendTextKey(nil, "rev")
-	cborKey_ConvoDefs_LogAddReaction_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_ConvoDefs_LogAddReaction_convoId     = cbor.AppendTextKey(nil, "convoId")
-	cborKey_ConvoDefs_LogAddReaction_message     = cbor.AppendTextKey(nil, "message")
-	cborKey_ConvoDefs_LogAddReaction_reaction    = cbor.AppendTextKey(nil, "reaction")
+	cborKey_ConvoDefs_LogAddReaction_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogAddReaction_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogAddReaction_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogAddReaction_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogAddReaction_reaction        = cbor.AppendTextKey(nil, "reaction")
+	cborKey_ConvoDefs_LogAddReaction_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
 )
 
 func (s *ConvoDefs_LogAddReaction) MarshalCBOR() ([]byte, error) {
@@ -1509,6 +3048,9 @@ func (s *ConvoDefs_LogAddReaction) MarshalCBOR() ([]byte, error) {
 func (s *ConvoDefs_LogAddReaction) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if len(s.RelatedProfiles) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -1543,6 +3085,18 @@ func (s *ConvoDefs_LogAddReaction) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_LogAddReaction_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ConvoDefs_LogAddReaction_rev...)
@@ -1567,6 +3121,17 @@ func (s *ConvoDefs_LogAddReaction) AppendCBOR(buf []byte) ([]byte, error) {
 			buf, err = s.Reaction.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
+			}
+		}
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_LogAddReaction_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -1652,6 +3217,30 @@ func (s *ConvoDefs_LogAddReaction) UnmarshalCBORAt(data []byte, pos int) (int, e
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -1666,11 +3255,12 @@ func (s *ConvoDefs_LogAddReaction) UnmarshalCBORAt(data []byte, pos int) (int, e
 
 // Precomputed JSON key tokens for ConvoDefs_LogAddReaction.
 var (
-	jsonKey_ConvoDefs_LogAddReaction_dollar_type = []byte("\"$type\":")
-	jsonKey_ConvoDefs_LogAddReaction_convoId     = []byte("\"convoId\":")
-	jsonKey_ConvoDefs_LogAddReaction_message     = []byte("\"message\":")
-	jsonKey_ConvoDefs_LogAddReaction_reaction    = []byte("\"reaction\":")
-	jsonKey_ConvoDefs_LogAddReaction_rev         = []byte("\"rev\":")
+	jsonKey_ConvoDefs_LogAddReaction_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogAddReaction_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogAddReaction_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogAddReaction_reaction        = []byte("\"reaction\":")
+	jsonKey_ConvoDefs_LogAddReaction_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogAddReaction_rev             = []byte("\"rev\":")
 )
 
 func (s *ConvoDefs_LogAddReaction) MarshalJSON() ([]byte, error) {
@@ -1718,6 +3308,25 @@ func (s *ConvoDefs_LogAddReaction) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	if len(s.RelatedProfiles) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogAddReaction_relatedProfiles...)
+		buf = append(buf, '[')
+		for i, item := range s.RelatedProfiles {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -1784,6 +3393,313 @@ func (s *ConvoDefs_LogAddReaction) UnmarshalJSONAt(data []byte, pos int) (int, e
 			if err != nil {
 				return 0, err
 			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogApproveJoinRequest is a "logApproveJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was approved by the viewer. Only the owner gets this. The approved member gets a logBeginConvo.
+type ConvoDefs_LogApproveJoinRequest struct {
+	LexiconTypeID string                     `json:"$type,omitempty"`
+	ConvoId       string                     `json:"convoId"`
+	Member        ActorDefs_ProfileViewBasic `json:"member"` // Prospective member who requested to join.
+	Rev           string                     `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogApproveJoinRequest.
+var (
+	cborKey_ConvoDefs_LogApproveJoinRequest_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogApproveJoinRequest_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogApproveJoinRequest_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_LogApproveJoinRequest_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogApproveJoinRequest) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogApproveJoinRequest) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogApproveJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogApproveJoinRequest) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogApproveJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogApproveJoinRequest.
+var (
+	jsonKey_ConvoDefs_LogApproveJoinRequest_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogApproveJoinRequest_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogApproveJoinRequest_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_LogApproveJoinRequest_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogApproveJoinRequest) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogApproveJoinRequest) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogApproveJoinRequest_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogApproveJoinRequest_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogApproveJoinRequest_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogApproveJoinRequest_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogApproveJoinRequest) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogApproveJoinRequest) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
 		case "rev":
 			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
@@ -1802,6 +3718,8 @@ func (s *ConvoDefs_LogAddReaction) UnmarshalJSONAt(data []byte, pos int) (int, e
 }
 
 // ConvoDefs_LogBeginConvo is a "logBeginConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a convo containing the viewer was started. Can be direct or group. When a member is added to a group convo, they also get this event.
 type ConvoDefs_LogBeginConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -2028,12 +3946,286 @@ func (s *ConvoDefs_LogBeginConvo) UnmarshalJSONAt(data []byte, pos int) (int, er
 	}
 }
 
+// ConvoDefs_LogCreateJoinLink is a "logCreateJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was created for a group convo.
+type ConvoDefs_LogCreateJoinLink struct {
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	ConvoId       string                      `json:"convoId"`
+	Message       ConvoDefs_SystemMessageView `json:"message"` // A system message with data of type #systemMessageDataCreateJoinLink
+	Rev           string                      `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogCreateJoinLink.
+var (
+	cborKey_ConvoDefs_LogCreateJoinLink_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogCreateJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogCreateJoinLink_convoId     = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogCreateJoinLink_message     = cbor.AppendTextKey(nil, "message")
+)
+
+func (s *ConvoDefs_LogCreateJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogCreateJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogCreateJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogCreateJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogCreateJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogCreateJoinLink.
+var (
+	jsonKey_ConvoDefs_LogCreateJoinLink_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogCreateJoinLink_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogCreateJoinLink_message     = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogCreateJoinLink_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogCreateJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogCreateJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogCreateJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogCreateJoinLink_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogCreateJoinLink_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogCreateJoinLink_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogCreateJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogCreateJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogCreateMessage is a "logCreateMessage" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a user-originated message was created. Is not emitted for system messages.
 type ConvoDefs_LogCreateMessage struct {
-	LexiconTypeID string                             `json:"$type,omitempty"`
-	ConvoId       string                             `json:"convoId"`
-	Message       ConvoDefs_LogCreateMessage_Message `json:"message"`
-	Rev           string                             `json:"rev"`
+	LexiconTypeID   string                             `json:"$type,omitempty"`
+	ConvoId         string                             `json:"convoId"`
+	Message         ConvoDefs_LogCreateMessage_Message `json:"message"`
+	RelatedProfiles []ActorDefs_ProfileViewBasic       `json:"relatedProfiles,omitempty"` // Profiles referred to in the message view. This isn't required for compatibility, because it was a...
+	Rev             string                             `json:"rev"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -2167,10 +4359,11 @@ func (u *ConvoDefs_LogCreateMessage_Message) UnmarshalCBORAt(data []byte, pos in
 
 // Precomputed CBOR key tokens for ConvoDefs_LogCreateMessage.
 var (
-	cborKey_ConvoDefs_LogCreateMessage_rev         = cbor.AppendTextKey(nil, "rev")
-	cborKey_ConvoDefs_LogCreateMessage_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_ConvoDefs_LogCreateMessage_convoId     = cbor.AppendTextKey(nil, "convoId")
-	cborKey_ConvoDefs_LogCreateMessage_message     = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogCreateMessage_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogCreateMessage_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogCreateMessage_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogCreateMessage_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogCreateMessage_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
 )
 
 func (s *ConvoDefs_LogCreateMessage) MarshalCBOR() ([]byte, error) {
@@ -2180,6 +4373,9 @@ func (s *ConvoDefs_LogCreateMessage) MarshalCBOR() ([]byte, error) {
 func (s *ConvoDefs_LogCreateMessage) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if len(s.RelatedProfiles) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -2205,6 +4401,18 @@ func (s *ConvoDefs_LogCreateMessage) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_rev...)
@@ -2221,6 +4429,17 @@ func (s *ConvoDefs_LogCreateMessage) AppendCBOR(buf []byte) ([]byte, error) {
 			buf, err = s.Message.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
+			}
+		}
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_LogCreateMessage_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -2292,6 +4511,30 @@ func (s *ConvoDefs_LogCreateMessage) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -2306,10 +4549,11 @@ func (s *ConvoDefs_LogCreateMessage) UnmarshalCBORAt(data []byte, pos int) (int,
 
 // Precomputed JSON key tokens for ConvoDefs_LogCreateMessage.
 var (
-	jsonKey_ConvoDefs_LogCreateMessage_dollar_type = []byte("\"$type\":")
-	jsonKey_ConvoDefs_LogCreateMessage_convoId     = []byte("\"convoId\":")
-	jsonKey_ConvoDefs_LogCreateMessage_message     = []byte("\"message\":")
-	jsonKey_ConvoDefs_LogCreateMessage_rev         = []byte("\"rev\":")
+	jsonKey_ConvoDefs_LogCreateMessage_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogCreateMessage_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogCreateMessage_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogCreateMessage_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogCreateMessage_rev             = []byte("\"rev\":")
 )
 
 func (s *ConvoDefs_LogCreateMessage) MarshalJSON() ([]byte, error) {
@@ -2345,6 +4589,25 @@ func (s *ConvoDefs_LogCreateMessage) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	if len(s.RelatedProfiles) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogCreateMessage_relatedProfiles...)
+		buf = append(buf, '[')
+		for i, item := range s.RelatedProfiles {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -2406,6 +4669,33 @@ func (s *ConvoDefs_LogCreateMessage) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
 		case "rev":
 			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
@@ -2424,6 +4714,8 @@ func (s *ConvoDefs_LogCreateMessage) UnmarshalJSONAt(data []byte, pos int) (int,
 }
 
 // ConvoDefs_LogDeleteMessage is a "logDeleteMessage" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a user-originated message was deleted. Is not emitted for system messages.
 type ConvoDefs_LogDeleteMessage struct {
 	LexiconTypeID string                             `json:"$type,omitempty"`
 	ConvoId       string                             `json:"convoId"`
@@ -2818,7 +5110,1373 @@ func (s *ConvoDefs_LogDeleteMessage) UnmarshalJSONAt(data []byte, pos int) (int,
 	}
 }
 
+// ConvoDefs_LogDisableJoinLink is a "logDisableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was disabled for a group convo.
+type ConvoDefs_LogDisableJoinLink struct {
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	ConvoId       string                      `json:"convoId"`
+	Message       ConvoDefs_SystemMessageView `json:"message"` // A system message with data of type #systemMessageDataDisableJoinLink
+	Rev           string                      `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogDisableJoinLink.
+var (
+	cborKey_ConvoDefs_LogDisableJoinLink_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogDisableJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogDisableJoinLink_convoId     = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogDisableJoinLink_message     = cbor.AppendTextKey(nil, "message")
+)
+
+func (s *ConvoDefs_LogDisableJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogDisableJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogDisableJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogDisableJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogDisableJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogDisableJoinLink.
+var (
+	jsonKey_ConvoDefs_LogDisableJoinLink_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogDisableJoinLink_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogDisableJoinLink_message     = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogDisableJoinLink_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogDisableJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogDisableJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogDisableJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogDisableJoinLink_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogDisableJoinLink_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogDisableJoinLink_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogDisableJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogDisableJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogEditGroup is a "logEditGroup" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating info about group convo was edited.
+type ConvoDefs_LogEditGroup struct {
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	ConvoId       string                      `json:"convoId"`
+	Message       ConvoDefs_SystemMessageView `json:"message"` // A system message with data of type #systemMessageDataEditGroup
+	Rev           string                      `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogEditGroup.
+var (
+	cborKey_ConvoDefs_LogEditGroup_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogEditGroup_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogEditGroup_convoId     = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogEditGroup_message     = cbor.AppendTextKey(nil, "message")
+)
+
+func (s *ConvoDefs_LogEditGroup) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogEditGroup) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEditGroup_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogEditGroup_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEditGroup_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEditGroup_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogEditGroup_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogEditGroup_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogEditGroup_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogEditGroup_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogEditGroup) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogEditGroup) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogEditGroup.
+var (
+	jsonKey_ConvoDefs_LogEditGroup_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogEditGroup_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogEditGroup_message     = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogEditGroup_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogEditGroup) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogEditGroup) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogEditGroup_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEditGroup_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEditGroup_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEditGroup_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogEditGroup) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogEditGroup) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogEditJoinLink is a "logEditJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a settings about a join link for a group convo were edited.
+type ConvoDefs_LogEditJoinLink struct {
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	ConvoId       string                      `json:"convoId"`
+	Message       ConvoDefs_SystemMessageView `json:"message"` // A system message with data of type #systemMessageDataEditJoinLink
+	Rev           string                      `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogEditJoinLink.
+var (
+	cborKey_ConvoDefs_LogEditJoinLink_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogEditJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogEditJoinLink_convoId     = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogEditJoinLink_message     = cbor.AppendTextKey(nil, "message")
+)
+
+func (s *ConvoDefs_LogEditJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogEditJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogEditJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogEditJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogEditJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogEditJoinLink.
+var (
+	jsonKey_ConvoDefs_LogEditJoinLink_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogEditJoinLink_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogEditJoinLink_message     = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogEditJoinLink_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogEditJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogEditJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogEditJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEditJoinLink_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEditJoinLink_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEditJoinLink_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogEditJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogEditJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogEnableJoinLink is a "logEnableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was enabled for a group convo.
+type ConvoDefs_LogEnableJoinLink struct {
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	ConvoId       string                      `json:"convoId"`
+	Message       ConvoDefs_SystemMessageView `json:"message"` // A system message with data of type #systemMessageDataEnableJoinLink
+	Rev           string                      `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogEnableJoinLink.
+var (
+	cborKey_ConvoDefs_LogEnableJoinLink_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogEnableJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogEnableJoinLink_convoId     = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogEnableJoinLink_message     = cbor.AppendTextKey(nil, "message")
+)
+
+func (s *ConvoDefs_LogEnableJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogEnableJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogEnableJoinLink_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogEnableJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogEnableJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogEnableJoinLink.
+var (
+	jsonKey_ConvoDefs_LogEnableJoinLink_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogEnableJoinLink_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogEnableJoinLink_message     = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogEnableJoinLink_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogEnableJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogEnableJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogEnableJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEnableJoinLink_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEnableJoinLink_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogEnableJoinLink_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogEnableJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogEnableJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogIncomingJoinRequest is a "logIncomingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made to a group the viewer owns. Only the owner gets this.
+type ConvoDefs_LogIncomingJoinRequest struct {
+	LexiconTypeID string                     `json:"$type,omitempty"`
+	ConvoId       string                     `json:"convoId"`
+	Member        ActorDefs_ProfileViewBasic `json:"member"` // Prospective member who requested to join.
+	Rev           string                     `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogIncomingJoinRequest.
+var (
+	cborKey_ConvoDefs_LogIncomingJoinRequest_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogIncomingJoinRequest_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogIncomingJoinRequest_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_LogIncomingJoinRequest_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogIncomingJoinRequest) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogIncomingJoinRequest) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogIncomingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogIncomingJoinRequest) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogIncomingJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogIncomingJoinRequest.
+var (
+	jsonKey_ConvoDefs_LogIncomingJoinRequest_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogIncomingJoinRequest_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogIncomingJoinRequest_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_LogIncomingJoinRequest_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogIncomingJoinRequest) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogIncomingJoinRequest) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogIncomingJoinRequest_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogIncomingJoinRequest_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogIncomingJoinRequest_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogIncomingJoinRequest_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogIncomingJoinRequest) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogIncomingJoinRequest) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogLeaveConvo is a "logLeaveConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer left a convo. Can be direct or group.
 type ConvoDefs_LogLeaveConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -3045,7 +6703,1453 @@ func (s *ConvoDefs_LogLeaveConvo) UnmarshalJSONAt(data []byte, pos int) (int, er
 	}
 }
 
+// ConvoDefs_LogLockConvo is a "logLockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was locked.
+type ConvoDefs_LogLockConvo struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataLockConvo
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogLockConvo.
+var (
+	cborKey_ConvoDefs_LogLockConvo_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogLockConvo_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogLockConvo_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogLockConvo_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogLockConvo_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogLockConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogLockConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogLockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogLockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvo_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogLockConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogLockConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogLockConvo.
+var (
+	jsonKey_ConvoDefs_LogLockConvo_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogLockConvo_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogLockConvo_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogLockConvo_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogLockConvo_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogLockConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogLockConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogLockConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvo_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvo_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvo_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvo_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogLockConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogLockConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogLockConvoPermanently is a "logLockConvoPermanently" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was locked permanently.
+type ConvoDefs_LogLockConvoPermanently struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataLockConvoPermanently
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogLockConvoPermanently.
+var (
+	cborKey_ConvoDefs_LogLockConvoPermanently_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogLockConvoPermanently_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogLockConvoPermanently_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogLockConvoPermanently_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogLockConvoPermanently_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogLockConvoPermanently) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogLockConvoPermanently) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogLockConvoPermanently_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogLockConvoPermanently) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogLockConvoPermanently) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogLockConvoPermanently.
+var (
+	jsonKey_ConvoDefs_LogLockConvoPermanently_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogLockConvoPermanently_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogLockConvoPermanently_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogLockConvoPermanently_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogLockConvoPermanently_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogLockConvoPermanently) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogLockConvoPermanently) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogLockConvoPermanently_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvoPermanently_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvoPermanently_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvoPermanently_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogLockConvoPermanently_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogLockConvoPermanently) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogLockConvoPermanently) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogMemberJoin is a "logMemberJoin" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member joined a group convo via join link. The member who was added gets a logBeginConvo (to create the convo) but also a logMemberJoin (to show the system message as the first message the user sees).
+type ConvoDefs_LogMemberJoin struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataMemberJoin
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogMemberJoin.
+var (
+	cborKey_ConvoDefs_LogMemberJoin_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogMemberJoin_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogMemberJoin_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogMemberJoin_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogMemberJoin_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogMemberJoin) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogMemberJoin) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogMemberJoin_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogMemberJoin) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogMemberJoin) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogMemberJoin.
+var (
+	jsonKey_ConvoDefs_LogMemberJoin_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogMemberJoin_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogMemberJoin_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogMemberJoin_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogMemberJoin_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogMemberJoin) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogMemberJoin) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogMemberJoin_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberJoin_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberJoin_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberJoin_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberJoin_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogMemberJoin) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogMemberJoin) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogMemberLeave is a "logMemberLeave" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member voluntarily left a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logMemberLeave (because they already left, so can't see the system message).
+type ConvoDefs_LogMemberLeave struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataMemberLeave
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogMemberLeave.
+var (
+	cborKey_ConvoDefs_LogMemberLeave_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogMemberLeave_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogMemberLeave_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogMemberLeave_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogMemberLeave_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogMemberLeave) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogMemberLeave) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogMemberLeave_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogMemberLeave) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogMemberLeave) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogMemberLeave.
+var (
+	jsonKey_ConvoDefs_LogMemberLeave_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogMemberLeave_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogMemberLeave_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogMemberLeave_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogMemberLeave_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogMemberLeave) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogMemberLeave) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogMemberLeave_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberLeave_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberLeave_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberLeave_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogMemberLeave_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogMemberLeave) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogMemberLeave) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogMuteConvo is a "logMuteConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer muted a convo. Can be direct or group.
 type ConvoDefs_LogMuteConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -3272,7 +8376,891 @@ func (s *ConvoDefs_LogMuteConvo) UnmarshalJSONAt(data []byte, pos int) (int, err
 	}
 }
 
+// ConvoDefs_LogOutgoingJoinRequest is a "logOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made by the requester. Only requester actor gets this.
+type ConvoDefs_LogOutgoingJoinRequest struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	ConvoId       string `json:"convoId"`
+	Rev           string `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogOutgoingJoinRequest.
+var (
+	cborKey_ConvoDefs_LogOutgoingJoinRequest_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogOutgoingJoinRequest_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogOutgoingJoinRequest_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogOutgoingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogOutgoingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogOutgoingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogOutgoingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogOutgoingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogOutgoingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogOutgoingJoinRequest.
+var (
+	jsonKey_ConvoDefs_LogOutgoingJoinRequest_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogOutgoingJoinRequest_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogOutgoingJoinRequest_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogOutgoingJoinRequest_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogOutgoingJoinRequest_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogOutgoingJoinRequest_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogOutgoingJoinRequest) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogReadConvo is a "logReadConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a convo was read up to a certain message.
+type ConvoDefs_LogReadConvo struct {
+	LexiconTypeID string                         `json:"$type,omitempty"`
+	ConvoId       string                         `json:"convoId"`
+	Message       ConvoDefs_LogReadConvo_Message `json:"message"`
+	Rev           string                         `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// ConvoDefs_LogReadConvo_Message is a union type.
+type ConvoDefs_LogReadConvo_Message struct {
+	ConvoDefs_MessageView        gt.Ref[ConvoDefs_MessageView]
+	ConvoDefs_DeletedMessageView gt.Ref[ConvoDefs_DeletedMessageView]
+	ConvoDefs_SystemMessageView  gt.Ref[ConvoDefs_SystemMessageView]
+	Unknown                      gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u ConvoDefs_LogReadConvo_Message) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_LogReadConvo_Message) AppendJSON(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_MessageView.HasVal() {
+		v := *u.ConvoDefs_MessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_DeletedMessageView.HasVal() {
+		v := *u.ConvoDefs_DeletedMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_LogReadConvo_Message")
+}
+
+func (u *ConvoDefs_LogReadConvo_Message) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_LogReadConvo_Message) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		var v ConvoDefs_MessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_MessageView = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#deletedMessageView":
+		var v ConvoDefs_DeletedMessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u ConvoDefs_LogReadConvo_Message) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_LogReadConvo_Message) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_MessageView.HasVal() {
+		v := *u.ConvoDefs_MessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_DeletedMessageView.HasVal() {
+		v := *u.ConvoDefs_DeletedMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_LogReadConvo_Message")
+}
+
+func (u *ConvoDefs_LogReadConvo_Message) UnmarshalCBOR(data []byte) error {
+	_, err := u.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_LogReadConvo_Message) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		var v ConvoDefs_MessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_MessageView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#deletedMessageView":
+		var v ConvoDefs_DeletedMessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogReadConvo.
+var (
+	cborKey_ConvoDefs_LogReadConvo_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogReadConvo_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogReadConvo_convoId     = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogReadConvo_message     = cbor.AppendTextKey(nil, "message")
+)
+
+func (s *ConvoDefs_LogReadConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogReadConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogReadConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadConvo_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogReadConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogReadConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogReadConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogReadConvo_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogReadConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogReadConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogReadConvo.
+var (
+	jsonKey_ConvoDefs_LogReadConvo_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogReadConvo_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogReadConvo_message     = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogReadConvo_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogReadConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogReadConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogReadConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogReadConvo_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogReadConvo_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogReadConvo_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogReadConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogReadConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogReadJoinRequests is a "logReadJoinRequests" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating the group owner marked join requests as read. Only the owner gets this.
+type ConvoDefs_LogReadJoinRequests struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	ConvoId       string `json:"convoId"`
+	Rev           string `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogReadJoinRequests.
+var (
+	cborKey_ConvoDefs_LogReadJoinRequests_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogReadJoinRequests_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogReadJoinRequests_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogReadJoinRequests) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogReadJoinRequests) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadJoinRequests_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogReadJoinRequests_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogReadJoinRequests_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogReadJoinRequests_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogReadJoinRequests_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogReadJoinRequests_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogReadJoinRequests) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogReadJoinRequests) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogReadJoinRequests.
+var (
+	jsonKey_ConvoDefs_LogReadJoinRequests_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogReadJoinRequests_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogReadJoinRequests_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogReadJoinRequests) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogReadJoinRequests) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogReadJoinRequests_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogReadJoinRequests_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogReadJoinRequests_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogReadJoinRequests) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogReadJoinRequests) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogReadMessage is a "logReadMessage" in the chat.bsky.convo.defs schema.
+//
+// DEPRECATED: use logReadConvo instead. Event indicating a convo was read up to a certain message.
 type ConvoDefs_LogReadMessage struct {
 	LexiconTypeID string                           `json:"$type,omitempty"`
 	ConvoId       string                           `json:"convoId"`
@@ -3287,6 +9275,7 @@ type ConvoDefs_LogReadMessage struct {
 type ConvoDefs_LogReadMessage_Message struct {
 	ConvoDefs_MessageView        gt.Ref[ConvoDefs_MessageView]
 	ConvoDefs_DeletedMessageView gt.Ref[ConvoDefs_DeletedMessageView]
+	ConvoDefs_SystemMessageView  gt.Ref[ConvoDefs_SystemMessageView]
 	Unknown                      gt.Ref[lextypes.UnknownUnionVariant]
 }
 
@@ -3303,6 +9292,11 @@ func (u ConvoDefs_LogReadMessage_Message) AppendJSON(buf []byte) ([]byte, error)
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
 		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -3342,6 +9336,14 @@ func (u *ConvoDefs_LogReadMessage_Message) UnmarshalJSONAt(data []byte, pos int)
 		}
 		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -3361,6 +9363,11 @@ func (u ConvoDefs_LogReadMessage_Message) AppendCBOR(buf []byte) ([]byte, error)
 	if u.ConvoDefs_DeletedMessageView.HasVal() {
 		v := *u.ConvoDefs_DeletedMessageView.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageView.HasVal() {
+		v := *u.ConvoDefs_SystemMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -3395,6 +9402,14 @@ func (u *ConvoDefs_LogReadMessage_Message) UnmarshalCBORAt(data []byte, pos int)
 			return 0, err
 		}
 		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageView":
+		var v ConvoDefs_SystemMessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageView = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -3667,13 +9682,657 @@ func (s *ConvoDefs_LogReadMessage) UnmarshalJSONAt(data []byte, pos int) (int, e
 	}
 }
 
+// ConvoDefs_LogRejectJoinRequest is a "logRejectJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was rejected by the viewer. Only the owner gets this.
+type ConvoDefs_LogRejectJoinRequest struct {
+	LexiconTypeID string                     `json:"$type,omitempty"`
+	ConvoId       string                     `json:"convoId"`
+	Member        ActorDefs_ProfileViewBasic `json:"member"` // Prospective member who requested to join.
+	Rev           string                     `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogRejectJoinRequest.
+var (
+	cborKey_ConvoDefs_LogRejectJoinRequest_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogRejectJoinRequest_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogRejectJoinRequest_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_LogRejectJoinRequest_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogRejectJoinRequest) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogRejectJoinRequest) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogRejectJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogRejectJoinRequest) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogRejectJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogRejectJoinRequest.
+var (
+	jsonKey_ConvoDefs_LogRejectJoinRequest_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogRejectJoinRequest_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogRejectJoinRequest_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_LogRejectJoinRequest_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogRejectJoinRequest) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogRejectJoinRequest) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogRejectJoinRequest_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRejectJoinRequest_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRejectJoinRequest_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRejectJoinRequest_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogRejectJoinRequest) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogRejectJoinRequest) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogRemoveMember is a "logRemoveMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member was removed from a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logRemoveMember (because they already left, so can't see the system message).
+type ConvoDefs_LogRemoveMember struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataRemoveMember
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogRemoveMember.
+var (
+	cborKey_ConvoDefs_LogRemoveMember_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogRemoveMember_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogRemoveMember_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogRemoveMember_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogRemoveMember_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogRemoveMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogRemoveMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogRemoveMember_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogRemoveMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogRemoveMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogRemoveMember.
+var (
+	jsonKey_ConvoDefs_LogRemoveMember_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogRemoveMember_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogRemoveMember_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogRemoveMember_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogRemoveMember_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogRemoveMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogRemoveMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogRemoveMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRemoveMember_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRemoveMember_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRemoveMember_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogRemoveMember_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogRemoveMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogRemoveMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_LogRemoveReaction is a "logRemoveReaction" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a reaction was removed from a message.
 type ConvoDefs_LogRemoveReaction struct {
-	LexiconTypeID string                              `json:"$type,omitempty"`
-	ConvoId       string                              `json:"convoId"`
-	Message       ConvoDefs_LogRemoveReaction_Message `json:"message"`
-	Reaction      ConvoDefs_ReactionView              `json:"reaction"`
-	Rev           string                              `json:"rev"`
+	LexiconTypeID   string                              `json:"$type,omitempty"`
+	ConvoId         string                              `json:"convoId"`
+	Message         ConvoDefs_LogRemoveReaction_Message `json:"message"`
+	Reaction        ConvoDefs_ReactionView              `json:"reaction"`
+	RelatedProfiles []ActorDefs_ProfileViewBasic        `json:"relatedProfiles,omitempty"` // Profiles referred in the message and reaction views. This isn't required for compatibility, becau...
+	Rev             string                              `json:"rev"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -3807,11 +10466,12 @@ func (u *ConvoDefs_LogRemoveReaction_Message) UnmarshalCBORAt(data []byte, pos i
 
 // Precomputed CBOR key tokens for ConvoDefs_LogRemoveReaction.
 var (
-	cborKey_ConvoDefs_LogRemoveReaction_rev         = cbor.AppendTextKey(nil, "rev")
-	cborKey_ConvoDefs_LogRemoveReaction_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_ConvoDefs_LogRemoveReaction_convoId     = cbor.AppendTextKey(nil, "convoId")
-	cborKey_ConvoDefs_LogRemoveReaction_message     = cbor.AppendTextKey(nil, "message")
-	cborKey_ConvoDefs_LogRemoveReaction_reaction    = cbor.AppendTextKey(nil, "reaction")
+	cborKey_ConvoDefs_LogRemoveReaction_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogRemoveReaction_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogRemoveReaction_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogRemoveReaction_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogRemoveReaction_reaction        = cbor.AppendTextKey(nil, "reaction")
+	cborKey_ConvoDefs_LogRemoveReaction_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
 )
 
 func (s *ConvoDefs_LogRemoveReaction) MarshalCBOR() ([]byte, error) {
@@ -3821,6 +10481,9 @@ func (s *ConvoDefs_LogRemoveReaction) MarshalCBOR() ([]byte, error) {
 func (s *ConvoDefs_LogRemoveReaction) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 4 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if len(s.RelatedProfiles) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -3855,6 +10518,18 @@ func (s *ConvoDefs_LogRemoveReaction) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_rev...)
@@ -3879,6 +10554,17 @@ func (s *ConvoDefs_LogRemoveReaction) AppendCBOR(buf []byte) ([]byte, error) {
 			buf, err = s.Reaction.AppendCBOR(buf)
 			if err != nil {
 				return nil, err
+			}
+		}
+		if len(s.RelatedProfiles) > 0 {
+			buf = append(buf, cborKey_ConvoDefs_LogRemoveReaction_relatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+			for _, item := range s.RelatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -3964,6 +10650,30 @@ func (s *ConvoDefs_LogRemoveReaction) UnmarshalCBORAt(data []byte, pos int) (int
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -3978,11 +10688,12 @@ func (s *ConvoDefs_LogRemoveReaction) UnmarshalCBORAt(data []byte, pos int) (int
 
 // Precomputed JSON key tokens for ConvoDefs_LogRemoveReaction.
 var (
-	jsonKey_ConvoDefs_LogRemoveReaction_dollar_type = []byte("\"$type\":")
-	jsonKey_ConvoDefs_LogRemoveReaction_convoId     = []byte("\"convoId\":")
-	jsonKey_ConvoDefs_LogRemoveReaction_message     = []byte("\"message\":")
-	jsonKey_ConvoDefs_LogRemoveReaction_reaction    = []byte("\"reaction\":")
-	jsonKey_ConvoDefs_LogRemoveReaction_rev         = []byte("\"rev\":")
+	jsonKey_ConvoDefs_LogRemoveReaction_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogRemoveReaction_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogRemoveReaction_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogRemoveReaction_reaction        = []byte("\"reaction\":")
+	jsonKey_ConvoDefs_LogRemoveReaction_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogRemoveReaction_rev             = []byte("\"rev\":")
 )
 
 func (s *ConvoDefs_LogRemoveReaction) MarshalJSON() ([]byte, error) {
@@ -4030,6 +10741,25 @@ func (s *ConvoDefs_LogRemoveReaction) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	if len(s.RelatedProfiles) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogRemoveReaction_relatedProfiles...)
+		buf = append(buf, '[')
+		for i, item := range s.RelatedProfiles {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -4096,6 +10826,394 @@ func (s *ConvoDefs_LogRemoveReaction) UnmarshalJSONAt(data []byte, pos int) (int
 			if err != nil {
 				return 0, err
 			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogUnlockConvo is a "logUnlockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was unlocked.
+type ConvoDefs_LogUnlockConvo struct {
+	LexiconTypeID   string                       `json:"$type,omitempty"`
+	ConvoId         string                       `json:"convoId"`
+	Message         ConvoDefs_SystemMessageView  `json:"message"`         // A system message with data of type #systemMessageDataUnlockConvo
+	RelatedProfiles []ActorDefs_ProfileViewBasic `json:"relatedProfiles"` // Profiles referred in the system message.
+	Rev             string                       `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogUnlockConvo.
+var (
+	cborKey_ConvoDefs_LogUnlockConvo_rev             = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogUnlockConvo_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogUnlockConvo_convoId         = cbor.AppendTextKey(nil, "convoId")
+	cborKey_ConvoDefs_LogUnlockConvo_message         = cbor.AppendTextKey(nil, "message")
+	cborKey_ConvoDefs_LogUnlockConvo_relatedProfiles = cbor.AppendTextKey(nil, "relatedProfiles")
+)
+
+func (s *ConvoDefs_LogUnlockConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogUnlockConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "message", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "relatedProfiles", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_message...)
+		{
+			var err error
+			buf, err = s.Message.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogUnlockConvo_relatedProfiles...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.RelatedProfiles)))
+		for _, item := range s.RelatedProfiles {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogUnlockConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogUnlockConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "message" {
+				pos, err = s.Message.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "relatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.RelatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogUnlockConvo.
+var (
+	jsonKey_ConvoDefs_LogUnlockConvo_dollar_type     = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogUnlockConvo_convoId         = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogUnlockConvo_message         = []byte("\"message\":")
+	jsonKey_ConvoDefs_LogUnlockConvo_relatedProfiles = []byte("\"relatedProfiles\":")
+	jsonKey_ConvoDefs_LogUnlockConvo_rev             = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogUnlockConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogUnlockConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogUnlockConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogUnlockConvo_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogUnlockConvo_message...)
+	{
+		var err error
+		buf, err = s.Message.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogUnlockConvo_relatedProfiles...)
+	buf = append(buf, '[')
+	for i, item := range s.RelatedProfiles {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogUnlockConvo_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogUnlockConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogUnlockConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "message":
+			pos, err = s.Message.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "relatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RelatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RelatedProfiles = append(s.RelatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
 		case "rev":
 			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
@@ -4114,6 +11232,8 @@ func (s *ConvoDefs_LogRemoveReaction) UnmarshalJSONAt(data []byte, pos int) (int
 }
 
 // ConvoDefs_LogUnmuteConvo is a "logUnmuteConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer unmuted a convo. Can be direct or group.
 type ConvoDefs_LogUnmuteConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -4295,6 +11415,515 @@ func (s *ConvoDefs_LogUnmuteConvo) UnmarshalJSON(data []byte) error {
 }
 
 func (s *ConvoDefs_LogUnmuteConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogWithdrawIncomingJoinRequest is a "logWithdrawIncomingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a prospective member withdrew their join request. Only the owner gets this.
+type ConvoDefs_LogWithdrawIncomingJoinRequest struct {
+	LexiconTypeID string                     `json:"$type,omitempty"`
+	ConvoId       string                     `json:"convoId"`
+	Member        ActorDefs_ProfileViewBasic `json:"member"` // Prospective member who withdrew their join request.
+	Rev           string                     `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogWithdrawIncomingJoinRequest.
+var (
+	cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawIncomingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogWithdrawIncomingJoinRequest.
+var (
+	jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogWithdrawIncomingJoinRequest_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_LogWithdrawOutgoingJoinRequest is a "logWithdrawOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating the viewer withdrew their own join request. Only requester actor gets this.
+type ConvoDefs_LogWithdrawOutgoingJoinRequest struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	ConvoId       string `json:"convoId"`
+	Rev           string `json:"rev"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_LogWithdrawOutgoingJoinRequest.
+var (
+	cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_convoId     = cbor.AppendTextKey(nil, "convoId")
+)
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_LogWithdrawOutgoingJoinRequest.
+var (
+	jsonKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_convoId     = []byte("\"convoId\":")
+	jsonKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_rev         = []byte("\"rev\":")
+)
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_LogWithdrawOutgoingJoinRequest_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_LogWithdrawOutgoingJoinRequest) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 	s.extra = clearExtra(s.extra, extraEncodingJSON)
 	var err error
 	pos, err = cbor.ReadJSONObjectStart(data, pos)
@@ -4616,8 +12245,9 @@ type ConvoDefs_MessageInput struct {
 
 // ConvoDefs_MessageInput_Embed is a union type.
 type ConvoDefs_MessageInput_Embed struct {
-	EmbedRecord gt.Ref[bsky.EmbedRecord]
-	Unknown     gt.Ref[lextypes.UnknownUnionVariant]
+	EmbedRecord   gt.Ref[bsky.EmbedRecord]
+	EmbedJoinLink gt.Ref[EmbedJoinLink]
+	Unknown       gt.Ref[lextypes.UnknownUnionVariant]
 }
 
 func (u ConvoDefs_MessageInput_Embed) MarshalJSON() ([]byte, error) {
@@ -4628,6 +12258,11 @@ func (u ConvoDefs_MessageInput_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedRecord.HasVal() {
 		v := *u.EmbedRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedJoinLink.HasVal() {
+		v := *u.EmbedJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.embed.joinLink"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -4659,6 +12294,14 @@ func (u *ConvoDefs_MessageInput_Embed) UnmarshalJSONAt(data []byte, pos int) (in
 		}
 		u.EmbedRecord = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.embed.joinLink":
+		var v EmbedJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedJoinLink = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -4673,6 +12316,11 @@ func (u ConvoDefs_MessageInput_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedRecord.HasVal() {
 		v := *u.EmbedRecord.Val()
 		v.LexiconTypeID = "app.bsky.embed.record"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedJoinLink.HasVal() {
+		v := *u.EmbedJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.embed.joinLink"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -4699,6 +12347,14 @@ func (u *ConvoDefs_MessageInput_Embed) UnmarshalCBORAt(data []byte, pos int) (in
 			return 0, err
 		}
 		u.EmbedRecord = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.embed.joinLink":
+		var v EmbedJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedJoinLink = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -5348,8 +13004,9 @@ type ConvoDefs_MessageView struct {
 
 // ConvoDefs_MessageView_Embed is a union type.
 type ConvoDefs_MessageView_Embed struct {
-	EmbedRecord_View gt.Ref[bsky.EmbedRecord_View]
-	Unknown          gt.Ref[lextypes.UnknownUnionVariant]
+	EmbedRecord_View   gt.Ref[bsky.EmbedRecord_View]
+	EmbedJoinLink_View gt.Ref[EmbedJoinLink_View]
+	Unknown            gt.Ref[lextypes.UnknownUnionVariant]
 }
 
 func (u ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
@@ -5360,6 +13017,11 @@ func (u ConvoDefs_MessageView_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedRecord_View.HasVal() {
 		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedJoinLink_View.HasVal() {
+		v := *u.EmbedJoinLink_View.Val()
+		v.LexiconTypeID = "chat.bsky.embed.joinLink#view"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -5391,6 +13053,14 @@ func (u *ConvoDefs_MessageView_Embed) UnmarshalJSONAt(data []byte, pos int) (int
 		}
 		u.EmbedRecord_View = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.embed.joinLink#view":
+		var v EmbedJoinLink_View
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedJoinLink_View = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -5405,6 +13075,11 @@ func (u ConvoDefs_MessageView_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedRecord_View.HasVal() {
 		v := *u.EmbedRecord_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.record#view"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedJoinLink_View.HasVal() {
+		v := *u.EmbedJoinLink_View.Val()
+		v.LexiconTypeID = "chat.bsky.embed.joinLink#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -5431,6 +13106,14 @@ func (u *ConvoDefs_MessageView_Embed) UnmarshalCBORAt(data []byte, pos int) (int
 			return 0, err
 		}
 		u.EmbedRecord_View = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.embed.joinLink#view":
+		var v EmbedJoinLink_View
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedJoinLink_View = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos
@@ -6670,6 +14353,3579 @@ func (s *ConvoDefs_ReactionViewSender) UnmarshalJSONAt(data []byte, pos int) (in
 			}
 		case "did":
 			s.DID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataAddMember is a "systemMessageDataAddMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user was added to the group convo.
+type ConvoDefs_SystemMessageDataAddMember struct {
+	LexiconTypeID string                              `json:"$type,omitempty"`
+	AddedBy       ConvoDefs_SystemMessageReferredUser `json:"addedBy"`
+	Member        ConvoDefs_SystemMessageReferredUser `json:"member"` // Current view of the member who was added.
+	Role          ActorDefs_MemberRole                `json:"role"`   // Role the user was added to the group with. The role from 'member' will reflect the current data, ...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataAddMember.
+var (
+	cborKey_ConvoDefs_SystemMessageDataAddMember_role        = cbor.AppendTextKey(nil, "role")
+	cborKey_ConvoDefs_SystemMessageDataAddMember_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataAddMember_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_SystemMessageDataAddMember_addedBy     = cbor.AppendTextKey(nil, "addedBy")
+)
+
+func (s *ConvoDefs_SystemMessageDataAddMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataAddMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "role", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "addedBy", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_addedBy...)
+		{
+			var err error
+			buf, err = s.AddedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataAddMember_addedBy...)
+		{
+			var err error
+			buf, err = s.AddedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataAddMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataAddMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "role" {
+				s.Role, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "addedBy" {
+				pos, err = s.AddedBy.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataAddMember.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataAddMember_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataAddMember_addedBy     = []byte("\"addedBy\":")
+	jsonKey_ConvoDefs_SystemMessageDataAddMember_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_SystemMessageDataAddMember_role        = []byte("\"role\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataAddMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataAddMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataAddMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataAddMember_addedBy...)
+	{
+		var err error
+		buf, err = s.AddedBy.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataAddMember_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataAddMember_role...)
+	buf = cbor.AppendJSONString(buf, s.Role)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataAddMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataAddMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "addedBy":
+			pos, err = s.AddedBy.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "role":
+			s.Role, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataCreateJoinLink is a "systemMessageDataCreateJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was created.
+type ConvoDefs_SystemMessageDataCreateJoinLink struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataCreateJoinLink.
+var (
+	cborKey_ConvoDefs_SystemMessageDataCreateJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataCreateJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataCreateJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataCreateJoinLink.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataCreateJoinLink_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataCreateJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataCreateJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataDisableJoinLink is a "systemMessageDataDisableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was disabled.
+type ConvoDefs_SystemMessageDataDisableJoinLink struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataDisableJoinLink.
+var (
+	cborKey_ConvoDefs_SystemMessageDataDisableJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataDisableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataDisableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataDisableJoinLink.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataDisableJoinLink_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataDisableJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataDisableJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataEditGroup is a "systemMessageDataEditGroup" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group info was edited.
+type ConvoDefs_SystemMessageDataEditGroup struct {
+	LexiconTypeID string            `json:"$type,omitempty"`
+	NewName       gt.Option[string] `json:"newName,omitzero"` // Group name that replaced the old.
+	OldName       gt.Option[string] `json:"oldName,omitzero"` // Group name that was replaced.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataEditGroup.
+var (
+	cborKey_ConvoDefs_SystemMessageDataEditGroup_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataEditGroup_newName     = cbor.AppendTextKey(nil, "newName")
+	cborKey_ConvoDefs_SystemMessageDataEditGroup_oldName     = cbor.AppendTextKey(nil, "oldName")
+)
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.NewName.HasVal() {
+		n++
+	}
+	if s.OldName.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditGroup_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "newName", buf)
+		if s.NewName.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditGroup_newName...)
+			buf = cbor.AppendText(buf, s.NewName.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "oldName", buf)
+		if s.OldName.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditGroup_oldName...)
+			buf = cbor.AppendText(buf, s.OldName.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditGroup_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.NewName.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditGroup_newName...)
+			buf = cbor.AppendText(buf, s.NewName.Val())
+		}
+		if s.OldName.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditGroup_oldName...)
+			buf = cbor.AppendText(buf, s.OldName.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "newName" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.NewName = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "oldName" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.OldName = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataEditGroup.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataEditGroup_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataEditGroup_newName     = []byte("\"newName\":")
+	jsonKey_ConvoDefs_SystemMessageDataEditGroup_oldName     = []byte("\"oldName\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataEditGroup_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.NewName.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataEditGroup_newName...)
+		buf = cbor.AppendJSONString(buf, s.NewName.Val())
+		first = false
+	}
+	if s.OldName.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataEditGroup_oldName...)
+		buf = cbor.AppendJSONString(buf, s.OldName.Val())
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataEditGroup) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "newName":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.NewName = gt.Some(v)
+			}
+		case "oldName":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.OldName = gt.Some(v)
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataEditJoinLink is a "systemMessageDataEditJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was edited.
+type ConvoDefs_SystemMessageDataEditJoinLink struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataEditJoinLink.
+var (
+	cborKey_ConvoDefs_SystemMessageDataEditJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEditJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataEditJoinLink.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataEditJoinLink_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataEditJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataEditJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataEnableJoinLink is a "systemMessageDataEnableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was enabled.
+type ConvoDefs_SystemMessageDataEnableJoinLink struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataEnableJoinLink.
+var (
+	cborKey_ConvoDefs_SystemMessageDataEnableJoinLink_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEnableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataEnableJoinLink_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataEnableJoinLink.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataEnableJoinLink_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataEnableJoinLink_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataEnableJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataLockConvo is a "systemMessageDataLockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was locked.
+type ConvoDefs_SystemMessageDataLockConvo struct {
+	LexiconTypeID string                              `json:"$type,omitempty"`
+	LockedBy      ConvoDefs_SystemMessageReferredUser `json:"lockedBy"` // Current view of the member who locked the group.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataLockConvo.
+var (
+	cborKey_ConvoDefs_SystemMessageDataLockConvo_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataLockConvo_lockedBy    = cbor.AppendTextKey(nil, "lockedBy")
+)
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lockedBy", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvo_lockedBy...)
+		{
+			var err error
+			buf, err = s.LockedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvo_lockedBy...)
+		{
+			var err error
+			buf, err = s.LockedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "lockedBy" {
+				pos, err = s.LockedBy.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataLockConvo.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataLockConvo_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataLockConvo_lockedBy    = []byte("\"lockedBy\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataLockConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataLockConvo_lockedBy...)
+	{
+		var err error
+		buf, err = s.LockedBy.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "lockedBy":
+			pos, err = s.LockedBy.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataLockConvoPermanently is a "systemMessageDataLockConvoPermanently" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was locked permanently.
+type ConvoDefs_SystemMessageDataLockConvoPermanently struct {
+	LexiconTypeID string                              `json:"$type,omitempty"`
+	LockedBy      ConvoDefs_SystemMessageReferredUser `json:"lockedBy"` // Current view of the member who locked the group.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataLockConvoPermanently.
+var (
+	cborKey_ConvoDefs_SystemMessageDataLockConvoPermanently_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataLockConvoPermanently_lockedBy    = cbor.AppendTextKey(nil, "lockedBy")
+)
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvoPermanently_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lockedBy", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvoPermanently_lockedBy...)
+		{
+			var err error
+			buf, err = s.LockedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvoPermanently_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataLockConvoPermanently_lockedBy...)
+		{
+			var err error
+			buf, err = s.LockedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "lockedBy" {
+				pos, err = s.LockedBy.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataLockConvoPermanently.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataLockConvoPermanently_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataLockConvoPermanently_lockedBy    = []byte("\"lockedBy\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataLockConvoPermanently_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataLockConvoPermanently_lockedBy...)
+	{
+		var err error
+		buf, err = s.LockedBy.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "lockedBy":
+			pos, err = s.LockedBy.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataMemberJoin is a "systemMessageDataMemberJoin" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user joined the group convo via join link.
+type ConvoDefs_SystemMessageDataMemberJoin struct {
+	LexiconTypeID string                                         `json:"$type,omitempty"`
+	ApprovedBy    gt.Option[ConvoDefs_SystemMessageReferredUser] `json:"approvedBy,omitzero"` // If join link was configured to require approval, this will be set to who approved the request. Un...
+	Member        ConvoDefs_SystemMessageReferredUser            `json:"member"`              // Current view of the member who joined.
+	Role          ActorDefs_MemberRole                           `json:"role"`                // Role the user was added to the group with. The role from 'member' will reflect the current data, ...
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataMemberJoin.
+var (
+	cborKey_ConvoDefs_SystemMessageDataMemberJoin_role        = cbor.AppendTextKey(nil, "role")
+	cborKey_ConvoDefs_SystemMessageDataMemberJoin_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataMemberJoin_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_SystemMessageDataMemberJoin_approvedBy  = cbor.AppendTextKey(nil, "approvedBy")
+)
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.ApprovedBy.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "role", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "approvedBy", buf)
+		if s.ApprovedBy.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_approvedBy...)
+			{
+				v := s.ApprovedBy.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_role...)
+		buf = cbor.AppendText(buf, s.Role)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.ApprovedBy.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberJoin_approvedBy...)
+			{
+				v := s.ApprovedBy.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "role" {
+				s.Role, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "approvedBy" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ConvoDefs_SystemMessageReferredUser
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ApprovedBy = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataMemberJoin.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataMemberJoin_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataMemberJoin_approvedBy  = []byte("\"approvedBy\":")
+	jsonKey_ConvoDefs_SystemMessageDataMemberJoin_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_SystemMessageDataMemberJoin_role        = []byte("\"role\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataMemberJoin_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.ApprovedBy.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataMemberJoin_approvedBy...)
+		{
+			v := s.ApprovedBy.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataMemberJoin_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataMemberJoin_role...)
+	buf = cbor.AppendJSONString(buf, s.Role)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberJoin) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "approvedBy":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ConvoDefs_SystemMessageReferredUser
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ApprovedBy = gt.Some(v)
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "role":
+			s.Role, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataMemberLeave is a "systemMessageDataMemberLeave" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user voluntarily left the group convo.
+type ConvoDefs_SystemMessageDataMemberLeave struct {
+	LexiconTypeID string                              `json:"$type,omitempty"`
+	Member        ConvoDefs_SystemMessageReferredUser `json:"member"` // Current view of the member who left the group.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataMemberLeave.
+var (
+	cborKey_ConvoDefs_SystemMessageDataMemberLeave_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataMemberLeave_member      = cbor.AppendTextKey(nil, "member")
+)
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberLeave_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberLeave_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberLeave_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataMemberLeave_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataMemberLeave.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataMemberLeave_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataMemberLeave_member      = []byte("\"member\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataMemberLeave_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataMemberLeave_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataMemberLeave) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataRemoveMember is a "systemMessageDataRemoveMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user was removed from the group convo.
+type ConvoDefs_SystemMessageDataRemoveMember struct {
+	LexiconTypeID string                              `json:"$type,omitempty"`
+	Member        ConvoDefs_SystemMessageReferredUser `json:"member"` // Current view of the member who was removed.
+	RemovedBy     ConvoDefs_SystemMessageReferredUser `json:"removedBy"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataRemoveMember.
+var (
+	cborKey_ConvoDefs_SystemMessageDataRemoveMember_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataRemoveMember_member      = cbor.AppendTextKey(nil, "member")
+	cborKey_ConvoDefs_SystemMessageDataRemoveMember_removedBy   = cbor.AppendTextKey(nil, "removedBy")
+)
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataRemoveMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "member", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataRemoveMember_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "removedBy", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataRemoveMember_removedBy...)
+		{
+			var err error
+			buf, err = s.RemovedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataRemoveMember_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataRemoveMember_member...)
+		{
+			var err error
+			buf, err = s.Member.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataRemoveMember_removedBy...)
+		{
+			var err error
+			buf, err = s.RemovedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "member" {
+				pos, err = s.Member.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "removedBy" {
+				pos, err = s.RemovedBy.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataRemoveMember.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataRemoveMember_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataRemoveMember_member      = []byte("\"member\":")
+	jsonKey_ConvoDefs_SystemMessageDataRemoveMember_removedBy   = []byte("\"removedBy\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataRemoveMember_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataRemoveMember_member...)
+	{
+		var err error
+		buf, err = s.Member.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataRemoveMember_removedBy...)
+	{
+		var err error
+		buf, err = s.RemovedBy.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataRemoveMember) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "member":
+			pos, err = s.Member.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "removedBy":
+			pos, err = s.RemovedBy.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageDataUnlockConvo is a "systemMessageDataUnlockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was unlocked.
+type ConvoDefs_SystemMessageDataUnlockConvo struct {
+	LexiconTypeID string                              `json:"$type,omitempty"`
+	UnlockedBy    ConvoDefs_SystemMessageReferredUser `json:"unlockedBy"` // Current view of the member who unlocked the group.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageDataUnlockConvo.
+var (
+	cborKey_ConvoDefs_SystemMessageDataUnlockConvo_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageDataUnlockConvo_unlockedBy  = cbor.AppendTextKey(nil, "unlockedBy")
+)
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataUnlockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "unlockedBy", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataUnlockConvo_unlockedBy...)
+		{
+			var err error
+			buf, err = s.UnlockedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageDataUnlockConvo_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageDataUnlockConvo_unlockedBy...)
+		{
+			var err error
+			buf, err = s.UnlockedBy.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "unlockedBy" {
+				pos, err = s.UnlockedBy.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageDataUnlockConvo.
+var (
+	jsonKey_ConvoDefs_SystemMessageDataUnlockConvo_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageDataUnlockConvo_unlockedBy  = []byte("\"unlockedBy\":")
+)
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataUnlockConvo_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageDataUnlockConvo_unlockedBy...)
+	{
+		var err error
+		buf, err = s.UnlockedBy.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageDataUnlockConvo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "unlockedBy":
+			pos, err = s.UnlockedBy.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageReferredUser is a "systemMessageReferredUser" in the chat.bsky.convo.defs schema.
+type ConvoDefs_SystemMessageReferredUser struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	DID           string `json:"did"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageReferredUser.
+var (
+	cborKey_ConvoDefs_SystemMessageReferredUser_did         = cbor.AppendTextKey(nil, "did")
+	cborKey_ConvoDefs_SystemMessageReferredUser_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_SystemMessageReferredUser) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageReferredUser) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "did", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageReferredUser_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageReferredUser_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageReferredUser_did...)
+		buf = cbor.AppendText(buf, s.DID)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageReferredUser_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageReferredUser) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageReferredUser) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "did" {
+				s.DID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageReferredUser.
+var (
+	jsonKey_ConvoDefs_SystemMessageReferredUser_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageReferredUser_did         = []byte("\"did\":")
+)
+
+func (s *ConvoDefs_SystemMessageReferredUser) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageReferredUser) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageReferredUser_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageReferredUser_did...)
+	buf = cbor.AppendJSONString(buf, s.DID)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageReferredUser) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageReferredUser) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "did":
+			s.DID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// ConvoDefs_SystemMessageView is a "systemMessageView" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ConvoDefs_SystemMessageView struct {
+	LexiconTypeID string                           `json:"$type,omitempty"`
+	Data          ConvoDefs_SystemMessageView_Data `json:"data"`
+	Id            string                           `json:"id"`
+	Rev           string                           `json:"rev"`
+	SentAt        string                           `json:"sentAt"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// ConvoDefs_SystemMessageView_Data is a union type.
+type ConvoDefs_SystemMessageView_Data struct {
+	ConvoDefs_SystemMessageDataAddMember            gt.Ref[ConvoDefs_SystemMessageDataAddMember]
+	ConvoDefs_SystemMessageDataRemoveMember         gt.Ref[ConvoDefs_SystemMessageDataRemoveMember]
+	ConvoDefs_SystemMessageDataMemberJoin           gt.Ref[ConvoDefs_SystemMessageDataMemberJoin]
+	ConvoDefs_SystemMessageDataMemberLeave          gt.Ref[ConvoDefs_SystemMessageDataMemberLeave]
+	ConvoDefs_SystemMessageDataLockConvo            gt.Ref[ConvoDefs_SystemMessageDataLockConvo]
+	ConvoDefs_SystemMessageDataUnlockConvo          gt.Ref[ConvoDefs_SystemMessageDataUnlockConvo]
+	ConvoDefs_SystemMessageDataLockConvoPermanently gt.Ref[ConvoDefs_SystemMessageDataLockConvoPermanently]
+	ConvoDefs_SystemMessageDataEditGroup            gt.Ref[ConvoDefs_SystemMessageDataEditGroup]
+	ConvoDefs_SystemMessageDataCreateJoinLink       gt.Ref[ConvoDefs_SystemMessageDataCreateJoinLink]
+	ConvoDefs_SystemMessageDataEditJoinLink         gt.Ref[ConvoDefs_SystemMessageDataEditJoinLink]
+	ConvoDefs_SystemMessageDataEnableJoinLink       gt.Ref[ConvoDefs_SystemMessageDataEnableJoinLink]
+	ConvoDefs_SystemMessageDataDisableJoinLink      gt.Ref[ConvoDefs_SystemMessageDataDisableJoinLink]
+	Unknown                                         gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u ConvoDefs_SystemMessageView_Data) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_SystemMessageView_Data) AppendJSON(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_SystemMessageDataAddMember.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataAddMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataAddMember"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataRemoveMember.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataRemoveMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataRemoveMember"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataMemberJoin.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataMemberJoin.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataMemberJoin"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataMemberLeave.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataMemberLeave.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataMemberLeave"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataLockConvo.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataLockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataLockConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataUnlockConvo.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataUnlockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataUnlockConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataLockConvoPermanently.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataLockConvoPermanently.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataLockConvoPermanently"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataEditGroup.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataEditGroup.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEditGroup"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataCreateJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataCreateJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataCreateJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataEditJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataEditJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEditJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataEnableJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataEnableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEnableJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataDisableJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataDisableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataDisableJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_SystemMessageView_Data")
+}
+
+func (u *ConvoDefs_SystemMessageView_Data) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_SystemMessageView_Data) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#systemMessageDataAddMember":
+		var v ConvoDefs_SystemMessageDataAddMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataAddMember = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataRemoveMember":
+		var v ConvoDefs_SystemMessageDataRemoveMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataRemoveMember = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataMemberJoin":
+		var v ConvoDefs_SystemMessageDataMemberJoin
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataMemberJoin = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataMemberLeave":
+		var v ConvoDefs_SystemMessageDataMemberLeave
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataMemberLeave = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataLockConvo":
+		var v ConvoDefs_SystemMessageDataLockConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataLockConvo = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataUnlockConvo":
+		var v ConvoDefs_SystemMessageDataUnlockConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataUnlockConvo = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataLockConvoPermanently":
+		var v ConvoDefs_SystemMessageDataLockConvoPermanently
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataLockConvoPermanently = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataEditGroup":
+		var v ConvoDefs_SystemMessageDataEditGroup
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataEditGroup = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataCreateJoinLink":
+		var v ConvoDefs_SystemMessageDataCreateJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataCreateJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataEditJoinLink":
+		var v ConvoDefs_SystemMessageDataEditJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataEditJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataEnableJoinLink":
+		var v ConvoDefs_SystemMessageDataEnableJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataEnableJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#systemMessageDataDisableJoinLink":
+		var v ConvoDefs_SystemMessageDataDisableJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataDisableJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u ConvoDefs_SystemMessageView_Data) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_SystemMessageView_Data) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_SystemMessageDataAddMember.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataAddMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataAddMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataRemoveMember.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataRemoveMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataRemoveMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataMemberJoin.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataMemberJoin.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataMemberJoin"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataMemberLeave.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataMemberLeave.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataMemberLeave"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataLockConvo.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataLockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataLockConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataUnlockConvo.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataUnlockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataUnlockConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataLockConvoPermanently.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataLockConvoPermanently.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataLockConvoPermanently"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataEditGroup.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataEditGroup.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEditGroup"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataCreateJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataCreateJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataCreateJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataEditJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataEditJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEditJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataEnableJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataEnableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEnableJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_SystemMessageDataDisableJoinLink.HasVal() {
+		v := *u.ConvoDefs_SystemMessageDataDisableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataDisableJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_SystemMessageView_Data")
+}
+
+func (u *ConvoDefs_SystemMessageView_Data) UnmarshalCBOR(data []byte) error {
+	_, err := u.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_SystemMessageView_Data) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#systemMessageDataAddMember":
+		var v ConvoDefs_SystemMessageDataAddMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataAddMember = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataRemoveMember":
+		var v ConvoDefs_SystemMessageDataRemoveMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataRemoveMember = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataMemberJoin":
+		var v ConvoDefs_SystemMessageDataMemberJoin
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataMemberJoin = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataMemberLeave":
+		var v ConvoDefs_SystemMessageDataMemberLeave
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataMemberLeave = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataLockConvo":
+		var v ConvoDefs_SystemMessageDataLockConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataLockConvo = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataUnlockConvo":
+		var v ConvoDefs_SystemMessageDataUnlockConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataUnlockConvo = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataLockConvoPermanently":
+		var v ConvoDefs_SystemMessageDataLockConvoPermanently
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataLockConvoPermanently = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataEditGroup":
+		var v ConvoDefs_SystemMessageDataEditGroup
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataEditGroup = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataCreateJoinLink":
+		var v ConvoDefs_SystemMessageDataCreateJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataCreateJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataEditJoinLink":
+		var v ConvoDefs_SystemMessageDataEditJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataEditJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataEnableJoinLink":
+		var v ConvoDefs_SystemMessageDataEnableJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataEnableJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#systemMessageDataDisableJoinLink":
+		var v ConvoDefs_SystemMessageDataDisableJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_SystemMessageDataDisableJoinLink = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_SystemMessageView.
+var (
+	cborKey_ConvoDefs_SystemMessageView_id          = cbor.AppendTextKey(nil, "id")
+	cborKey_ConvoDefs_SystemMessageView_rev         = cbor.AppendTextKey(nil, "rev")
+	cborKey_ConvoDefs_SystemMessageView_data        = cbor.AppendTextKey(nil, "data")
+	cborKey_ConvoDefs_SystemMessageView_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_SystemMessageView_sentAt      = cbor.AppendTextKey(nil, "sentAt")
+)
+
+func (s *ConvoDefs_SystemMessageView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 4 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "id", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "rev", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "data", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_data...)
+		{
+			var err error
+			buf, err = s.Data.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "sentAt", buf)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_sentAt...)
+		buf = cbor.AppendText(buf, s.SentAt)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_id...)
+		buf = cbor.AppendText(buf, s.Id)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_rev...)
+		buf = cbor.AppendText(buf, s.Rev)
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_data...)
+		{
+			var err error
+			buf, err = s.Data.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_SystemMessageView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_SystemMessageView_sentAt...)
+		buf = cbor.AppendText(buf, s.SentAt)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageView) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 2:
+			if string(data[keyStart:keyEnd]) == "id" {
+				s.Id, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 3:
+			if string(data[keyStart:keyEnd]) == "rev" {
+				s.Rev, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "data" {
+				pos, err = s.Data.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "sentAt" {
+				s.SentAt, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_SystemMessageView.
+var (
+	jsonKey_ConvoDefs_SystemMessageView_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_SystemMessageView_data        = []byte("\"data\":")
+	jsonKey_ConvoDefs_SystemMessageView_id          = []byte("\"id\":")
+	jsonKey_ConvoDefs_SystemMessageView_rev         = []byte("\"rev\":")
+	jsonKey_ConvoDefs_SystemMessageView_sentAt      = []byte("\"sentAt\":")
+)
+
+func (s *ConvoDefs_SystemMessageView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_SystemMessageView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_SystemMessageView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageView_data...)
+	{
+		var err error
+		buf, err = s.Data.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageView_id...)
+	buf = cbor.AppendJSONString(buf, s.Id)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageView_rev...)
+	buf = cbor.AppendJSONString(buf, s.Rev)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_SystemMessageView_sentAt...)
+	buf = cbor.AppendJSONString(buf, s.SentAt)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_SystemMessageView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_SystemMessageView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "data":
+			pos, err = s.Data.UnmarshalJSONAt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "id":
+			s.Id, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "rev":
+			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "sentAt":
+			s.SentAt, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
 			}

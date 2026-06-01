@@ -8,6 +8,12 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 )
 
+// Error name constants for ConvoDeleteMessageForSelf.
+const (
+	ErrConvoDeleteMessageForSelf_InvalidConvo            = "InvalidConvo"
+	ErrConvoDeleteMessageForSelf_MessageDeleteNotAllowed = "MessageDeleteNotAllowed" // Indicates that this message cannot be deleted, e.g. because it is a system message.
+)
+
 // ConvoDeleteMessageForSelf_Output is an alias for ConvoDefs_DeletedMessageView.
 type ConvoDeleteMessageForSelf_Output = ConvoDefs_DeletedMessageView
 
@@ -238,6 +244,8 @@ type ConvoDeleteMessageForSelf_Input struct {
 }
 
 // ConvoDeleteMessageForSelf calls the XRPC procedure "chat.bsky.convo.deleteMessageForSelf".
+//
+// Marks a message as deleted for the viewer, so they won't see that message in future enumerations.
 func ConvoDeleteMessageForSelf(ctx context.Context, c *xrpc.Client, input *ConvoDeleteMessageForSelf_Input) (*ConvoDeleteMessageForSelf_Output, error) {
 	var out ConvoDeleteMessageForSelf_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.deleteMessageForSelf", input, &out)

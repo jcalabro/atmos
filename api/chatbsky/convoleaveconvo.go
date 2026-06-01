@@ -8,6 +8,12 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 )
 
+// Error name constants for ConvoLeaveConvo.
+const (
+	ErrConvoLeaveConvo_InvalidConvo     = "InvalidConvo"
+	ErrConvoLeaveConvo_OwnerCannotLeave = "OwnerCannotLeave" // The owner of a group conversation cannot leave before locking the group.
+)
+
 // Precomputed JSON key tokens for ConvoLeaveConvo_Output.
 var (
 	jsonKey_ConvoLeaveConvo_Output_dollar_type = []byte("\"$type\":")
@@ -428,6 +434,8 @@ type ConvoLeaveConvo_Input struct {
 }
 
 // ConvoLeaveConvo calls the XRPC procedure "chat.bsky.convo.leaveConvo".
+//
+// Leaves a conversation (direct or group). For group, this effectively removes membership. For direct, membership is never removed, only changed to remove from enumerations by the user who left.
 func ConvoLeaveConvo(ctx context.Context, c *xrpc.Client, input *ConvoLeaveConvo_Input) (*ConvoLeaveConvo_Output, error) {
 	var out ConvoLeaveConvo_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.leaveConvo", input, &out)

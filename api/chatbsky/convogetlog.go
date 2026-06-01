@@ -312,17 +312,37 @@ func (s *ConvoGetLog_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 
 // ConvoGetLog_Output_Logs is a union type.
 type ConvoGetLog_Output_Logs struct {
-	ConvoDefs_LogBeginConvo     gt.Ref[ConvoDefs_LogBeginConvo]
-	ConvoDefs_LogAcceptConvo    gt.Ref[ConvoDefs_LogAcceptConvo]
-	ConvoDefs_LogLeaveConvo     gt.Ref[ConvoDefs_LogLeaveConvo]
-	ConvoDefs_LogMuteConvo      gt.Ref[ConvoDefs_LogMuteConvo]
-	ConvoDefs_LogUnmuteConvo    gt.Ref[ConvoDefs_LogUnmuteConvo]
-	ConvoDefs_LogCreateMessage  gt.Ref[ConvoDefs_LogCreateMessage]
-	ConvoDefs_LogDeleteMessage  gt.Ref[ConvoDefs_LogDeleteMessage]
-	ConvoDefs_LogReadMessage    gt.Ref[ConvoDefs_LogReadMessage]
-	ConvoDefs_LogAddReaction    gt.Ref[ConvoDefs_LogAddReaction]
-	ConvoDefs_LogRemoveReaction gt.Ref[ConvoDefs_LogRemoveReaction]
-	Unknown                     gt.Ref[lextypes.UnknownUnionVariant]
+	ConvoDefs_LogBeginConvo                  gt.Ref[ConvoDefs_LogBeginConvo]
+	ConvoDefs_LogAcceptConvo                 gt.Ref[ConvoDefs_LogAcceptConvo]
+	ConvoDefs_LogLeaveConvo                  gt.Ref[ConvoDefs_LogLeaveConvo]
+	ConvoDefs_LogMuteConvo                   gt.Ref[ConvoDefs_LogMuteConvo]
+	ConvoDefs_LogUnmuteConvo                 gt.Ref[ConvoDefs_LogUnmuteConvo]
+	ConvoDefs_LogCreateMessage               gt.Ref[ConvoDefs_LogCreateMessage]
+	ConvoDefs_LogDeleteMessage               gt.Ref[ConvoDefs_LogDeleteMessage]
+	ConvoDefs_LogReadMessage                 gt.Ref[ConvoDefs_LogReadMessage]
+	ConvoDefs_LogAddReaction                 gt.Ref[ConvoDefs_LogAddReaction]
+	ConvoDefs_LogRemoveReaction              gt.Ref[ConvoDefs_LogRemoveReaction]
+	ConvoDefs_LogReadConvo                   gt.Ref[ConvoDefs_LogReadConvo]
+	ConvoDefs_LogAddMember                   gt.Ref[ConvoDefs_LogAddMember]
+	ConvoDefs_LogRemoveMember                gt.Ref[ConvoDefs_LogRemoveMember]
+	ConvoDefs_LogMemberJoin                  gt.Ref[ConvoDefs_LogMemberJoin]
+	ConvoDefs_LogMemberLeave                 gt.Ref[ConvoDefs_LogMemberLeave]
+	ConvoDefs_LogLockConvo                   gt.Ref[ConvoDefs_LogLockConvo]
+	ConvoDefs_LogUnlockConvo                 gt.Ref[ConvoDefs_LogUnlockConvo]
+	ConvoDefs_LogLockConvoPermanently        gt.Ref[ConvoDefs_LogLockConvoPermanently]
+	ConvoDefs_LogEditGroup                   gt.Ref[ConvoDefs_LogEditGroup]
+	ConvoDefs_LogCreateJoinLink              gt.Ref[ConvoDefs_LogCreateJoinLink]
+	ConvoDefs_LogEditJoinLink                gt.Ref[ConvoDefs_LogEditJoinLink]
+	ConvoDefs_LogEnableJoinLink              gt.Ref[ConvoDefs_LogEnableJoinLink]
+	ConvoDefs_LogDisableJoinLink             gt.Ref[ConvoDefs_LogDisableJoinLink]
+	ConvoDefs_LogIncomingJoinRequest         gt.Ref[ConvoDefs_LogIncomingJoinRequest]
+	ConvoDefs_LogApproveJoinRequest          gt.Ref[ConvoDefs_LogApproveJoinRequest]
+	ConvoDefs_LogRejectJoinRequest           gt.Ref[ConvoDefs_LogRejectJoinRequest]
+	ConvoDefs_LogOutgoingJoinRequest         gt.Ref[ConvoDefs_LogOutgoingJoinRequest]
+	ConvoDefs_LogWithdrawIncomingJoinRequest gt.Ref[ConvoDefs_LogWithdrawIncomingJoinRequest]
+	ConvoDefs_LogWithdrawOutgoingJoinRequest gt.Ref[ConvoDefs_LogWithdrawOutgoingJoinRequest]
+	ConvoDefs_LogReadJoinRequests            gt.Ref[ConvoDefs_LogReadJoinRequests]
+	Unknown                                  gt.Ref[lextypes.UnknownUnionVariant]
 }
 
 func (u ConvoGetLog_Output_Logs) MarshalJSON() ([]byte, error) {
@@ -378,6 +398,106 @@ func (u ConvoGetLog_Output_Logs) AppendJSON(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_LogRemoveReaction.HasVal() {
 		v := *u.ConvoDefs_LogRemoveReaction.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogReadConvo.HasVal() {
+		v := *u.ConvoDefs_LogReadConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logReadConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogAddMember.HasVal() {
+		v := *u.ConvoDefs_LogAddMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logAddMember"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogRemoveMember.HasVal() {
+		v := *u.ConvoDefs_LogRemoveMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logRemoveMember"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogMemberJoin.HasVal() {
+		v := *u.ConvoDefs_LogMemberJoin.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logMemberJoin"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogMemberLeave.HasVal() {
+		v := *u.ConvoDefs_LogMemberLeave.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logMemberLeave"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogLockConvo.HasVal() {
+		v := *u.ConvoDefs_LogLockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logLockConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogUnlockConvo.HasVal() {
+		v := *u.ConvoDefs_LogUnlockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logUnlockConvo"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogLockConvoPermanently.HasVal() {
+		v := *u.ConvoDefs_LogLockConvoPermanently.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logLockConvoPermanently"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogEditGroup.HasVal() {
+		v := *u.ConvoDefs_LogEditGroup.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logEditGroup"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogCreateJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogCreateJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logCreateJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogEditJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogEditJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logEditJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogEnableJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogEnableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logEnableJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogDisableJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogDisableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logDisableJoinLink"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogIncomingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogIncomingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logIncomingJoinRequest"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogApproveJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogApproveJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logApproveJoinRequest"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogRejectJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogRejectJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logRejectJoinRequest"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogOutgoingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogOutgoingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logOutgoingJoinRequest"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogWithdrawIncomingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogWithdrawIncomingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logWithdrawIncomingJoinRequest"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogWithdrawOutgoingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogWithdrawOutgoingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_LogReadJoinRequests.HasVal() {
+		v := *u.ConvoDefs_LogReadJoinRequests.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logReadJoinRequests"
 		return v.AppendJSON(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -481,6 +601,166 @@ func (u *ConvoGetLog_Output_Logs) UnmarshalJSONAt(data []byte, pos int) (int, er
 		}
 		u.ConvoDefs_LogRemoveReaction = gt.SomeRef(v)
 		return endPos, nil
+	case "chat.bsky.convo.defs#logReadConvo":
+		var v ConvoDefs_LogReadConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogReadConvo = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logAddMember":
+		var v ConvoDefs_LogAddMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogAddMember = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logRemoveMember":
+		var v ConvoDefs_LogRemoveMember
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogRemoveMember = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logMemberJoin":
+		var v ConvoDefs_LogMemberJoin
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogMemberJoin = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logMemberLeave":
+		var v ConvoDefs_LogMemberLeave
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogMemberLeave = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logLockConvo":
+		var v ConvoDefs_LogLockConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogLockConvo = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logUnlockConvo":
+		var v ConvoDefs_LogUnlockConvo
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogUnlockConvo = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logLockConvoPermanently":
+		var v ConvoDefs_LogLockConvoPermanently
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogLockConvoPermanently = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logEditGroup":
+		var v ConvoDefs_LogEditGroup
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogEditGroup = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logCreateJoinLink":
+		var v ConvoDefs_LogCreateJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogCreateJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logEditJoinLink":
+		var v ConvoDefs_LogEditJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogEditJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logEnableJoinLink":
+		var v ConvoDefs_LogEnableJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogEnableJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logDisableJoinLink":
+		var v ConvoDefs_LogDisableJoinLink
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogDisableJoinLink = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logIncomingJoinRequest":
+		var v ConvoDefs_LogIncomingJoinRequest
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogIncomingJoinRequest = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logApproveJoinRequest":
+		var v ConvoDefs_LogApproveJoinRequest
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogApproveJoinRequest = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logRejectJoinRequest":
+		var v ConvoDefs_LogRejectJoinRequest
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogRejectJoinRequest = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logOutgoingJoinRequest":
+		var v ConvoDefs_LogOutgoingJoinRequest
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogOutgoingJoinRequest = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logWithdrawIncomingJoinRequest":
+		var v ConvoDefs_LogWithdrawIncomingJoinRequest
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogWithdrawIncomingJoinRequest = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest":
+		var v ConvoDefs_LogWithdrawOutgoingJoinRequest
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogWithdrawOutgoingJoinRequest = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#logReadJoinRequests":
+		var v ConvoDefs_LogReadJoinRequests
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogReadJoinRequests = gt.SomeRef(v)
+		return endPos, nil
 	default:
 		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
 		return endPos, nil
@@ -540,6 +820,106 @@ func (u ConvoGetLog_Output_Logs) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.ConvoDefs_LogRemoveReaction.HasVal() {
 		v := *u.ConvoDefs_LogRemoveReaction.Val()
 		v.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogReadConvo.HasVal() {
+		v := *u.ConvoDefs_LogReadConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logReadConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogAddMember.HasVal() {
+		v := *u.ConvoDefs_LogAddMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logAddMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogRemoveMember.HasVal() {
+		v := *u.ConvoDefs_LogRemoveMember.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logRemoveMember"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogMemberJoin.HasVal() {
+		v := *u.ConvoDefs_LogMemberJoin.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logMemberJoin"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogMemberLeave.HasVal() {
+		v := *u.ConvoDefs_LogMemberLeave.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logMemberLeave"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogLockConvo.HasVal() {
+		v := *u.ConvoDefs_LogLockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logLockConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogUnlockConvo.HasVal() {
+		v := *u.ConvoDefs_LogUnlockConvo.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logUnlockConvo"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogLockConvoPermanently.HasVal() {
+		v := *u.ConvoDefs_LogLockConvoPermanently.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logLockConvoPermanently"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogEditGroup.HasVal() {
+		v := *u.ConvoDefs_LogEditGroup.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logEditGroup"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogCreateJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogCreateJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logCreateJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogEditJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogEditJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logEditJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogEnableJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogEnableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logEnableJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogDisableJoinLink.HasVal() {
+		v := *u.ConvoDefs_LogDisableJoinLink.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logDisableJoinLink"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogIncomingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogIncomingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logIncomingJoinRequest"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogApproveJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogApproveJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logApproveJoinRequest"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogRejectJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogRejectJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logRejectJoinRequest"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogOutgoingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogOutgoingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logOutgoingJoinRequest"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogWithdrawIncomingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogWithdrawIncomingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logWithdrawIncomingJoinRequest"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogWithdrawOutgoingJoinRequest.HasVal() {
+		v := *u.ConvoDefs_LogWithdrawOutgoingJoinRequest.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_LogReadJoinRequests.HasVal() {
+		v := *u.ConvoDefs_LogReadJoinRequests.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#logReadJoinRequests"
 		return v.AppendCBOR(buf)
 	}
 	if u.Unknown.HasVal() {
@@ -638,6 +1018,166 @@ func (u *ConvoGetLog_Output_Logs) UnmarshalCBORAt(data []byte, pos int) (int, er
 			return 0, err
 		}
 		u.ConvoDefs_LogRemoveReaction = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logReadConvo":
+		var v ConvoDefs_LogReadConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogReadConvo = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logAddMember":
+		var v ConvoDefs_LogAddMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogAddMember = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logRemoveMember":
+		var v ConvoDefs_LogRemoveMember
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogRemoveMember = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logMemberJoin":
+		var v ConvoDefs_LogMemberJoin
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogMemberJoin = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logMemberLeave":
+		var v ConvoDefs_LogMemberLeave
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogMemberLeave = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logLockConvo":
+		var v ConvoDefs_LogLockConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogLockConvo = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logUnlockConvo":
+		var v ConvoDefs_LogUnlockConvo
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogUnlockConvo = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logLockConvoPermanently":
+		var v ConvoDefs_LogLockConvoPermanently
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogLockConvoPermanently = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logEditGroup":
+		var v ConvoDefs_LogEditGroup
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogEditGroup = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logCreateJoinLink":
+		var v ConvoDefs_LogCreateJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogCreateJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logEditJoinLink":
+		var v ConvoDefs_LogEditJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogEditJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logEnableJoinLink":
+		var v ConvoDefs_LogEnableJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogEnableJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logDisableJoinLink":
+		var v ConvoDefs_LogDisableJoinLink
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogDisableJoinLink = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logIncomingJoinRequest":
+		var v ConvoDefs_LogIncomingJoinRequest
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogIncomingJoinRequest = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logApproveJoinRequest":
+		var v ConvoDefs_LogApproveJoinRequest
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogApproveJoinRequest = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logRejectJoinRequest":
+		var v ConvoDefs_LogRejectJoinRequest
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogRejectJoinRequest = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logOutgoingJoinRequest":
+		var v ConvoDefs_LogOutgoingJoinRequest
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogOutgoingJoinRequest = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logWithdrawIncomingJoinRequest":
+		var v ConvoDefs_LogWithdrawIncomingJoinRequest
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogWithdrawIncomingJoinRequest = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest":
+		var v ConvoDefs_LogWithdrawOutgoingJoinRequest
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogWithdrawOutgoingJoinRequest = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#logReadJoinRequests":
+		var v ConvoDefs_LogReadJoinRequests
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_LogReadJoinRequests = gt.SomeRef(v)
 		return pos, nil
 	default:
 		startPos := pos

@@ -13,7 +13,7 @@ type EmbedImages_Image struct {
 	LexiconTypeID string                           `json:"$type,omitempty"`
 	Alt           string                           `json:"alt"` // Alt text description of the image, for accessibility.
 	AspectRatio   gt.Option[EmbedDefs_AspectRatio] `json:"aspectRatio,omitzero"`
-	Image         lextypes.LexBlob                 `json:"image"`
+	Image         lextypes.LexBlob                 `json:"image"` // The raw image file. May be up to 2 MB, formerly limited to 1 MB.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField

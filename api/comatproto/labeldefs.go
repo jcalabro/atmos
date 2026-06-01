@@ -514,16 +514,13 @@ type LabelDefs_LabelValue = string
 // LabelDefs_LabelValue known values.
 const (
 	LabelDefs_LabelValue__hide               = "!hide"
-	LabelDefs_LabelValue__no_promote         = "!no-promote"
 	LabelDefs_LabelValue__warn               = "!warn"
 	LabelDefs_LabelValue__no_unauthenticated = "!no-unauthenticated"
-	LabelDefs_LabelValue_Dmca_violation      = "dmca-violation"
-	LabelDefs_LabelValue_Doxxing             = "doxxing"
 	LabelDefs_LabelValue_Porn                = "porn"
 	LabelDefs_LabelValue_Sexual              = "sexual"
 	LabelDefs_LabelValue_Nudity              = "nudity"
-	LabelDefs_LabelValue_Nsfl                = "nsfl"
-	LabelDefs_LabelValue_Gore                = "gore"
+	LabelDefs_LabelValue_Graphic_media       = "graphic-media"
+	LabelDefs_LabelValue_Bot                 = "bot"
 )
 
 // LabelDefs_LabelValueDefinition is a "labelValueDefinition" in the com.atproto.label.defs schema.

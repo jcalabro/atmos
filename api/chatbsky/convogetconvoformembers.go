@@ -8,6 +8,16 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 )
 
+// Error name constants for ConvoGetConvoForMembers.
+const (
+	ErrConvoGetConvoForMembers_AccountSuspended    = "AccountSuspended"
+	ErrConvoGetConvoForMembers_BlockedActor        = "BlockedActor"
+	ErrConvoGetConvoForMembers_BlockedSubject      = "BlockedSubject"
+	ErrConvoGetConvoForMembers_MessagesDisabled    = "MessagesDisabled"
+	ErrConvoGetConvoForMembers_NotFollowedBySender = "NotFollowedBySender"
+	ErrConvoGetConvoForMembers_RecipientNotFound   = "RecipientNotFound"
+)
+
 // Precomputed JSON key tokens for ConvoGetConvoForMembers_Output.
 var (
 	jsonKey_ConvoGetConvoForMembers_Output_dollar_type = []byte("\"$type\":")
@@ -211,6 +221,8 @@ type ConvoGetConvoForMembers_Output struct {
 }
 
 // ConvoGetConvoForMembers calls the XRPC query "chat.bsky.convo.getConvoForMembers".
+//
+// Get or create a 1-1 conversation for the given members. Always returns the same direct (non-group) conversation. To create a group conversation, use createGroup.
 func ConvoGetConvoForMembers(ctx context.Context, c *xrpc.Client, members []string) (*ConvoGetConvoForMembers_Output, error) {
 	params := map[string]any{}
 	params["members"] = members

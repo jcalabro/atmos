@@ -420,6 +420,8 @@ type ConvoUpdateAllRead_Input struct {
 }
 
 // ConvoUpdateAllRead calls the XRPC procedure "chat.bsky.convo.updateAllRead".
+//
+// Sets conversations from a user as read to the latest message, with filters.
 func ConvoUpdateAllRead(ctx context.Context, c *xrpc.Client, input *ConvoUpdateAllRead_Input) (*ConvoUpdateAllRead_Output, error) {
 	var out ConvoUpdateAllRead_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.updateAllRead", input, &out)

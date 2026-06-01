@@ -3,18 +3,264 @@
 package bsky
 
 import (
+	comatproto "github.com/jcalabro/atmos/api/comatproto"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
 
+// EmbedExternal_ColorRGB is a "colorRGB" in the app.bsky.embed.external schema.
+//
+// RGB color definition, inspired by site.standard.theme.color#rgb
+type EmbedExternal_ColorRGB struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	B             int64  `json:"b"`
+	G             int64  `json:"g"`
+	R             int64  `json:"r"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for EmbedExternal_ColorRGB.
+var (
+	cborKey_EmbedExternal_ColorRGB_b           = cbor.AppendTextKey(nil, "b")
+	cborKey_EmbedExternal_ColorRGB_g           = cbor.AppendTextKey(nil, "g")
+	cborKey_EmbedExternal_ColorRGB_r           = cbor.AppendTextKey(nil, "r")
+	cborKey_EmbedExternal_ColorRGB_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *EmbedExternal_ColorRGB) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *EmbedExternal_ColorRGB) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "b", buf)
+		buf = append(buf, cborKey_EmbedExternal_ColorRGB_b...)
+		buf = cbor.AppendInt(buf, s.B)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "g", buf)
+		buf = append(buf, cborKey_EmbedExternal_ColorRGB_g...)
+		buf = cbor.AppendInt(buf, s.G)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "r", buf)
+		buf = append(buf, cborKey_EmbedExternal_ColorRGB_r...)
+		buf = cbor.AppendInt(buf, s.R)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedExternal_ColorRGB_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedExternal_ColorRGB_b...)
+		buf = cbor.AppendInt(buf, s.B)
+		buf = append(buf, cborKey_EmbedExternal_ColorRGB_g...)
+		buf = cbor.AppendInt(buf, s.G)
+		buf = append(buf, cborKey_EmbedExternal_ColorRGB_r...)
+		buf = cbor.AppendInt(buf, s.R)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedExternal_ColorRGB_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *EmbedExternal_ColorRGB) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *EmbedExternal_ColorRGB) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 1:
+			if string(data[keyStart:keyEnd]) == "b" {
+				s.B, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "g" {
+				s.G, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "r" {
+				s.R, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for EmbedExternal_ColorRGB.
+var (
+	jsonKey_EmbedExternal_ColorRGB_dollar_type = []byte("\"$type\":")
+	jsonKey_EmbedExternal_ColorRGB_b           = []byte("\"b\":")
+	jsonKey_EmbedExternal_ColorRGB_g           = []byte("\"g\":")
+	jsonKey_EmbedExternal_ColorRGB_r           = []byte("\"r\":")
+)
+
+func (s *EmbedExternal_ColorRGB) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *EmbedExternal_ColorRGB) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ColorRGB_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_EmbedExternal_ColorRGB_b...)
+	buf = cbor.AppendJSONInt(buf, s.B)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_EmbedExternal_ColorRGB_g...)
+	buf = cbor.AppendJSONInt(buf, s.G)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_EmbedExternal_ColorRGB_r...)
+	buf = cbor.AppendJSONInt(buf, s.R)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *EmbedExternal_ColorRGB) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *EmbedExternal_ColorRGB) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "b":
+			s.B, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "g":
+			s.G, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "r":
+			s.R, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	LexiconTypeID string                      `json:"$type,omitempty"`
-	Description   string                      `json:"description"`
-	Thumb         gt.Option[lextypes.LexBlob] `json:"thumb,omitzero"`
-	Title         string                      `json:"title"`
-	URI           string                      `json:"uri"`
+	LexiconTypeID  string                      `json:"$type,omitempty"`
+	AssociatedRefs []comatproto.RepoStrongRef  `json:"associatedRefs,omitempty"` // StrongRefs (uri+cid) of the Atmosphere records that backed this view.
+	Description    string                      `json:"description"`
+	Thumb          gt.Option[lextypes.LexBlob] `json:"thumb,omitzero"`
+	Title          string                      `json:"title"`
+	URI            string                      `json:"uri"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -22,11 +268,12 @@ type EmbedExternal_External struct {
 
 // Precomputed CBOR key tokens for EmbedExternal_External.
 var (
-	cborKey_EmbedExternal_External_uri         = cbor.AppendTextKey(nil, "uri")
-	cborKey_EmbedExternal_External_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_EmbedExternal_External_thumb       = cbor.AppendTextKey(nil, "thumb")
-	cborKey_EmbedExternal_External_title       = cbor.AppendTextKey(nil, "title")
-	cborKey_EmbedExternal_External_description = cbor.AppendTextKey(nil, "description")
+	cborKey_EmbedExternal_External_uri            = cbor.AppendTextKey(nil, "uri")
+	cborKey_EmbedExternal_External_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_EmbedExternal_External_thumb          = cbor.AppendTextKey(nil, "thumb")
+	cborKey_EmbedExternal_External_title          = cbor.AppendTextKey(nil, "title")
+	cborKey_EmbedExternal_External_description    = cbor.AppendTextKey(nil, "description")
+	cborKey_EmbedExternal_External_associatedRefs = cbor.AppendTextKey(nil, "associatedRefs")
 )
 
 func (s *EmbedExternal_External) MarshalCBOR() ([]byte, error) {
@@ -39,6 +286,9 @@ func (s *EmbedExternal_External) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Thumb.HasVal() {
+		n++
+	}
+	if len(s.AssociatedRefs) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -72,6 +322,18 @@ func (s *EmbedExternal_External) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "description", buf)
 		buf = append(buf, cborKey_EmbedExternal_External_description...)
 		buf = cbor.AppendText(buf, s.Description)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "associatedRefs", buf)
+		if len(s.AssociatedRefs) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_External_associatedRefs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AssociatedRefs)))
+			for _, item := range s.AssociatedRefs {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_EmbedExternal_External_uri...)
@@ -97,6 +359,17 @@ func (s *EmbedExternal_External) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Title)
 		buf = append(buf, cborKey_EmbedExternal_External_description...)
 		buf = cbor.AppendText(buf, s.Description)
+		if len(s.AssociatedRefs) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_External_associatedRefs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AssociatedRefs)))
+			for _, item := range s.AssociatedRefs {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 	return buf, nil
 }
@@ -177,6 +450,30 @@ func (s *EmbedExternal_External) UnmarshalCBORAt(data []byte, pos int) (int, err
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "associatedRefs" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.AssociatedRefs = make([]comatproto.RepoStrongRef, arrLen)
+					for idx := range arrLen {
+						pos, err = s.AssociatedRefs[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -191,11 +488,12 @@ func (s *EmbedExternal_External) UnmarshalCBORAt(data []byte, pos int) (int, err
 
 // Precomputed JSON key tokens for EmbedExternal_External.
 var (
-	jsonKey_EmbedExternal_External_dollar_type = []byte("\"$type\":")
-	jsonKey_EmbedExternal_External_description = []byte("\"description\":")
-	jsonKey_EmbedExternal_External_thumb       = []byte("\"thumb\":")
-	jsonKey_EmbedExternal_External_title       = []byte("\"title\":")
-	jsonKey_EmbedExternal_External_uri         = []byte("\"uri\":")
+	jsonKey_EmbedExternal_External_dollar_type    = []byte("\"$type\":")
+	jsonKey_EmbedExternal_External_associatedRefs = []byte("\"associatedRefs\":")
+	jsonKey_EmbedExternal_External_description    = []byte("\"description\":")
+	jsonKey_EmbedExternal_External_thumb          = []byte("\"thumb\":")
+	jsonKey_EmbedExternal_External_title          = []byte("\"title\":")
+	jsonKey_EmbedExternal_External_uri            = []byte("\"uri\":")
 )
 
 func (s *EmbedExternal_External) MarshalJSON() ([]byte, error) {
@@ -211,6 +509,25 @@ func (s *EmbedExternal_External) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_EmbedExternal_External_dollar_type...)
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if len(s.AssociatedRefs) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_External_associatedRefs...)
+		buf = append(buf, '[')
+		for i, item := range s.AssociatedRefs {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
 		first = false
 	}
 	if !first {
@@ -292,6 +609,33 @@ func (s *EmbedExternal_External) UnmarshalJSONAt(data []byte, pos int) (int, err
 			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "associatedRefs":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AssociatedRefs = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem comatproto.RepoStrongRef
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AssociatedRefs = append(s.AssociatedRefs, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		case "description":
 			s.Description, pos, err = cbor.ReadJSONString(data, pos)
@@ -762,11 +1106,18 @@ func (s *EmbedExternal_View) UnmarshalJSONAt(data []byte, pos int) (int, error) 
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
-	LexiconTypeID string            `json:"$type,omitempty"`
-	Description   string            `json:"description"`
-	Thumb         gt.Option[string] `json:"thumb,omitzero"`
-	Title         string            `json:"title"`
-	URI           string            `json:"uri"`
+	LexiconTypeID      string                                      `json:"$type,omitempty"`
+	AssociatedProfiles []ActorDefs_ProfileViewBasic                `json:"associatedProfiles,omitempty"` // Profiles of the owners of the Atmosphere records that backed this view.
+	AssociatedRefs     []comatproto.RepoStrongRef                  `json:"associatedRefs,omitempty"`     // StrongRefs (uri+cid) of the Atmosphere records that backed this view.
+	CreatedAt          gt.Option[string]                           `json:"createdAt,omitzero"`           // When the external content was created, if available. Example: a publication date, for an article.
+	Description        string                                      `json:"description"`
+	Labels             []comatproto.LabelDefs_Label                `json:"labels,omitempty"`
+	ReadingTime        gt.Option[int64]                            `json:"readingTime,omitzero"` // Estimated reading time in minutes, if applicable and available.
+	Source             gt.Option[EmbedExternal_ViewExternalSource] `json:"source,omitzero"`
+	Thumb              gt.Option[string]                           `json:"thumb,omitzero"`
+	Title              string                                      `json:"title"`
+	UpdatedAt          gt.Option[string]                           `json:"updatedAt,omitzero"` // When the external content was updated, if available.
+	URI                string                                      `json:"uri"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -774,11 +1125,18 @@ type EmbedExternal_ViewExternal struct {
 
 // Precomputed CBOR key tokens for EmbedExternal_ViewExternal.
 var (
-	cborKey_EmbedExternal_ViewExternal_uri         = cbor.AppendTextKey(nil, "uri")
-	cborKey_EmbedExternal_ViewExternal_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_EmbedExternal_ViewExternal_thumb       = cbor.AppendTextKey(nil, "thumb")
-	cborKey_EmbedExternal_ViewExternal_title       = cbor.AppendTextKey(nil, "title")
-	cborKey_EmbedExternal_ViewExternal_description = cbor.AppendTextKey(nil, "description")
+	cborKey_EmbedExternal_ViewExternal_uri                = cbor.AppendTextKey(nil, "uri")
+	cborKey_EmbedExternal_ViewExternal_dollar_type        = cbor.AppendTextKey(nil, "$type")
+	cborKey_EmbedExternal_ViewExternal_thumb              = cbor.AppendTextKey(nil, "thumb")
+	cborKey_EmbedExternal_ViewExternal_title              = cbor.AppendTextKey(nil, "title")
+	cborKey_EmbedExternal_ViewExternal_labels             = cbor.AppendTextKey(nil, "labels")
+	cborKey_EmbedExternal_ViewExternal_source             = cbor.AppendTextKey(nil, "source")
+	cborKey_EmbedExternal_ViewExternal_createdAt          = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_EmbedExternal_ViewExternal_updatedAt          = cbor.AppendTextKey(nil, "updatedAt")
+	cborKey_EmbedExternal_ViewExternal_description        = cbor.AppendTextKey(nil, "description")
+	cborKey_EmbedExternal_ViewExternal_readingTime        = cbor.AppendTextKey(nil, "readingTime")
+	cborKey_EmbedExternal_ViewExternal_associatedRefs     = cbor.AppendTextKey(nil, "associatedRefs")
+	cborKey_EmbedExternal_ViewExternal_associatedProfiles = cbor.AppendTextKey(nil, "associatedProfiles")
 )
 
 func (s *EmbedExternal_ViewExternal) MarshalCBOR() ([]byte, error) {
@@ -791,6 +1149,27 @@ func (s *EmbedExternal_ViewExternal) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Thumb.HasVal() {
+		n++
+	}
+	if len(s.Labels) > 0 {
+		n++
+	}
+	if s.Source.HasVal() {
+		n++
+	}
+	if s.CreatedAt.HasVal() {
+		n++
+	}
+	if s.UpdatedAt.HasVal() {
+		n++
+	}
+	if s.ReadingTime.HasVal() {
+		n++
+	}
+	if len(s.AssociatedRefs) > 0 {
+		n++
+	}
+	if len(s.AssociatedProfiles) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -812,9 +1191,74 @@ func (s *EmbedExternal_ViewExternal) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "title", buf)
 		buf = append(buf, cborKey_EmbedExternal_ViewExternal_title...)
 		buf = cbor.AppendText(buf, s.Title)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "source", buf)
+		if s.Source.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_source...)
+			{
+				v := s.Source.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "updatedAt", buf)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "description", buf)
 		buf = append(buf, cborKey_EmbedExternal_ViewExternal_description...)
 		buf = cbor.AppendText(buf, s.Description)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "readingTime", buf)
+		if s.ReadingTime.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_readingTime...)
+			buf = cbor.AppendInt(buf, s.ReadingTime.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "associatedRefs", buf)
+		if len(s.AssociatedRefs) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_associatedRefs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AssociatedRefs)))
+			for _, item := range s.AssociatedRefs {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "associatedProfiles", buf)
+		if len(s.AssociatedProfiles) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_associatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AssociatedProfiles)))
+			for _, item := range s.AssociatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_EmbedExternal_ViewExternal_uri...)
@@ -829,8 +1273,66 @@ func (s *EmbedExternal_ViewExternal) AppendCBOR(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, cborKey_EmbedExternal_ViewExternal_title...)
 		buf = cbor.AppendText(buf, s.Title)
+		if len(s.Labels) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_labels...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Labels)))
+			for _, item := range s.Labels {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if s.Source.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_source...)
+			{
+				v := s.Source.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.CreatedAt.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_createdAt...)
+			buf = cbor.AppendText(buf, s.CreatedAt.Val())
+		}
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
 		buf = append(buf, cborKey_EmbedExternal_ViewExternal_description...)
 		buf = cbor.AppendText(buf, s.Description)
+		if s.ReadingTime.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_readingTime...)
+			buf = cbor.AppendInt(buf, s.ReadingTime.Val())
+		}
+		if len(s.AssociatedRefs) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_associatedRefs...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AssociatedRefs)))
+			for _, item := range s.AssociatedRefs {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(s.AssociatedProfiles) > 0 {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternal_associatedProfiles...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AssociatedProfiles)))
+			for _, item := range s.AssociatedProfiles {
+				var err error
+				buf, err = item.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 	return buf, nil
 }
@@ -897,11 +1399,136 @@ func (s *EmbedExternal_ViewExternal) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "labels" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Labels[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else if string(data[keyStart:keyEnd]) == "source" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v EmbedExternal_ViewExternalSource
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Source = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "createdAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.CreatedAt = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "updatedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.UpdatedAt = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 11:
 			if string(data[keyStart:keyEnd]) == "description" {
 				s.Description, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "readingTime" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReadingTime = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "associatedRefs" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.AssociatedRefs = make([]comatproto.RepoStrongRef, arrLen)
+					for idx := range arrLen {
+						pos, err = s.AssociatedRefs[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 18:
+			if string(data[keyStart:keyEnd]) == "associatedProfiles" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.AssociatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.AssociatedProfiles[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
 				}
 			} else {
 				valueStart := pos
@@ -925,11 +1552,18 @@ func (s *EmbedExternal_ViewExternal) UnmarshalCBORAt(data []byte, pos int) (int,
 
 // Precomputed JSON key tokens for EmbedExternal_ViewExternal.
 var (
-	jsonKey_EmbedExternal_ViewExternal_dollar_type = []byte("\"$type\":")
-	jsonKey_EmbedExternal_ViewExternal_description = []byte("\"description\":")
-	jsonKey_EmbedExternal_ViewExternal_thumb       = []byte("\"thumb\":")
-	jsonKey_EmbedExternal_ViewExternal_title       = []byte("\"title\":")
-	jsonKey_EmbedExternal_ViewExternal_uri         = []byte("\"uri\":")
+	jsonKey_EmbedExternal_ViewExternal_dollar_type        = []byte("\"$type\":")
+	jsonKey_EmbedExternal_ViewExternal_associatedProfiles = []byte("\"associatedProfiles\":")
+	jsonKey_EmbedExternal_ViewExternal_associatedRefs     = []byte("\"associatedRefs\":")
+	jsonKey_EmbedExternal_ViewExternal_createdAt          = []byte("\"createdAt\":")
+	jsonKey_EmbedExternal_ViewExternal_description        = []byte("\"description\":")
+	jsonKey_EmbedExternal_ViewExternal_labels             = []byte("\"labels\":")
+	jsonKey_EmbedExternal_ViewExternal_readingTime        = []byte("\"readingTime\":")
+	jsonKey_EmbedExternal_ViewExternal_source             = []byte("\"source\":")
+	jsonKey_EmbedExternal_ViewExternal_thumb              = []byte("\"thumb\":")
+	jsonKey_EmbedExternal_ViewExternal_title              = []byte("\"title\":")
+	jsonKey_EmbedExternal_ViewExternal_updatedAt          = []byte("\"updatedAt\":")
+	jsonKey_EmbedExternal_ViewExternal_uri                = []byte("\"uri\":")
 )
 
 func (s *EmbedExternal_ViewExternal) MarshalJSON() ([]byte, error) {
@@ -947,12 +1581,102 @@ func (s *EmbedExternal_ViewExternal) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
+	if len(s.AssociatedProfiles) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_associatedProfiles...)
+		buf = append(buf, '[')
+		for i, item := range s.AssociatedProfiles {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	if len(s.AssociatedRefs) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_associatedRefs...)
+		buf = append(buf, '[')
+		for i, item := range s.AssociatedRefs {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	if s.CreatedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_createdAt...)
+		buf = cbor.AppendJSONString(buf, s.CreatedAt.Val())
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
 	buf = append(buf, jsonKey_EmbedExternal_ViewExternal_description...)
 	buf = cbor.AppendJSONString(buf, s.Description)
 	first = false
+	if len(s.Labels) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_labels...)
+		buf = append(buf, '[')
+		for i, item := range s.Labels {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			var err error
+			buf, err = item.AppendJSON(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf = append(buf, ']')
+		first = false
+	}
+	if s.ReadingTime.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_readingTime...)
+		buf = cbor.AppendJSONInt(buf, s.ReadingTime.Val())
+		first = false
+	}
+	if s.Source.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_source...)
+		{
+			v := s.Source.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
 	if s.Thumb.HasVal() {
 		if !first {
 			buf = append(buf, ',')
@@ -967,6 +1691,14 @@ func (s *EmbedExternal_ViewExternal) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_EmbedExternal_ViewExternal_title...)
 	buf = cbor.AppendJSONString(buf, s.Title)
 	first = false
+	if s.UpdatedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternal_updatedAt...)
+		buf = cbor.AppendJSONString(buf, s.UpdatedAt.Val())
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -1018,10 +1750,133 @@ func (s *EmbedExternal_ViewExternal) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
+		case "associatedProfiles":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AssociatedProfiles = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AssociatedProfiles = append(s.AssociatedProfiles, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "associatedRefs":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AssociatedRefs = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem comatproto.RepoStrongRef
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AssociatedRefs = append(s.AssociatedRefs, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "createdAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.CreatedAt = gt.Some(v)
+			}
 		case "description":
 			s.Description, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "labels":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Labels = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem comatproto.LabelDefs_Label
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Labels = append(s.Labels, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "readingTime":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ReadingTime = gt.Some(v)
+			}
+		case "source":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v EmbedExternal_ViewExternalSource
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Source = gt.Some(v)
 			}
 		case "thumb":
 			if cbor.IsJSONNull(data, pos) {
@@ -1042,10 +1897,923 @@ func (s *EmbedExternal_ViewExternal) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
+		case "updatedAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.UpdatedAt = gt.Some(v)
+			}
 		case "uri":
 			s.URI, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// EmbedExternal_ViewExternalSource is a "viewExternalSource" in the app.bsky.embed.external schema.
+//
+// The source of an external embed, such as a standard.site publication.
+type EmbedExternal_ViewExternalSource struct {
+	LexiconTypeID string                                           `json:"$type,omitempty"`
+	Description   gt.Option[string]                                `json:"description,omitzero"`
+	Icon          gt.Option[string]                                `json:"icon,omitzero"` // Fully-qualified URL where an icon representing the source can be fetched. For example, CDN locati...
+	Theme         gt.Option[EmbedExternal_ViewExternalSourceTheme] `json:"theme,omitzero"`
+	Title         string                                           `json:"title"`
+	URI           string                                           `json:"uri"` // URI of the source, if available. Example: the https:// URL of a site.standard.publication record.
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for EmbedExternal_ViewExternalSource.
+var (
+	cborKey_EmbedExternal_ViewExternalSource_uri         = cbor.AppendTextKey(nil, "uri")
+	cborKey_EmbedExternal_ViewExternalSource_icon        = cbor.AppendTextKey(nil, "icon")
+	cborKey_EmbedExternal_ViewExternalSource_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_EmbedExternal_ViewExternalSource_theme       = cbor.AppendTextKey(nil, "theme")
+	cborKey_EmbedExternal_ViewExternalSource_title       = cbor.AppendTextKey(nil, "title")
+	cborKey_EmbedExternal_ViewExternalSource_description = cbor.AppendTextKey(nil, "description")
+)
+
+func (s *EmbedExternal_ViewExternalSource) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *EmbedExternal_ViewExternalSource) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.Icon.HasVal() {
+		n++
+	}
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.Theme.HasVal() {
+		n++
+	}
+	if s.Description.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "uri", buf)
+		buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "icon", buf)
+		if s.Icon.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_icon...)
+			buf = cbor.AppendText(buf, s.Icon.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "theme", buf)
+		if s.Theme.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_theme...)
+			{
+				v := s.Theme.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "title", buf)
+		buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_title...)
+		buf = cbor.AppendText(buf, s.Title)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_uri...)
+		buf = cbor.AppendText(buf, s.URI)
+		if s.Icon.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_icon...)
+			buf = cbor.AppendText(buf, s.Icon.Val())
+		}
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Theme.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_theme...)
+			{
+				v := s.Theme.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_title...)
+		buf = cbor.AppendText(buf, s.Title)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSource_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+	}
+	return buf, nil
+}
+
+func (s *EmbedExternal_ViewExternalSource) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *EmbedExternal_ViewExternalSource) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 3:
+			if string(data[keyStart:keyEnd]) == "uri" {
+				s.URI, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 4:
+			if string(data[keyStart:keyEnd]) == "icon" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Icon = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "theme" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v EmbedExternal_ViewExternalSourceTheme
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Theme = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "title" {
+				s.Title, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for EmbedExternal_ViewExternalSource.
+var (
+	jsonKey_EmbedExternal_ViewExternalSource_dollar_type = []byte("\"$type\":")
+	jsonKey_EmbedExternal_ViewExternalSource_description = []byte("\"description\":")
+	jsonKey_EmbedExternal_ViewExternalSource_icon        = []byte("\"icon\":")
+	jsonKey_EmbedExternal_ViewExternalSource_theme       = []byte("\"theme\":")
+	jsonKey_EmbedExternal_ViewExternalSource_title       = []byte("\"title\":")
+	jsonKey_EmbedExternal_ViewExternalSource_uri         = []byte("\"uri\":")
+)
+
+func (s *EmbedExternal_ViewExternalSource) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *EmbedExternal_ViewExternalSource) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSource_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.Description.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSource_description...)
+		buf = cbor.AppendJSONString(buf, s.Description.Val())
+		first = false
+	}
+	if s.Icon.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSource_icon...)
+		buf = cbor.AppendJSONString(buf, s.Icon.Val())
+		first = false
+	}
+	if s.Theme.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSource_theme...)
+		{
+			v := s.Theme.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_EmbedExternal_ViewExternalSource_title...)
+	buf = cbor.AppendJSONString(buf, s.Title)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_EmbedExternal_ViewExternalSource_uri...)
+	buf = cbor.AppendJSONString(buf, s.URI)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *EmbedExternal_ViewExternalSource) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *EmbedExternal_ViewExternalSource) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "description":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Description = gt.Some(v)
+			}
+		case "icon":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Icon = gt.Some(v)
+			}
+		case "theme":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v EmbedExternal_ViewExternalSourceTheme
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Theme = gt.Some(v)
+			}
+		case "title":
+			s.Title, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "uri":
+			s.URI, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// EmbedExternal_ViewExternalSourceTheme is a "viewExternalSourceTheme" in the app.bsky.embed.external schema.
+//
+// The theme colors of an external source, such as a site.standard.publication. These colors may be used when rendering an embed from that source.
+type EmbedExternal_ViewExternalSourceTheme struct {
+	LexiconTypeID       string                            `json:"$type,omitempty"`
+	AccentForegroundRGB gt.Option[EmbedExternal_ColorRGB] `json:"accentForegroundRGB,omitzero"`
+	AccentRGB           gt.Option[EmbedExternal_ColorRGB] `json:"accentRGB,omitzero"`
+	BackgroundRGB       gt.Option[EmbedExternal_ColorRGB] `json:"backgroundRGB,omitzero"`
+	ForegroundRGB       gt.Option[EmbedExternal_ColorRGB] `json:"foregroundRGB,omitzero"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for EmbedExternal_ViewExternalSourceTheme.
+var (
+	cborKey_EmbedExternal_ViewExternalSourceTheme_dollar_type         = cbor.AppendTextKey(nil, "$type")
+	cborKey_EmbedExternal_ViewExternalSourceTheme_accentRGB           = cbor.AppendTextKey(nil, "accentRGB")
+	cborKey_EmbedExternal_ViewExternalSourceTheme_backgroundRGB       = cbor.AppendTextKey(nil, "backgroundRGB")
+	cborKey_EmbedExternal_ViewExternalSourceTheme_foregroundRGB       = cbor.AppendTextKey(nil, "foregroundRGB")
+	cborKey_EmbedExternal_ViewExternalSourceTheme_accentForegroundRGB = cbor.AppendTextKey(nil, "accentForegroundRGB")
+)
+
+func (s *EmbedExternal_ViewExternalSourceTheme) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *EmbedExternal_ViewExternalSourceTheme) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.AccentRGB.HasVal() {
+		n++
+	}
+	if s.BackgroundRGB.HasVal() {
+		n++
+	}
+	if s.ForegroundRGB.HasVal() {
+		n++
+	}
+	if s.AccentForegroundRGB.HasVal() {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "accentRGB", buf)
+		if s.AccentRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_accentRGB...)
+			{
+				v := s.AccentRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "backgroundRGB", buf)
+		if s.BackgroundRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_backgroundRGB...)
+			{
+				v := s.BackgroundRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "foregroundRGB", buf)
+		if s.ForegroundRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_foregroundRGB...)
+			{
+				v := s.ForegroundRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "accentForegroundRGB", buf)
+		if s.AccentForegroundRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_accentForegroundRGB...)
+			{
+				v := s.AccentForegroundRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.AccentRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_accentRGB...)
+			{
+				v := s.AccentRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.BackgroundRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_backgroundRGB...)
+			{
+				v := s.BackgroundRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.ForegroundRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_foregroundRGB...)
+			{
+				v := s.ForegroundRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if s.AccentForegroundRGB.HasVal() {
+			buf = append(buf, cborKey_EmbedExternal_ViewExternalSourceTheme_accentForegroundRGB...)
+			{
+				v := s.AccentForegroundRGB.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *EmbedExternal_ViewExternalSourceTheme) UnmarshalCBOR(data []byte) error {
+	_, err := s.UnmarshalCBORAt(data, 0)
+	return err
+}
+
+func (s *EmbedExternal_ViewExternalSourceTheme) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "accentRGB" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v EmbedExternal_ColorRGB
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AccentRGB = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 13:
+			if string(data[keyStart:keyEnd]) == "backgroundRGB" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v EmbedExternal_ColorRGB
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BackgroundRGB = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "foregroundRGB" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v EmbedExternal_ColorRGB
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ForegroundRGB = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 19:
+			if string(data[keyStart:keyEnd]) == "accentForegroundRGB" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v EmbedExternal_ColorRGB
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AccentForegroundRGB = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for EmbedExternal_ViewExternalSourceTheme.
+var (
+	jsonKey_EmbedExternal_ViewExternalSourceTheme_dollar_type         = []byte("\"$type\":")
+	jsonKey_EmbedExternal_ViewExternalSourceTheme_accentForegroundRGB = []byte("\"accentForegroundRGB\":")
+	jsonKey_EmbedExternal_ViewExternalSourceTheme_accentRGB           = []byte("\"accentRGB\":")
+	jsonKey_EmbedExternal_ViewExternalSourceTheme_backgroundRGB       = []byte("\"backgroundRGB\":")
+	jsonKey_EmbedExternal_ViewExternalSourceTheme_foregroundRGB       = []byte("\"foregroundRGB\":")
+)
+
+func (s *EmbedExternal_ViewExternalSourceTheme) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *EmbedExternal_ViewExternalSourceTheme) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSourceTheme_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.AccentForegroundRGB.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSourceTheme_accentForegroundRGB...)
+		{
+			v := s.AccentForegroundRGB.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.AccentRGB.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSourceTheme_accentRGB...)
+		{
+			v := s.AccentRGB.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.BackgroundRGB.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSourceTheme_backgroundRGB...)
+		{
+			v := s.BackgroundRGB.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	if s.ForegroundRGB.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_EmbedExternal_ViewExternalSourceTheme_foregroundRGB...)
+		{
+			v := s.ForegroundRGB.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *EmbedExternal_ViewExternalSourceTheme) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *EmbedExternal_ViewExternalSourceTheme) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "accentForegroundRGB":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v EmbedExternal_ColorRGB
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AccentForegroundRGB = gt.Some(v)
+			}
+		case "accentRGB":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v EmbedExternal_ColorRGB
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AccentRGB = gt.Some(v)
+			}
+		case "backgroundRGB":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v EmbedExternal_ColorRGB
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.BackgroundRGB = gt.Some(v)
+			}
+		case "foregroundRGB":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v EmbedExternal_ColorRGB
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ForegroundRGB = gt.Some(v)
 			}
 		default:
 			valueStart := pos

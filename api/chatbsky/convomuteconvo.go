@@ -8,6 +8,11 @@ import (
 	"github.com/jcalabro/atmos/xrpc"
 )
 
+// Error name constants for ConvoMuteConvo.
+const (
+	ErrConvoMuteConvo_InvalidConvo = "InvalidConvo"
+)
+
 // Precomputed JSON key tokens for ConvoMuteConvo_Output.
 var (
 	jsonKey_ConvoMuteConvo_Output_dollar_type = []byte("\"$type\":")
@@ -404,6 +409,8 @@ type ConvoMuteConvo_Input struct {
 }
 
 // ConvoMuteConvo calls the XRPC procedure "chat.bsky.convo.muteConvo".
+//
+// Mutes a conversation, preventing notifications related to it.
 func ConvoMuteConvo(ctx context.Context, c *xrpc.Client, input *ConvoMuteConvo_Input) (*ConvoMuteConvo_Output, error) {
 	var out ConvoMuteConvo_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.muteConvo", input, &out)

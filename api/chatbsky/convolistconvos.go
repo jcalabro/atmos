@@ -308,13 +308,21 @@ type ConvoListConvos_Output struct {
 }
 
 // ConvoListConvos calls the XRPC query "chat.bsky.convo.listConvos".
-func ConvoListConvos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
+//
+// Returns a page of conversations (direct or group) for the user.
+func ConvoListConvos(ctx context.Context, c *xrpc.Client, cursor string, kind string, limit int64, lockStatus string, readState string, status string) (*ConvoListConvos_Output, error) {
 	params := map[string]any{}
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
+	if kind != "" {
+		params["kind"] = kind
+	}
 	if limit != 0 {
 		params["limit"] = limit
+	}
+	if lockStatus != "" {
+		params["lockStatus"] = lockStatus
 	}
 	if readState != "" {
 		params["readState"] = readState
