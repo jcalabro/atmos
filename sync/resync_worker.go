@@ -109,7 +109,13 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 	// Capture post-resync rev. resync() advanced state to
 	// (newRev, newData) before returning; reload to get newRev.
 	newRev := ""
-	if newState, _ := v.opts.StateStore.LoadChain(ctx, job.did); newState != nil {
+	newState, err := v.opts.StateStore.LoadChain(ctx, job.did)
+	if err != nil {
+		v.sendAsyncError(fmt.Errorf("verifier: load post-resync chain state for %s: %w", job.did, err))
+		v.markIdleAndCleanup(state, job.did)
+		return
+	}
+	if newState != nil {
 		newRev = newState.Rev
 	}
 

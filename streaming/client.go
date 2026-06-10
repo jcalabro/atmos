@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/streaming/parallel"
 	"github.com/jcalabro/atmos/sync"
@@ -1060,20 +1061,12 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				resyncEvents = nil
 				continue
 			}
-			const chunkSize = 100
-			for i := 0; i < len(res.Ops); i += chunkSize {
-				end := i + chunkSize
-				if end > len(res.Ops) {
-					end = len(res.Ops)
+			batch = append(batch, eventFromAsyncResync(res))
+			if len(batch) >= c.batchSize {
+				if flushBatch() {
+					return true
 				}
-				ops := convertVerifierOps(res.Ops[i:end])
-				batch = append(batch, Event{verifierRan: true, verifiedOps: ops})
-				if len(batch) >= c.batchSize {
-					if flushBatch() {
-						return true
-					}
-					timer.Reset(c.batchTimeout)
-				}
+				timer.Reset(c.batchTimeout)
 			}
 
 		case err, ok := <-verifierAsyncErrs:
@@ -1148,10 +1141,26 @@ func deriveHTTPURL(wsURL string) (string, error) {
 	return parsed.String(), nil
 }
 
+// eventFromAsyncResync maps a completed verifier worker result into the
+// normal streaming Event shape. Async resyncs have no upstream seq; the
+// synthetic Sync envelope carries the DID and new rev so consumers can
+// handle them like #sync-driven resyncs.
+func eventFromAsyncResync(res sync.ResyncEvent) Event {
+	return Event{
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: string(res.DID),
+			Rev: res.NewRev,
+		},
+		Resync:      ResyncAsync,
+		verifiedOps: convertVerifierOps(res.Ops),
+		verifierRan: true,
+	}
+}
+
 // convertVerifierOps maps a slice of sync.VerifierOp to the streaming
 // layer's Operation type. Both types carry identical fields; this
-// helper exists to keep the two readLoop call sites (inline-verifier
-// path and async-resync chunking) from drifting if a field is added.
+// helper exists to keep the readLoop and verifier-worker call sites
+// from drifting if a field is added.
 func convertVerifierOps(vos []sync.VerifierOp) []Operation {
 	ops := make([]Operation, len(vos))
 	for i, vo := range vos {

@@ -81,6 +81,9 @@ func (c *Client) verifyOne(ctx context.Context, evt Event) verifyResult {
 			res.silentDrop = true
 			return res
 		}
+		if evt.Sync != nil {
+			res.evt.Resync = ResyncSyncEvent
+		}
 		res.evt.verifiedOps = convertVerifierOps(ops)
 		res.evt.verifierRan = true
 	}

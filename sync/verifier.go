@@ -955,7 +955,7 @@ type VerifierOptions struct {
 // affected DID is marked as resyncing, and a worker pool processes
 // the resync (HTTP getRepo + MST walk) in the background.
 //
-// Resync results arrive via two channels exposed for consumption:
+// Low-level verifier users receive async worker output via two channels:
 //
 //   - ResyncEvents() yields ResyncEvent records — one per completed
 //     resync, with the full set of [ActionResync] ops.
@@ -970,10 +970,10 @@ type VerifierOptions struct {
 // NOT auto-trigger a follow-up resync (consumers should log/alert).
 //
 // The streaming layer (package streaming) drains both channels
-// transparently; consumers using streaming.Client.Events() see
-// resync ops flow through Event.Operations() as ActionResync and
-// async errors flow through the iterator's error slot, so the async
-// machinery is invisible at the streaming-consumer API.
+// transparently; consumers using streaming.Client.Events() receive a
+// normal streaming.Event with Event.Resync set, and call
+// Event.Operations() to consume ActionResync ops. Async errors flow
+// through the iterator's error slot.
 //
 // Call Close() to shut down the worker pool. Close is idempotent;
 // calling it multiple times is safe. Outstanding workers' contexts
@@ -1241,8 +1241,10 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
 	}
 
-	// Walk MST, build ops.
-	var ops []VerifierOp
+	// Walk MST, build ops. Keep the zero-record case as a non-nil
+	// empty slice so downstream streaming can emit an explicit empty
+	// resync Event instead of confusing it with a silent drop.
+	ops := make([]VerifierOp, 0)
 	walkErr := rp.Tree.Walk(func(key string, val cbor.CID) error {
 		col, rkey := repo.SplitMSTKey(key)
 		data, err := rp.Store.GetBlock(val)
