@@ -1926,6 +1926,9 @@ func TestVerifyCommit_ChainBreakUnderPolicyResync(t *testing.T) {
 	select {
 	case ev := <-v.ResyncEvents():
 		require.Equal(t, did, ev.DID)
+		require.Equal(t, "3aaaaaaaaaaaa", ev.OldRev)
+		require.NotEmpty(t, ev.NewRev)
+		require.Equal(t, sync.ReasonChainBreak, ev.Reason)
 		require.Greater(t, len(ev.Ops), 0)
 		for _, op := range ev.Ops {
 			assert.Equal(t, atmos.ActionResync, op.Action)
@@ -1939,6 +1942,46 @@ func TestVerifyCommit_ChainBreakUnderPolicyResync(t *testing.T) {
 	stats := v.Stats()
 	assert.Equal(t, uint64(1), stats.ChainBreaks)
 	assert.Equal(t, uint64(1), stats.Resyncs)
+}
+
+func TestResync_EmptyRepoReturnsNonNilEmptyOps(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:emptyresync")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	r, _ := testutil.BuildEmptyRepo(t, did)
+
+	otherCID, err := cbor.ParseCIDString("bafyreigh2akiscaildc6dpyqhskdjkdg3hglmqgqsaftvjj5d3lqvazgha")
+	require.NoError(t, err)
+	cs := sync.NewMemStateStore()
+	require.NoError(t, cs.SaveChain(context.Background(), did, sync.ChainState{Rev: "3aaaaaaaaaaaa", Data: otherCID}))
+
+	var carBuf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&carBuf, key))
+	xc := testutil.NewFakeSyncServer(t, did, carBuf.Bytes())
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	dir := &identity.Directory{Resolver: resolver}
+	sc := sync.NewClient(sync.Options{Client: xc, Directory: gt.Some(dir)})
+
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		SyncClient:  gt.Some(sc),
+		Directory:   dir,
+		StateStore:  cs,
+		Policy:      gt.Some(sync.PolicyResync),
+		ResyncLimit: gt.Some(rate.Inf),
+		ResyncBurst: gt.Some(1),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = v.Close() })
+
+	ops, err := v.Resync(context.Background(), did)
+	require.NoError(t, err)
+	require.NotNil(t, ops)
+	require.Empty(t, ops)
 }
 
 // Lenient inversion: when the upstream's prevData matches our stored

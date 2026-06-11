@@ -18,10 +18,12 @@
 // is verified for signature, MST inversion, and chain continuity before its
 // ops reach the consumer. On chain break or inversion failure, a background
 // resync is triggered against the account's PDS; the resync ops eventually
-// arrive on the consumer's iterator as [ActionResync] operations,
-// transparently chunked into 100-op events. Async resync is invisible to
-// consumers: the ops flow through the same Event.Operations() path as
-// regular commits, and any background errors (resync failures, buffer
+// arrive on the consumer's iterator as a normal [Event] with
+// Event.Resync == [ResyncAsync]. Upstream #sync frames that require a
+// full-repo fetch are delivered as normal Events with Event.Resync ==
+// [ResyncSyncEvent]. In both cases, use Event.Operations() to consume
+// [ActionResync] operations; the event may contain zero operations when the
+// authoritative repo is empty. Background errors (resync failures, buffer
 // overflows) flow through the iterator's error slot like any other stream
 // error. To opt out, supply Options.Verifier = gt.Some[*sync.Verifier](nil)
 // or supply your own configured *sync.Verifier.

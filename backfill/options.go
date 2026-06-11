@@ -120,6 +120,17 @@ type Options struct {
 	// None = no callback. Engines that don't need cursor persistence
 	// pay no cost.
 	OnBatchComplete gt.Option[func(cursor string) error]
+
+	// OnPageComplete fires after each listRepos page is fetched and its
+	// entries are reconciled. The cursor argument is that page's
+	// NextCursor, including the final empty cursor.
+	//
+	// This callback is intentionally weaker than OnBatchComplete: eligible
+	// repos from the page may still be queued for a later batch and may not
+	// have reached a terminal state. Use OnBatchComplete for durable
+	// per-batch checkpointing. OnPageComplete is kept for callers that need
+	// page-level cursor visibility.
+	OnPageComplete gt.Option[func(cursor string) error]
 }
 
 // Stats summarises engine progress, delivered to Options.OnProgress

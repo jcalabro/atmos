@@ -2,10 +2,12 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/api/comatproto"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // ResyncEvents returns the channel of completed async resync events.
@@ -14,8 +16,75 @@ import (
 // DefaultResyncEventBuffer).
 //
 // Closed by Verifier.Close() after all in-flight workers exit.
+//
+// After EnableOrderedResyncDelivery, completed resyncs are registered
+// in the per-DID outbox (claimed via TakeCompletedResyncs) instead of
+// being sent here, and this channel goes quiet. Package streaming
+// enables ordered delivery automatically; only direct Verifier
+// consumers that bypass streaming read this channel.
 func (v *Verifier) ResyncEvents() <-chan ResyncEvent {
 	return v.resyncDone
+}
+
+// EnableOrderedResyncDelivery switches completed async resyncs from
+// channel delivery (ResyncEvents) to the per-DID outbox, where they
+// are claimed via TakeCompletedResyncs. Sticky and idempotent; safe
+// to call concurrently.
+//
+// The outbox is what makes "resync delivered before any post-resync
+// event for the same DID" a happens-before guarantee rather than a
+// channel-select coin flip: the worker registers the completed resync
+// while still holding the per-DID verification lock, so any event for
+// that DID verified afterwards observes it via TakeCompletedResyncs
+// and the caller can emit the resync first. A racing select over a
+// separate completion channel cannot provide that ordering — a
+// post-resync commit's result can win the select and be delivered
+// first, which downstream archival consumers (whose compaction treats
+// the resync as a whole-account tombstone) must never observe.
+//
+// Intended for a single streaming integration per verifier. Unclaimed
+// outbox entries are dropped at Close, exactly like undrained channel
+// buffer contents.
+func (v *Verifier) EnableOrderedResyncDelivery() {
+	v.orderedResyncDelivery.Store(true)
+}
+
+// TakeCompletedResyncs atomically claims and returns the completed,
+// not-yet-delivered async resyncs for did, in completion order.
+// Returns nil when there are none. Only meaningful after
+// EnableOrderedResyncDelivery.
+//
+// Callers must emit every claimed event (a claimed-but-unemitted
+// resync is lost until the DID's next divergence re-triggers one).
+func (v *Verifier) TakeCompletedResyncs(did atmos.DID) []ResyncEvent {
+	evs, ok := v.resyncOutbox.LoadAndDelete(did)
+	if !ok {
+		return nil
+	}
+	v.resyncOutboxSize.Add(-int64(len(evs)))
+	return evs
+}
+
+// CompletedResyncDIDs returns the DIDs that currently have completed,
+// unclaimed resyncs in the outbox. Order is unspecified. Used by the
+// streaming collector's periodic sweep to deliver resyncs for DIDs
+// with no follow-on events.
+func (v *Verifier) CompletedResyncDIDs() []atmos.DID {
+	var dids []atmos.DID
+	v.resyncOutbox.Range(func(did atmos.DID, _ []ResyncEvent) bool {
+		dids = append(dids, did)
+		return true
+	})
+	return dids
+}
+
+// CompletedResyncCount reports the number of completed, unclaimed
+// resync events in the outbox. Cheap (one atomic load); intended as
+// the fast-path check before CompletedResyncDIDs. May transiently
+// undercount during a concurrent registration; callers polling on a
+// timer observe the final value on the next tick.
+func (v *Verifier) CompletedResyncCount() int64 {
+	return v.resyncOutboxSize.Load()
 }
 
 // AsyncErrors returns the channel of errors produced by background
@@ -109,7 +178,13 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 	// Capture post-resync rev. resync() advanced state to
 	// (newRev, newData) before returning; reload to get newRev.
 	newRev := ""
-	if newState, _ := v.opts.StateStore.LoadChain(ctx, job.did); newState != nil {
+	newState, err := v.opts.StateStore.LoadChain(ctx, job.did)
+	if err != nil {
+		v.sendAsyncError(fmt.Errorf("verifier: load post-resync chain state for %s: %w", job.did, err))
+		v.markIdleAndCleanup(state, job.did)
+		return
+	}
+	if newState != nil {
 		newRev = newState.Rev
 	}
 
@@ -130,21 +205,87 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 		ops = append(ops, replayOps...)
 	}
 
-	// Send the combined event. Block on full resyncDone is acceptable
-	// back-pressure; workerCtx cancellation breaks us out so Close()
-	// doesn't deadlock.
-	select {
-	case v.resyncDone <- ResyncEvent{
+	ev := ResyncEvent{
 		DID:    job.did,
 		OldRev: oldRev,
 		NewRev: newRev,
 		Reason: job.reason,
 		Ops:    ops,
-	}:
-	case <-v.workerCtx.Done():
+	}
+	if v.orderedResyncDelivery.Load() {
+		// Ordered mode: register in the outbox while still holding the
+		// per-DID lock. Any event for this DID verified after this
+		// point observes the entry via TakeCompletedResyncs, which is
+		// what gives consumers the "resync before any post-resync
+		// event" happens-before guarantee. Idle DIDs are picked up by
+		// the streaming collector's periodic sweep.
+		v.resyncOutbox.Compute(job.did, func(old []ResyncEvent, _ bool) ([]ResyncEvent, xsync.ComputeOp) {
+			return append(old, ev), xsync.UpdateOp
+		})
+		v.resyncOutboxSize.Add(1)
+	} else {
+		// Channel mode (direct Verifier consumers). Block on full
+		// resyncDone is acceptable back-pressure; workerCtx
+		// cancellation breaks us out so Close() doesn't deadlock.
+		select {
+		case v.resyncDone <- ev:
+		case <-v.workerCtx.Done():
+		}
 	}
 
 	v.markIdleAndCleanup(state, job.did)
+}
+
+// queueAsyncResync transitions did to statusResyncing and enqueues an
+// async resync job if the DID was idle; a no-op when a resync is
+// already in flight (it will heal the DID). Used by VerifySync to
+// schedule one deferred retry after a failed synchronous resync —
+// without it the #sync directive is consumed by the failure and an
+// idle DID stays stale until its next commit chain-breaks.
+//
+// Mirrors handleVerificationFailure's statusIdle arm; that path stays
+// inline because its statusResyncing arm must also buffer the
+// triggering commit, which a #sync retry does not have.
+//
+// Returns false when the verifier closed mid-enqueue (job not queued).
+func (v *Verifier) queueAsyncResync(ctx context.Context, did atmos.DID, reason ResyncReason) bool {
+	state := v.lookupOrCreateResyncState(did)
+	state.mu.Lock()
+	if state.status != statusIdle {
+		state.mu.Unlock()
+		return true
+	}
+	state.status = statusResyncing
+	state.mu.Unlock()
+	select {
+	case v.resyncQueue <- resyncJob{ctx: ctx, did: did, reason: reason}:
+		return true
+	case <-v.workerCtx.Done():
+		v.markIdleAndCleanup(state, did)
+		return false
+	}
+}
+
+// resyncRetryable reports whether a failed synchronous resync is worth
+// one deferred async retry: rate limiting and transport/infra failures
+// are; deterministic rejections (inactive account, signature mismatch,
+// rev regression) are not — retrying re-fetches the same answer.
+func resyncRetryable(err error) bool {
+	if _, ok := errors.AsType[*ResyncRateLimitedError](err); ok {
+		return true
+	}
+	rf, ok := errors.AsType[*ResyncFailedError](err)
+	if !ok {
+		return false
+	}
+	if rf.Reason == ReasonAccountInactive {
+		return false
+	}
+	if _, ok := errors.AsType[*SignatureError](rf.Cause); ok {
+		return false
+	}
+	_, isRegression := errors.AsType[*RevRegressionError](rf.Cause)
+	return !isRegression
 }
 
 // verifyCommitInline is verifyCommit's body without the lockDID

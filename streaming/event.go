@@ -18,6 +18,35 @@ var errUnknownType = errors.New("unknown event type")
 // silently skipped for forward compatibility per the event stream spec.
 var errUnknownOp = errors.New("unknown frame op")
 
+// ResyncKind classifies events whose operations represent an
+// authoritative full-repo replacement rather than an incremental commit
+// diff.
+//
+// The zero value, ResyncNone, is used for ordinary firehose events. A
+// non-zero value means Event.Operations yields ActionResync operations
+// for the repo identified by Event.Sync. The operation set may be empty:
+// an empty resync event is still meaningful because it says the
+// authoritative repo currently contains no records.
+type ResyncKind uint8
+
+const (
+	// ResyncNone marks ordinary non-resync events. This is the zero
+	// value so existing Event literals keep their previous meaning.
+	ResyncNone ResyncKind = iota
+
+	// ResyncSyncEvent marks a resync caused directly by an upstream
+	// com.atproto.sync.subscribeRepos#sync frame. The original Sync
+	// frame is preserved on Event.Sync, and Event.Seq is the relay seq
+	// for that frame.
+	ResyncSyncEvent
+
+	// ResyncAsync marks a synthetic Event emitted after the verifier's
+	// background repair path completes. These events are not upstream
+	// frames, so Event.Seq is zero. Event.Sync carries the repaired DID
+	// and new rev as the normal repository-resync envelope.
+	ResyncAsync
+)
+
 // Event is a single event from a subscribeRepos or subscribeLabels stream.
 type Event struct {
 	Seq      int64
@@ -26,6 +55,17 @@ type Event struct {
 	Identity *comatproto.SyncSubscribeRepos_Identity
 	Account  *comatproto.SyncSubscribeRepos_Account
 	Info     *comatproto.SyncSubscribeRepos_Info
+
+	// Resync is non-zero when this event carries authoritative full-repo
+	// replacement state. Consumers do not need a separate resync API:
+	// call Operations() on the normal Event and process ActionResync ops.
+	//
+	// For ResyncSyncEvent, Sync is the upstream #sync frame. For
+	// ResyncAsync, Sync is a synthetic envelope containing the DID and
+	// post-resync rev. In both cases Operations() may yield zero ops for
+	// an empty authoritative repo; the Event itself must still be
+	// delivered.
+	Resync ResyncKind
 
 	// Label stream fields (access via Labels()).
 	labelBatch *comatproto.LabelSubscribeLabels_Labels

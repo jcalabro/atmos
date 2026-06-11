@@ -90,6 +90,32 @@ func TestOperations_CreatePost(t *testing.T) {
 	assert.Equal(t, "hello world", decoded.Text)
 }
 
+func TestOperations_SyncEventResyncKindWithVerifiedEmptyOps(t *testing.T) {
+	t.Parallel()
+
+	evt := Event{
+		Seq: 42,
+		Sync: &comatproto.SyncSubscribeRepos_Sync{
+			DID: "did:plc:syncresync",
+			Rev: "3sync",
+		},
+		Resync:      ResyncSyncEvent,
+		verifiedOps: []Operation{},
+		verifierRan: true,
+	}
+
+	require.Equal(t, ResyncSyncEvent, evt.Resync)
+	require.NotNil(t, evt.Sync)
+	require.Equal(t, int64(42), evt.Seq)
+
+	count := 0
+	for _, err := range evt.Operations() {
+		require.NoError(t, err)
+		count++
+	}
+	require.Zero(t, count)
+}
+
 func TestOperations_Record(t *testing.T) {
 	t.Parallel()
 

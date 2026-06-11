@@ -19,12 +19,15 @@ const (
 	DefaultAsyncErrorBuffer   = 256
 )
 
-// ResyncEvent is a worker output: the result of one chain-break-driven
-// resync, including the ops produced by replaying any commits buffered
-// during the resync. The streaming layer drains the channel returned
-// by Verifier.ResyncEvents and yields the ops through synthetic Events
-// to the consumer's iterator. Pure consumers of sync.Verifier (without
-// the streaming layer) may also drain ResyncEvents directly.
+// ResyncEvent is a low-level verifier worker output: the result of one
+// async repair resync, including the ops produced by replaying any commits
+// buffered during the resync.
+//
+// Streaming consumers should normally ignore Verifier.ResyncEvents and use
+// streaming.Client.Events instead; package streaming drains this channel and
+// converts each ResyncEvent into a normal streaming.Event with
+// Event.Resync == streaming.ResyncAsync. Direct Verifier consumers may drain
+// ResyncEvents themselves when they intentionally bypass package streaming.
 type ResyncEvent struct {
 	DID    atmos.DID
 	OldRev string

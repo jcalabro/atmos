@@ -1591,6 +1591,42 @@ func TestEngine_OnBatchComplete_FiresPerBatch(t *testing.T) {
 	require.Equal(t, "", observedCursors[1], "final page cursor must be empty")
 }
 
+func TestEngine_OnPageComplete_FiresPerListReposPage(t *testing.T) {
+	t.Parallel()
+
+	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
+	repos := map[string][]byte{}
+	for _, d := range dids {
+		repos[d] = buildTestRepoCAR(t, d, 1)
+	}
+	ts := newTestServer(t, repos, dids)
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	var observedCursors []string
+	var mu sync.Mutex
+	store := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      store,
+		BatchSize:  gt.Some(3),
+		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
+		OnPageComplete: gt.Some(func(cursor string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			observedCursors = append(observedCursors, cursor)
+			return nil
+		}),
+	})
+	require.NoError(t, engine.Run(context.Background()))
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, observedCursors, 2)
+	require.Equal(t, "did:plc:ccc", observedCursors[0])
+	require.Equal(t, "", observedCursors[1])
+}
+
 // TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback verifies the
 // checkpoint invariant: OnBatchComplete does not fire until every
 // eligible job in the batch has reached a terminal state.

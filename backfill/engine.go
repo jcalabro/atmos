@@ -210,6 +210,11 @@ func (e *Engine) producerLoop(ctx context.Context, jobs chan<- repoJob) error {
 			}
 			batch = append(batch, job)
 		}
+		if cb := e.opts.OnPageComplete; cb.HasVal() {
+			if err := cb.Val()(page.NextCursor); err != nil {
+				return fmt.Errorf("backfill: on_page_complete: %w", err)
+			}
+		}
 
 		if batchEntries >= e.batchSize() {
 			if err := e.finishBatch(ctx, jobs, batch, batchCursor); err != nil {
