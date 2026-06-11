@@ -1030,6 +1030,15 @@ type Verifier struct {
 	workerCancel context.CancelFunc
 	workerWG     sync.WaitGroup
 	closeOnce    sync.Once
+
+	// Ordered resync delivery (EnableOrderedResyncDelivery): completed
+	// resyncs are registered here under the per-DID lock instead of
+	// being sent on resyncDone, and claimed via TakeCompletedResyncs.
+	// resyncOutboxSize mirrors the total entry count for the streaming
+	// sweep's cheap fast-path check.
+	orderedResyncDelivery atomic.Bool
+	resyncOutbox          *xsync.Map[atmos.DID, []ResyncEvent]
+	resyncOutboxSize      atomic.Int64
 }
 
 // NewVerifier constructs a Verifier. Returns an error if required
@@ -1098,6 +1107,7 @@ func NewVerifier(opts VerifierOptions) (*Verifier, error) {
 		pendingCap:   pendingCap,
 		workerCtx:    ctx,
 		workerCancel: cancel,
+		resyncOutbox: xsync.NewMap[atmos.DID, []ResyncEvent](),
 	}
 	v.startWorkers(workers)
 	return v, nil
@@ -2457,5 +2467,14 @@ func (v *Verifier) VerifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 		}
 	}
 
-	return v.resync(ctx, did, ReasonSyncEvent)
+	ops, rsErr := v.resync(ctx, did, ReasonSyncEvent)
+	if rsErr != nil && resyncRetryable(rsErr) {
+		// The #sync directive is consumed by this failure: without a
+		// retry, an idle DID stays stale until its next commit
+		// chain-breaks. Queue one deferred async attempt (no backoff
+		// loop — the async path is single-shot; a persistent outage
+		// still ends here and waits for the next divergence signal).
+		v.queueAsyncResync(ctx, did, ReasonSyncEvent)
+	}
+	return ops, rsErr
 }

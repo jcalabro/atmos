@@ -676,6 +676,25 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 	// must use pendingResults so a connection close cannot race ahead of a
 	// seq-less scheduler result and drop it.
 	var pendingResults int
+	// inflightByDID counts events dispatched to the scheduler but not
+	// yet collected, per DID. Owned by this goroutine (dispatch,
+	// onDrop, and collection all run here). The timer sweep skips DIDs
+	// with in-flight events: a result already queued for the DID could
+	// predate the resync's registration, and emitting the resync first
+	// would invert per-DID order. Such DIDs deliver their resyncs via
+	// verifyOne's claim, or via a later sweep tick once collected.
+	inflightByDID := make(map[string]int)
+	noteCollected := func(evt *Event) {
+		did := evt.repoOf()
+		if did == "" {
+			return
+		}
+		if n := inflightByDID[did] - 1; n > 0 {
+			inflightByDID[did] = n
+		} else {
+			delete(inflightByDID, did)
+		}
+	}
 	// Seed lastSeenSeq from the persisted cursor so global gap
 	// detection survives reconnects. Without this, every reconnect
 	// resets to 0 and the first frame trivially passes the
@@ -716,6 +735,13 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			// — the same goroutine that owns inflight.
 			if seq > 0 {
 				inflight.Remove(seq)
+			}
+			if did != "" {
+				if n := inflightByDID[did] - 1; n > 0 {
+					inflightByDID[did] = n
+				} else {
+					delete(inflightByDID, did)
+				}
 			}
 			pendingResults--
 			// suppressedDrops accumulates drop notifications that
@@ -768,14 +794,25 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 	}()
 
 	// Verifier auxiliary channels (resync events, async errors).
+	var verifier *sync.Verifier
 	var resyncEvents <-chan sync.ResyncEvent
 	var verifierAsyncErrs <-chan error
 	if c.opts.Verifier.HasVal() && c.opts.Verifier.Val() != nil {
-		v := c.opts.Verifier.Val()
-		resyncEvents = v.ResyncEvents()
-		verifierAsyncErrs = v.AsyncErrors()
+		verifier = c.opts.Verifier.Val()
+		// Ordered mode: completed async resyncs are claimed via
+		// TakeCompletedResyncs — by verifyOne after each per-DID
+		// verification, and by the timer sweep below for DIDs with no
+		// follow-on events — instead of flowing through resyncEvents.
+		// Claim-at-verify is what guarantees a resync is emitted
+		// before any post-resync event for its DID; a select over a
+		// separate completion channel cannot order across channels.
+		// The resyncEvents arm is kept for events buffered before a
+		// prior consumer enabled ordered mode (sticky), and is quiet
+		// afterwards.
+		verifier.EnableOrderedResyncDelivery()
+		resyncEvents = verifier.ResyncEvents()
+		verifierAsyncErrs = verifier.AsyncErrors()
 	}
-
 	batch := make([]Event, 0, c.batchSize)
 	timer := time.NewTimer(c.batchTimeout)
 	defer timer.Stop()
@@ -815,6 +852,100 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 		}
 		batch = make([]Event, 0, c.batchSize)
 		return stopped
+	}
+
+	// emitResyncs appends claimed completed resyncs to the batch as
+	// synthetic ResyncAsync events. Returns true if the caller stopped
+	// iterating (flush on a full batch).
+	emitResyncs := func(rs []sync.ResyncEvent, resetTimer bool) bool {
+		for _, r := range rs {
+			batch = append(batch, eventFromAsyncResync(r))
+			if len(batch) >= c.batchSize {
+				if flushBatch() {
+					return true
+				}
+				if resetTimer {
+					timer.Reset(c.batchTimeout)
+				}
+			}
+		}
+		return false
+	}
+
+	handleVerifyResult := func(vr verifyResult, resetTimer bool) bool {
+		noteCollected(&vr.evt)
+		if emitResyncs(vr.resyncs, resetTimer) {
+			return true
+		}
+		// Invariant: a single Event carries one wire frame, so
+		// accountErr (from #account) and hookErr/silentDrop (from
+		// #commit/#sync) are mutually exclusive in practice.
+		// verify_worker.go's defensive co-execution path stays
+		// correct only because of this invariant.
+		//
+		// accountErr — yield the error, then fall through to also
+		// deliver the raw #account event. The verifier's
+		// bookkeeping failed, but consumers may still want to react
+		// to the takedown/suspension wire-event itself, so we surface
+		// both rather than swallowing the event.
+		if vr.accountErr != nil {
+			if flushBatch() {
+				return true
+			}
+			if resetTimer {
+				timer.Reset(c.batchTimeout)
+			}
+			if !yield(nil, vr.accountErr) {
+				return true
+			}
+			batch = append(batch, vr.evt)
+			if seq := vr.evt.seqOf(); seq > 0 {
+				inflight.Remove(seq)
+			}
+			if len(batch) >= c.batchSize {
+				if flushBatch() {
+					return true
+				}
+				if resetTimer {
+					timer.Reset(c.batchTimeout)
+				}
+			}
+			return false
+		}
+		if vr.hookErr != nil {
+			if seq := vr.evt.seqOf(); seq > 0 {
+				inflight.Remove(seq)
+			}
+			if flushBatch() {
+				return true
+			}
+			if resetTimer {
+				timer.Reset(c.batchTimeout)
+			}
+			if !yield(nil, vr.hookErr) {
+				return true
+			}
+			return false
+		}
+		if vr.silentDrop {
+			if seq := vr.evt.seqOf(); seq > 0 {
+				inflight.Remove(seq)
+			}
+			return false
+		}
+		batch = append(batch, vr.evt)
+		if seq := vr.evt.seqOf(); seq > 0 {
+			inflight.Remove(seq)
+		}
+		if len(batch) >= c.batchSize {
+			if flushBatch() {
+				return true
+			}
+			if resetTimer {
+				timer.Reset(c.batchTimeout)
+			}
+		}
+		return false
 	}
 
 	// drainResults is declared before dispatch so dispatch can call it
@@ -908,6 +1039,9 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			}
 			return false
 		}
+		if did != "" {
+			inflightByDID[did]++
+		}
 		pendingResults++
 		return true
 	}
@@ -923,52 +1057,8 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			select {
 			case vr := <-resultCh:
 				pendingResults--
-				// See the same handler in the main select below for the
-				// invariant rationale and accountErr fall-through.
-				if vr.accountErr != nil {
-					if flushBatch() {
-						return true
-					}
-					if !yield(nil, vr.accountErr) {
-						return true
-					}
-					batch = append(batch, vr.evt)
-					if seq := vr.evt.seqOf(); seq > 0 {
-						inflight.Remove(seq)
-					}
-					if len(batch) >= c.batchSize {
-						if flushBatch() {
-							return true
-						}
-					}
-					continue
-				}
-				if vr.hookErr != nil {
-					if seq := vr.evt.seqOf(); seq > 0 {
-						inflight.Remove(seq)
-					}
-					if flushBatch() {
-						return true
-					}
-					if !yield(nil, vr.hookErr) {
-						return true
-					}
-					continue
-				}
-				if vr.silentDrop {
-					if seq := vr.evt.seqOf(); seq > 0 {
-						inflight.Remove(seq)
-					}
-					continue
-				}
-				batch = append(batch, vr.evt)
-				if seq := vr.evt.seqOf(); seq > 0 {
-					inflight.Remove(seq)
-				}
-				if len(batch) >= c.batchSize {
-					if flushBatch() {
-						return true
-					}
+				if handleVerifyResult(vr, false) {
+					return true
 				}
 			case <-ctx.Done():
 				return false
@@ -995,66 +1085,10 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 
 		case vr := <-resultCh:
 			pendingResults--
-			// Invariant: a single Event carries one wire frame, so
-			// accountErr (from #account) and hookErr/silentDrop (from
-			// #commit/#sync) are mutually exclusive in practice.
-			// verify_worker.go's defensive co-execution path stays
-			// correct only because of this invariant.
-			//
-			// accountErr — yield the error, then fall through to also
-			// deliver the raw #account event. The verifier's
-			// bookkeeping failed, but consumers may still want to react
-			// to the takedown/suspension wire-event itself, so we surface
-			// both rather than swallowing the event.
-			if vr.accountErr != nil {
-				if flushBatch() {
-					return true
-				}
-				timer.Reset(c.batchTimeout)
-				if !yield(nil, vr.accountErr) {
-					return true
-				}
-				batch = append(batch, vr.evt)
-				if seq := vr.evt.seqOf(); seq > 0 {
-					inflight.Remove(seq)
-				}
-				if len(batch) >= c.batchSize {
-					if flushBatch() {
-						return true
-					}
-					timer.Reset(c.batchTimeout)
-				}
-				continue
+			if handleVerifyResult(vr, true) {
+				return true
 			}
-			if vr.hookErr != nil {
-				if seq := vr.evt.seqOf(); seq > 0 {
-					inflight.Remove(seq)
-				}
-				if flushBatch() {
-					return true
-				}
-				timer.Reset(c.batchTimeout)
-				if !yield(nil, vr.hookErr) {
-					return true
-				}
-				continue
-			}
-			if vr.silentDrop {
-				if seq := vr.evt.seqOf(); seq > 0 {
-					inflight.Remove(seq)
-				}
-				continue
-			}
-			batch = append(batch, vr.evt)
-			if seq := vr.evt.seqOf(); seq > 0 {
-				inflight.Remove(seq)
-			}
-			if len(batch) >= c.batchSize {
-				if flushBatch() {
-					return true
-				}
-				timer.Reset(c.batchTimeout)
-			}
+			continue
 
 		case res, ok := <-resyncEvents:
 			if !ok {
@@ -1095,6 +1129,16 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			}
 
 		case <-timer.C:
+			if verifier != nil && verifier.CompletedResyncCount() > 0 {
+				for _, did := range verifier.CompletedResyncDIDs() {
+					if inflightByDID[string(did)] > 0 {
+						continue
+					}
+					if emitResyncs(verifier.TakeCompletedResyncs(did), true) {
+						return true
+					}
+				}
+			}
 			if flushBatch() {
 				return true
 			}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/sync"
 )
 
@@ -24,7 +25,16 @@ import (
 // per-DID pending buffer during an in-flight resync. The firehose seq
 // advances but the event is NOT delivered to the consumer.
 type verifyResult struct {
-	evt        Event
+	evt Event
+
+	// resyncs are completed async resyncs for the event's DID, claimed
+	// after this event's verification (see TakeCompletedResyncs). The
+	// collector converts and emits them BEFORE evt — in every branch,
+	// including hookErr/accountErr/silentDrop — so the "resync is
+	// delivered before any post-resync event for its DID" guarantee
+	// holds end to end.
+	resyncs []sync.ResyncEvent
+
 	hookErr    error
 	accountErr error
 	silentDrop bool
@@ -38,14 +48,26 @@ type verifyResult struct {
 //
 // Safe to call from N goroutines concurrently (the verifier itself is
 // thread-safe via per-DID mutexes).
-func (c *Client) verifyOne(ctx context.Context, evt Event) verifyResult {
-	res := verifyResult{evt: evt}
+func (c *Client) verifyOne(ctx context.Context, evt Event) (res verifyResult) {
+	res = verifyResult{evt: evt}
 
 	// No verifier configured (None or Some(nil)): pass through.
 	if !c.opts.Verifier.HasVal() || c.opts.Verifier.Val() == nil {
 		return res
 	}
 	v := c.opts.Verifier.Val()
+
+	// Claim completed async resyncs for this DID after verification
+	// returns (deferred so every exit path claims). The resync worker
+	// registers completions while still holding the per-DID
+	// verification lock, so an event verified after a resync completed
+	// is guaranteed to observe it here — channel-select ordering races
+	// cannot deliver this event ahead of its DID's resync.
+	defer func() {
+		if did := evt.repoOf(); did != "" {
+			res.resyncs = v.TakeCompletedResyncs(atmos.DID(did))
+		}
+	}()
 
 	// #account: feed into HostingState. Doesn't suppress delivery.
 	// Restricted to firehose; jetstream's isn't part of the verifier
