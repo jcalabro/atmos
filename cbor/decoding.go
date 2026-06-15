@@ -16,6 +16,20 @@ var MaxSize uint64 = 1 << 20 // 1 MiB
 // MaxDepth is the maximum nesting depth allowed when decoding CBOR.
 var MaxDepth = 128
 
+// preallocCap bounds how many array/map elements a streaming decoder will
+// pre-allocate based on a declared count, before any payload bytes have been
+// read. A declared count larger than this grows incrementally instead, so a
+// tiny header cannot force a large up-front allocation.
+const preallocCap = 1024
+
+// minU64 returns the smaller of two uint64 values.
+func minU64(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // Decoder reads DAG-CBOR from an io.Reader with strict validation.
 type Decoder struct {
 	r     io.Reader
@@ -184,12 +198,18 @@ func (d *Decoder) ReadValue() (any, error) {
 		if arg > MaxSize {
 			return nil, fmt.Errorf("cbor: array length %d exceeds max size %d", arg, MaxSize)
 		}
-		arr := make([]any, arg)
-		for i := range arg {
-			arr[i], err = d.ReadValue()
+		// A streaming reader cannot bound the count against a remaining byte
+		// count, so cap the pre-allocation hint and let the slice grow as
+		// elements actually arrive. This prevents a tiny header declaring a
+		// huge count from forcing a multi-megabyte allocation up front; a
+		// genuinely large array still decodes, it just grows incrementally.
+		arr := make([]any, 0, minU64(arg, preallocCap))
+		for range arg {
+			v, err := d.ReadValue()
 			if err != nil {
 				return nil, err
 			}
+			arr = append(arr, v)
 		}
 		return arr, nil
 
@@ -215,7 +235,8 @@ func (d *Decoder) ReadValue() (any, error) {
 
 // readMap reads a CBOR map, validating string keys, ordering, and no duplicates.
 func (d *Decoder) readMap(count uint64) (map[string]any, error) {
-	m := make(map[string]any, count)
+	// Cap the pre-allocation hint; the map grows as entries arrive.
+	m := make(map[string]any, minU64(count, preallocCap))
 	var prevKey string
 	for i := range count {
 		major, _, arg, err := d.readHeader()

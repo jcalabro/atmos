@@ -878,9 +878,24 @@ func (t *Tree) ensureLoaded(n *node) error {
 	var keyBuf []byte
 	n.entries = make([]entry, len(nd.Entries))
 	for i, ed := range nd.Entries {
+		// The prefix length must reference bytes that actually exist in the
+		// previously reconstructed key. A hostile or corrupt block can declare
+		// a prefix longer than the running key (or non-zero on the first
+		// entry, which has no predecessor); reject it rather than panicking on
+		// the reslice below.
+		if ed.PrefixLen > len(keyBuf) {
+			return fmt.Errorf("mst: node %s entry %d: prefix length %d exceeds previous key length %d", n.cid.String(), i, ed.PrefixLen, len(keyBuf))
+		}
 		keyBuf = append(keyBuf[:ed.PrefixLen], ed.KeySuffix...)
+		key := string(keyBuf)
+		// Entries within a node must be in strictly ascending key order.
+		// Accepting an out-of-order block would silently corrupt lookups (Get
+		// relies on this ordering), so reject it on load.
+		if i > 0 && key <= n.entries[i-1].key {
+			return fmt.Errorf("mst: node %s entry %d: key %q is not greater than previous key %q", n.cid.String(), i, key, n.entries[i-1].key)
+		}
 		n.entries[i] = entry{
-			key: string(keyBuf),
+			key: key,
 			val: ed.Value,
 		}
 		if ed.Right.HasVal() {
@@ -939,7 +954,7 @@ func sharedPrefixLen(a, b string) int {
 // Valid keys have the format "collection/rkey", are at most 1024 bytes,
 // and contain only [a-zA-Z0-9_~\-:.] characters.
 func IsValidMstKey(key string) bool {
-	if len(key) == 0 || len(key) > 1024 {
+	if len(key) == 0 || len(key) > maxKeyLen {
 		return false
 	}
 	slash := -1

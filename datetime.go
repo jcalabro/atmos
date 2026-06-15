@@ -5,8 +5,11 @@ import (
 	"time"
 )
 
-// AtprotoDatetimeLayout is the preferred output format for AT Protocol datetimes.
-const AtprotoDatetimeLayout = "2006-01-02T15:04:05.999Z"
+// AtprotoDatetimeLayout is the preferred output format for AT Protocol datetimes:
+// fixed millisecond precision matching JavaScript's Date.toISOString(). Fixed
+// (rather than trailing-zero-trimmed) precision keeps serialized timestamps
+// lexicographically sortable.
+const AtprotoDatetimeLayout = "2006-01-02T15:04:05.000Z"
 
 // Datetime represents an AT Protocol datetime (RFC 3339 subset).
 type Datetime string
@@ -33,6 +36,14 @@ func ParseDatetime(raw string) (Datetime, error) {
 	// Reject dates before year 0000.
 	if t.Before(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)) {
 		return "", syntaxErr("Datetime", raw, "date before year 0000")
+	}
+
+	// Reject datetimes that normalize (in UTC) to a year beyond 9999. The
+	// reference rejects these because they cannot be re-serialized with a
+	// 4-digit year. A non-UTC offset can push an in-range local year past the
+	// boundary, so this check runs after parsing.
+	if t.UTC().Year() > 9999 {
+		return "", syntaxErr("Datetime", raw, "year after 9999")
 	}
 
 	return Datetime(raw), nil
@@ -150,8 +161,10 @@ func validateDatetimeSyntax(raw string) error {
 		for i < n && isDigit(raw[i]) {
 			i++
 		}
-		fracLen := i - fracStart
-		if fracLen == 0 || fracLen > 20 {
+		// The spec allows arbitrary fractional-second precision; the only bound
+		// is the overall 64-character length check in ParseDatetime. A dot with
+		// no following digits is still invalid.
+		if i == fracStart {
 			return syntaxErr("Datetime", raw, "invalid fractional seconds")
 		}
 	}
@@ -175,11 +188,21 @@ func validateDatetimeSyntax(raw string) error {
 		if !isDigit(raw[i]) || !isDigit(raw[i+1]) {
 			return syntaxErr("Datetime", raw, "invalid timezone hour")
 		}
+		// Offset hour must be 00–23 (Go's time.Parse accepts 24+).
+		offHour := int(raw[i]-'0')*10 + int(raw[i+1]-'0')
+		if offHour > 23 {
+			return syntaxErr("Datetime", raw, "timezone hour out of range")
+		}
 		if raw[i+2] != ':' {
 			return syntaxErr("Datetime", raw, "expected ':' in timezone offset")
 		}
 		if !isDigit(raw[i+3]) || !isDigit(raw[i+4]) {
 			return syntaxErr("Datetime", raw, "invalid timezone minute")
+		}
+		// Offset minute must be 00–59.
+		offMin := int(raw[i+3]-'0')*10 + int(raw[i+4]-'0')
+		if offMin > 59 {
+			return syntaxErr("Datetime", raw, "timezone minute out of range")
 		}
 		i += 5
 	default:

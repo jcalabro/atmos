@@ -16,3 +16,9 @@ i-navajo
 # https://github.com/sebinsua/ietf-language-tag-regex/blob/master/test.js
 de-CH-1901
 qaa-Qaaa-QM-x-southern
+
+# Well-formed per the BCP-47 grammar / @atproto/syntax reference regex:
+# tags are case-insensitive, and a 4-letter primary subtag is the
+# script-length language production. (Previously mis-marked invalid.)
+JA
+jaja

@@ -151,6 +151,12 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 		if val > MaxSize {
 			return nil, 0, fmt.Errorf("cbor: array length %d exceeds max size %d", val, MaxSize)
 		}
+		// Every element occupies at least one byte, so a declared count larger
+		// than the remaining input is provably truncated. Checking this before
+		// allocating prevents a tiny header from forcing a huge allocation.
+		if val > uint64(len(data)-newPos) {
+			return nil, 0, errors.New("cbor: array length exceeds remaining input")
+		}
 		arr := make([]any, val)
 		p := newPos
 		for i := range val {
@@ -164,6 +170,12 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 	case 5: // map
 		if val > MaxSize {
 			return nil, 0, fmt.Errorf("cbor: map length %d exceeds max size %d", val, MaxSize)
+		}
+		// Each entry is at least a 1-byte key header plus a 1-byte value, so a
+		// declared count exceeding the remaining input is truncated. Reject
+		// before the make(map, count) hint allocates buckets.
+		if val > uint64(len(data)-newPos) {
+			return nil, 0, errors.New("cbor: map length exceeds remaining input")
 		}
 		return unmarshalMap(data, newPos, val, depth)
 
@@ -250,7 +262,11 @@ func unmarshalCIDLink(data []byte, pos int) (CID, int, error) {
 	if payload[0] != 0x00 {
 		return CID{}, 0, fmt.Errorf("cbor: tag 42 payload must start with 0x00, got 0x%02x", payload[0])
 	}
-	cid, _, err := ParseCIDPrefix(payload[1:])
+	// The tag-42 payload after the 0x00 prefix must be exactly one CID with no
+	// trailing bytes. Use the strict parser (not the trailing-byte-tolerant
+	// ParseCIDPrefix) so the slice path and the reader path accept the same
+	// set of inputs and a non-canonical CID cannot round-trip to different bytes.
+	cid, err := ParseCIDBytes(payload[1:])
 	if err != nil {
 		return CID{}, 0, err
 	}

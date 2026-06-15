@@ -12,15 +12,16 @@ func ParseURI(raw string) (URI, error) {
 		return "", syntaxErr("URI", raw, "too long")
 	}
 
-	// Scheme: starts with lowercase letter, followed by lowercase letters/dots/hyphens, then ':'.
-	if !isLowerAlpha(raw[0]) {
-		return "", syntaxErr("URI", raw, "scheme must start with lowercase letter")
+	// Scheme per RFC 3986: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ), then ':'.
+	// Schemes are case-insensitive, so an uppercase first letter is valid.
+	if !isAlpha(raw[0]) {
+		return "", syntaxErr("URI", raw, "scheme must start with a letter")
 	}
 
 	i := 1
 	for i < len(raw) && raw[i] != ':' {
 		c := raw[i]
-		if !isLowerAlpha(c) && !isDigit(c) && c != '+' && c != '.' && c != '-' {
+		if !isAlpha(c) && !isDigit(c) && c != '+' && c != '.' && c != '-' {
 			return "", syntaxErr("URI", raw, "invalid character in scheme")
 		}
 		i++

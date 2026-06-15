@@ -7,6 +7,11 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// maxKeyLen is the maximum byte length of an MST key per the repository spec.
+// It also bounds an entry's prefix length, since a prefix can never be longer
+// than the key it belongs to.
+const maxKeyLen = 1024
+
 // NodeData is the on-disk CBOR representation of an MST node.
 type NodeData struct {
 	Left    gt.Option[cbor.CID]
@@ -203,6 +208,13 @@ func decodeEntryDataFast(data []byte, pos int, ed *EntryData) (int, error) {
 			v, newPos, err := cbor.ReadUint(data, pos)
 			if err != nil {
 				return 0, err
+			}
+			// A prefix length can never exceed the maximum MST key length, and
+			// must fit in a non-negative int. Reject anything larger here so a
+			// hostile block cannot wrap to a negative int and panic the later
+			// keyBuf[:PrefixLen] reslice in ensureLoaded.
+			if v > maxKeyLen {
+				return 0, fmt.Errorf("prefix length %d exceeds max key length %d", v, maxKeyLen)
 			}
 			ed.PrefixLen = int(v)
 			pos = newPos

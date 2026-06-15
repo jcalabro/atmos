@@ -174,9 +174,10 @@ func TestTID_EdgeCases(t *testing.T) {
 	_, err = ParseTID("z222222222222")
 	require.Error(t, err)
 
-	// Uppercase — invalid.
+	// All '2' is valid.
 	_, err = ParseTID("2222222222222")
-	require.NoError(t, err) // all '2' is valid
+	require.NoError(t, err)
+	// Uppercase — invalid.
 	_, err = ParseTID("222222222222A")
 	require.Error(t, err)
 
@@ -260,9 +261,9 @@ func TestURI_EdgeCases(t *testing.T) {
 	_, err = ParseURI("at://did:plc:abc123")
 	require.NoError(t, err)
 
-	// Uppercase scheme — invalid.
+	// RFC 3986 schemes are case-insensitive, so an uppercase scheme is valid.
 	_, err = ParseURI("HTTPS://example.com")
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	// No colon — invalid.
 	_, err = ParseURI("httpexample.com")
@@ -287,13 +288,14 @@ func TestLanguage_EdgeCases(t *testing.T) {
 	_, err = ParseLanguage("i-klingon")
 	require.NoError(t, err)
 
-	// Primary subtag too long (>3).
+	// 4-letter primary subtag is the script-length language production and is
+	// well-formed per BCP-47 / the @atproto/syntax reference.
 	_, err = ParseLanguage("engl")
-	require.Error(t, err)
+	require.NoError(t, err)
 
-	// Uppercase primary — invalid.
+	// BCP-47 tags are case-insensitive, so an uppercase primary is well-formed.
 	_, err = ParseLanguage("EN")
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	// Single non-'i' char — invalid.
 	_, err = ParseLanguage("e")

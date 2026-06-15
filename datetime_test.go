@@ -1,6 +1,7 @@
 package atmos
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -204,12 +205,20 @@ func TestParseDatetime_MaxTimezoneOffsets(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestParseDatetime_FractionalSecondsExceed20(t *testing.T) {
+func TestParseDatetime_FractionalSecondsArbitraryPrecision(t *testing.T) {
 	t.Parallel()
-	// Our implementation caps fractional seconds at 20 digits (zeptosecond precision).
+	// The spec allows arbitrary fractional-second precision; only the overall
+	// 64-character length bounds it. 21 digits here is well within that bound.
 	_, err := ParseDatetime("1985-04-12T23:20:50.123456789012345678901Z")
+	require.NoError(t, err)
+
+	// A fraction long enough to exceed the 64-character total length is still
+	// rejected — by the length check, not a fractional-digit cap.
+	long := "1985-04-12T23:20:50." + strings.Repeat("1", 50) + "Z"
+	require.Greater(t, len(long), 64)
+	_, err = ParseDatetime(long)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid fractional seconds")
+	require.Contains(t, err.Error(), "too long")
 }
 
 func TestParseDatetime_EmptyFractionalSeconds(t *testing.T) {

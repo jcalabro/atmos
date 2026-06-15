@@ -28,9 +28,30 @@ func ParseTID(raw string) (TID, error) {
 	return TID(raw), nil
 }
 
+// maxTIDMicros is the largest timestamp (microseconds since the Unix epoch)
+// representable in a TID. A TID stores the timestamp in 53 bits — the high bit
+// of the 64-bit value is always clear and the low 10 bits hold the clock ID.
+const maxTIDMicros = int64(1)<<53 - 1
+
+// maxTIDClockID is the largest representable clock ID (10 bits).
+const maxTIDClockID = uint(1)<<10 - 1
+
 // NewTID creates a TID from a microsecond timestamp and clock ID.
+//
+// It panics if unixMicros is negative or exceeds the 53-bit timestamp range, or
+// if clockID exceeds 10 bits. These represent programmer errors: silently
+// masking them would produce a syntactically valid but semantically corrupt TID
+// (e.g. a negative timestamp wrapping to a far-future date), which is worse than
+// a loud failure. Untrusted inputs arrive as strings via [ParseTID], which
+// returns an error rather than panicking.
 func NewTID(unixMicros int64, clockID uint) TID {
-	v := uint64(unixMicros)<<10 | uint64(clockID&0x3FF)
+	if unixMicros < 0 || unixMicros > maxTIDMicros {
+		panic("atmos: NewTID timestamp out of range [0, 2^53)")
+	}
+	if clockID > maxTIDClockID {
+		panic("atmos: NewTID clockID out of range [0, 2^10)")
+	}
+	v := uint64(unixMicros)<<10 | uint64(clockID)
 	return NewTIDFromInteger(v)
 }
 
@@ -57,6 +78,11 @@ func NewTIDFromInteger(v uint64) TID {
 
 // Integer returns the raw 64-bit representation.
 // Returns 0 for a zero-value (empty) TID.
+//
+// The result is only meaningful for a syntactically valid TID (one produced by
+// [ParseTID] or the New* constructors). For a 13-character string cast that
+// contains characters outside the base32-sort alphabet, the result is
+// unspecified; call [TID.Validate] first if the value's provenance is untrusted.
 func (t TID) Integer() uint64 {
 	if len(t) != 13 {
 		return 0

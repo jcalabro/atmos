@@ -388,18 +388,24 @@ func readCIDLinkSlow(data []byte, pos int) (CID, int, error) {
 	if major != 2 {
 		return CID{}, 0, fmt.Errorf("cbor: expected bytes in CID link")
 	}
-	n := int(val)
-	end := newPos + n
-	if end > len(data) {
+	if val > uint64(len(data)-newPos) {
 		return CID{}, 0, fmt.Errorf("cbor: CID link data truncated")
 	}
+	if val > MaxSize {
+		return CID{}, 0, fmt.Errorf("cbor: CID byte string length %d exceeds max size %d", val, MaxSize)
+	}
+	if val > uint64(math.MaxInt) {
+		return CID{}, 0, fmt.Errorf("cbor: CID byte string length exceeds platform int size")
+	}
+	n := int(val)
+	end := newPos + n
 
 	// First byte must be 0x00 (CID prefix).
 	if n < 2 || data[newPos] != 0x00 {
 		return CID{}, 0, fmt.Errorf("cbor: invalid CID link prefix")
 	}
 
-	cid, _, err := ParseCIDPrefix(data[newPos+1 : end])
+	cid, err := ParseCIDBytes(data[newPos+1 : end])
 	if err != nil {
 		return CID{}, 0, err
 	}

@@ -44,6 +44,14 @@ func FuzzUnmarshal(f *testing.F) {
 			return
 		}
 
+		// DAG-CBOR has exactly one valid encoding per value, so any input that
+		// decodes successfully MUST re-encode to itself. A mismatch means the
+		// decoder accepted a non-canonical encoding (trailing CID bytes,
+		// non-minimal varints, etc.) — a malleability bug.
+		if !bytes.Equal(encoded, data) {
+			t.Fatalf("non-canonical input accepted: decoded %x re-encoded to %x", data, encoded)
+		}
+
 		// Re-decode the re-encoded value should produce the same result.
 		val2, err := Unmarshal(encoded)
 		if err != nil {

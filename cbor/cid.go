@@ -80,7 +80,7 @@ func ParseCIDBytes(buf []byte) (CID, error) {
 	var n int
 	var err error
 
-	version, n, err := ReadUvarint(buf)
+	version, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, fmt.Errorf("CID version: %w", err)
 	}
@@ -89,7 +89,7 @@ func ParseCIDBytes(buf []byte) (CID, error) {
 		return CID{}, fmt.Errorf("unsupported CID version %d", version)
 	}
 
-	codec, n, err := ReadUvarint(buf)
+	codec, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, fmt.Errorf("CID codec: %w", err)
 	}
@@ -98,7 +98,7 @@ func ParseCIDBytes(buf []byte) (CID, error) {
 		return CID{}, fmt.Errorf("unsupported CID codec 0x%x (only dag-cbor and raw allowed)", codec)
 	}
 
-	hashCode, n, err := ReadUvarint(buf)
+	hashCode, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, fmt.Errorf("CID hash code: %w", err)
 	}
@@ -107,7 +107,7 @@ func ParseCIDBytes(buf []byte) (CID, error) {
 		return CID{}, fmt.Errorf("unsupported CID hash 0x%x (only SHA-256 allowed)", hashCode)
 	}
 
-	hashLen, n, err := ReadUvarint(buf)
+	hashLen, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, fmt.Errorf("CID hash length: %w", err)
 	}
@@ -164,7 +164,7 @@ func ParseCIDPrefix(buf []byte) (CID, int, error) {
 	var n, total int
 	var err error
 
-	version, n, err := ReadUvarint(buf)
+	version, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, 0, fmt.Errorf("CID version: %w", err)
 	}
@@ -174,7 +174,7 @@ func ParseCIDPrefix(buf []byte) (CID, int, error) {
 		return CID{}, 0, fmt.Errorf("unsupported CID version %d", version)
 	}
 
-	codec, n, err := ReadUvarint(buf)
+	codec, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, 0, fmt.Errorf("CID codec: %w", err)
 	}
@@ -184,7 +184,7 @@ func ParseCIDPrefix(buf []byte) (CID, int, error) {
 		return CID{}, 0, fmt.Errorf("unsupported CID codec 0x%x (only dag-cbor and raw allowed)", codec)
 	}
 
-	hashCode, n, err := ReadUvarint(buf)
+	hashCode, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, 0, fmt.Errorf("CID hash code: %w", err)
 	}
@@ -194,7 +194,7 @@ func ParseCIDPrefix(buf []byte) (CID, int, error) {
 		return CID{}, 0, fmt.Errorf("unsupported CID hash 0x%x (only SHA-256 allowed)", hashCode)
 	}
 
-	hashLen, n, err := ReadUvarint(buf)
+	hashLen, n, err := ReadUvarintMinimal(buf)
 	if err != nil {
 		return CID{}, 0, fmt.Errorf("CID hash length: %w", err)
 	}

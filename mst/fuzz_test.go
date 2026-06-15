@@ -138,6 +138,38 @@ func FuzzDecodeNodeDataRoundTrip(f *testing.F) {
 	})
 }
 
+// FuzzLoadAndWalk feeds arbitrary blocks through the load + traverse path
+// (ensureLoaded), which reconstructs entry keys from prefix-compressed data.
+// Unlike FuzzDecodeNodeData, this exercises the reslice that a malformed
+// PrefixLen could otherwise panic on. It must never panic, only error.
+func FuzzLoadAndWalk(f *testing.F) {
+	cid := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("test"))
+	for _, nd := range []*NodeData{
+		{Entries: []EntryData{}},
+		{Entries: []EntryData{{PrefixLen: 0, KeySuffix: []byte("app.bsky.feed.post/a"), Value: cid}}},
+		{Left: gt.Some(cid), Entries: []EntryData{
+			{PrefixLen: 0, KeySuffix: []byte("app.bsky.feed.post/a"), Value: cid},
+			{PrefixLen: 19, KeySuffix: []byte("b"), Value: cid, Right: gt.Some(cid)},
+		}},
+	} {
+		if data, err := encodeNodeData(nd); err == nil {
+			f.Add(data)
+		}
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		store := NewMemBlockStore()
+		root := cbor.ComputeCID(cbor.CodecDagCBOR, data)
+		if err := store.PutBlock(root, data); err != nil {
+			t.Fatal(err)
+		}
+		tree := LoadTree(store, root)
+		// Must never panic regardless of block contents.
+		_ = tree.Walk(func(string, cbor.CID) error { return nil })
+		_, _ = tree.Get("app.bsky.feed.post/a")
+	})
+}
+
 // FuzzHeightForKey tests that height computation never panics and is deterministic.
 func FuzzHeightForKey(f *testing.F) {
 	f.Add("")

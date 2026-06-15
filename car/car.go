@@ -81,12 +81,21 @@ func NewReader(r io.Reader) (*Reader, error) {
 				return nil, fmt.Errorf("car: header roots: %w", err)
 			}
 			pos = newPos
-			roots = make([]cbor.CID, arrLen)
-			for i := range roots {
-				roots[i], pos, err = cbor.ReadCIDLink(headerBuf, pos)
+			// Each CID link occupies at least one header byte, so a declared
+			// count larger than the remaining header is impossible. Bounding
+			// here prevents an attacker-controlled count from triggering a
+			// makeslice panic or a multi-gigabyte pre-allocation (C1).
+			if arrLen > uint64(len(headerBuf)-pos) {
+				return nil, fmt.Errorf("car: header declares %d roots but only %d header bytes remain", arrLen, len(headerBuf)-pos)
+			}
+			roots = make([]cbor.CID, 0, arrLen)
+			for range arrLen {
+				var root cbor.CID
+				root, pos, err = cbor.ReadCIDLink(headerBuf, pos)
 				if err != nil {
-					return nil, fmt.Errorf("car: root %d: %w", i, err)
+					return nil, fmt.Errorf("car: root %d: %w", len(roots), err)
 				}
+				roots = append(roots, root)
 			}
 		case "version":
 			hasVer = true
@@ -282,55 +291,74 @@ func (w *Writer) WriteBlock(cid cbor.CID, data []byte) error {
 	return err
 }
 
+// maxVarintLen is the maximum number of bytes a length varint may occupy.
+// The multiformats unsigned-varint spec caps practical varints at 9 bytes
+// (63 bits), which comfortably covers any legitimate CAR block length.
+const maxVarintLen = 9
+
+// errVarintTruncated indicates the stream ended partway through a varint (after
+// at least one continuation byte). This is distinct from a clean io.EOF that
+// occurs before any varint byte, which legitimately marks end-of-blocks.
+var errVarintTruncated = errors.New("car: truncated varint")
+
 // readUvarintFromReader reads a single unsigned varint from an io.Reader.
+//
+// A clean io.EOF before the first byte is returned verbatim (end of blocks).
+// An EOF after one or more continuation bytes is reported as a truncation error
+// so callers never mistake a cut-off stream for a complete CAR (H1). Non-minimal
+// and overflowing encodings are rejected (M5).
 func readUvarintFromReader(r io.Reader) (uint64, error) {
 	// Fast path for types that implement io.ByteReader (bytes.Reader, bufio.Reader, etc.).
 	if br, ok := r.(io.ByteReader); ok {
-		return readUvarintByteReader(br)
+		return readUvarint(br)
 	}
-
-	var buf [1]byte
-	var x uint64
-	var s uint
-	for range 10 {
-		_, err := io.ReadFull(r, buf[:])
-		if err != nil {
-			return 0, err
-		}
-
-		b := buf[0]
-		if b < 0x80 {
-			x |= uint64(b) << s
-			return x, nil
-		}
-
-		x |= uint64(b&0x7F) << s
-		s += 7
-	}
-
-	return 0, errors.New("varint too long")
+	// Slow path: a stack-allocated adapter avoids a per-call closure allocation.
+	return readUvarint(&byteReaderAdapter{r: r})
 }
 
-// readUvarintByteReader reads a varint using the io.ByteReader interface directly.
-func readUvarintByteReader(br io.ByteReader) (uint64, error) {
+// byteReaderAdapter turns a plain io.Reader into an io.ByteReader without
+// allocating per read.
+type byteReaderAdapter struct {
+	r   io.Reader
+	buf [1]byte
+}
+
+func (a *byteReaderAdapter) ReadByte() (byte, error) {
+	if _, err := io.ReadFull(a.r, a.buf[:]); err != nil {
+		return 0, err
+	}
+	return a.buf[0], nil
+}
+
+// readUvarint reads a varint one byte at a time, enforcing minimal encoding, an
+// overflow/length bound, and truncation detection.
+func readUvarint(br io.ByteReader) (uint64, error) {
 	var x uint64
 	var s uint
-	for range 10 {
+	for i := range maxVarintLen {
 		b, err := br.ReadByte()
 		if err != nil {
+			if i > 0 && errors.Is(err, io.EOF) {
+				// Mid-varint EOF is truncation, not a clean terminus.
+				return 0, errVarintTruncated
+			}
 			return 0, err
 		}
 
 		if b < 0x80 {
-			x |= uint64(b) << s
-			return x, nil
+			if i > 0 && b == 0 {
+				// A trailing zero group means the value could have been encoded
+				// in fewer bytes.
+				return 0, errors.New("car: non-minimal varint encoding")
+			}
+			return x | uint64(b)<<s, nil
 		}
 
 		x |= uint64(b&0x7F) << s
 		s += 7
 	}
 
-	return 0, errors.New("varint too long")
+	return 0, errors.New("car: varint too long")
 }
 
 // writeUvarint writes an unsigned varint to a writer.

@@ -1,54 +1,27 @@
 package atmos
 
-// Language represents a BCP-47 language tag (naive validation).
+import "regexp"
+
+// Language represents a well-formed BCP-47 language tag.
 type Language string
 
-// ParseLanguage validates and returns a Language.
+// bcp47Regexp validates well-formed BCP-47 syntax (RFC 5646 §2.1). It is ported
+// verbatim from the reference @atproto/syntax implementation so that atmos
+// accepts exactly the same set of tags as the canonical stack — including
+// private-use tags (x-…), 4–8 character primary subtags, and the closed set of
+// grandfathered tags. Go's regexp uses (?P<name>) for named groups; the pattern
+// is otherwise identical to the reference.
+var bcp47Regexp = regexp.MustCompile(`^((?P<grandfathered>(en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE)|(art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang))|((?P<language>([A-Za-z]{2,3}(-(?P<extlang>[A-Za-z]{3}(-[A-Za-z]{3}){0,2}))?)|[A-Za-z]{4}|[A-Za-z]{5,8})(-(?P<script>[A-Za-z]{4}))?(-(?P<region>[A-Za-z]{2}|[0-9]{3}))?(-(?P<variant>[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(-(?P<extension>[0-9A-WY-Za-wy-z](-[A-Za-z0-9]{2,8})+))*(-(?P<privateUseA>x(-[A-Za-z0-9]{1,8})+))?)|(?P<privateUseB>x(-[A-Za-z0-9]{1,8})+))$`)
+
+// ParseLanguage validates raw as a well-formed BCP-47 language tag and returns
+// it as a Language.
 func ParseLanguage(raw string) (Language, error) {
 	if len(raw) == 0 {
 		return "", syntaxErr("Language", raw, "empty")
 	}
-	if len(raw) > 128 {
-		return "", syntaxErr("Language", raw, "too long")
+	if !bcp47Regexp.MatchString(raw) {
+		return "", syntaxErr("Language", raw, "not a well-formed BCP-47 language tag")
 	}
-
-	// Primary subtag: "i" or 2-3 lowercase letters.
-	i := 0
-	for i < len(raw) && raw[i] != '-' {
-		if !isLowerAlpha(raw[i]) {
-			return "", syntaxErr("Language", raw, "primary subtag must be lowercase alpha")
-		}
-		i++
-	}
-
-	if i == 0 {
-		return "", syntaxErr("Language", raw, "empty primary subtag")
-	}
-	if i == 1 && raw[0] != 'i' {
-		return "", syntaxErr("Language", raw, "single-char primary subtag must be 'i'")
-	}
-	if i > 3 {
-		return "", syntaxErr("Language", raw, "primary subtag too long")
-	}
-
-	// Subsequent subtags: hyphen-separated alphanumeric.
-	for i < len(raw) {
-		if raw[i] != '-' {
-			return "", syntaxErr("Language", raw, "expected hyphen")
-		}
-		i++ // skip hyphen
-		start := i
-		for i < len(raw) && raw[i] != '-' {
-			if !isAlphanumeric(raw[i]) {
-				return "", syntaxErr("Language", raw, "subtag must be alphanumeric")
-			}
-			i++
-		}
-		if i == start {
-			return "", syntaxErr("Language", raw, "empty subtag")
-		}
-	}
-
 	return Language(raw), nil
 }
 
