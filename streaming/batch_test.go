@@ -59,8 +59,6 @@ func TestBatch_FullBatch(t *testing.T) {
 			_ = conn.Write(ctx, websocket.MessageBinary,
 				buildFrame("#identity", buildIdentityBody(i, "did:plc:test")))
 		}
-		// Keep connection open so the batch flushes via size, not connection close.
-		time.Sleep(100 * time.Millisecond)
 		_ = conn.Write(ctx, websocket.MessageBinary,
 			buildFrame("#identity", buildIdentityBody(99, "did:plc:test")))
 		_ = conn.Close(websocket.StatusNormalClosure, "done")
@@ -102,7 +100,7 @@ func TestBatch_TimeoutFlush(t *testing.T) {
 	client := mustNewClient(t, Options{
 		URL:          wsURL(srv),
 		BatchSize:    gt.Some(100),
-		BatchTimeout: gt.Some(50 * time.Millisecond),
+		BatchTimeout: gt.Some(10 * time.Millisecond),
 	})
 
 	for batch, err := range client.Events(ctx) {
@@ -297,7 +295,7 @@ func TestBatch_SingleEvent(t *testing.T) {
 func TestBatch_EmptyBatchNotYielded(t *testing.T) {
 	t.Parallel()
 	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		ctx := context.Background()
 		_ = conn.Write(ctx, websocket.MessageBinary,
 			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")))
@@ -310,7 +308,7 @@ func TestBatch_EmptyBatchNotYielded(t *testing.T) {
 	client := mustNewClient(t, Options{
 		URL:          wsURL(srv),
 		BatchSize:    gt.Some(100),
-		BatchTimeout: gt.Some(50 * time.Millisecond),
+		BatchTimeout: gt.Some(5 * time.Millisecond),
 	})
 
 	var yields int
@@ -333,7 +331,6 @@ func TestBatch_CursorAfterBatch(t *testing.T) {
 			_ = conn.Write(ctx, websocket.MessageBinary,
 				buildFrame("#identity", buildIdentityBody(i, "did:plc:test")))
 		}
-		time.Sleep(100 * time.Millisecond)
 		_ = conn.Write(ctx, websocket.MessageBinary,
 			buildFrame("#identity", buildIdentityBody(99, "did:plc:test")))
 		_ = conn.Close(websocket.StatusNormalClosure, "done")

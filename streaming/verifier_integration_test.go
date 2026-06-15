@@ -608,12 +608,11 @@ func TestVerifiedStream_AccountEventReplayDropped(t *testing.T) {
 	assert.Equal(t, int64(10), hosting.Seq)
 }
 
-// blockingStateStore wraps a sync.StateStore and blocks SaveChain on a
-// gate channel. Used to provoke queue overflow in the parallel scheduler
-// integration test by holding the first verification completely blocked.
+// blockingStateStore wraps a sync.StateStore and delays SaveChain.
+// Tests use it to provoke queue buildup in the streaming scheduler.
 type blockingStateStore struct {
-	inner sync.StateStore
-	gate  chan struct{}
+	inner     sync.StateStore
+	saveDelay time.Duration
 }
 
 func (s *blockingStateStore) LoadChain(ctx context.Context, did atmos.DID) (*sync.ChainState, error) {
@@ -621,10 +620,17 @@ func (s *blockingStateStore) LoadChain(ctx context.Context, did atmos.DID) (*syn
 }
 
 func (s *blockingStateStore) SaveChain(ctx context.Context, did atmos.DID, state sync.ChainState) error {
-	// Add a significant delay to each SaveChain to make verification slow.
-	// This allows commits to pile up and overflow the queue.
+	delay := s.saveDelay
+	if delay == 0 {
+		delay = 50 * time.Millisecond
+	}
+
+	// Add a delay to each SaveChain to make verification slow. This
+	// allows commits to pile up and overflow bounded per-DID queues.
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
 	select {
-	case <-time.After(50 * time.Millisecond):
+	case <-timer.C:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -662,8 +668,8 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	slowStore := &blockingStateStore{
-		inner: sync.NewMemStateStore(),
-		gate:  make(chan struct{}), // unused, kept for type compatibility
+		inner:     sync.NewMemStateStore(),
+		saveDelay: 10 * time.Millisecond,
 	}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -682,9 +688,9 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	// (At Parallelism=1 the per-key queue is unbounded by design — see
 	// TestSerialMode_NoDropErrorUnderBackpressure — so this test must
 	// use Parallelism > 1 to exercise the drop-oldest path at all.)
-	// With 100 commits arriving rapidly and 50ms SaveChain delay per
-	// commit, the dispatch goroutine will fill the queue faster than
-	// the workers can drain it, triggering drop-oldest.
+	// With 100 commits arriving rapidly and delayed SaveChain calls,
+	// the dispatch goroutine will fill the queue faster than the
+	// workers can drain it, triggering drop-oldest.
 	client := mustNewClient(t, Options{
 		URL:         wsURL(srv),
 		Verifier:    gt.Some(v),
@@ -1065,8 +1071,8 @@ func TestVerifiedStream_CursorAdvancesPastDroppedSeq(t *testing.T) {
 	// outrun the workers and trigger drops, but is short enough that
 	// the surviving frames clear within the test deadline.
 	slowStore := &blockingStateStore{
-		inner: sync.NewMemStateStore(),
-		gate:  make(chan struct{}),
+		inner:     sync.NewMemStateStore(),
+		saveDelay: 10 * time.Millisecond,
 	}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -1079,8 +1085,8 @@ func TestVerifiedStream_CursorAdvancesPastDroppedSeq(t *testing.T) {
 
 	store := &mockCursorStore{}
 
-	// Parallelism=2 → keyQueueCap = 4. With 60 commits and a 50 ms
-	// SaveChain delay, the first ~5 fit (workers + queue) and the rest
+	// Parallelism=2 -> keyQueueCap = 4. With 60 commits and delayed
+	// SaveChain calls, the first ~5 fit (workers + queue) and the rest
 	// shed via drop-oldest. The fix ensures inflight tracking releases
 	// dropped seqs so the cursor watermark can still advance.
 	client := mustNewClient(t, Options{
@@ -1150,7 +1156,7 @@ func TestVerifiedStream_CursorAdvancesPastDroppedSeq(t *testing.T) {
 //
 // This is the headline behavioral difference between N=1 and N>1: the
 // strict-order escape hatch must not silently drop events. The
-// blockingStateStore makes every SaveChain take 50ms; with 30 commits
+// blockingStateStore makes every SaveChain take 5ms; with 30 commits
 // and N=1, drops would surface within the test window if keyQueueCap
 // were finite.
 func TestSerialMode_NoDropErrorUnderBackpressure(t *testing.T) {
@@ -1172,8 +1178,8 @@ func TestSerialMode_NoDropErrorUnderBackpressure(t *testing.T) {
 	dir := &identity.Directory{Resolver: resolver}
 
 	slowStore := &blockingStateStore{
-		inner: sync.NewMemStateStore(),
-		gate:  make(chan struct{}),
+		inner:     sync.NewMemStateStore(),
+		saveDelay: 5 * time.Millisecond,
 	}
 
 	v, err := sync.NewVerifier(sync.VerifierOptions{
@@ -1190,7 +1196,7 @@ func TestSerialMode_NoDropErrorUnderBackpressure(t *testing.T) {
 		Parallelism: gt.Some(1),
 	})
 
-	// Allow plenty of time for all 30 commits at 50ms each (~1.5s) plus
+	// Allow plenty of time for all 30 commits at 5ms each (~150ms) plus
 	// scheduling slack.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
