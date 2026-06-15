@@ -7,6 +7,8 @@
 //
 // The client handles connection management, automatic reconnection with
 // exponential backoff, cursor tracking, and decoding of events.
+// See the package examples for minimal, compile-checked consumers for
+// public relay, Jetstream, labeler, and explicit Sync 1.1 verifier usage.
 //
 // For repository events, use [Event.Operations] to iterate over record
 // mutations. When a #sync event arrives (indicating a broken commit chain),

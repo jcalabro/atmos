@@ -25,6 +25,11 @@ linters:
       enable-all: true
     paralleltest:
       ignore-missing-subtests: true
+  exclusions:
+    rules:
+      - path: ^streaming/example_test\.go$
+        linters:
+          - errcheck
 
 formatters:
   enable:
