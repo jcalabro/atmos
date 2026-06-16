@@ -92,6 +92,34 @@ func TestNext_TruncatedLengthVarint_NotCleanEOF(t *testing.T) {
 	require.False(t, errors.Is(err, io.EOF), "truncated varint must not read as clean EOF")
 }
 
+// A mid-varint truncation is an unexpected end of stream, so the error must
+// satisfy errors.Is(err, io.ErrUnexpectedEOF). Callers (e.g. a backfill retry
+// loop) classify retryable network truncations by that sentinel; if a
+// truncated block-length varint does not match it, a transient short read is
+// misclassified as a permanent failure and the partially-downloaded repo is
+// dropped instead of retried.
+func TestNext_TruncatedLengthVarint_IsUnexpectedEOF(t *testing.T) {
+	t.Parallel()
+	cid := cbor.ComputeCID(cbor.CodecRaw, []byte("x"))
+
+	var buf bytes.Buffer
+	w, err := NewWriter(&buf, []cbor.CID{cid})
+	require.NoError(t, err)
+	require.NoError(t, w.WriteBlock(cid, []byte("x")))
+	buf.WriteByte(0x80)
+
+	r, err := NewReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+
+	_, err = r.Next()
+	require.NoError(t, err)
+
+	_, err = r.Next()
+	require.Error(t, err)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF,
+		"a mid-varint truncation must report as io.ErrUnexpectedEOF so retry classification treats it as a transient short read")
+}
+
 // H1 via the non-ByteReader (slow) path.
 func TestNext_TruncatedLengthVarint_SlowPath(t *testing.T) {
 	t.Parallel()

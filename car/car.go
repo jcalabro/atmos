@@ -299,7 +299,13 @@ const maxVarintLen = 9
 // errVarintTruncated indicates the stream ended partway through a varint (after
 // at least one continuation byte). This is distinct from a clean io.EOF that
 // occurs before any varint byte, which legitimately marks end-of-blocks.
-var errVarintTruncated = errors.New("car: truncated varint")
+//
+// It wraps io.ErrUnexpectedEOF: a mid-varint cut is a short read of an
+// otherwise-valid stream, semantically the same as a mid-block-data short read
+// (which io.ReadFull already reports as io.ErrUnexpectedEOF). Wrapping keeps
+// both truncation sites classifiable by a single sentinel so retry logic
+// treats a cut-off download as transient rather than a permanent parse error.
+var errVarintTruncated = fmt.Errorf("car: truncated varint: %w", io.ErrUnexpectedEOF)
 
 // readUvarintFromReader reads a single unsigned varint from an io.Reader.
 //
