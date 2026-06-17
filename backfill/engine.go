@@ -45,7 +45,12 @@ const defaultWorkers = 50
 const defaultBatchSize = listReposPageLimit
 
 // defaultMaxRetries is the default value of Options.MaxRetries.
-const defaultMaxRetries = 5
+// Backfill is resumable — a DID that exhausts its retries lands in a
+// Failed state and is retried on the next pass rather than parking a
+// worker through six attempts (~5 min worst case for a TTFB-stalling
+// host). 3 retries (4 attempts) keeps the per-DID worker-occupancy
+// ceiling bounded while still riding out ordinary transient blips.
+const defaultMaxRetries = 3
 
 // defaultRetryBaseDelay is the default value of
 // Options.RetryBaseDelay.

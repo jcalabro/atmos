@@ -77,7 +77,7 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 func ATProtoOpts(timeout time.Duration) []jttp.Option {
 	return []jttp.Option{
 		jttp.WithTimeout(timeout),
-		jttp.WithDialTimeout(10 * time.Second),
+		jttp.WithDialTimeout(5 * time.Second),
 		jttp.WithTLSHandshakeTimeout(5 * time.Second),
 		jttp.WithResponseHeaderTimeout(15 * time.Second),
 		jttp.WithExpectContinueTimeout(1 * time.Second),
@@ -114,15 +114,27 @@ const (
 	// BulkMinTransferBytes is the minimum throughput floor; if the
 	// rolling-window average rate drops below this for
 	// BulkMinTransferWindow, the connection is killed. Tolerates brief
-	// pauses but kills sustained throttling. 64 KiB/s is generous
-	// enough that a 1 GiB CAR completes in under 5 hours even at the
-	// floor — far longer than any realistic resync.
-	BulkMinTransferBytes = 64 * 1024
+	// pauses but kills sustained throttling. Any healthy PDS — even a
+	// modest self-hosted one — sustains far more than this; the floor
+	// exists to evict hosts that trickle bytes just fast enough to
+	// dodge BulkIdleTimeout while parking a worker for hours. At
+	// 512 KiB/s a 1 GiB CAR completes in ~35 minutes even at the floor.
+	BulkMinTransferBytes = 512 * 1024
 
 	// BulkMinTransferWindow is the rolling-window over which
 	// BulkMinTransferBytes is averaged. 60s smooths out transient
 	// network blips that 10s windows would catch as failures.
 	BulkMinTransferWindow = 60 * time.Second
+
+	// BulkMaxRequestTimeout is an absolute wall-clock backstop on a
+	// single getRepo (dial + TLS + headers + body). The streaming-aware
+	// guards above catch hung and trickling connections; this exists
+	// purely so no single download can park a worker indefinitely
+	// regardless of how a host games the rate floor. At the 512 KiB/s
+	// floor a 1 GiB CAR finishes in ~35 min, so 30 min only ever bites
+	// pathologically large repos or sustained-floor adversaries — and
+	// such a DID is simply retried on the next resumable pass.
+	BulkMaxRequestTimeout = 30 * time.Minute
 )
 
 // BulkDownloadOpts returns a jttp option set tuned for streaming
@@ -130,30 +142,32 @@ const (
 // take minutes for large repositories (the largest accounts on Bluesky
 // today carry ~2.5M records and ~1 GiB of CAR data).
 //
-// The key difference from [ATProtoOpts] is that there is NO
-// wall-clock total-request timeout. Instead, three streaming-aware
-// guards keep the connection honest:
+// Unlike [ATProtoOpts]'s short wall-clock timeout, the body transfer
+// is governed primarily by three streaming-aware guards, with a
+// generous absolute backstop on top:
 //
 //   - Time-to-first-byte cap of [BulkResponseHeaderTimeout] (30s).
 //   - Idle-progress cap of [BulkIdleTimeout] (30s no bytes -> kill).
 //   - Minimum sustained transfer rate of [BulkMinTransferBytes]
-//     averaged over [BulkMinTransferWindow] (64 KiB/s over 60s).
+//     averaged over [BulkMinTransferWindow] (512 KiB/s over 60s).
+//   - Absolute wall-clock backstop of [BulkMaxRequestTimeout] (30m).
 //
-// This mirrors libcurl's --connect-timeout / --low-speed-limit /
-// --low-speed-time triad: short transfers complete quickly, slow
+// The first three mirror libcurl's --connect-timeout / --low-speed-limit
+// / --low-speed-time triad: short transfers complete quickly, slow
 // upstreams either keep up the floor or get killed, but a steady
-// trickle of bytes from a faraway PDS won't be terminated just
-// because the total elapsed time exceeded an arbitrary cap.
+// trickle of bytes from a faraway PDS won't be terminated just because
+// the total elapsed time exceeded an arbitrary cap. The backstop is the
+// last line of defense so no single download can park a worker forever.
 //
 // Connection pool and SSRF settings match [ATProtoOpts] — same fan-out
 // posture against unknown PDSes.
 func BulkDownloadOpts() []jttp.Option {
 	return []jttp.Option{
-		// Disable jttp's default 30-second wall-clock timeout — the
-		// whole point of this preset is to allow long downloads.
-		// The streaming-aware guards below replace it.
-		jttp.WithTimeout(0),
-		jttp.WithDialTimeout(10 * time.Second),
+		// Absolute wall-clock backstop. jttp's default is 30s, far too
+		// short for a multi-hundred-MiB CAR; the streaming guards below
+		// do the real work, but this bounds the pathological tail.
+		jttp.WithTimeout(BulkMaxRequestTimeout),
+		jttp.WithDialTimeout(5 * time.Second),
 		jttp.WithTLSHandshakeTimeout(5 * time.Second),
 		jttp.WithResponseHeaderTimeout(BulkResponseHeaderTimeout),
 		jttp.WithExpectContinueTimeout(1 * time.Second),
