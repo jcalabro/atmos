@@ -44,13 +44,19 @@ const defaultWorkers = 50
 // defaultBatchSize is the default value of Options.BatchSize.
 const defaultBatchSize = listReposPageLimit
 
-// defaultMaxRetries is the default value of Options.MaxRetries.
+// DefaultMaxRetries is the default value of Options.MaxRetries: the number
+// of retry attempts (so total attempts = DefaultMaxRetries + 1) the engine
+// makes for a transient per-DID getRepo failure before parking the DID.
 // Backfill is resumable — a DID that exhausts its retries lands in a
 // Failed state and is retried on the next pass rather than parking a
 // worker through six attempts (~5 min worst case for a TTFB-stalling
 // host). 3 retries (4 attempts) keeps the per-DID worker-occupancy
 // ceiling bounded while still riding out ordinary transient blips.
-const defaultMaxRetries = 3
+//
+// Exported so callers that bound their own fault budget against the engine
+// (e.g. test fault-injection schedules) can key off the real value instead
+// of duplicating the literal.
+const DefaultMaxRetries = 3
 
 // defaultRetryBaseDelay is the default value of
 // Options.RetryBaseDelay.
@@ -339,7 +345,7 @@ func (e *Engine) workerLoop(ctx context.Context, jobs <-chan repoJob) {
 // job did not reach a persisted terminal state and the batch must not
 // checkpoint.
 func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
-	maxRetries := e.opts.MaxRetries.ValOr(defaultMaxRetries)
+	maxRetries := e.opts.MaxRetries.ValOr(DefaultMaxRetries)
 	baseDelay := e.opts.RetryBaseDelay.ValOr(defaultRetryBaseDelay)
 	maxDelay := e.opts.RetryMaxDelay.ValOr(defaultRetryMaxDelay)
 

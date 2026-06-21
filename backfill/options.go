@@ -48,7 +48,7 @@ type Options struct {
 
 	// MaxRetries is the number of retry attempts for transient
 	// errors per repo. The initial attempt is not counted.
-	// None = 5. Set to 0 to disable retries.
+	// None = DefaultMaxRetries. Set to 0 to disable retries.
 	MaxRetries gt.Option[int]
 
 	// RetryBaseDelay is the initial backoff before the first retry.
