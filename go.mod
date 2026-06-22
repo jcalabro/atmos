@@ -27,3 +27,8 @@ require (
 	golang.org/x/text v0.36.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+retract (
+	v0.10.0 // Published by accident (typo; meant v0.1.10).
+	v0.10.1 // Contains retractions only.
+)
