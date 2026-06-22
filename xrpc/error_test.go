@@ -2,6 +2,7 @@ package xrpc
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -47,6 +48,30 @@ func TestParseError_WithJSON(t *testing.T) {
 	assert.Equal(t, "InvalidRequest", e.Name)
 	assert.Equal(t, "bad cursor", e.Message)
 	assert.Nil(t, e.RateLimit)
+}
+
+func TestParseError_Host(t *testing.T) {
+	t.Parallel()
+
+	t.Run("from request URL", func(t *testing.T) {
+		t.Parallel()
+		u, err := url.Parse("https://pds.example.com/xrpc/com.atproto.sync.getRepo?did=did:plc:x")
+		require.NoError(t, err)
+		resp := &http.Response{
+			StatusCode: 429,
+			Header:     http.Header{},
+			Request:    &http.Request{URL: u},
+		}
+		e := parseError(resp, []byte(`{"error":"RateLimitExceeded"}`))
+		assert.Equal(t, "pds.example.com", e.Host)
+	})
+
+	t.Run("no request is empty host", func(t *testing.T) {
+		t.Parallel()
+		resp := &http.Response{StatusCode: 500, Header: http.Header{}}
+		e := parseError(resp, nil)
+		assert.Empty(t, e.Host)
+	})
 }
 
 func TestParseError_EmptyBody(t *testing.T) {

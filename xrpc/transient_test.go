@@ -117,3 +117,12 @@ func TestRetryAfter_NonXRPCError(t *testing.T) {
 	t.Parallel()
 	assert.True(t, RetryAfter(fmt.Errorf("something")).IsZero())
 }
+
+func TestIsRateLimited(t *testing.T) {
+	t.Parallel()
+	assert.True(t, IsRateLimited(&Error{StatusCode: 429}))
+	assert.True(t, IsRateLimited(fmt.Errorf("wrapped: %w", &Error{StatusCode: 429})))
+	assert.False(t, IsRateLimited(&Error{StatusCode: 503}))
+	assert.False(t, IsRateLimited(fmt.Errorf("plain error")))
+	assert.False(t, IsRateLimited(nil))
+}

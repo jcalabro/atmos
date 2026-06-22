@@ -245,6 +245,25 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 // Unlike QueryRaw, the response is not buffered in memory. Retries are not
 // performed because the response body is not seekable.
 func (c *Client) QueryStream(ctx context.Context, nsid string, params map[string]any) (io.ReadCloser, error) {
+	body, _, err := c.QueryStreamHost(ctx, nsid, params)
+	return body, err
+}
+
+// QueryStreamHost is [QueryStream] that also reports the host that
+// served the response — the final request URL's host after any
+// redirects. For a request against a relay that 302-redirects to a PDS,
+// host is the PDS, not the relay.
+//
+// On the success path host comes from the response's (post-redirect)
+// request URL. On the error path the host is also carried on the
+// returned [*Error] (Error.Host), so callers that only inspect the
+// error still get attribution; the explicit return exists for the
+// success path, where there is no error to carry it.
+//
+// host may be empty if the request failed before any response was
+// received (e.g. a dial error); in that case err is the transport
+// error, which is not an [*Error] and carries no host.
+func (c *Client) QueryStreamHost(ctx context.Context, nsid string, params map[string]any) (body io.ReadCloser, host string, err error) {
 	u := c.Host + "/xrpc/" + nsid
 	if len(params) > 0 {
 		u += "?" + encodeParams(params)
@@ -252,7 +271,7 @@ func (c *Client) QueryStream(ctx context.Context, nsid string, params map[string
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("xrpc: build request: %w", err)
+		return nil, "", fmt.Errorf("xrpc: build request: %w", err)
 	}
 
 	req.Header.Set("User-Agent", c.userAgent())
@@ -264,17 +283,23 @@ func (c *Client) QueryStream(ctx context.Context, nsid string, params map[string
 
 	resp, err := c.client().Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
+	}
+
+	// resp.Request is the final request after redirects, so its
+	// URL.Host is the server that actually answered.
+	if resp.Request != nil && resp.Request.URL != nil {
+		host = resp.Request.URL.Host
 	}
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return resp.Body, nil
+		return resp.Body, host, nil
 	}
 
 	// Error: read small body for error message, then close.
 	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10)) // 64KB for error JSON
-	return nil, parseError(resp, body)
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10)) // 64KB for error JSON
+	return nil, host, parseError(resp, respBody)
 }
 
 // encodeParams encodes query parameters. Values: string, int64, bool, []string.

@@ -15,8 +15,6 @@ import (
 	atmosrepo "github.com/jcalabro/atmos/repo"
 	atmossync "github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
-	"github.com/jcalabro/gt"
-	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // errOnCompleteRecorded is returned from tryRepo when Store.OnComplete
@@ -29,9 +27,8 @@ var errOnCompleteRecorded = errors.New("backfill: OnComplete recording failed; h
 
 // ErrEngineAlreadyRan is returned by Run when called a second time on
 // the same Engine. Engines are single-shot to avoid silently sharing
-// the per-Run progress counter and pdsClients pool across multiple
-// concurrent or sequential Runs. Construct a new Engine to start
-// another pass.
+// the per-Run progress counter across multiple concurrent or sequential
+// Runs. Construct a new Engine to start another pass.
 var ErrEngineAlreadyRan = errors.New("backfill: Engine.Run already invoked; engines are single-shot")
 
 // listReposPageLimit is the page size requested from listRepos. The
@@ -46,17 +43,28 @@ const defaultBatchSize = listReposPageLimit
 
 // DefaultMaxRetries is the default value of Options.MaxRetries: the number
 // of retry attempts (so total attempts = DefaultMaxRetries + 1) the engine
-// makes for a transient per-DID getRepo failure before parking the DID.
+// makes for an ordinary transient per-DID getRepo failure (connection reset,
+// 5xx, timeout) before parking the DID. 429 rate limiting is NOT counted
+// here — it has its own, larger budget (see DefaultRetryRateLimitMaxAttempts).
 // Backfill is resumable — a DID that exhausts its retries lands in a
 // Failed state and is retried on the next pass rather than parking a
-// worker through six attempts (~5 min worst case for a TTFB-stalling
-// host). 3 retries (4 attempts) keeps the per-DID worker-occupancy
-// ceiling bounded while still riding out ordinary transient blips.
+// worker through many attempts. 3 retries (4 attempts) keeps the per-DID
+// worker-occupancy ceiling bounded while still riding out ordinary transient
+// blips.
 //
 // Exported so callers that bound their own fault budget against the engine
 // (e.g. test fault-injection schedules) can key off the real value instead
 // of duplicating the literal.
 const DefaultMaxRetries = 3
+
+// DefaultRetryRateLimitMaxAttempts is the default value of
+// Options.RetryRateLimitMaxAttempts: how many additional attempts the engine
+// makes for a repo that keeps returning 429, sleeping for the server-directed
+// Retry-After (capped at retryRateLimitCeiling) between each. A 429 is
+// expected backpressure during a bulk crawl, not a failure, so this budget is
+// deliberately large: only continuous rate limiting across all 20 attempts
+// fails the repo. Exported for the same reason as DefaultMaxRetries.
+const DefaultRetryRateLimitMaxAttempts = 20
 
 // defaultRetryBaseDelay is the default value of
 // Options.RetryBaseDelay.
@@ -65,6 +73,14 @@ const defaultRetryBaseDelay = time.Second
 // defaultRetryMaxDelay is the default value of Options.RetryMaxDelay.
 const defaultRetryMaxDelay = 30 * time.Second
 
+// retryRateLimitCeiling caps how long the engine will sleep for a single
+// server-directed 429 Retry-After / RateLimit-Reset. Managed PDS hosts use a
+// 300s rate window, so a depleted bucket's reset is commonly up to ~300s out;
+// 330s leaves a small margin above that without letting a pathological or
+// hostile reset value park a worker indefinitely. A reset further out than
+// this is clamped down to it (we still wait, just not forever).
+const retryRateLimitCeiling = 330 * time.Second
+
 // Engine drives the backfill pipeline. Construct with NewEngine and
 // drive with Run. Engines are single-shot: a Run() call enumerates
 // listRepos to completion and returns; create a new Engine to start
@@ -72,11 +88,6 @@ const defaultRetryMaxDelay = 30 * time.Second
 // ErrEngineAlreadyRan.
 type Engine struct {
 	opts Options
-
-	// pdsClients pools per-PDS sync clients when Options.Directory is
-	// set, keyed by the PDS endpoint URL. Lazily populated by
-	// syncClientForRepo.
-	pdsClients *xsync.Map[string, *atmossync.Client]
 
 	// completed counts DIDs transitioned to StateComplete in this Run.
 	completed atomic.Int64
@@ -93,8 +104,7 @@ type Engine struct {
 // NewEngine constructs an Engine from opts.
 func NewEngine(opts Options) *Engine {
 	return &Engine{
-		opts:       opts,
-		pdsClients: xsync.NewMap[string, *atmossync.Client](),
+		opts: opts,
 	}
 }
 
@@ -167,6 +177,9 @@ func (e *Engine) validate() error {
 	}
 	if e.opts.Handler == nil {
 		return fmt.Errorf("backfill: Handler is required")
+	}
+	if e.opts.VerifyCommits.ValOr(false) && !e.opts.Directory.HasVal() {
+		return fmt.Errorf("backfill: Directory is required when VerifyCommits is set")
 	}
 	return nil
 }
@@ -346,11 +359,24 @@ func (e *Engine) workerLoop(ctx context.Context, jobs <-chan repoJob) {
 // checkpoint.
 func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 	maxRetries := e.opts.MaxRetries.ValOr(DefaultMaxRetries)
+	rlMaxAttempts := e.opts.RetryRateLimitMaxAttempts.ValOr(DefaultRetryRateLimitMaxAttempts)
 	baseDelay := e.opts.RetryBaseDelay.ValOr(defaultRetryBaseDelay)
 	maxDelay := e.opts.RetryMaxDelay.ValOr(defaultRetryMaxDelay)
 
-	for attempt := range maxRetries + 1 {
+	// Two independent budgets. transientAttempt counts ordinary
+	// transient failures (conn reset, 5xx, timeout) toward maxRetries.
+	// rlAttempt counts 429 rate-limit responses toward rlMaxAttempts.
+	// A 429 is expected backpressure during a bulk crawl — we sleep for
+	// the server-directed reset and try again, rather than spending the
+	// (small) transient budget on it. attempts is the running total of
+	// download attempts, reported to OnFail.
+	transientAttempt := 0
+	rlAttempt := 0
+	attempts := 0
+
+	for {
 		err := e.tryRepo(ctx, job)
+		attempts++
 		if err == nil {
 			return nil
 		}
@@ -361,23 +387,30 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 			return err
 		}
 
-		if !xrpc.IsTransient(err) || attempt >= maxRetries {
-			return e.recordFail(ctx, job.entry.DID, err, attempt+1)
+		host := hostFromErr(err)
+
+		var delay time.Duration
+		if xrpc.IsRateLimited(err) {
+			// 429: honor the server's Retry-After/RateLimit-Reset.
+			// Never fail for "the reset is too far out" — sleeping is
+			// the correct response to backpressure. Only give up after
+			// the dedicated rate-limit budget is exhausted by
+			// continuous 429s.
+			if rlAttempt >= rlMaxAttempts {
+				return e.recordFail(ctx, job.entry.DID, host, fmt.Errorf("backfill: still rate limited after %d attempts: %w", rlAttempt+1, err), attempts)
+			}
+			rlAttempt++
+			delay = rateLimitDelay(err, baseDelay, rlAttempt)
+		} else {
+			// Ordinary transient error (or a permanent one). Permanent
+			// errors and an exhausted transient budget both fail now.
+			if !xrpc.IsTransient(err) || transientAttempt >= maxRetries {
+				return e.recordFail(ctx, job.entry.DID, host, err, attempts)
+			}
+			delay = backoffDelay(baseDelay, maxDelay, transientAttempt)
+			transientAttempt++
 		}
 
-		delay := backoffDelay(baseDelay, maxDelay, attempt)
-		// Honor server-side Retry-After when it asks for longer than
-		// our own backoff. If the server wants more than maxDelay,
-		// give up rather than ignoring its request and hammering it.
-		if ra := xrpc.RetryAfter(err); !ra.IsZero() {
-			wait := time.Until(ra)
-			if wait > maxDelay {
-				return e.recordFail(ctx, job.entry.DID, fmt.Errorf("server requested %s delay exceeds RetryMaxDelay %s: %w", wait, maxDelay, err), attempt+1)
-			}
-			if wait > delay {
-				delay = wait
-			}
-		}
 		t := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
@@ -386,7 +419,40 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 		case <-t.C:
 		}
 	}
-	return nil
+}
+
+// hostFromErr extracts the host an xrpc error came from (the
+// post-redirect host the request landed on), or "" if err is not an
+// xrpc.Error (e.g. a dial failure that never reached a server).
+func hostFromErr(err error) string {
+	var xerr *xrpc.Error
+	if errors.As(err, &xerr) {
+		return xerr.Host
+	}
+	return ""
+}
+
+// rateLimitDelay returns how long to wait before retrying a 429. It
+// honors the server-directed reset time when present (clamped to
+// retryRateLimitCeiling so a pathological reset can't park a worker
+// forever), and otherwise falls back to exponential backoff on
+// baseDelay. A small floor keeps a missing/zero reset from busy-looping.
+func rateLimitDelay(err error, baseDelay time.Duration, rlAttempt int) time.Duration {
+	if ra := xrpc.RetryAfter(err); !ra.IsZero() {
+		if wait := time.Until(ra); wait > 0 {
+			if wait > retryRateLimitCeiling {
+				wait = retryRateLimitCeiling
+			}
+			return wait
+		}
+	}
+	// No usable reset header: back off exponentially on baseDelay,
+	// capped at the ceiling. rlAttempt is 1-based here.
+	delay := backoffDelay(baseDelay, retryRateLimitCeiling, rlAttempt-1)
+	if delay < baseDelay {
+		delay = baseDelay
+	}
+	return delay
 }
 
 // backoffDelay returns base * 2^attempt, capped at maxDelay, with
@@ -412,14 +478,15 @@ func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
 }
 
 // recordFail reports a final failure: fires OnError, persists via
-// Store.OnFail, and surfaces a Store.OnFail error via OnError too. It
-// returns a non-nil error only when Store.OnFail could not persist the
-// terminal state.
-func (e *Engine) recordFail(ctx context.Context, did atmos.DID, err error, attempts int) error {
+// Store.OnFail, and surfaces a Store.OnFail error via OnError too. host
+// is the server the failing request was sent to (post-redirect), or ""
+// if no response was received. It returns a non-nil error only when
+// Store.OnFail could not persist the terminal state.
+func (e *Engine) recordFail(ctx context.Context, did atmos.DID, host string, err error, attempts int) error {
 	if onErr := e.opts.OnError; onErr.HasVal() {
 		onErr.Val()(did, err)
 	}
-	if storeErr := e.opts.Store.OnFail(ctx, did, err, attempts); storeErr != nil {
+	if storeErr := e.opts.Store.OnFail(ctx, did, host, err, attempts); storeErr != nil {
 		// The Store rejected the failure write. There's no good
 		// recovery — surface via OnError so the operator at least
 		// sees it.
@@ -434,10 +501,13 @@ func (e *Engine) recordFail(ctx context.Context, did atmos.DID, err error, attem
 // tryRepo executes a single download+parse+handle attempt. On nil
 // return, the DID is transitioned to Complete via Store.OnComplete.
 // Errors flow back to processRepo for retry handling.
+//
+// The repo is always downloaded via the relay SyncClient, which
+// 302-redirects to the account's PDS; the engine does not resolve
+// DID→PDS itself. The host the CAR actually came from (the post-redirect
+// host) is threaded into Store.OnComplete for per-host attribution.
 func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
-	sc := e.syncClientForRepo(ctx, job.entry.DID)
-
-	body, err := sc.GetRepoStream(ctx, job.entry.DID, "")
+	body, host, err := e.opts.SyncClient.GetRepoStreamHost(ctx, job.entry.DID, "")
 	if err != nil {
 		return err
 	}
@@ -448,8 +518,8 @@ func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
 		return err
 	}
 
-	if e.opts.Directory.HasVal() {
-		if err := sc.VerifyCommit(ctx, commit); err != nil {
+	if e.opts.VerifyCommits.ValOr(false) {
+		if err := atmossync.VerifyCommitWithDirectory(ctx, e.opts.Directory.ValOr(nil), commit); err != nil {
 			return err
 		}
 	}
@@ -458,7 +528,7 @@ func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
 		return err
 	}
 
-	if err := e.opts.Store.OnComplete(ctx, job.entry.DID, commit); err != nil {
+	if err := e.opts.Store.OnComplete(ctx, job.entry.DID, host, commit); err != nil {
 		// Treat OnComplete failure as a hard error: the handler has
 		// already had its side effects but the durability marker
 		// failed. Surface via OnError. Do NOT call OnFail here —
@@ -485,54 +555,4 @@ func (e *Engine) notifyProgress() {
 	defer e.progressMu.Unlock()
 	n := e.completed.Add(1)
 	e.opts.OnProgress.Val()(Stats{Completed: n})
-}
-
-// syncClientForRepo returns a sync client for the given DID. If a
-// Directory is configured, attempt to resolve to the DID's PDS; on
-// success, use a per-PDS pooled client. On any failure, fall back to
-// the relay SyncClient.
-//
-// We use the Directory's Resolver directly (single PLC HTTP GET)
-// rather than the full LookupDID, because the latter does
-// bi-directional handle verification which is far too slow for bulk
-// backfill.
-//
-// Pooled clients are constructed with MaxAttempts=1 so the engine's
-// retry loop is the only retry source — preventing xrpc and the
-// engine from compounding retries against a slow PDS.
-func (e *Engine) syncClientForRepo(ctx context.Context, did atmos.DID) *atmossync.Client {
-	if !e.opts.Directory.HasVal() {
-		return e.opts.SyncClient
-	}
-
-	doc, err := e.opts.Directory.Val().Resolver.ResolveDID(ctx, did)
-	if err != nil {
-		return e.opts.SyncClient
-	}
-
-	var pds string
-	for _, svc := range doc.Service {
-		if svc.Type == "AtprotoPersonalDataServer" {
-			pds = svc.ServiceEndpoint
-			break
-		}
-	}
-	if pds == "" {
-		return e.opts.SyncClient
-	}
-
-	if sc, ok := e.pdsClients.Load(pds); ok {
-		return sc
-	}
-	xc := &xrpc.Client{
-		Host:       pds,
-		HTTPClient: e.opts.HTTPClient,
-		Retry:      gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
-	}
-	sc := atmossync.NewClient(atmossync.Options{
-		Client:    xc,
-		Directory: e.opts.Directory,
-	})
-	actual, _ := e.pdsClients.LoadOrStore(pds, sc)
-	return actual
 }

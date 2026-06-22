@@ -55,12 +55,24 @@ type Store interface {
 	// Handler.HandleRepo returned nil. Implementations must durably
 	// persist StateComplete before returning. commit.Rev is the rev
 	// to record as the BackfillRev.
-	OnComplete(ctx context.Context, did atmos.DID, commit *repo.Commit) error
+	//
+	// host is the server the CAR was actually downloaded from — the
+	// final host after any relay 302 redirect to the account's PDS, so
+	// implementations can record per-host attribution without resolving
+	// identity. It may be empty if the transport did not surface a
+	// final URL.
+	OnComplete(ctx context.Context, did atmos.DID, host string, commit *repo.Commit) error
 
 	// OnFail is called when the engine exhausts its retry budget for
 	// a DID within the current Run. attempts is the total number of
 	// download attempts made (initial + retries). Implementations
 	// must durably persist StateFailed before returning; a future
 	// Run will see StateFailed via Lookup and re-enqueue the DID.
-	OnFail(ctx context.Context, did atmos.DID, err error, attempts int) error
+	//
+	// host is the server the failing request was sent to — the final
+	// host after any relay 302 redirect — for per-host failure
+	// attribution. It is empty when the failure occurred before any
+	// response was received (e.g. a dial error), or when the error
+	// carried no host; implementations must tolerate an empty host.
+	OnFail(ctx context.Context, did atmos.DID, host string, err error, attempts int) error
 }

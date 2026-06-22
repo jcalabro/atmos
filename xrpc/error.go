@@ -15,6 +15,18 @@ type Error struct {
 	Name       string     // "error" field from JSON body
 	Message    string     // "message" field from JSON body
 	RateLimit  *RateLimit // non-nil if rate limit headers present
+
+	// Host is the hostname of the server that produced this error,
+	// taken from the final request URL after any redirects. For a
+	// getRepo issued against a relay that 302-redirects to the
+	// account's PDS, this is the PDS host, not the relay — i.e. the
+	// host that actually rate-limited or failed us. Empty when the
+	// error occurred before a response was received (e.g. a dial
+	// failure) or when the response carried no usable request URL.
+	//
+	// Exposed so bulk callers (notably the backfill engine) can record
+	// per-host failure attribution without string-parsing Error text.
+	Host string
 }
 
 // RateLimit contains rate limit information from response headers.
@@ -46,7 +58,8 @@ type errorBody struct {
 }
 
 // parseError parses an XRPC error from an HTTP response.
-// body must already be read. resp is used for status code and headers.
+// body must already be read. resp is used for status code, headers, and
+// the final request URL (post-redirect) for host attribution.
 func parseError(resp *http.Response, body []byte) *Error {
 	xErr := &Error{StatusCode: resp.StatusCode}
 
@@ -57,6 +70,14 @@ func parseError(resp *http.Response, body []byte) *Error {
 	}
 
 	xErr.RateLimit = parseRateLimit(resp.Header)
+	// resp.Request is the request that produced this response; after a
+	// redirect chain the net/http client rewrites it to the final hop,
+	// so URL.Host is the server that actually answered (the PDS, not
+	// the relay that 302'd us there).
+	if resp.Request != nil && resp.Request.URL != nil {
+		xErr.Host = resp.Request.URL.Host
+	}
+
 	return xErr
 }
 

@@ -38,6 +38,18 @@ func IsTransient(err error) bool {
 	return false
 }
 
+// IsRateLimited reports whether err is (or wraps) an xrpc.Error that is
+// a 429 Too Many Requests. Callers that want to treat rate limiting as
+// backpressure — sleeping and retrying rather than failing — use this
+// to distinguish a throttle from a genuine transient error.
+func IsRateLimited(err error) bool {
+	var xerr *Error
+	if !errors.As(err, &xerr) {
+		return false
+	}
+	return xerr.IsRateLimited()
+}
+
 // RetryAfter extracts the Retry-After time from an xrpc rate limit
 // error. Returns the zero time if err is not an xrpc.Error, is not
 // rate-limited, or has no Retry-After information.

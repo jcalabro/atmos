@@ -1,7 +1,6 @@
 package backfill
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/jcalabro/atmos"
@@ -56,27 +55,51 @@ type Options struct {
 	// None = 1s.
 	RetryBaseDelay gt.Option[time.Duration]
 
-	// RetryMaxDelay caps the backoff between retries. If a server
-	// asks for a longer Retry-After than this cap, the engine
-	// declines to retry rather than ignoring the server's request.
-	// None = 30s.
+	// RetryMaxDelay caps the backoff between non-rate-limit retries
+	// (connection errors, 5xx, timeouts). It does NOT cap waits the
+	// server itself dictates via a 429 Retry-After / RateLimit-Reset:
+	// those are honored up to RetryRateLimitCeiling regardless of this
+	// value, because a 429 is backpressure to obey, not a failure to
+	// cap. None = 30s.
 	RetryMaxDelay gt.Option[time.Duration]
 
-	// Directory enables DID-to-PDS resolution. When set, repos are
-	// downloaded directly from the account's PDS rather than the
-	// relay, which is dramatically faster. The SyncClient is still
-	// used for ListRepos and as fallback when resolution fails.
-	// None = all repos via SyncClient (relay).
+	// RetryRateLimitMaxAttempts is the number of additional download
+	// attempts the engine makes for a repo that keeps returning 429
+	// (rate limited), on top of the initial attempt. Unlike MaxRetries
+	// (which governs ordinary transient errors), a 429 is expected
+	// backpressure during a bulk crawl: the engine sleeps for the
+	// server-directed Retry-After (capped at RetryRateLimitCeiling)
+	// and tries again, rather than failing the repo. Only after this
+	// budget is exhausted by continuous 429s does the repo transition
+	// to StateFailed (to be retried much later by a higher layer).
 	//
-	// When set, the engine also verifies each repo's commit
-	// signature via the resolved DID document.
+	// 429 attempts are counted and budgeted independently of MaxRetries
+	// so a rate-limited host cannot consume the ordinary-transient
+	// budget and vice versa. None = DefaultRetryRateLimitMaxAttempts.
+	// Set to 0 to fail a repo on the first 429 (no rate-limit retries).
+	RetryRateLimitMaxAttempts gt.Option[int]
+
+	// Directory enables commit signature verification: when VerifyCommits
+	// is true, each downloaded repo's commit signature is checked against
+	// the signing key resolved from this Directory. Required when
+	// VerifyCommits is true; otherwise unused.
+	//
+	// It does NOT affect routing. Repos are always downloaded via
+	// SyncClient (the relay), which 302-redirects to the account's PDS;
+	// the engine does not resolve DID→PDS itself. (This is a deliberate
+	// change from earlier versions, where setting Directory also enabled
+	// per-DID PLC resolution for direct-PDS routing — that resolution
+	// serialized a bulk crawl against the PLC directory and is gone.)
 	Directory gt.Option[*identity.Directory]
 
-	// HTTPClient is shared with per-PDS sync clients created when
-	// Directory is set. Should use the same transport as the
-	// SyncClient for connection pooling. None = default 30s timeout
-	// client.
-	HTTPClient gt.Option[*http.Client]
+	// VerifyCommits, when true, makes the engine verify each downloaded
+	// repo's commit signature (via Directory) before handing it to the
+	// Handler. A verification failure transitions the DID to StateFailed.
+	// Requires Directory. None/false = no signature verification (the
+	// archive is trusted to the relay/PDS the CAR came from). Verifying
+	// every historical commit during a whole-network bulk backfill is
+	// expensive; leaving this off is the common choice for bootstrap.
+	VerifyCommits gt.Option[bool]
 
 	// BatchSize is the target number of listRepos entries to
 	// reconcile before shuffling eligible repos, dispatching them to

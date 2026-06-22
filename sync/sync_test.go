@@ -366,6 +366,25 @@ func TestClientVerifyCommit_NoDirectory(t *testing.T) {
 	assert.Contains(t, err.Error(), "no directory configured")
 }
 
+func TestVerifyCommitWithDirectory_NilDirectory(t *testing.T) {
+	t.Parallel()
+	commit := &repo.Commit{DID: "did:plc:test123"}
+	err := sync.VerifyCommitWithDirectory(context.Background(), nil, commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no directory configured")
+}
+
+func TestVerifyCommitWithDirectory_DelegatesFromMethod(t *testing.T) {
+	t.Parallel()
+	// The method form and the free-func form must agree: a lookup
+	// failure surfaces identically through both.
+	dir := &identity.Directory{Resolver: &fakeResolver{err: errors.New("network error")}}
+	commit := &repo.Commit{DID: "did:plc:test123"}
+	err := sync.VerifyCommitWithDirectory(context.Background(), dir, commit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolving DID")
+}
+
 func TestClientVerifyCommit_InvalidDID(t *testing.T) {
 	t.Parallel()
 	dir := &identity.Directory{Resolver: &fakeResolver{}}

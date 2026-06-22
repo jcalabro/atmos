@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -609,4 +610,74 @@ func TestQuery_NetworkErrorNotRetried_ContextCanceled(t *testing.T) {
 	}
 	err = c.Query(ctx, "test.method", nil, nil)
 	require.Error(t, err)
+}
+
+// TestQueryStreamHost_PostRedirectHost verifies QueryStreamHost reports
+// the host that actually served the response after a relay-style 302
+// redirect — the PDS, not the relay. This is the mechanism the backfill
+// engine relies on for per-host attribution without identity resolution.
+func TestQueryStreamHost_PostRedirectHost(t *testing.T) {
+	t.Parallel()
+
+	// PDS serves the body.
+	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("car-bytes"))
+	}))
+	t.Cleanup(pds.Close)
+
+	// Relay 302-redirects to the PDS, preserving the path+query.
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, pds.URL+r.URL.Path+"?"+r.URL.RawQuery, http.StatusFound)
+	}))
+	t.Cleanup(relay.Close)
+
+	c := &Client{Host: relay.URL, Retry: gt.Some(noRetry()), HTTPClient: gt.Some(relay.Client())}
+
+	body, host, err := c.QueryStreamHost(context.Background(), "com.atproto.sync.getRepo", map[string]any{"did": "did:plc:x"})
+	require.NoError(t, err)
+	defer func() { _ = body.Close() }()
+
+	got, err := io.ReadAll(body)
+	require.NoError(t, err)
+	assert.Equal(t, "car-bytes", string(got))
+
+	pdsURL, err := url.Parse(pds.URL)
+	require.NoError(t, err)
+	assert.Equal(t, pdsURL.Host, host, "host must be the PDS we were redirected to, not the relay")
+}
+
+// TestQueryStreamHost_ErrorCarriesHost verifies that on an error
+// response after a redirect, the returned *Error carries the
+// post-redirect host (so callers inspecting only the error still get
+// attribution).
+func TestQueryStreamHost_ErrorCarriesHost(t *testing.T) {
+	t.Parallel()
+
+	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("RateLimit-Remaining", "0")
+		w.WriteHeader(429)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
+	}))
+	t.Cleanup(pds.Close)
+
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, pds.URL+r.URL.Path+"?"+r.URL.RawQuery, http.StatusFound)
+	}))
+	t.Cleanup(relay.Close)
+
+	c := &Client{Host: relay.URL, Retry: gt.Some(noRetry()), HTTPClient: gt.Some(relay.Client())}
+
+	body, host, err := c.QueryStreamHost(context.Background(), "com.atproto.sync.getRepo", map[string]any{"did": "did:plc:x"})
+	require.Nil(t, body)
+	require.Error(t, err)
+
+	pdsURL, perr := url.Parse(pds.URL)
+	require.NoError(t, perr)
+	assert.Equal(t, pdsURL.Host, host)
+
+	var xerr *Error
+	require.ErrorAs(t, err, &xerr)
+	assert.Equal(t, 429, xerr.StatusCode)
+	assert.Equal(t, pdsURL.Host, xerr.Host, "Error.Host must carry the post-redirect host")
+	assert.True(t, IsRateLimited(err))
 }

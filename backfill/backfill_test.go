@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -224,6 +225,7 @@ type memStore struct {
 	entries  map[string]atmossync.ListReposEntry // DID -> entry as seen by OnDiscover
 	updates  map[string]atmossync.ListReposEntry // DID -> last entry seen by OnUpdate
 	commits  map[string]string                   // DID -> commit.Rev as seen by OnComplete
+	hosts    map[string]string                   // DID -> host as seen by OnComplete/OnFail
 	failures map[string]int                      // DID -> attempts at OnFail
 	failErrs map[string]error                    // DID -> last err at OnFail
 
@@ -251,6 +253,7 @@ func newMemStore() *memStore {
 		entries:  make(map[string]atmossync.ListReposEntry),
 		updates:  make(map[string]atmossync.ListReposEntry),
 		commits:  make(map[string]string),
+		hosts:    make(map[string]string),
 		failures: make(map[string]int),
 		failErrs: make(map[string]error),
 	}
@@ -295,7 +298,7 @@ func (s *memStore) OnUpdate(_ context.Context, entry atmossync.ListReposEntry) e
 	return nil
 }
 
-func (s *memStore) OnComplete(_ context.Context, did atmos.DID, commit *atmosrepo.Commit) error {
+func (s *memStore) OnComplete(_ context.Context, did atmos.DID, host string, commit *atmosrepo.Commit) error {
 	s.completeCalls.Add(1)
 	if s.failOnComplete != nil {
 		if err, ok := s.failOnComplete[string(did)]; ok {
@@ -306,10 +309,11 @@ func (s *memStore) OnComplete(_ context.Context, did atmos.DID, commit *atmosrep
 	defer s.mu.Unlock()
 	s.state[string(did)] = backfill.StateComplete
 	s.commits[string(did)] = commit.Rev
+	s.hosts[string(did)] = host
 	return nil
 }
 
-func (s *memStore) OnFail(_ context.Context, did atmos.DID, err error, attempts int) error {
+func (s *memStore) OnFail(_ context.Context, did atmos.DID, host string, err error, attempts int) error {
 	s.failCalls.Add(1)
 	if s.failOnFail != nil {
 		if e, ok := s.failOnFail[string(did)]; ok {
@@ -321,6 +325,7 @@ func (s *memStore) OnFail(_ context.Context, did atmos.DID, err error, attempts 
 	s.state[string(did)] = backfill.StateFailed
 	s.failures[string(did)] = attempts
 	s.failErrs[string(did)] = err
+	s.hosts[string(did)] = host
 	return nil
 }
 
@@ -688,40 +693,23 @@ func TestEngine_OnProgressFires(t *testing.T) {
 	require.Equal(t, int64(3), maxCompleted.Load())
 }
 
-// TestEngine_PDSRouting_PreservesDirectory is a regression test for a
-// bug where PDS-pooled sync clients were constructed without passing
-// the Directory through, causing VerifyCommit to hard-error with "no
-// directory configured for signature verification". This test verifies
-// that when both Directory and PDS routing are configured, the DID
-// completes successfully (not Failed).
-func TestEngine_PDSRouting_PreservesDirectory(t *testing.T) {
+// TestEngine_DownloadsViaRelay_NoResolution verifies the engine
+// downloads via the SyncClient (relay) WITHOUT resolving DID→PDS: even
+// when a Directory is configured (for verification), the resolver is
+// never consulted on the download path. It also asserts the host the
+// CAR came from is surfaced to Store.OnComplete.
+//
+// This replaces an earlier test of per-DID PLC resolution + direct-PDS
+// routing, which was removed: that resolution serialized a bulk crawl
+// against the PLC directory. Routing is now always relay→302→PDS.
+func TestEngine_DownloadsViaRelay_NoResolution(t *testing.T) {
 	t.Parallel()
 
 	did := "did:plc:test123"
-
-	// Generate a signing key and build a CAR signed with that key.
-	key, err := crypto.GenerateP256()
-	require.NoError(t, err)
-
-	store := mst.NewMemBlockStore()
-	r := &atmosrepo.Repo{
-		DID:   atmos.DID(did),
-		Clock: atmos.NewTIDClock(0),
-		Store: store,
-		Tree:  mst.NewTree(store),
-	}
-	record := map[string]any{"text": "test record"}
-	require.NoError(t, r.Create("app.bsky.feed.post", "rec0", record))
-	var buf bytes.Buffer
-	require.NoError(t, r.ExportCAR(&buf, key))
-	carData := buf.Bytes()
-
+	carData := buildTestRepoCAR(t, did, 1)
 	repos := map[string][]byte{did: carData}
 	dids := []string{did}
 
-	// Test server serves both the relay (listRepos) and PDS (getRepo)
-	// endpoints. The Directory stub will point the engine to resolve
-	// this DID back to the same test server.
 	ts := newTestServer(t, repos, dids)
 	xc := &xrpc.Client{
 		Host:  ts.srv.URL,
@@ -729,28 +717,12 @@ func TestEngine_PDSRouting_PreservesDirectory(t *testing.T) {
 	}
 	sc := atmossync.NewClient(atmossync.Options{Client: xc})
 
-	// Extract the public key multibase for the DID document.
-	p256pub, ok := key.PublicKey().(*crypto.P256PublicKey)
-	require.True(t, ok)
-	multibase := p256pub.DIDKey()[8:]
-
-	// stubResolver returns a DIDDocument pointing the PDS to the test
-	// server and containing the signing key so VerifyCommit succeeds.
-	resolver := &stubResolver{
-		pdsURL: ts.srv.URL,
-		doc: &identity.DIDDocument{
-			ID: did,
-			VerificationMethod: []identity.VerificationMethod{
-				{ID: "#atproto", Type: "Multikey", Controller: did, PublicKeyMultibase: multibase},
-			},
-			Service: []identity.Service{
-				{
-					ID:              "#atproto_pds",
-					Type:            "AtprotoPersonalDataServer",
-					ServiceEndpoint: ts.srv.URL,
-				},
-			},
-		},
+	// A Directory whose resolver fails the test if it is ever called —
+	// the download path must not resolve identity. VerifyCommits is
+	// left off, so verification (which would call the resolver) is
+	// also skipped.
+	resolver := &countingResolver{
+		onResolve: func() { t.Error("resolver must not be called on the download path") },
 	}
 	dir := &identity.Directory{Resolver: resolver}
 
@@ -767,18 +739,40 @@ func TestEngine_PDSRouting_PreservesDirectory(t *testing.T) {
 
 	require.NoError(t, engine.Run(context.Background()))
 
-	// Assert the DID reached Complete, not Failed. Before the fix, the
-	// engine would fail with "no directory configured for signature
-	// verification" because the pooled PDS client lacked the Directory.
 	memstore.mu.Lock()
-	state := memstore.state[did]
-	memstore.mu.Unlock()
-	require.Equal(t, backfill.StateComplete, state)
+	defer memstore.mu.Unlock()
+	require.Equal(t, backfill.StateComplete, memstore.state[did])
+	require.Equal(t, int32(0), resolver.calls.Load(), "ResolveDID must not be called during backfill")
+
+	// The host surfaced to OnComplete is the server that served the CAR
+	// (here the relay test server, since it has no redirect).
+	wantHost, err := url.Parse(ts.srv.URL)
+	require.NoError(t, err)
+	require.Equal(t, wantHost.Host, memstore.hosts[did])
 }
 
-// stubResolver is a fake identity.Resolver for
-// TestEngine_PDSRouting_PreservesDirectory. It returns a pre-configured
-// DIDDocument.
+// countingResolver is an identity.Resolver that counts ResolveDID calls
+// and optionally invokes onResolve on each. Used to assert the backfill
+// download path does not resolve identity.
+type countingResolver struct {
+	calls     atomic.Int32
+	onResolve func()
+}
+
+func (r *countingResolver) ResolveDID(_ context.Context, _ atmos.DID) (*identity.DIDDocument, error) {
+	r.calls.Add(1)
+	if r.onResolve != nil {
+		r.onResolve()
+	}
+	return nil, identity.ErrDIDNotFound
+}
+
+func (r *countingResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
+	return "", identity.ErrHandleNotFound
+}
+
+// stubResolver is a fake identity.Resolver that returns a pre-configured
+// DIDDocument. Used by the commit-verification tests.
 type stubResolver struct {
 	pdsURL string
 	doc    *identity.DIDDocument
@@ -1116,7 +1110,7 @@ func TestEngine_OnFailFailure_SurfacesViaOnError(t *testing.T) {
 }
 
 // TestEngine_VerifyCommitFailure_TransitionsToFailed verifies that
-// when Directory is set and signature verification fails, the DID
+// when VerifyCommits is set and signature verification fails, the DID
 // transitions to StateFailed.
 func TestEngine_VerifyCommitFailure_TransitionsToFailed(t *testing.T) {
 	t.Parallel()
@@ -1176,7 +1170,8 @@ func TestEngine_VerifyCommitFailure_TransitionsToFailed(t *testing.T) {
 			t.Fatal("handler must not run when VerifyCommit fails")
 			return nil
 		}),
-		Directory: gt.Some(dir),
+		Directory:     gt.Some(dir),
+		VerifyCommits: gt.Some(true),
 	})
 
 	require.NoError(t, engine.Run(context.Background()))
@@ -1184,6 +1179,133 @@ func TestEngine_VerifyCommitFailure_TransitionsToFailed(t *testing.T) {
 	memstore.mu.Lock()
 	defer memstore.mu.Unlock()
 	require.Equal(t, backfill.StateFailed, memstore.state[did])
+}
+
+// TestEngine_VerifyCommitsOff_SkipsVerification verifies that with
+// VerifyCommits unset, a CAR whose signature would NOT verify still
+// completes — the engine never checks the signature and never consults
+// the Directory. This is the bootstrap default: relay-trusted, no
+// per-commit verification.
+func TestEngine_VerifyCommitsOff_SkipsVerification(t *testing.T) {
+	t.Parallel()
+
+	did := "did:plc:unverified"
+	// Sign with a real key; the resolver (if ever called) would
+	// advertise a different key — but verification is off, so the
+	// mismatch is never checked.
+	signKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	store := mst.NewMemBlockStore()
+	r := &atmosrepo.Repo{
+		DID:   atmos.DID(did),
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+	require.NoError(t, r.Create("app.bsky.feed.post", "rec0", map[string]any{"text": "hi"}))
+	var buf bytes.Buffer
+	require.NoError(t, r.ExportCAR(&buf, signKey))
+
+	repos := map[string][]byte{did: buf.Bytes()}
+	ts := newTestServer(t, repos, []string{did})
+	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	resolver := &countingResolver{
+		onResolve: func() { t.Error("resolver must not be called when VerifyCommits is off") },
+	}
+
+	memstore := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      memstore,
+		Workers:    gt.Some(1),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
+			return nil
+		}),
+		Directory: gt.Some(&identity.Directory{Resolver: resolver}),
+		// VerifyCommits intentionally unset.
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+
+	memstore.mu.Lock()
+	defer memstore.mu.Unlock()
+	require.Equal(t, backfill.StateComplete, memstore.state[did])
+	require.Equal(t, int32(0), resolver.calls.Load())
+}
+
+// TestEngine_VerifyCommits_RequiresDirectory verifies the engine
+// rejects a configuration that asks for verification without a
+// Directory to resolve signing keys from, rather than silently
+// skipping verification.
+func TestEngine_VerifyCommits_RequiresDirectory(t *testing.T) {
+	t.Parallel()
+
+	sc := atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{Host: "http://unused"}})
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      newMemStore(),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
+			return nil
+		}),
+		VerifyCommits: gt.Some(true),
+		// Directory intentionally omitted.
+	})
+
+	err := engine.Run(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Directory is required when VerifyCommits")
+}
+
+// TestEngine_OnFail_RecordsHost verifies that the host a failing
+// getRepo was sent to (carried on the xrpc.Error) is surfaced to
+// Store.OnFail, so per-host failure attribution works without identity
+// resolution.
+func TestEngine_OnFail_RecordsHost(t *testing.T) {
+	t.Parallel()
+
+	did := "did:plc:failhost"
+	// Server returns a non-retryable 400 so the DID fails on the first
+	// attempt — exercising the host-on-failure path.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.listRepos":
+			p := listPage{}
+			p.Repos = append(p.Repos, listRepo{DID: did, Head: "h", Rev: "r", Active: true})
+			_ = json.NewEncoder(w).Encode(p)
+		case "/xrpc/com.atproto.sync.getRepo":
+			w.WriteHeader(400)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "InvalidRequest"})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	memstore := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient: sc,
+		Store:      memstore,
+		Workers:    gt.Some(1),
+		MaxRetries: gt.Some(0),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+
+	wantHost, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	memstore.mu.Lock()
+	defer memstore.mu.Unlock()
+	require.Equal(t, backfill.StateFailed, memstore.state[did])
+	require.Equal(t, wantHost.Host, memstore.hosts[did], "OnFail must receive the host the request was sent to")
 }
 
 // TestEngine_LoadFromCARFailure_RetriesAndFails verifies that
@@ -1453,17 +1575,24 @@ func TestEngine_OnProgress_Monotonic(t *testing.T) {
 	require.Equal(t, int64(n), observed[len(observed)-1])
 }
 
-// TestEngine_RetryAfter_ExceedsMaxDelay_FailsFast verifies that when
-// the server's Retry-After exceeds RetryMaxDelay, the engine declines
-// to retry and transitions the DID to Failed (rather than ignoring
-// the server's request and hammering it).
-func TestEngine_RetryAfter_ExceedsMaxDelay_FailsFast(t *testing.T) {
+// TestEngine_RateLimit_HonoredThenSucceeds verifies the engine treats a
+// 429 as backpressure, not failure: it sleeps for (a clamped form of)
+// the server-directed reset and retries, rather than failing the DID
+// the moment the reset exceeds RetryMaxDelay. After a few 429s the host
+// serves the CAR and the DID completes.
+//
+// This is the inverted contract of the old "fail fast when Retry-After
+// exceeds RetryMaxDelay" behavior: a managed PDS advertises a 300s rate
+// window, so failing on a >30s reset permanently dropped repos that
+// were merely throttled. RetryMaxDelay now governs only ordinary
+// transient backoff; it does not cap server-directed 429 waits.
+func TestEngine_RateLimit_HonoredThenSucceeds(t *testing.T) {
 	t.Parallel()
 
-	did := "did:plc:slow"
-	dids := []string{did}
-	repos := map[string][]byte{did: buildTestRepoCAR(t, did, 1)}
+	did := "did:plc:throttled"
+	carData := buildTestRepoCAR(t, did, 1)
 
+	const rateLimited = 3
 	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -1472,12 +1601,20 @@ func TestEngine_RetryAfter_ExceedsMaxDelay_FailsFast(t *testing.T) {
 			p.Repos = append(p.Repos, listRepo{DID: did, Head: "h", Rev: "r", Active: true})
 			_ = json.NewEncoder(w).Encode(p)
 		case "/xrpc/com.atproto.sync.getRepo":
-			attempts.Add(1)
-			// 10s into the future — well past our 100ms RetryMaxDelay.
-			w.Header().Set("RateLimit-Remaining", "0")
-			w.Header().Set("RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(10*time.Second).Unix()))
-			w.WriteHeader(429)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
+			n := attempts.Add(1)
+			if n <= rateLimited {
+				// Reset 1s out — past any sane RetryMaxDelay, so the old
+				// code would have failed immediately. The new code must
+				// honor it. RetryAfter floors negative waits, and our
+				// rate-limit path honors the reset directly.
+				w.Header().Set("RateLimit-Remaining", "0")
+				w.Header().Set("RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(1*time.Second).Unix()))
+				w.WriteHeader(429)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
+				return
+			}
+			w.Header().Set("Content-Type", "application/vnd.ipld.car")
+			_, _ = w.Write(carData)
 		default:
 			w.WriteHeader(404)
 		}
@@ -1489,26 +1626,75 @@ func TestEngine_RetryAfter_ExceedsMaxDelay_FailsFast(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:     sc,
-		Store:          store,
-		Workers:        gt.Some(1),
-		MaxRetries:     gt.Some(5),
-		RetryBaseDelay: gt.Some(10 * time.Millisecond),
-		RetryMaxDelay:  gt.Some(100 * time.Millisecond),
+		SyncClient:                sc,
+		Store:                     store,
+		Workers:                   gt.Some(1),
+		MaxRetries:                gt.Some(0), // a 429 must not consume the ordinary-transient budget
+		RetryRateLimitMaxAttempts: gt.Some(5),
+		RetryMaxDelay:             gt.Some(10 * time.Millisecond),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
 	})
 
-	start := time.Now()
 	require.NoError(t, engine.Run(context.Background()))
-	elapsed := time.Since(start)
+
+	require.Equal(t, int32(0), store.failCalls.Load(), "a throttled-then-served repo must not be failed")
+	require.Equal(t, int32(1), store.completeCalls.Load())
+	require.Equal(t, int32(rateLimited+1), attempts.Load(), "engine must retry through every 429 then take the success")
+}
+
+// TestEngine_RateLimit_ExhaustsBudgetThenFails verifies that a host
+// returning 429 forever eventually fails the DID — after the dedicated
+// rate-limit budget is exhausted, not on the first 429 — so a
+// permanently-throttled host does not wedge a worker indefinitely.
+func TestEngine_RateLimit_ExhaustsBudgetThenFails(t *testing.T) {
+	t.Parallel()
+
+	did := "did:plc:alwaysthrottled"
+
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.listRepos":
+			p := listPage{}
+			p.Repos = append(p.Repos, listRepo{DID: did, Head: "h", Rev: "r", Active: true})
+			_ = json.NewEncoder(w).Encode(p)
+		case "/xrpc/com.atproto.sync.getRepo":
+			attempts.Add(1)
+			// No reset header: exercises the exponential-backoff
+			// fallback in rateLimitDelay (kept tiny via RetryBaseDelay).
+			w.WriteHeader(429)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
+	sc := atmossync.NewClient(atmossync.Options{Client: xc})
+
+	const rlBudget = 3
+	store := newMemStore()
+	engine := backfill.NewEngine(backfill.Options{
+		SyncClient:                sc,
+		Store:                     store,
+		Workers:                   gt.Some(1),
+		MaxRetries:                gt.Some(0),
+		RetryRateLimitMaxAttempts: gt.Some(rlBudget),
+		RetryBaseDelay:            gt.Some(time.Millisecond),
+		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
+			return nil
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
 
 	require.Equal(t, int32(1), store.failCalls.Load())
-	require.Equal(t, int32(1), attempts.Load(), "should fail fast without retries when Retry-After > RetryMaxDelay")
-	require.Less(t, elapsed, 5*time.Second, "must not honor 10s Retry-After when cap is 100ms")
-	_ = dids
-	_ = repos
+	require.Equal(t, backfill.StateFailed, store.state[did])
+	// initial attempt + rlBudget retries before giving up.
+	require.Equal(t, int32(rlBudget+1), attempts.Load())
 }
 
 // TestEngine_StartCursor_PassedToListRepos confirms the cursor
