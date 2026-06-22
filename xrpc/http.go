@@ -114,12 +114,18 @@ const (
 	// BulkMinTransferBytes is the minimum throughput floor; if the
 	// rolling-window average rate drops below this for
 	// BulkMinTransferWindow, the connection is killed. Tolerates brief
-	// pauses but kills sustained throttling. Any healthy PDS — even a
-	// modest self-hosted one — sustains far more than this; the floor
-	// exists to evict hosts that trickle bytes just fast enough to
-	// dodge BulkIdleTimeout while parking a worker for hours. At
-	// 512 KiB/s a 1 GiB CAR completes in ~35 minutes even at the floor.
-	BulkMinTransferBytes = 512 * 1024
+	// pauses but kills sustained throttling. The floor exists only to
+	// evict genuine trickle/stall — hosts dribbling bytes just fast
+	// enough to dodge BulkIdleTimeout — NOT to evict slow-but-healthy
+	// distant or loaded PDSes. An earlier tuning pass raised this to
+	// 512 KiB/s, which caught real ~100-500 KiB/s transfers as
+	// collateral (measured against the live network); this restores the
+	// original 64 KiB/s, which sits well below any progressing transfer
+	// observed in practice. The absolute backstop is BulkMaxRequestTimeout
+	// (30m), which bounds the worst case regardless of this floor — at
+	// 64 KiB/s a transfer can't move more than ~115 MiB before that
+	// backstop fires, so this floor purely governs the trickle case.
+	BulkMinTransferBytes = 64 * 1024
 
 	// BulkMinTransferWindow is the rolling-window over which
 	// BulkMinTransferBytes is averaged. 60s smooths out transient
@@ -149,7 +155,7 @@ const (
 //   - Time-to-first-byte cap of [BulkResponseHeaderTimeout] (30s).
 //   - Idle-progress cap of [BulkIdleTimeout] (30s no bytes -> kill).
 //   - Minimum sustained transfer rate of [BulkMinTransferBytes]
-//     averaged over [BulkMinTransferWindow] (512 KiB/s over 60s).
+//     averaged over [BulkMinTransferWindow] (64 KiB/s over 60s).
 //   - Absolute wall-clock backstop of [BulkMaxRequestTimeout] (30m).
 //
 // The first three mirror libcurl's --connect-timeout / --low-speed-limit
