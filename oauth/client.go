@@ -212,12 +212,16 @@ type CallbackParams struct {
 func (c *Client) Callback(ctx context.Context, params CallbackParams) (*Session, error) {
 	httpClient := c.httpClient()
 
-	// 1. Validate and consume state (prevent replay).
+	// 1. Validate and consume state (prevent replay). Deleting the state is part
+	// of single-use replay protection: if the delete fails we must NOT proceed,
+	// because the same state+code could otherwise be replayed.
 	authState, err := c.StateStore.GetState(ctx, params.State)
 	if err != nil {
 		return nil, ErrInvalidState
 	}
-	_ = c.StateStore.DeleteState(ctx, params.State)
+	if err := c.StateStore.DeleteState(ctx, params.State); err != nil {
+		return nil, fmt.Errorf("oauth: consume state: %w", err)
+	}
 
 	// 2. Validate issuer (RFC 9207 mix-up prevention).
 	if params.Iss != "" {

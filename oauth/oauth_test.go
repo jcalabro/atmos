@@ -1254,6 +1254,41 @@ func TestCallback_IssuerMismatch(t *testing.T) {
 	assert.ErrorIs(t, err, ErrIssuerMismatch)
 }
 
+// deleteFailStateStore wraps a StateStore but fails DeleteState.
+type deleteFailStateStore struct {
+	StateStore
+}
+
+func (s deleteFailStateStore) DeleteState(context.Context, string) error {
+	return fmt.Errorf("simulated delete failure")
+}
+
+// TestCallback_DeleteStateError asserts the callback fails when the state delete
+// fails — consuming the single-use state is part of replay protection, so a
+// failed delete must not let token exchange proceed.
+func TestCallback_DeleteStateError(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	inner := NewMemoryStateStore()
+	_ = inner.SetState(context.Background(), "s1", &AuthState{
+		Issuer:  "https://as.example.com",
+		DPoPKey: key,
+	})
+
+	c := &Client{StateStore: deleteFailStateStore{inner}}
+
+	_, err = c.Callback(context.Background(), CallbackParams{
+		Code:  "code",
+		State: "s1",
+		Iss:   "https://as.example.com",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "consume state")
+}
+
 func TestCallback_InvalidState(t *testing.T) {
 	t.Parallel()
 
