@@ -290,6 +290,9 @@ func (s *FeedSearchPosts_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Posts = make([]FeedDefs_PostView, arrLen)
 					for idx := range arrLen {

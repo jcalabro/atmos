@@ -727,6 +727,9 @@ func (s *ModerationSubscribeModEvents_EventConvoFirstMessage) UnmarshalCBORAt(da
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Recipients = make([]string, arrLen)
 					for idx := range arrLen {
@@ -1187,6 +1190,9 @@ func (s *ModerationSubscribeModEvents_EventGroupChatCreated) UnmarshalCBORAt(dat
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

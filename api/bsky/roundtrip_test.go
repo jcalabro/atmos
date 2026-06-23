@@ -376,14 +376,18 @@ func TestFeedPost_TypeFieldPreservation(t *testing.T) {
 
 	t.Run("without_type", func(t *testing.T) {
 		t.Parallel()
+		// A record is always serialized with its constant $type (matching the
+		// CBOR encoding, the data model, and the TS reference), even when the
+		// caller did not set LexiconTypeID. This guarantees a correct CID.
 		post := FeedPost{
 			Text:      "hello",
 			CreatedAt: "2024-01-01T00:00:00Z",
 		}
 		data, err := post.MarshalJSON()
 		require.NoError(t, err)
+		assert.Contains(t, string(data), `"$type":"app.bsky.feed.post"`)
 		var decoded FeedPost
 		require.NoError(t, decoded.UnmarshalJSON(data))
-		assert.Empty(t, decoded.LexiconTypeID)
+		assert.Equal(t, "app.bsky.feed.post", decoded.LexiconTypeID)
 	})
 }

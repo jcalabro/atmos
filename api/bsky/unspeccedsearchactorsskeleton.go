@@ -299,6 +299,9 @@ func (s *UnspeccedSearchActorsSkeleton_Output) UnmarshalCBORAt(data []byte, pos 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Actors = make([]UnspeccedDefs_SkeletonSearchActor, arrLen)
 					for idx := range arrLen {

@@ -279,6 +279,9 @@ func (s *SignatureFindRelatedAccounts_Output) UnmarshalCBORAt(data []byte, pos i
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Accounts = make([]SignatureFindRelatedAccounts_RelatedAccount, arrLen)
 					for idx := range arrLen {
@@ -471,6 +474,9 @@ func (s *SignatureFindRelatedAccounts_RelatedAccount) UnmarshalCBORAt(data []byt
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

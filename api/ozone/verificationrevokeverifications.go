@@ -275,6 +275,9 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalCBORAt(data []byte, po
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.FailedRevocations = make([]VerificationRevokeVerifications_RevokeError, arrLen)
 					for idx := range arrLen {
@@ -297,6 +300,9 @@ func (s *VerificationRevokeVerifications_Output) UnmarshalCBORAt(data []byte, po
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -558,6 +564,9 @@ func (s *VerificationRevokeVerifications_Input) UnmarshalCBORAt(data []byte, pos
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

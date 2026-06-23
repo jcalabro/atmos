@@ -249,6 +249,9 @@ func (s *SafelinkQueryRules_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Rules = make([]SafelinkDefs_UrlRule, arrLen)
 					for idx := range arrLen {
@@ -781,6 +784,9 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Urls = make([]string, arrLen)
 					for idx := range arrLen {
@@ -859,6 +865,9 @@ func (s *SafelinkQueryRules_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

@@ -278,6 +278,9 @@ func (s *TeamListMembers_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Members = make([]TeamDefs_Member, arrLen)
 					for idx := range arrLen {

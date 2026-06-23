@@ -217,6 +217,9 @@ func (s *ServerGetAccountInviteCodes_Output) UnmarshalCBORAt(data []byte, pos in
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Codes = make([]ServerDefs_InviteCode, arrLen)
 					for idx := range arrLen {

@@ -221,6 +221,9 @@ func (s *UnspeccedGetTrends_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Trends = make([]UnspeccedDefs_TrendView, arrLen)
 					for idx := range arrLen {

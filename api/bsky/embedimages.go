@@ -428,6 +428,9 @@ func (s *EmbedImages) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Images = make([]EmbedImages_Image, arrLen)
 					for idx := range arrLen {
@@ -677,6 +680,9 @@ func (s *EmbedImages_View) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

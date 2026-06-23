@@ -268,6 +268,9 @@ func (s *UnspeccedGetSuggestedUsersSkeleton_Output) UnmarshalCBORAt(data []byte,
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Dids = make([]string, arrLen)
 					for idx := range arrLen {

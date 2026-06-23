@@ -249,6 +249,9 @@ func (s *SyncListReposByCollection_Output) UnmarshalCBORAt(data []byte, pos int)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Repos = make([]SyncListReposByCollection_Repo, arrLen)
 					for idx := range arrLen {

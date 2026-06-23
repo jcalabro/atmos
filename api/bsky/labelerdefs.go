@@ -128,6 +128,9 @@ func (s *LabelerDefs_LabelerPolicies) UnmarshalCBORAt(data []byte, pos int) (int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.LabelValues = make([]comatproto.LabelDefs_LabelValue, arrLen)
 					for idx := range arrLen {
@@ -150,6 +153,9 @@ func (s *LabelerDefs_LabelerPolicies) UnmarshalCBORAt(data []byte, pos int) (int
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -556,6 +562,9 @@ func (s *LabelerDefs_LabelerView) UnmarshalCBORAt(data []byte, pos int) (int, er
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -1161,6 +1170,9 @@ func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBORAt(data []byte, pos int) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
 					for idx := range arrLen {
@@ -1249,6 +1261,9 @@ func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBORAt(data []byte, pos int) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.ReasonTypes = make([]comatproto.ModerationDefs_ReasonType, arrLen)
 					for idx := range arrLen {
@@ -1273,6 +1288,9 @@ func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBORAt(data []byte, pos int) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.SubjectTypes = make([]comatproto.ModerationDefs_SubjectType, arrLen)
 					for idx := range arrLen {
@@ -1295,6 +1313,9 @@ func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBORAt(data []byte, pos int) 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

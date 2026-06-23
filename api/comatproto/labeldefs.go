@@ -3,7 +3,6 @@
 package comatproto
 
 import (
-	"encoding/base64"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
 )
@@ -456,16 +455,9 @@ func (s *LabelDefs_Label) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 				s.Neg = gt.Some(v)
 			}
 		case "sig":
-			{
-				var raw string
-				raw, pos, err = cbor.ReadJSONString(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Sig, err = base64.RawStdEncoding.DecodeString(raw)
-				if err != nil {
-					return 0, err
-				}
+			s.Sig, pos, err = cbor.ReadJSONBytesObject(data, pos)
+			if err != nil {
+				return 0, err
 			}
 		case "src":
 			s.Src, pos, err = cbor.ReadJSONString(data, pos)
@@ -677,6 +669,9 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -1529,6 +1524,9 @@ func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

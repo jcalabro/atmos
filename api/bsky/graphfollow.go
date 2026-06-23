@@ -62,7 +62,7 @@ func (s *GraphFollow) AppendCBOR(buf []byte) ([]byte, error) {
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_GraphFollow_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.follow")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_GraphFollow_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
@@ -85,7 +85,7 @@ func (s *GraphFollow) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 		buf = append(buf, cborKey_GraphFollow_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.follow")
 		buf = append(buf, cborKey_GraphFollow_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
 		buf = append(buf, cborKey_GraphFollow_createdAt...)
@@ -201,14 +201,12 @@ func (s *GraphFollow) MarshalJSON() ([]byte, error) {
 func (s *GraphFollow) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_GraphFollow_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_GraphFollow_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.graph.follow")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

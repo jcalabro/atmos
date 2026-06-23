@@ -487,6 +487,9 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Langs = make([]string, arrLen)
 					for idx := range arrLen {
@@ -500,6 +503,9 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -566,6 +572,9 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.ThreadgateAllow = make([]DraftDefs_Draft_ThreadgateAllow, arrLen)
 					for idx := range arrLen {
@@ -588,6 +597,9 @@ func (s *DraftDefs_Draft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -2180,6 +2192,9 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Captions = make([]DraftDefs_DraftEmbedCaption, arrLen)
 					for idx := range arrLen {
@@ -2744,6 +2759,9 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.EmbedImages = make([]DraftDefs_DraftEmbedImage, arrLen)
 					for idx := range arrLen {
@@ -2757,6 +2775,9 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -2783,6 +2804,9 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.EmbedRecords = make([]DraftDefs_DraftEmbedRecord, arrLen)
 					for idx := range arrLen {
@@ -2805,6 +2829,9 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

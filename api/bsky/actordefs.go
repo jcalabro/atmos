@@ -539,6 +539,9 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Nuxs = make([]ActorDefs_Nux, arrLen)
 					for idx := range arrLen {
@@ -575,6 +578,9 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -1960,6 +1966,9 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Items = make([]string, arrLen)
 					for idx := range arrLen {
@@ -2183,6 +2192,9 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, er
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -2458,6 +2470,9 @@ func (s *ActorDefs_KnownFollowers) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -2917,6 +2932,9 @@ func (s *ActorDefs_LabelersPref) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labelers = make([]ActorDefs_LabelerPrefItem, arrLen)
 					for idx := range arrLen {
@@ -3201,6 +3219,9 @@ func (s *ActorDefs_LiveEventPreferences) UnmarshalCBORAt(data []byte, pos int) (
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -3541,6 +3562,9 @@ func (s *ActorDefs_MutedWord) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -3909,6 +3933,9 @@ func (s *ActorDefs_MutedWordsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -5030,6 +5057,9 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.ThreadgateAllowRules = make([]ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules, arrLen)
 					for idx := range arrLen {
@@ -5052,6 +5082,9 @@ func (s *ActorDefs_PostInteractionSettingsPref) UnmarshalCBORAt(data []byte, pos
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -7429,6 +7462,9 @@ func (s *ActorDefs_ProfileView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
 					for idx := range arrLen {
@@ -8386,6 +8422,9 @@ func (s *ActorDefs_ProfileViewBasic) UnmarshalCBORAt(data []byte, pos int) (int,
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -9450,6 +9489,9 @@ func (s *ActorDefs_ProfileViewDetailed) UnmarshalCBORAt(data []byte, pos int) (i
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -10723,6 +10765,9 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Saved = make([]string, arrLen)
 					for idx := range arrLen {
@@ -10745,6 +10790,9 @@ func (s *ActorDefs_SavedFeedsPref) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -11067,6 +11115,9 @@ func (s *ActorDefs_SavedFeedsPrefV2) UnmarshalCBORAt(data []byte, pos int) (int,
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -11582,6 +11633,9 @@ func (s *ActorDefs_StatusView) UnmarshalCBORAt(data []byte, pos int) (int, error
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -12534,6 +12588,9 @@ func (s *ActorDefs_VerificationState) UnmarshalCBORAt(data []byte, pos int) (int
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

@@ -278,6 +278,9 @@ func (s *ReportListActivities_Output) UnmarshalCBORAt(data []byte, pos int) (int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Activities = make([]ReportDefs_ReportActivityView, arrLen)
 					for idx := range arrLen {

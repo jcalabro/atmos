@@ -440,6 +440,9 @@ func (s *GroupRemoveMembers_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Members = make([]string, arrLen)
 					for idx := range arrLen {

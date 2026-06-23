@@ -40,7 +40,7 @@ func (s *GraphListblock) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_GraphListblock_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.listblock")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_GraphListblock_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
@@ -50,7 +50,7 @@ func (s *GraphListblock) AppendCBOR(buf []byte) ([]byte, error) {
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_GraphListblock_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.listblock")
 		buf = append(buf, cborKey_GraphListblock_subject...)
 		buf = cbor.AppendText(buf, s.Subject)
 		buf = append(buf, cborKey_GraphListblock_createdAt...)
@@ -145,14 +145,12 @@ func (s *GraphListblock) MarshalJSON() ([]byte, error) {
 func (s *GraphListblock) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_GraphListblock_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_GraphListblock_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.graph.listblock")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

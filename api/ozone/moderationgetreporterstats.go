@@ -212,6 +212,9 @@ func (s *ModerationGetReporterStats_Output) UnmarshalCBORAt(data []byte, pos int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Stats = make([]ModerationDefs_ReporterStats, arrLen)
 					for idx := range arrLen {

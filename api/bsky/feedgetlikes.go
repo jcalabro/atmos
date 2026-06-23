@@ -588,6 +588,9 @@ func (s *FeedGetLikes_Output) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Likes = make([]FeedGetLikes_Like, arrLen)
 					for idx := range arrLen {

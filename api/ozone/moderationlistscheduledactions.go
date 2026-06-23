@@ -278,6 +278,9 @@ func (s *ModerationListScheduledActions_Output) UnmarshalCBORAt(data []byte, pos
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Actions = make([]ModerationDefs_ScheduledActionView, arrLen)
 					for idx := range arrLen {
@@ -754,6 +757,9 @@ func (s *ModerationListScheduledActions_Input) UnmarshalCBORAt(data []byte, pos 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Statuses = make([]string, arrLen)
 					for idx := range arrLen {
@@ -767,6 +773,9 @@ func (s *ModerationListScheduledActions_Input) UnmarshalCBORAt(data []byte, pos 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

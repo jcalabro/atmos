@@ -16,6 +16,7 @@ type fieldInfo struct {
 	fieldType string // lexicon type (string, integer, boolean, etc.)
 	required  bool
 	nullable  bool
+	constVal  string         // if non-empty, emit this constant value rather than the field (record $type NSID)
 	field     *lexicon.Field // original field definition
 }
 
@@ -31,14 +32,21 @@ func (g *fileGen) genCBORMethods(typeName string, obj *lexicon.Object, isRecord 
 	var fields []fieldInfo
 	// Record types always emit $type; non-record types emit it conditionally
 	// so they can participate in unions (the union MarshalCBOR sets LexiconTypeID
-	// before calling the inner type's MarshalCBOR).
-	fields = append(fields, fieldInfo{
+	// before calling the inner type's MarshalCBOR). For records, $type is emitted
+	// as the constant NSID literal (not the runtime LexiconTypeID field) so a
+	// programmatically-built record always serializes with the correct $type and
+	// therefore the correct CID, regardless of whether the caller set the field.
+	typeField := fieldInfo{
 		jsonName:  "$type",
 		goField:   "LexiconTypeID",
 		goType:    "string",
 		fieldType: "string",
 		required:  isRecord,
-	})
+	}
+	if isRecord {
+		typeField.constVal = g.schema.ID
+	}
+	fields = append(fields, typeField)
 	for _, fname := range fieldNames {
 		f := obj.Properties[fname]
 		required := requiredSet[fname]
@@ -94,11 +102,15 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 	// AppendCBOR appends the CBOR encoding to buf and returns the extended buffer.
 	fmt.Fprintf(buf, "func (s *%s) AppendCBOR(buf []byte) ([]byte, error) {\n", typeName)
 
-	// Count required fields, then add optional field checks.
+	// Count required fields, then add optional field checks. A required field is
+	// always present in the map even when nullable — it is emitted as an explicit
+	// CBOR null rather than omitted, preserving the spec-mandated null/absent
+	// distinction (e.g. sync.subscribeRepos repoOp.cid is null on deletes, not
+	// dropped). Only genuinely optional (non-required) fields are conditional.
 	requiredCount := 0
 	var optionalFields []fieldInfo
 	for _, f := range fields {
-		if f.required && !f.nullable {
+		if f.required {
 			requiredCount++
 		} else {
 			optionalFields = append(optionalFields, f)
@@ -125,7 +137,9 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 	buf.WriteString("\t\tei := 0\n")
 	for _, f := range fields {
 		keyVar := fmt.Sprintf("cborKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
-		optional := !f.required || f.nullable
+		// Required fields (including required+nullable) are always emitted;
+		// genCBOREncodeField writes an explicit null for an unset nullable field.
+		optional := !f.required
 
 		fmt.Fprintf(buf, "\t\tei, buf = appendCBORExtrasBefore(s.extra, ei, %q, buf)\n", f.jsonName)
 
@@ -145,7 +159,9 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 	// Fast path: no extras, emit known fields directly.
 	for _, f := range fields {
 		keyVar := fmt.Sprintf("cborKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
-		optional := !f.required || f.nullable
+		// Required fields (including required+nullable) are always emitted;
+		// genCBOREncodeField writes an explicit null for an unset nullable field.
+		optional := !f.required
 
 		if optional {
 			fmt.Fprintf(buf, "\t\tif %s {\n", g.cborHasValue(f))
@@ -257,9 +273,29 @@ func (g *fileGen) cborHasValue(f fieldInfo) string {
 func (g *fileGen) genCBOREncodeField(buf *strings.Builder, f fieldInfo, indent string) {
 	accessor := "s." + f.goField
 
-	// Unwrap Option/Ref types.
 	isOption := strings.HasPrefix(f.goType, "gt.Option[")
 	isRef := strings.HasPrefix(f.goType, "gt.Ref[")
+
+	// Handle required+nullable Option/Ref fields: the field is always present in
+	// the map, emitted as an explicit null when unset. The null check MUST run
+	// before any .Val() unwrap, since calling Val() on an empty Option panics.
+	if f.required && f.nullable && (isOption || isRef) {
+		fmt.Fprintf(buf, "%sif !s.%s.HasVal() {\n", indent, f.goField)
+		fmt.Fprintf(buf, "%s\tbuf = cbor.AppendNull(buf)\n", indent)
+		fmt.Fprintf(buf, "%s} else {\n", indent)
+		inner := indent + "\t"
+		valAccessor := "s." + f.goField + ".Val()"
+		if needsMarshalCBOR(g.resolveFieldType(f)) {
+			fmt.Fprintf(buf, "%s\tv := s.%s.Val()\n", inner, f.goField)
+			g.genCBOREncodeValue(buf, f, "v", inner)
+		} else {
+			g.genCBOREncodeValue(buf, f, valAccessor, inner)
+		}
+		fmt.Fprintf(buf, "%s}\n", indent)
+		return
+	}
+
+	// Unwrap Option/Ref types.
 	if isOption || isRef {
 		// For types that need AppendCBOR (pointer receiver), assign .Val() to a
 		// temp variable so the result is addressable.
@@ -274,18 +310,6 @@ func (g *fileGen) genCBOREncodeField(buf *strings.Builder, f fieldInfo, indent s
 		}
 	}
 
-	// Handle nullable required fields: encode null if not set.
-	if f.required && f.nullable {
-		if isOption || isRef {
-			fmt.Fprintf(buf, "%sif !s.%s.HasVal() {\n", indent, f.goField)
-			fmt.Fprintf(buf, "%s\tbuf = cbor.AppendNull(buf)\n", indent)
-			fmt.Fprintf(buf, "%s} else {\n", indent)
-			g.genCBOREncodeValue(buf, f, accessor, indent+"\t")
-			fmt.Fprintf(buf, "%s}\n", indent)
-			return
-		}
-	}
-
 	g.genCBOREncodeValue(buf, f, accessor, indent)
 }
 
@@ -294,7 +318,11 @@ func (g *fileGen) genCBOREncodeValue(buf *strings.Builder, f fieldInfo, accessor
 	ft := g.resolveFieldType(f)
 	switch ft {
 	case "string":
-		fmt.Fprintf(buf, "%sbuf = cbor.AppendText(buf, %s)\n", indent, accessor)
+		if f.constVal != "" {
+			fmt.Fprintf(buf, "%sbuf = cbor.AppendText(buf, %q)\n", indent, f.constVal)
+		} else {
+			fmt.Fprintf(buf, "%sbuf = cbor.AppendText(buf, %s)\n", indent, accessor)
+		}
 	case "integer":
 		fmt.Fprintf(buf, "%sbuf = cbor.AppendInt(buf, %s)\n", indent, accessor)
 	case "boolean":
@@ -471,6 +499,7 @@ func (g *fileGen) genCBORDecodeField(buf *strings.Builder, f fieldInfo, indent s
 			fmt.Fprintf(buf, "%s{\n", indent)
 			fmt.Fprintf(buf, "%s\tarrLen, newPos, err := cbor.ReadArrayHeader(data, pos)\n", indent)
 			fmt.Fprintf(buf, "%s\tif err != nil { return 0, err }\n", indent)
+			fmt.Fprintf(buf, "%s\tif err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil { return 0, err }\n", indent)
 			fmt.Fprintf(buf, "%s\tpos = newPos\n", indent)
 			fmt.Fprintf(buf, "%s\ts.%s = make(%s, arrLen)\n", indent, f.goField, f.goType)
 			fmt.Fprintf(buf, "%s\tfor i := range arrLen {\n", indent)
@@ -511,6 +540,7 @@ func (g *fileGen) genCBORDecodeArray(buf *strings.Builder, f fieldInfo, indent s
 	fmt.Fprintf(buf, "%s{\n", indent)
 	fmt.Fprintf(buf, "%s\tarrLen, newPos, err := cbor.ReadArrayHeader(data, pos)\n", indent)
 	fmt.Fprintf(buf, "%s\tif err != nil { return 0, err }\n", indent)
+	fmt.Fprintf(buf, "%s\tif err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil { return 0, err }\n", indent)
 	fmt.Fprintf(buf, "%s\tpos = newPos\n", indent)
 
 	elemType := "unknown"

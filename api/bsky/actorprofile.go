@@ -191,7 +191,7 @@ func (s *ActorProfile) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_ActorProfile_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.actor.profile")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "avatar", buf)
 		if s.Avatar.HasVal() {
 			buf = append(buf, cborKey_ActorProfile_avatar...)
@@ -290,7 +290,7 @@ func (s *ActorProfile) AppendCBOR(buf []byte) ([]byte, error) {
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorProfile_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.actor.profile")
 		if s.Avatar.HasVal() {
 			buf = append(buf, cborKey_ActorProfile_avatar...)
 			{
@@ -619,14 +619,12 @@ func (s *ActorProfile) MarshalJSON() ([]byte, error) {
 func (s *ActorProfile) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_ActorProfile_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_ActorProfile_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.actor.profile")
+	first = false
 	if s.Avatar.HasVal() {
 		if !first {
 			buf = append(buf, ',')

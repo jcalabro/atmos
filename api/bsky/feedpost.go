@@ -660,7 +660,7 @@ func (s *FeedPost) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Text)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_FeedPost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.post")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embed", buf)
 		if s.Embed.HasVal() {
 			buf = append(buf, cborKey_FeedPost_embed...)
@@ -750,7 +750,7 @@ func (s *FeedPost) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = append(buf, cborKey_FeedPost_text...)
 		buf = cbor.AppendText(buf, s.Text)
 		buf = append(buf, cborKey_FeedPost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.post")
 		if s.Embed.HasVal() {
 			buf = append(buf, cborKey_FeedPost_embed...)
 			{
@@ -850,6 +850,9 @@ func (s *FeedPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Tags = make([]string, arrLen)
 					for idx := range arrLen {
@@ -895,6 +898,9 @@ func (s *FeedPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Langs = make([]string, arrLen)
 					for idx := range arrLen {
@@ -930,6 +936,9 @@ func (s *FeedPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Facets = make([]RichtextFacet, arrLen)
 					for idx := range arrLen {
@@ -963,6 +972,9 @@ func (s *FeedPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -1029,14 +1041,12 @@ func (s *FeedPost) MarshalJSON() ([]byte, error) {
 func (s *FeedPost) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_FeedPost_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_FeedPost_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.feed.post")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

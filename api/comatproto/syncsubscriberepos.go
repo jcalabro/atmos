@@ -3,7 +3,6 @@
 package comatproto
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	lextypes "github.com/jcalabro/atmos/api/lextypes"
@@ -389,11 +388,8 @@ func (s *SyncSubscribeRepos_Commit) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 10 + countExtra(s.extra, extraEncodingCBOR)
+	n := 11 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
-		n++
-	}
-	if s.Since.HasVal() {
 		n++
 	}
 	if s.PrevData.HasVal() {
@@ -436,13 +432,11 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 			_ = item // TODO: unsupported array element CBOR encode
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "since", buf)
-		if s.Since.HasVal() {
-			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
-			if !s.Since.HasVal() {
-				buf = cbor.AppendNull(buf)
-			} else {
-				buf = cbor.AppendText(buf, s.Since.Val())
-			}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
+		if !s.Since.HasVal() {
+			buf = cbor.AppendNull(buf)
+		} else {
+			buf = cbor.AppendText(buf, s.Since.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "blocks", buf)
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blocks...)
@@ -504,13 +498,11 @@ func (s *SyncSubscribeRepos_Commit) AppendCBOR(buf []byte) ([]byte, error) {
 		for _, item := range s.Blobs {
 			_ = item // TODO: unsupported array element CBOR encode
 		}
-		if s.Since.HasVal() {
-			buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
-			if !s.Since.HasVal() {
-				buf = cbor.AppendNull(buf)
-			} else {
-				buf = cbor.AppendText(buf, s.Since.Val())
-			}
+		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_since...)
+		if !s.Since.HasVal() {
+			buf = cbor.AppendNull(buf)
+		} else {
+			buf = cbor.AppendText(buf, s.Since.Val())
 		}
 		buf = append(buf, cborKey_SyncSubscribeRepos_Commit_blocks...)
 		buf = cbor.AppendBytes(buf, s.Blocks)
@@ -566,6 +558,9 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -624,6 +619,9 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalCBORAt(data []byte, pos int) (int, 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -837,18 +835,16 @@ func (s *SyncSubscribeRepos_Commit) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_Commit_seq...)
 	buf = cbor.AppendJSONInt(buf, s.Seq)
 	first = false
-	if s.Since.HasVal() {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_SyncSubscribeRepos_Commit_since...)
-		if !s.Since.HasVal() {
-			buf = cbor.AppendJSONNull(buf)
-		} else {
-			buf = cbor.AppendJSONString(buf, s.Since.Val())
-		}
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_SyncSubscribeRepos_Commit_since...)
+	if !s.Since.HasVal() {
+		buf = cbor.AppendJSONNull(buf)
+	} else {
+		buf = cbor.AppendJSONString(buf, s.Since.Val())
+	}
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -932,16 +928,9 @@ func (s *SyncSubscribeRepos_Commit) UnmarshalJSONAt(data []byte, pos int) (int, 
 				}
 			}
 		case "blocks":
-			{
-				var raw string
-				raw, pos, err = cbor.ReadJSONString(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Blocks, err = base64.RawStdEncoding.DecodeString(raw)
-				if err != nil {
-					return 0, err
-				}
+			s.Blocks, pos, err = cbor.ReadJSONBytesObject(data, pos)
+			if err != nil {
+				return 0, err
 			}
 		case "commit":
 			pos, err = s.Commit.UnmarshalJSONAt(data, pos)
@@ -1841,10 +1830,7 @@ func (s *SyncSubscribeRepos_RepoOp) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + countExtra(s.extra, extraEncodingCBOR)
-	if s.CID.HasVal() {
-		n++
-	}
+	n := 3 + countExtra(s.extra, extraEncodingCBOR)
 	if s.Prev.HasVal() {
 		n++
 	}
@@ -1855,20 +1841,16 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 	if len(s.extra) > 0 {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "cid", buf)
-		if s.CID.HasVal() {
-			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
+		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
+		if !s.CID.HasVal() {
+			buf = cbor.AppendNull(buf)
+		} else {
+			v := s.CID.Val()
 			{
-				v := s.CID.Val()
-				if !s.CID.HasVal() {
-					buf = cbor.AppendNull(buf)
-				} else {
-					{
-						var err error
-						buf, err = v.AppendCBOR(buf)
-						if err != nil {
-							return nil, err
-						}
-					}
+				var err error
+				buf, err = v.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -1899,20 +1881,16 @@ func (s *SyncSubscribeRepos_RepoOp) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Action)
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
-		if s.CID.HasVal() {
-			buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
+		buf = append(buf, cborKey_SyncSubscribeRepos_RepoOp_cid...)
+		if !s.CID.HasVal() {
+			buf = cbor.AppendNull(buf)
+		} else {
+			v := s.CID.Val()
 			{
-				v := s.CID.Val()
-				if !s.CID.HasVal() {
-					buf = cbor.AppendNull(buf)
-				} else {
-					{
-						var err error
-						buf, err = v.AppendCBOR(buf)
-						if err != nil {
-							return nil, err
-						}
-					}
+				var err error
+				buf, err = v.AppendCBOR(buf)
+				if err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -2074,27 +2052,23 @@ func (s *SyncSubscribeRepos_RepoOp) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_SyncSubscribeRepos_RepoOp_action...)
 	buf = cbor.AppendJSONString(buf, s.Action)
 	first = false
-	if s.CID.HasVal() {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_SyncSubscribeRepos_RepoOp_cid...)
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_SyncSubscribeRepos_RepoOp_cid...)
+	if !s.CID.HasVal() {
+		buf = cbor.AppendJSONNull(buf)
+	} else {
+		v := s.CID.Val()
 		{
-			v := s.CID.Val()
-			if !s.CID.HasVal() {
-				buf = cbor.AppendJSONNull(buf)
-			} else {
-				{
-					var err error
-					buf, err = v.AppendJSON(buf)
-					if err != nil {
-						return nil, err
-					}
-				}
+			var err error
+			buf, err = v.AppendJSON(buf)
+			if err != nil {
+				return nil, err
 			}
 		}
-		first = false
 	}
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -2487,16 +2461,9 @@ func (s *SyncSubscribeRepos_Sync) UnmarshalJSONAt(data []byte, pos int) (int, er
 				return 0, err
 			}
 		case "blocks":
-			{
-				var raw string
-				raw, pos, err = cbor.ReadJSONString(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.Blocks, err = base64.RawStdEncoding.DecodeString(raw)
-				if err != nil {
-					return 0, err
-				}
+			s.Blocks, pos, err = cbor.ReadJSONBytesObject(data, pos)
+			if err != nil {
+				return 0, err
 			}
 		case "did":
 			s.DID, pos, err = cbor.ReadJSONString(data, pos)

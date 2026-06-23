@@ -381,6 +381,9 @@ func (s *GraphGetSuggestedFollowsByActor_Output) UnmarshalCBORAt(data []byte, po
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Suggestions = make([]ActorDefs_ProfileView, arrLen)
 					for idx := range arrLen {

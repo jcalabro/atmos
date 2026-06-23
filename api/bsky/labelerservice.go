@@ -165,7 +165,7 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_LabelerService_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.labeler.service")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "labels", buf)
 		if s.Labels.HasVal() {
 			buf = append(buf, cborKey_LabelerService_labels...)
@@ -219,7 +219,7 @@ func (s *LabelerService) AppendCBOR(buf []byte) ([]byte, error) {
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_LabelerService_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.labeler.service")
 		if s.Labels.HasVal() {
 			buf = append(buf, cborKey_LabelerService_labels...)
 			{
@@ -355,6 +355,9 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.ReasonTypes = make([]comatproto.ModerationDefs_ReasonType, arrLen)
 					for idx := range arrLen {
@@ -379,6 +382,9 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.SubjectTypes = make([]comatproto.ModerationDefs_SubjectType, arrLen)
 					for idx := range arrLen {
@@ -401,6 +407,9 @@ func (s *LabelerService) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -450,14 +459,12 @@ func (s *LabelerService) MarshalJSON() ([]byte, error) {
 func (s *LabelerService) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_LabelerService_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_LabelerService_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.labeler.service")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}
