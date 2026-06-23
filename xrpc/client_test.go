@@ -429,9 +429,22 @@ func TestEncodeParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			tt.check(t, encodeParams(tt.params))
+			qs, err := encodeParams(tt.params)
+			require.NoError(t, err)
+			tt.check(t, qs)
 		})
 	}
+}
+
+func TestEncodeParams_UnsupportedType(t *testing.T) {
+	t.Parallel()
+	// A float (or any unsupported type) must error, not be silently dropped.
+	_, err := encodeParams(map[string]any{"limit": 1.5})
+	require.Error(t, err)
+	// int is supported (a common caller convenience).
+	qs, err := encodeParams(map[string]any{"limit": 50})
+	require.NoError(t, err)
+	require.Contains(t, qs, "limit=50")
 }
 
 func TestProcedure_RetryWithBody(t *testing.T) {

@@ -164,7 +164,11 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		// Build URL.
 		u := c.Host + "/xrpc/" + nsid
 		if len(params) > 0 {
-			u += "?" + encodeParams(params)
+			enc, err := encodeParams(params)
+			if err != nil {
+				return err
+			}
+			u += "?" + enc
 		}
 
 		// Build request body.
@@ -291,7 +295,11 @@ func (c *Client) QueryStream(ctx context.Context, nsid string, params map[string
 func (c *Client) QueryStreamHost(ctx context.Context, nsid string, params map[string]any) (body io.ReadCloser, host string, err error) {
 	u := c.Host + "/xrpc/" + nsid
 	if len(params) > 0 {
-		u += "?" + encodeParams(params)
+		enc, err := encodeParams(params)
+		if err != nil {
+			return nil, "", err
+		}
+		u += "?" + enc
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
@@ -327,13 +335,17 @@ func (c *Client) QueryStreamHost(ctx context.Context, nsid string, params map[st
 	return nil, host, parseError(resp, respBody)
 }
 
-// encodeParams encodes query parameters. Values: string, int64, bool, []string.
-func encodeParams(params map[string]any) string {
+// encodeParams encodes query parameters. Values: string, int, int64, bool,
+// []string. An unsupported value type is an error rather than being silently
+// dropped (which would send a request missing a parameter the caller intended).
+func encodeParams(params map[string]any) (string, error) {
 	vals := url.Values{}
 	for k, v := range params {
 		switch val := v.(type) {
 		case string:
 			vals.Set(k, val)
+		case int:
+			vals.Set(k, strconv.Itoa(val))
 		case int64:
 			vals.Set(k, strconv.FormatInt(val, 10))
 		case bool:
@@ -342,7 +354,9 @@ func encodeParams(params map[string]any) string {
 			for _, s := range val {
 				vals.Add(k, s)
 			}
+		default:
+			return "", fmt.Errorf("xrpc: unsupported query param type for %q: %T", k, v)
 		}
 	}
-	return vals.Encode()
+	return vals.Encode(), nil
 }
