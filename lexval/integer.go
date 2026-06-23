@@ -16,7 +16,13 @@ func validateInteger(p *path, f *lexicon.Field, val any, errs *[]*ValidationErro
 	case int:
 		n = int64(v)
 	case float64:
-		if v != math.Trunc(v) || v > math.MaxInt64 || v < math.MinInt64 {
+		// math.MaxInt64 as a float64 rounds UP to 2^63, so "v > math.MaxInt64"
+		// is false for v == 2^63 and int64(v) would then wrap to math.MinInt64
+		// (silent corruption). Compare against the exact float64 powers of two
+		// that bound the representable int64 range: a valid integer must satisfy
+		// -2^63 <= v < 2^63.
+		const twoPow63 = 9223372036854775808.0 // 2^63, exactly representable as float64
+		if v != math.Trunc(v) || v >= twoPow63 || v < -twoPow63 {
 			addErr(errs, p, fmt.Sprintf("float64 %v is not a valid integer", v))
 			return
 		}

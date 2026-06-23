@@ -339,9 +339,34 @@ func TestParse_StringDef(t *testing.T) {
 	assert.Equal(t, 7, main.MinLength)
 	assert.Equal(t, 500, main.MaxGraphemes)
 	assert.Equal(t, 1, main.MinGraphemes)
-	assert.Equal(t, []string{"did:plc:abc", "did:web:example.com"}, main.Enum)
+	assert.Equal(t, EnumValues{"did:plc:abc", "did:web:example.com"}, main.Enum)
 	assert.Equal(t, []string{"did:plc:known"}, main.KnownValues)
 	assert.Equal(t, "did:plc:abc", main.Const)
+}
+
+// TestParse_IntegerEnum asserts a numeric integer enum array parses (captured as
+// base-10 strings) rather than failing the whole lexicon — atproto permits
+// integer enums and the canonical TS models enum as a number array.
+func TestParse_IntegerEnum(t *testing.T) {
+	t.Parallel()
+
+	const doc = `{
+		"lexicon": 1,
+		"id": "com.example.intenum",
+		"defs": {
+			"main": {
+				"type": "object",
+				"properties": {
+					"level": {"type": "integer", "enum": [1, 2, 3]}
+				}
+			}
+		}
+	}`
+	s, err := Parse([]byte(doc))
+	require.NoError(t, err)
+	f := s.Defs["main"].Properties["level"]
+	require.NotNil(t, f)
+	assert.Equal(t, EnumValues{"1", "2", "3"}, f.Enum)
 }
 
 func TestParse_IntegerDef(t *testing.T) {

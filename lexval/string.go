@@ -69,7 +69,12 @@ func validateStringFormat(p *path, format, s string, errs *[]*ValidationError) {
 	case "cid":
 		_, err = cbor.ParseCIDString(s)
 	case "datetime":
-		_, err = atmos.ParseDatetime(s)
+		// Use the lenient lexicon datetime check (matching the canonical TS
+		// validator's isDatetimeStringLenient), NOT the strict ParseDatetime.
+		// The strict parser rejects calendar rollovers (e.g. Feb 31) that a
+		// TS-based PDS accepts and serves, so using it here would reject real
+		// network records during validation.
+		err = atmos.ValidateDatetimeLexicon(s)
 	case "tid":
 		_, err = atmos.ParseTID(s)
 	case "record-key":

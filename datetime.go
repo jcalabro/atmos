@@ -1,6 +1,7 @@
 package atmos
 
 import (
+	"regexp"
 	"strings"
 	"time"
 )
@@ -100,6 +101,48 @@ func (d *Datetime) UnmarshalText(b []byte) error {
 		return err
 	}
 	*d = parsed
+	return nil
+}
+
+// lexiconDatetimeRegex mirrors the canonical @atproto/syntax DATETIME_REGEX used
+// by the TS LEXICON validator's "datetime" format (via isDatetimeStringLenient).
+// It bounds month/day/time fields structurally but — like the reference — does
+// NOT reject calendar rollovers (e.g. Feb 31), because a TS-based PDS accepts
+// and serves such records (new Date() rolls them over). Using the strict
+// ParseDatetime here would reject real network data the reference accepts.
+var lexiconDatetimeRegex = regexp.MustCompile(
+	`^[0-9]{4}-(0[1-9]|1[012])-([0-2][0-9]|3[01])T([0-1][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]+)?(Z|[+-]([0-1][0-9]|2[0-3]):[0-5][0-9])$`,
+)
+
+// ValidateDatetimeLexicon reports whether s is acceptable as a lexicon
+// "datetime" format value, matching the canonical TS lexicon validator
+// (isDatetimeStringLenient). It is intentionally more lenient than
+// [ParseDatetime]: it accepts syntactically well-formed datetimes whose
+// day-of-month would roll over (Feb 31, etc.), since the reference stack does.
+// It still rejects "-00:00", over-length input, and (after parsing) datetimes
+// whose UTC-normalized year falls outside 0000–9999.
+func ValidateDatetimeLexicon(s string) error {
+	if len(s) == 0 {
+		return syntaxErr("Datetime", s, "empty")
+	}
+	if len(s) > 64 {
+		return syntaxErr("Datetime", s, "too long")
+	}
+	if strings.HasSuffix(s, "-00:00") {
+		return syntaxErr("Datetime", s, "-00:00 not allowed, use +00:00 or Z")
+	}
+	if !lexiconDatetimeRegex.MatchString(s) {
+		return syntaxErr("Datetime", s, "not a valid datetime format")
+	}
+	// Bound the normalized year to 0000–9999, matching the reference's
+	// parseDate (which rejects a NaN/negative/>9999 year). Go's time.Parse
+	// rolls over an out-of-range day just like JS new Date(), so a value that
+	// passed the regex parses here unless the year is out of range.
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		if y := t.UTC().Year(); y < 0 || y > 9999 {
+			return syntaxErr("Datetime", s, "year out of range 0000–9999")
+		}
+	}
 	return nil
 }
 

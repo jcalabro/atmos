@@ -1,6 +1,39 @@
 // Package lexicon parses ATProto Lexicon JSON schema files.
 package lexicon
 
+import "encoding/json"
+
+// EnumValues is a lexicon "enum" constraint. The atproto data model permits
+// string enums and integer enums; both are captured here as their string form
+// (integers via base-10) so a single representation serves both the string and
+// integer validators. Without a tolerant decoder a numeric enum array would
+// fail to unmarshal into []string and break parsing of the whole lexicon.
+type EnumValues []string
+
+// UnmarshalJSON accepts a JSON array whose elements are strings or numbers.
+func (e *EnumValues) UnmarshalJSON(data []byte) error {
+	var raw []json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	out := make([]string, 0, len(raw))
+	for _, r := range raw {
+		var s string
+		if err := json.Unmarshal(r, &s); err == nil {
+			out = append(out, s)
+			continue
+		}
+		var n json.Number
+		if err := json.Unmarshal(r, &n); err == nil {
+			out = append(out, n.String())
+			continue
+		}
+		return &json.UnsupportedValueError{Str: string(r)}
+	}
+	*e = out
+	return nil
+}
+
 // Schema is a parsed lexicon document.
 type Schema struct {
 	Lexicon int             `json:"lexicon"` // always 1
@@ -38,8 +71,8 @@ type Def struct {
 	MinLength    int      `json:"minLength,omitempty"`
 	MaxGraphemes int      `json:"maxGraphemes,omitempty"`
 	MinGraphemes int      `json:"minGraphemes,omitempty"`
-	Enum         []string `json:"enum,omitempty"`
-	KnownValues  []string `json:"knownValues,omitempty"`
+	Enum         EnumValues `json:"enum,omitempty"`
+	KnownValues  []string   `json:"knownValues,omitempty"`
 	Default      any      `json:"default,omitempty"`
 	Const        any      `json:"const,omitempty"`
 
@@ -80,8 +113,8 @@ type Field struct {
 	MinLength    int      `json:"minLength,omitempty"`
 	MaxGraphemes int      `json:"maxGraphemes,omitempty"`
 	MinGraphemes int      `json:"minGraphemes,omitempty"`
-	Enum         []string `json:"enum,omitempty"`
-	KnownValues  []string `json:"knownValues,omitempty"`
+	Enum         EnumValues `json:"enum,omitempty"`
+	KnownValues  []string   `json:"knownValues,omitempty"`
 	Default      any      `json:"default,omitempty"`
 	Const        any      `json:"const,omitempty"`
 
