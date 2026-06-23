@@ -44,15 +44,27 @@ func TestDID_ZeroValue(t *testing.T) {
 	require.Equal(t, "", d.String())
 }
 
-func TestDID_PercentEncodingRejected(t *testing.T) {
+func TestDID_PercentEncoding(t *testing.T) {
 	t.Parallel()
-	// Percent-encoding is not valid in AT Protocol DIDs.
+	// Percent-encoding IS valid in AT Protocol DIDs per the spec charset
+	// [a-zA-Z0-9._:%-] (e.g. the host:port colon in did:web:localhost%3A1234,
+	// the canonical form for a host on a non-443 port). This matches the TS
+	// reference and the official interop corpus.
 	for _, s := range []string{
 		"did:example:abc%2Fdef",
-		"did:example:abc%zzdef",
-		"did:example:abc%2",
 		"did:method:val%BB",
 		"did:web:localhost%3A1234",
+		"did:method:-:_:.:%ab",
+	} {
+		d, err := ParseDID(s)
+		require.NoError(t, err, s)
+		require.Equal(t, s, d.String())
+	}
+
+	// A DID must not END with '%' (a dangling percent-escape).
+	for _, s := range []string{
+		"did:method:val%",
+		"did:example:abc%",
 	} {
 		_, err := ParseDID(s)
 		require.Error(t, err, s)
