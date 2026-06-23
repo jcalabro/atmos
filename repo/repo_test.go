@@ -487,6 +487,56 @@ func TestExportAndReload_EmptyRepo(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
+// missingRecordStore wraps a BlockStore and reports a specific CID as missing,
+// simulating a store that has the MST nodes but is missing a referenced record.
+type missingRecordStore struct {
+	mst.BlockStore
+	missing cbor.CID
+}
+
+func (s *missingRecordStore) GetBlock(cid cbor.CID) ([]byte, error) {
+	if cid.Equal(s.missing) {
+		return nil, os.ErrNotExist
+	}
+	return s.BlockStore.GetBlock(cid)
+}
+
+// TestExportCAR_MissingRecordBlock asserts ExportCAR errors when a record block
+// referenced by the MST is absent, rather than silently emitting an incomplete
+// CAR (the project's "crash over silent corruption" directive; the reference
+// implementation throws here too).
+func TestExportCAR_MissingRecordBlock(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	store := mst.NewMemBlockStore()
+	repo1 := &Repo{
+		DID:   "did:plc:testuser1234567890abcde",
+		Clock: atmos.NewTIDClock(0),
+		Store: store,
+		Tree:  mst.NewTree(store),
+	}
+	require.NoError(t, repo1.Create("app.bsky.feed.post", "3jqfcqzm3fo2j", map[string]any{
+		"$type": "app.bsky.feed.post",
+		"text":  "hello",
+	}))
+
+	// Find the record's value CID by walking the MST.
+	var recordCID cbor.CID
+	require.NoError(t, repo1.Tree.Walk(func(_ string, val cbor.CID) error {
+		recordCID = val
+		return nil
+	}))
+	require.True(t, recordCID.Defined())
+
+	// Export through a store that has lost that record block.
+	repo1.Store = &missingRecordStore{BlockStore: store, missing: recordCID}
+	var buf bytes.Buffer
+	err = repo1.ExportCAR(&buf, key)
+	require.Error(t, err, "export must fail when a referenced record block is missing")
+}
+
 func TestExportReload_ManyRecords(t *testing.T) {
 	t.Parallel()
 	key, err := crypto.GenerateP256()
