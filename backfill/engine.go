@@ -81,6 +81,24 @@ const defaultRetryMaxDelay = 30 * time.Second
 // this is clamped down to it (we still wait, just not forever).
 const retryRateLimitCeiling = 330 * time.Second
 
+type retrySleeper interface {
+	Sleep(context.Context, time.Duration) error
+}
+
+type timerRetrySleeper struct{}
+
+func (timerRetrySleeper) Sleep(ctx context.Context, delay time.Duration) error {
+	t := time.NewTimer(delay)
+	defer t.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
+}
+
 // Engine drives the backfill pipeline. Construct with NewEngine and
 // drive with Run. Engines are single-shot: a Run() call enumerates
 // listRepos to completion and returns; create a new Engine to start
@@ -88,6 +106,11 @@ const retryRateLimitCeiling = 330 * time.Second
 // ErrEngineAlreadyRan.
 type Engine struct {
 	opts Options
+
+	// retrySleeper is an internal test hook. Production engines use a
+	// real timer; tests can observe retry delays without waiting on wall
+	// clock time.
+	retrySleeper retrySleeper
 
 	// completed counts DIDs transitioned to StateComplete in this Run.
 	completed atomic.Int64
@@ -411,14 +434,18 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 			transientAttempt++
 		}
 
-		t := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			t.Stop()
-			return ctx.Err()
-		case <-t.C:
+		if err := e.sleep(ctx, delay); err != nil {
+			return err
 		}
 	}
+}
+
+func (e *Engine) sleep(ctx context.Context, delay time.Duration) error {
+	sleeper := e.retrySleeper
+	if sleeper == nil {
+		sleeper = timerRetrySleeper{}
+	}
+	return sleeper.Sleep(ctx, delay)
 }
 
 // hostFromErr extracts the host an xrpc error came from (the

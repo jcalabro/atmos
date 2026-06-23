@@ -1576,16 +1576,9 @@ func TestEngine_OnProgress_Monotonic(t *testing.T) {
 }
 
 // TestEngine_RateLimit_HonoredThenSucceeds verifies the engine treats a
-// 429 as backpressure, not failure: it sleeps for (a clamped form of)
-// the server-directed reset and retries, rather than failing the DID
-// the moment the reset exceeds RetryMaxDelay. After a few 429s the host
-// serves the CAR and the DID completes.
-//
-// This is the inverted contract of the old "fail fast when Retry-After
-// exceeds RetryMaxDelay" behavior: a managed PDS advertises a 300s rate
-// window, so failing on a >30s reset permanently dropped repos that
-// were merely throttled. RetryMaxDelay now governs only ordinary
-// transient backoff; it does not cap server-directed 429 waits.
+// 429 as backpressure, not failure: it retries via the dedicated
+// rate-limit budget rather than consuming the ordinary transient budget.
+// After a few 429s the host serves the CAR and the DID completes.
 func TestEngine_RateLimit_HonoredThenSucceeds(t *testing.T) {
 	t.Parallel()
 
@@ -1603,12 +1596,10 @@ func TestEngine_RateLimit_HonoredThenSucceeds(t *testing.T) {
 		case "/xrpc/com.atproto.sync.getRepo":
 			n := attempts.Add(1)
 			if n <= rateLimited {
-				// Reset 1s out — past any sane RetryMaxDelay, so the old
-				// code would have failed immediately. The new code must
-				// honor it. RetryAfter floors negative waits, and our
-				// rate-limit path honors the reset directly.
-				w.Header().Set("RateLimit-Remaining", "0")
-				w.Header().Set("RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(1*time.Second).Unix()))
+				// No reset header: use the rate-limit fallback backoff,
+				// kept tiny below so this integration test does not wait
+				// on wall-clock rate-limit windows. Server-directed reset
+				// handling is covered by the internal retry-sleeper test.
 				w.WriteHeader(429)
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
 				return
@@ -1631,6 +1622,7 @@ func TestEngine_RateLimit_HonoredThenSucceeds(t *testing.T) {
 		Workers:                   gt.Some(1),
 		MaxRetries:                gt.Some(0), // a 429 must not consume the ordinary-transient budget
 		RetryRateLimitMaxAttempts: gt.Some(5),
+		RetryBaseDelay:            gt.Some(time.Millisecond),
 		RetryMaxDelay:             gt.Some(10 * time.Millisecond),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
