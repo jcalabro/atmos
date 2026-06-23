@@ -255,6 +255,55 @@ func TestNewWriter_EmptyRoots(t *testing.T) {
 	require.Contains(t, err.Error(), "non-empty")
 }
 
+// writeCARHeader frames a raw header-map encoding with its length varint.
+func writeCARHeader(headerMap []byte) []byte {
+	var out bytes.Buffer
+	_ = writeUvarint(&out, uint64(len(headerMap)))
+	out.Write(headerMap)
+	return out.Bytes()
+}
+
+// TestNewReader_TrailingBytesAfterHeader asserts extra bytes after the header
+// CBOR map are rejected (no smuggled trailing data).
+func TestNewReader_TrailingBytesAfterHeader(t *testing.T) {
+	t.Parallel()
+	cid := cbor.ComputeCID(cbor.CodecRaw, []byte("x"))
+
+	// Canonical header map {roots:[cid], version:1} followed by a stray byte.
+	hm := cbor.AppendMapHeader(nil, 2)
+	hm = cbor.AppendText(hm, "roots")
+	hm = cbor.AppendArrayHeader(hm, 1)
+	hm = cbor.AppendCIDLink(hm, &cid)
+	hm = cbor.AppendText(hm, "version")
+	hm = cbor.AppendUint(hm, 1)
+	hm = append(hm, 0xff) // trailing junk inside the declared header length
+
+	_, err := NewReader(bytes.NewReader(writeCARHeader(hm)))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "trailing")
+}
+
+// TestNewReader_DuplicateHeaderKey asserts a duplicate header key is rejected.
+func TestNewReader_DuplicateHeaderKey(t *testing.T) {
+	t.Parallel()
+	cid := cbor.ComputeCID(cbor.CodecRaw, []byte("x"))
+
+	// {roots:[cid], roots:[cid], version:1} — duplicate "roots", map(3).
+	hm := cbor.AppendMapHeader(nil, 3)
+	hm = cbor.AppendText(hm, "roots")
+	hm = cbor.AppendArrayHeader(hm, 1)
+	hm = cbor.AppendCIDLink(hm, &cid)
+	hm = cbor.AppendText(hm, "roots")
+	hm = cbor.AppendArrayHeader(hm, 1)
+	hm = cbor.AppendCIDLink(hm, &cid)
+	hm = cbor.AppendText(hm, "version")
+	hm = cbor.AppendUint(hm, 1)
+
+	_, err := NewReader(bytes.NewReader(writeCARHeader(hm)))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate")
+}
+
 func TestNext_TruncatedBlock(t *testing.T) {
 	t.Parallel()
 	cid := cbor.ComputeCID(cbor.CodecRaw, []byte("data"))
@@ -272,6 +321,40 @@ func TestNext_TruncatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	_, err = r.Next()
 	require.Error(t, err)
+}
+
+// TestNext_TruncatedAtBlockBoundary asserts that a CAR whose stream ends right
+// after a complete block-length varint (zero body bytes) is reported as a
+// truncation, NOT silently accepted as a clean end-of-blocks. This is the same
+// truncation class the varint reader guards, but at the post-varint boundary.
+func TestNext_TruncatedAtBlockBoundary(t *testing.T) {
+	t.Parallel()
+
+	cid := cbor.ComputeCID(cbor.CodecRaw, []byte("data"))
+
+	// Valid header + one full block, then a block-length varint with NO body.
+	var buf bytes.Buffer
+	w, err := NewWriter(&buf, []cbor.CID{cid})
+	require.NoError(t, err)
+	require.NoError(t, w.WriteBlock(cid, []byte("data")))
+	// A complete varint declaring a 50-byte block, immediately followed by EOF.
+	require.NoError(t, writeUvarint(&buf, 50))
+
+	// ReadAll must surface an error, not return the single good block as if the
+	// CAR were complete.
+	_, blocks, err := ReadAll(bytes.NewReader(buf.Bytes()))
+	require.Error(t, err, "a CAR truncated at a block boundary must error")
+	require.NotErrorIs(t, err, io.EOF, "truncation must not look like a clean EOF")
+	require.Nil(t, blocks)
+
+	// Next() directly returns the truncation (after the first good block).
+	r, err := NewReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	_, err = r.Next() // good block
+	require.NoError(t, err)
+	_, err = r.Next() // boundary truncation
+	require.Error(t, err)
+	require.NotErrorIs(t, err, io.EOF)
 }
 
 // -------------------------------------------------------------------
