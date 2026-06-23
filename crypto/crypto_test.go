@@ -18,8 +18,8 @@ func TestPrivateKey_RedactsSecret(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, s := range []string{
-		fmt.Sprintf("%v", p), fmt.Sprintf("%s", p), fmt.Sprintf("%#v", p),
-		fmt.Sprintf("%v", k), fmt.Sprintf("%s", k), fmt.Sprintf("%#v", k),
+		fmt.Sprintf("%v", p), p.String(), fmt.Sprintf("%#v", p),
+		fmt.Sprintf("%v", k), k.String(), fmt.Sprintf("%#v", k),
 	} {
 		require.Contains(t, s, "REDACTED")
 	}

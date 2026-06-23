@@ -125,15 +125,13 @@ func TestParseRateLimit_None(t *testing.T) {
 }
 
 func TestParseRateLimit_RetryAfterSeconds(t *testing.T) {
+	t.Parallel()
+
 	// Pin time so the delta-seconds form is deterministic.
 	fixed := time.Unix(1_700_000_000, 0)
-	old := nowFunc
-	nowFunc = func() time.Time { return fixed }
-	defer func() { nowFunc = old }()
-
 	h := http.Header{}
 	h.Set("Retry-After", "120")
-	rl := parseRateLimit(h)
+	rl := parseRateLimitAt(h, func() time.Time { return fixed })
 	require.NotNil(t, rl)
 	assert.Equal(t, fixed.Add(120*time.Second), rl.Reset)
 }

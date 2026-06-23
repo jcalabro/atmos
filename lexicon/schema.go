@@ -66,15 +66,15 @@ type Def struct {
 	Nullable   []string          `json:"nullable,omitempty"`
 
 	// Inline string fields (when Type is "string")
-	Format       string   `json:"format,omitempty"`
-	MaxLength    int      `json:"maxLength,omitempty"`
-	MinLength    int      `json:"minLength,omitempty"`
-	MaxGraphemes int      `json:"maxGraphemes,omitempty"`
-	MinGraphemes int      `json:"minGraphemes,omitempty"`
+	Format       string     `json:"format,omitempty"`
+	MaxLength    int        `json:"maxLength,omitempty"`
+	MinLength    int        `json:"minLength,omitempty"`
+	MaxGraphemes int        `json:"maxGraphemes,omitempty"`
+	MinGraphemes int        `json:"minGraphemes,omitempty"`
 	Enum         EnumValues `json:"enum,omitempty"`
 	KnownValues  []string   `json:"knownValues,omitempty"`
-	Default      any      `json:"default,omitempty"`
-	Const        any      `json:"const,omitempty"`
+	Default      any        `json:"default,omitempty"`
+	Const        any        `json:"const,omitempty"`
 
 	// Inline integer fields (when Type is "integer")
 	Minimum *int64 `json:"minimum,omitempty"`
@@ -108,15 +108,15 @@ type Field struct {
 	Desc string `json:"description,omitempty"`
 
 	// String / Array / Bytes constraints (maxLength means bytes for string, elements for array)
-	Format       string   `json:"format,omitempty"`
-	MaxLength    int      `json:"maxLength,omitempty"`
-	MinLength    int      `json:"minLength,omitempty"`
-	MaxGraphemes int      `json:"maxGraphemes,omitempty"`
-	MinGraphemes int      `json:"minGraphemes,omitempty"`
+	Format       string     `json:"format,omitempty"`
+	MaxLength    int        `json:"maxLength,omitempty"`
+	MinLength    int        `json:"minLength,omitempty"`
+	MaxGraphemes int        `json:"maxGraphemes,omitempty"`
+	MinGraphemes int        `json:"minGraphemes,omitempty"`
 	Enum         EnumValues `json:"enum,omitempty"`
 	KnownValues  []string   `json:"knownValues,omitempty"`
-	Default      any      `json:"default,omitempty"`
-	Const        any      `json:"const,omitempty"`
+	Default      any        `json:"default,omitempty"`
+	Const        any        `json:"const,omitempty"`
 
 	// Integer constraints
 	Minimum *int64 `json:"minimum,omitempty"`
