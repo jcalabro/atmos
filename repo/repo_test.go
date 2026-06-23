@@ -684,41 +684,57 @@ func TestDecodeCommit_RejectVersion1(t *testing.T) {
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	c := &Commit{
-		DID:     "did:plc:testuser1234567890abcde",
-		Version: 1,
-		Data:    cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")),
-		Rev:     "3jqfcqzm3fo2j",
-	}
-	require.NoError(t, c.Sign(key))
-
-	data, err := encodeCommit(c)
-	require.NoError(t, err)
-
+	// Build commit bytes directly with an out-of-range version (the encoder now
+	// also rejects these, so we can't go through encodeCommit).
+	data := encodeCommitWithVersion(cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")), 1)
 	_, err = decodeCommit(data)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported commit version")
+	_ = key
+}
+
+// encodeCommitWithVersion hand-builds a commit map with an arbitrary version,
+// used to exercise the decoder's version validation independently of the
+// encoder (which only emits versions 2 and 3).
+func encodeCommitWithVersion(data cbor.CID, version int64) []byte {
+	buf := cbor.AppendMapHeader(nil, 6)
+	buf = append(buf, commitKeyDID...)
+	buf = cbor.AppendText(buf, "did:plc:testuser1234567890abcde")
+	buf = append(buf, commitKeyRev...)
+	buf = cbor.AppendText(buf, "3jqfcqzm3fo2j")
+	buf = append(buf, commitKeySig...)
+	buf = cbor.AppendBytes(buf, make([]byte, 64))
+	buf = append(buf, commitKeyData...)
+	buf = cbor.AppendCIDLink(buf, &data)
+	buf = append(buf, commitKeyPrev...)
+	buf = cbor.AppendNull(buf)
+	buf = append(buf, commitKeyVersion...)
+	buf = cbor.AppendInt(buf, version)
+	return buf
 }
 
 func TestDecodeCommit_RejectVersion999(t *testing.T) {
 	t.Parallel()
-	key, err := crypto.GenerateP256()
-	require.NoError(t, err)
+	data := encodeCommitWithVersion(cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")), 999)
+	_, err := decodeCommit(data)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported commit version")
+}
 
+// TestEncodeCommit_RejectsInvalidVersion asserts the encoder also refuses an
+// out-of-range version rather than casting it to a huge uint64 (REPO-4).
+func TestEncodeCommit_RejectsInvalidVersion(t *testing.T) {
+	t.Parallel()
 	c := &Commit{
 		DID:     "did:plc:testuser1234567890abcde",
-		Version: 999,
+		Version: -1,
 		Data:    cbor.ComputeCID(cbor.CodecDagCBOR, []byte("root")),
 		Rev:     "3jqfcqzm3fo2j",
 	}
-	require.NoError(t, c.Sign(key))
-
-	data, err := encodeCommit(c)
-	require.NoError(t, err)
-
-	_, err = decodeCommit(data)
+	_, err := encodeCommit(c)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unsupported commit version")
+	_, err = c.UnsignedBytes()
+	require.Error(t, err)
 }
 
 func TestDecodeCommit_RejectV3MissingRev(t *testing.T) {
