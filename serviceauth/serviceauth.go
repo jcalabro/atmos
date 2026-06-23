@@ -14,12 +14,28 @@ import (
 	"fmt"
 	"time"
 
+	"strings"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/gt"
 )
+
+// splitIssuer splits a service-auth issuer claim into its DID and optional
+// verification-method fragment. The atproto service-auth spec (and the TS
+// reference) permit an iss of the form "did:plc:xxx#atproto_labeler"; the
+// fragment selects which key in the DID document signed the token. Returns the
+// bare DID and the fragment (without '#', empty when none was present).
+func splitIssuer(iss string) (atmos.DID, string, error) {
+	bare, fragment, _ := strings.Cut(iss, "#")
+	did, err := atmos.ParseDID(bare)
+	if err != nil {
+		return "", "", err
+	}
+	return did, fragment, nil
+}
 
 // TokenParams configures a service auth JWT.
 type TokenParams struct {
@@ -160,7 +176,7 @@ func VerifyToken(ctx context.Context, tokenString string, opts VerifyOptions) (*
 			return nil, errors.New("serviceauth: missing issuer")
 		}
 
-		did, err := atmos.ParseDID(iss)
+		did, fragment, err := splitIssuer(iss)
 		if err != nil {
 			return nil, fmt.Errorf("serviceauth: invalid issuer DID: %w", err)
 		}
@@ -170,7 +186,9 @@ func VerifyToken(ctx context.Context, tokenString string, opts VerifyOptions) (*
 			return nil, fmt.Errorf("serviceauth: resolve issuer: %w", err)
 		}
 
-		pub, err := id.PublicKey()
+		// The issuer may name a specific verification method via a fragment
+		// (e.g. did:plc:xxx#atproto_labeler); default to the atproto key.
+		pub, err := id.PublicKeyForFragment(fragment)
 		if err != nil {
 			return nil, fmt.Errorf("serviceauth: issuer has no signing key: %w", err)
 		}
@@ -186,7 +204,7 @@ func VerifyToken(ctx context.Context, tokenString string, opts VerifyOptions) (*
 		// once in case the issuer rotated their signing key.
 		if errors.Is(err, jwt.ErrTokenSignatureInvalid) && opts.Identity != nil && !opts.retried {
 			iss, _ := c.GetIssuer()
-			if did, parseErr := atmos.ParseDID(iss); parseErr == nil {
+			if did, _, parseErr := splitIssuer(iss); parseErr == nil {
 				opts.Identity.Purge(ctx, did)
 				retry := opts
 				retry.retried = true

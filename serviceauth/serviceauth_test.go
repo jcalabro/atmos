@@ -56,6 +56,58 @@ func keyType(pub crypto.PublicKey) string {
 	}
 }
 
+// fragmentResolver serves a DID document whose signing key lives under a
+// non-default verification-method fragment (e.g. #atproto_labeler).
+type fragmentResolver struct {
+	did      atmos.DID
+	fragment string
+	pub      crypto.PublicKey
+}
+
+func (m *fragmentResolver) ResolveDID(_ context.Context, _ atmos.DID) (*identity.DIDDocument, error) {
+	return &identity.DIDDocument{
+		ID: string(m.did),
+		VerificationMethod: []identity.VerificationMethod{{
+			ID:                 string(m.did) + "#" + m.fragment,
+			Type:               keyType(m.pub),
+			Controller:         string(m.did),
+			PublicKeyMultibase: m.pub.Multibase(),
+		}},
+	}, nil
+}
+
+func (m *fragmentResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
+	return m.did, nil
+}
+
+// TestVerify_IssuerWithFragment asserts a service-auth token whose iss carries a
+// verification-method fragment (e.g. did:plc:x#atproto_labeler) verifies against
+// the keyed method — matching the TS reference, which accepts DidString#fragment.
+func TestVerify_IssuerWithFragment(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateK256()
+	require.NoError(t, err)
+
+	dir := &identity.Directory{
+		Resolver: &fragmentResolver{did: "did:plc:labeler", fragment: "atproto_labeler", pub: priv.PublicKey()},
+	}
+
+	token, err := CreateToken(TokenParams{
+		Issuer:   "did:plc:labeler#atproto_labeler",
+		Audience: "did:web:ozone.example.com",
+		Exp:      time.Now().Add(60 * time.Second),
+	}, priv)
+	require.NoError(t, err)
+
+	claims, err := VerifyToken(context.Background(), token, VerifyOptions{
+		Audience: "did:web:ozone.example.com",
+		Identity: dir,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, atmos.DID("did:plc:labeler#atproto_labeler"), claims.Issuer)
+}
+
 func TestCreateAndVerify_P256(t *testing.T) {
 	t.Parallel()
 
