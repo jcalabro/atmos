@@ -82,6 +82,17 @@ func buildInfoBody(name string) []byte {
 	return data
 }
 
+// buildErrorBody constructs the {error, message} body of an event-stream error
+// frame (op=-1). This is the generic framing shape, distinct from #info.
+func buildErrorBody(errCode, message string) []byte {
+	b := cbor.AppendMapHeader(nil, 2)
+	b = cbor.AppendTextKey(b, "error")
+	b = cbor.AppendText(b, errCode)
+	b = cbor.AppendTextKey(b, "message")
+	b = cbor.AppendText(b, message)
+	return b
+}
+
 func mustNewClient(t *testing.T, opts Options) *Client {
 	t.Helper()
 	c, err := NewClient(opts)
@@ -465,7 +476,7 @@ func TestErrorFrame(t *testing.T) {
 	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
 		ctx := context.Background()
 		_ = conn.Write(ctx, websocket.MessageBinary,
-			buildErrorFrame(buildInfoBody("OutdatedCursor")))
+			buildErrorFrame(buildErrorBody("OutdatedCursor", "cursor too old")))
 		_ = conn.Close(websocket.StatusNormalClosure, "done")
 	})
 
@@ -486,8 +497,12 @@ func TestErrorFrame(t *testing.T) {
 	}
 
 	require.Len(t, events, 1)
-	require.NotNil(t, events[0].Info)
-	assert.Equal(t, "OutdatedCursor", events[0].Info.Name)
+	// An error frame must surface its machine-readable code + message via
+	// Event.Error, not be misdecoded as an #info "name".
+	require.NotNil(t, events[0].Error)
+	assert.Equal(t, "OutdatedCursor", events[0].Error.Error)
+	assert.Equal(t, "cursor too old", events[0].Error.Message)
+	assert.Nil(t, events[0].Info)
 }
 
 func TestInfoEvent(t *testing.T) {
