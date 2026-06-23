@@ -155,6 +155,21 @@ type frameHeader struct {
 	T  string // type, e.g. "#commit"
 }
 
+// checkFrameBodyComplete verifies the body is exactly one CBOR value with no
+// trailing bytes. A frame is exactly two concatenated CBOR values (header +
+// body); trailing bytes mean a second frame was smuggled into one message,
+// which the TS reference rejects ("too many CBOR data items in frame").
+func checkFrameBodyComplete(body []byte) error {
+	end, err := cbor.SkipValue(body, 0)
+	if err != nil {
+		return fmt.Errorf("decode frame body: %w", err)
+	}
+	if end != len(body) {
+		return fmt.Errorf("decode frame: %d trailing bytes after body", len(body)-end)
+	}
+	return nil
+}
+
 // decodeFrame decodes an ATProto event stream frame (two concatenated CBOR values:
 // header map + body).
 func decodeFrame(data []byte) (Event, error) {
@@ -164,6 +179,9 @@ func decodeFrame(data []byte) (Event, error) {
 	}
 
 	body := data[bodyStart:]
+	if err := checkFrameBodyComplete(body); err != nil {
+		return Event{}, err
+	}
 
 	if hdr.Op == -1 {
 		// Error frame: body is {error, message}, NOT the #info {name, message}.
@@ -290,6 +308,9 @@ func decodeLabelFrame(data []byte) (Event, error) {
 	}
 
 	body := data[bodyStart:]
+	if err := checkFrameBodyComplete(body); err != nil {
+		return Event{}, err
+	}
 
 	if hdr.Op == -1 {
 		// Error frame: body is {error, message}, NOT the #info {name, message}.

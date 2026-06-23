@@ -181,6 +181,21 @@ func TestDecodeFrame_Info(t *testing.T) {
 	assert.Equal(t, "OutdatedCursor", evt.Info.Name)
 }
 
+// TestDecodeFrame_TrailingData asserts a frame with bytes after the body is
+// rejected, so a second frame cannot be smuggled into one message and dropped.
+func TestDecodeFrame_TrailingData(t *testing.T) {
+	t.Parallel()
+	body, err := (&comatproto.SyncSubscribeRepos_Info{Name: "OutdatedCursor"}).MarshalCBOR()
+	require.NoError(t, err)
+
+	frame := buildDecodeFrame("#info", body)
+	frame = append(frame, 0xa0) // an extra empty-map CBOR value after the body
+
+	_, err = decodeFrame(frame)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "trailing")
+}
+
 func TestDecodeFrame_ErrorFrame(t *testing.T) {
 	t.Parallel()
 	// op = -1 error frame with the generic {error, message} body.

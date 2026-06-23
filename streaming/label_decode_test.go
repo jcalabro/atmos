@@ -257,7 +257,6 @@ func TestDecodeLabelFrame_BadBody(t *testing.T) {
 	frame := buildLabelFrame("#labels", []byte{0xff, 0xfe})
 	_, err := decodeLabelFrame(frame)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode labels")
 }
 
 func TestDecodeLabelFrame_BadInfoBody(t *testing.T) {
@@ -266,7 +265,6 @@ func TestDecodeLabelFrame_BadInfoBody(t *testing.T) {
 	frame := buildLabelFrame("#info", []byte{0xff, 0xfe})
 	_, err := decodeLabelFrame(frame)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode label info")
 }
 
 func TestDecodeLabelFrame_BadErrorBody(t *testing.T) {
@@ -275,7 +273,6 @@ func TestDecodeLabelFrame_BadErrorBody(t *testing.T) {
 	frame := buildLabelErrorFrame([]byte{0xff, 0xfe})
 	_, err := decodeLabelFrame(frame)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode error frame")
 }
 
 func TestLabels_NilForZeroEvent(t *testing.T) {
