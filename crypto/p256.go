@@ -21,6 +21,13 @@ type P256PrivateKey struct {
 	key *ecdsa.PrivateKey
 }
 
+// String redacts the secret scalar so a private key is never accidentally
+// logged via %v / %s.
+func (k *P256PrivateKey) String() string { return "P256PrivateKey(REDACTED)" }
+
+// GoString redacts the secret scalar for the %#v verb.
+func (k *P256PrivateKey) GoString() string { return "P256PrivateKey(REDACTED)" }
+
 // GenerateP256 creates a new random P-256 key pair.
 func GenerateP256() (*P256PrivateKey, error) {
 	key, err := ecdsa.GenerateKey(p256Curve, rand.Reader)
