@@ -12,6 +12,16 @@ import (
 // than the key it belongs to.
 const maxKeyLen = 1024
 
+// MaxDepth bounds recursion over an MST loaded from untrusted blocks. A real
+// MST is O(log_16 N) deep — even a trillion keys is ~10 levels — so this limit
+// is enormous slack for legitimate trees while preventing a maliciously deep
+// block graph (e.g. a long chain of single-entry nodes from a hostile CAR/sync
+// peer) from exhausting the goroutine stack with an unrecoverable fatal crash.
+const MaxDepth = 256
+
+// ErrMaxDepthExceeded is returned when an MST traversal/load exceeds MaxDepth.
+var ErrMaxDepthExceeded = fmt.Errorf("mst: tree depth exceeds maximum of %d", MaxDepth)
+
 // NodeData is the on-disk CBOR representation of an MST node.
 type NodeData struct {
 	Left    gt.Option[cbor.CID]
@@ -121,8 +131,14 @@ func DecodeNodeData(data []byte) (NodeData, error) {
 	}
 	pos++
 
-	// Read 2 map entries. We know the order is "e", "l".
-	for range 2 {
+	// Read exactly 2 map entries in canonical DAG-CBOR key order. Both keys are
+	// single ASCII chars, so length-then-bytewise ordering fixes the sequence as
+	// "e" (0x65) then "l" (0x6c). A node block is content-addressed: accepting a
+	// non-canonical key order, a duplicate key, or a missing key would let two
+	// distinct byte strings load as the same logical node — silent corruption of
+	// the content-addressing invariant. The expected-keys array enforces this.
+	expectedKeys := [2]byte{'e', 'l'}
+	for i := range 2 {
 		if pos >= len(data) {
 			return NodeData{}, fmt.Errorf("mst: unexpected end of data")
 		}
@@ -138,6 +154,10 @@ func DecodeNodeData(data []byte) (NodeData, error) {
 		}
 		key := data[pos]
 		pos++
+
+		if key != expectedKeys[i] {
+			return NodeData{}, fmt.Errorf("mst: non-canonical node map: expected key %q at position %d, got %q", string(expectedKeys[i]), i, string(key))
+		}
 
 		switch key {
 		case 'e':
@@ -170,9 +190,6 @@ func DecodeNodeData(data []byte) (NodeData, error) {
 				nd.Left = gt.Some(cid)
 				pos = newPos
 			}
-
-		default:
-			return NodeData{}, fmt.Errorf("mst: unexpected key %q", string(key))
 		}
 	}
 
@@ -187,13 +204,21 @@ func decodeEntryDataFast(data []byte, pos int, ed *EntryData) (int, error) {
 	}
 	pos++
 
-	// Read 4 fields: k, p, t, v (in DAG-CBOR sorted order).
-	for range 4 {
+	// Read 4 fields in canonical DAG-CBOR key order. All keys are single ASCII
+	// chars, so the order is fixed bytewise: k(0x6b) < p(0x70) < t(0x74) < v(0x76).
+	// Enforcing position rejects non-canonical orderings and duplicate fields,
+	// preserving the content-addressing invariant for the entry's block.
+	entryKeys := [4]byte{'k', 'p', 't', 'v'}
+	for fi := range 4 {
 		if pos+1 >= len(data) || data[pos] != 0x61 {
 			return 0, fmt.Errorf("expected text(1) key")
 		}
 		key := data[pos+1]
 		pos += 2
+
+		if key != entryKeys[fi] {
+			return 0, fmt.Errorf("non-canonical entry: expected key %q at position %d, got %q", string(entryKeys[fi]), fi, string(key))
+		}
 
 		switch key {
 		case 'k': // byte string — no-copy slice into the node's block data
