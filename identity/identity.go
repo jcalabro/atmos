@@ -50,9 +50,21 @@ func (id *Identity) PDSEndpoint() string {
 
 // PublicKey parses and returns the atproto signing key for this identity.
 func (id *Identity) PublicKey() (crypto.PublicKey, error) {
-	k, ok := id.Keys["atproto"]
+	return id.PublicKeyForFragment("atproto")
+}
+
+// PublicKeyForFragment parses and returns the verification key identified by the
+// given bare fragment (e.g. "atproto" or "atproto_labeler"). A leading '#' is
+// tolerated. An empty fragment defaults to the atproto signing key. This
+// supports service-auth issuers of the form did:plc:xxx#atproto_labeler.
+func (id *Identity) PublicKeyForFragment(fragment string) (crypto.PublicKey, error) {
+	fragment = strings.TrimPrefix(fragment, "#")
+	if fragment == "" {
+		fragment = "atproto"
+	}
+	k, ok := id.Keys[fragment]
 	if !ok {
-		return nil, errors.New("identity: no atproto key")
+		return nil, errors.New("identity: no key for fragment " + fragment)
 	}
 	return crypto.ParsePublicMultibase(k.Multibase)
 }
@@ -75,9 +87,35 @@ type VerificationMethod struct {
 
 // Service is a service entry in a DID document.
 type Service struct {
-	ID              string `json:"id"`
-	Type            string `json:"type"`
-	ServiceEndpoint string `json:"serviceEndpoint"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	// ServiceEndpoint is the endpoint URL. Per the DID-core spec (and the TS
+	// reference), serviceEndpoint may be either a string or an object; the
+	// object form is captured as "" here rather than failing the document parse.
+	ServiceEndpoint string `json:"-"`
+}
+
+// UnmarshalJSON tolerates serviceEndpoint being either a JSON string (the
+// atproto form) or an object/array. A non-string endpoint yields an empty
+// ServiceEndpoint instead of failing the whole DID document parse, matching the
+// DID-core union type z.union([z.string(), z.record(z.unknown())]).
+func (s *Service) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ID              string          `json:"id"`
+		Type            string          `json:"type"`
+		ServiceEndpoint json.RawMessage `json:"serviceEndpoint"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	s.ID = raw.ID
+	s.Type = raw.Type
+	// Only interpret a JSON-string endpoint as a URL; ignore the object form.
+	var url string
+	if json.Unmarshal(raw.ServiceEndpoint, &url) == nil {
+		s.ServiceEndpoint = url
+	}
+	return nil
 }
 
 // ParseDIDDocument parses a DID document from JSON bytes.

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -26,6 +27,10 @@ type DefaultResolver struct {
 	HTTPClient            gt.Option[*http.Client]
 	PLCURL                gt.Option[string]
 	SkipDNSDomainSuffixes []string // e.g. [".bsky.social"] — HTTP-only for these
+
+	// lookupTXT is the TXT-record resolver; defaults to net.DefaultResolver.
+	// Overridable in tests.
+	lookupTXT func(ctx context.Context, name string) ([]string, error)
 
 	clientOnce sync.Once
 	httpClient *http.Client
@@ -74,9 +79,28 @@ func (r *DefaultResolver) resolvePLC(ctx context.Context, did atmos.DID) (*DIDDo
 }
 
 func (r *DefaultResolver) resolveWeb(ctx context.Context, did atmos.DID) (*DIDDocument, error) {
-	host := did.Identifier()
-	url := "https://" + host + "/.well-known/did.json"
-	body, err := r.httpGet(ctx, url)
+	// The identifier is one or more ':'-separated, percent-encoded parts. A
+	// single part is the (possibly host:port, percent-encoded as %3A) authority;
+	// more than one part is a path-based did:web, which atproto does not support.
+	id := did.Identifier()
+	parts := strings.Split(id, ":")
+	if len(parts) == 0 || parts[0] == "" {
+		return nil, fmt.Errorf("%w: malformed did:web identifier %q", ErrDIDNotFound, id)
+	}
+	if len(parts) > 1 {
+		return nil, fmt.Errorf("%w: path-based did:web is not supported (%q)", ErrUnsupportedDIDMethod, did)
+	}
+	authority, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid percent-encoding in did:web identifier %q", ErrDIDNotFound, id)
+	}
+
+	scheme := "https"
+	if authority == "localhost" || strings.HasPrefix(authority, "localhost:") {
+		scheme = "http"
+	}
+	docURL := scheme + "://" + authority + "/.well-known/did.json"
+	body, err := r.httpGet(ctx, docURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDIDNotFound, err)
 	}
@@ -160,21 +184,32 @@ func (r *DefaultResolver) resolveHandleHTTP(ctx context.Context, handle atmos.Ha
 
 func (r *DefaultResolver) resolveHandleDNS(ctx context.Context, handle atmos.Handle) (atmos.DID, error) {
 	name := "_atproto." + string(handle)
-	records, err := net.DefaultResolver.LookupTXT(ctx, name)
+	lookup := r.lookupTXT
+	if lookup == nil {
+		lookup = net.DefaultResolver.LookupTXT
+	}
+	records, err := lookup(ctx, name)
 	if err != nil {
 		return "", err
 	}
+	// Per the handle spec (and the TS reference's parseDnsResult), there must be
+	// EXACTLY ONE "did=" TXT record. Multiple did= records are ambiguous and must
+	// not be silently resolved to the first one (an impersonation/confusion
+	// surface); zero means not found.
+	var found []string
 	for _, txt := range records {
 		if strings.HasPrefix(txt, "did=") {
-			raw := txt[4:]
-			did, err := atmos.ParseDID(raw)
-			if err != nil {
-				continue
-			}
-			return did, nil
+			found = append(found, txt[len("did="):])
 		}
 	}
-	return "", fmt.Errorf("%w: no valid did= TXT record for %s", ErrHandleNotFound, name)
+	if len(found) != 1 {
+		return "", fmt.Errorf("%w: expected exactly one did= TXT record for %s, found %d", ErrHandleNotFound, name, len(found))
+	}
+	did, err := atmos.ParseDID(found[0])
+	if err != nil {
+		return "", fmt.Errorf("%w: invalid DID in TXT record for %s: %w", ErrHandleNotFound, name, err)
+	}
+	return did, nil
 }
 
 func (r *DefaultResolver) httpGet(ctx context.Context, url string) ([]byte, error) {

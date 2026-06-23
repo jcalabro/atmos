@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -68,6 +69,37 @@ func TestIdentity_PDSEndpoint(t *testing.T) {
 	id, err := IdentityFromDocument(doc)
 	require.NoError(t, err)
 	assert.Equal(t, "https://pds.example.com", id.PDSEndpoint())
+}
+
+// TestParseDIDDocument_ObjectServiceEndpoint asserts a DID document containing a
+// service whose serviceEndpoint is an OBJECT (valid per DID-core) still parses,
+// and that string-form endpoints in the same document remain usable. atmos used
+// to fail the entire parse on the object form (over-strict).
+func TestParseDIDDocument_ObjectServiceEndpoint(t *testing.T) {
+	t.Parallel()
+
+	const docJSON = `{
+		"id": "did:plc:testuser123",
+		"verificationMethod": [{
+			"id": "#atproto",
+			"type": "Multikey",
+			"controller": "did:plc:testuser123",
+			"publicKeyMultibase": "zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169"
+		}],
+		"service": [
+			{"id": "#weird", "type": "Other", "serviceEndpoint": {"uri": "https://x.example.com", "more": 1}},
+			{"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": "https://pds.example.com"}
+		]
+	}`
+
+	doc, err := ParseDIDDocument([]byte(docJSON))
+	require.NoError(t, err, "object-form serviceEndpoint must not fail the parse")
+
+	id, err := IdentityFromDocument(doc)
+	require.NoError(t, err)
+	// The string-form PDS resolves; the object-form service yields an empty URL.
+	assert.Equal(t, "https://pds.example.com", id.PDSEndpoint())
+	assert.Equal(t, "", id.Services["weird"].URL)
 }
 
 func TestIdentity_PDSEndpointMissing(t *testing.T) {
@@ -620,6 +652,90 @@ func TestDefaultResolver_ResolveDID_UnsupportedMethod(t *testing.T) {
 	resolver := &DefaultResolver{}
 	_, err := resolver.ResolveDID(context.Background(), "did:unsupported:xyz")
 	assert.ErrorIs(t, err, ErrUnsupportedDIDMethod)
+}
+
+// captureTransport records the request URL it sees, then serves a fixed body.
+type captureTransport struct {
+	gotURL string
+	body   string
+}
+
+func (t *captureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	t.gotURL = req.URL.String()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(t.body)),
+		Request:    req,
+	}, nil
+}
+
+// TestDefaultResolver_ResolveDID_WebWithPort asserts a did:web whose identifier
+// encodes a host:port (the colon percent-encoded as %3A, the canonical form for
+// a non-443 port) resolves to https://host:port/.well-known/did.json.
+func TestDefaultResolver_ResolveDID_WebWithPort(t *testing.T) {
+	t.Parallel()
+
+	ct := &captureTransport{body: `{"id":"did:web:example.com%3A3000","alsoKnownAs":[],"verificationMethod":[],"service":[]}`}
+	resolver := &DefaultResolver{
+		HTTPClient: gt.Some(&http.Client{Transport: ct, Timeout: 5 * time.Second}),
+	}
+
+	doc, err := resolver.ResolveDID(context.Background(), "did:web:example.com%3A3000")
+	require.NoError(t, err)
+	assert.Equal(t, "did:web:example.com%3A3000", doc.ID)
+	assert.Equal(t, "https://example.com:3000/.well-known/did.json", ct.gotURL,
+		"the %%3A-encoded port must be decoded into the URL authority")
+}
+
+// TestDefaultResolver_ResolveDID_WebPathRejected asserts a path-based did:web
+// (more than one ':'-separated identifier part) is rejected — atproto does not
+// support path-based did:web.
+func TestDefaultResolver_ResolveDID_WebPathRejected(t *testing.T) {
+	t.Parallel()
+
+	resolver := &DefaultResolver{
+		HTTPClient: gt.Some(&http.Client{Transport: &captureTransport{body: "{}"}, Timeout: 5 * time.Second}),
+	}
+	_, err := resolver.ResolveDID(context.Background(), "did:web:example.com:user:alice")
+	assert.ErrorIs(t, err, ErrUnsupportedDIDMethod)
+}
+
+// TestResolveHandleDNS_RecordCount asserts the DNS handle resolver requires
+// EXACTLY ONE did= TXT record: one resolves, multiple conflicting records are
+// ambiguous (must fail, not pick the first), and zero is not-found.
+func TestResolveHandleDNS_RecordCount(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		records []string
+		wantDID atmos.DID
+		wantErr bool
+	}{
+		{"single", []string{"did=did:plc:abc123"}, "did:plc:abc123", false},
+		{"single among noise", []string{"foo=bar", "did=did:plc:abc123"}, "did:plc:abc123", false},
+		{"conflicting", []string{"did=did:plc:abc123", "did=did:plc:def456"}, "", true},
+		{"none", []string{"foo=bar"}, "", true},
+		{"empty", nil, "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			r := &DefaultResolver{
+				lookupTXT: func(_ context.Context, _ string) ([]string, error) {
+					return tc.records, nil
+				},
+			}
+			did, err := r.resolveHandleDNS(context.Background(), "alice.test")
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantDID, did)
+		})
+	}
 }
 
 // rewriteTransport rewrites all requests to point at the target test server.
