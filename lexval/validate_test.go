@@ -546,6 +546,38 @@ func TestValidate_Union_Closed_Valid(t *testing.T) {
 	}))
 }
 
+// TestValidate_Union_ExplicitMain asserts a $type spelled with an explicit
+// "#main" suffix matches a bare-NSID ref (and vice versa), per the canonical TS
+// refsContainType normalization. atmos previously only matched the bare form.
+func TestValidate_Union_ExplicitMain(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1,
+		ID:      "com.example.typeA",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "object", Properties: map[string]*lexicon.Field{
+				"a": {Type: "string"},
+			}},
+		},
+	}))
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1,
+		ID:      "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					// Ref is the bare NSID; $type below uses the explicit #main.
+					"val": {Type: "union", Refs: []string{"com.example.typeA"}, Closed: true},
+				},
+			}},
+		},
+	}))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{
+		"val": map[string]any{"$type": "com.example.typeA#main", "a": "hi"},
+	}), "explicit #main must match a bare-NSID ref")
+}
+
 func TestValidate_Union_Closed_Unknown(t *testing.T) {
 	t.Parallel()
 	cat := lexicon.NewCatalog()
