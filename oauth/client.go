@@ -332,6 +332,24 @@ func (s *sessionTokenSource) Token(ctx context.Context) (string, *crypto.P256Pri
 	return s.session.TokenSet.AccessToken, s.session.DPoPKey, nil
 }
 
+// Refresh forces a token refresh after a resource server rejected staleToken
+// with a 401 invalid_token. If another goroutine already refreshed (the current
+// token differs from staleToken), it returns the current token without a
+// redundant network round trip — coalescing concurrent 401s.
+func (s *sessionTokenSource) Refresh(ctx context.Context, staleToken string) (string, *crypto.P256PrivateKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.session.TokenSet.AccessToken != staleToken {
+		// Already refreshed by a concurrent caller.
+		return s.session.TokenSet.AccessToken, s.session.DPoPKey, nil
+	}
+	if err := s.client.refreshSession(ctx, s.did, s.session); err != nil {
+		return "", nil, err
+	}
+	return s.session.TokenSet.AccessToken, s.session.DPoPKey, nil
+}
+
 // SignOut revokes tokens and deletes the session for the given DID.
 func (c *Client) SignOut(ctx context.Context, did string) error {
 	session, err := c.SessionStore.GetSession(ctx, did)
@@ -380,8 +398,12 @@ func (c *Client) refreshSession(ctx context.Context, did string, session *Sessio
 	httpClient := c.httpClient()
 	nonces := c.getNonces()
 
-	// Verify issuer before refreshing.
-	if _, err := c.verifyIssuer(ctx, httpClient, did, session.TokenSet.Issuer); err != nil {
+	// Verify issuer before refreshing, capturing the freshly-resolved PDS URL so
+	// it can be carried forward as the token-set audience (RefreshToken does not
+	// populate Aud; without this the AuthenticatedClient would send XRPC to the
+	// authorization server's origin instead of the user's PDS).
+	pds, err := c.verifyIssuer(ctx, httpClient, did, session.TokenSet.Issuer)
+	if err != nil {
 		return err
 	}
 
@@ -403,6 +425,9 @@ func (c *Client) refreshSession(ctx context.Context, did string, session *Sessio
 		RevokeToken(ctx, newTokens.RevocationEndpoint, newTokens.AccessToken, c.clientAuth(), session.DPoPKey, nonces, httpClient)
 		return fmt.Errorf("oauth: sub mismatch after refresh: expected %s, got %s", did, newTokens.Sub)
 	}
+
+	// Carry the verified PDS forward as the audience for authenticated requests.
+	newTokens.Aud = pds
 
 	session.TokenSet = *newTokens
 	return c.SessionStore.SetSession(ctx, did, session)

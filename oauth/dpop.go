@@ -128,6 +128,17 @@ type TokenSource interface {
 	Token(ctx context.Context) (accessToken string, key *crypto.P256PrivateKey, err error)
 }
 
+// RefreshingTokenSource is an optional capability for a TokenSource: forcing a
+// token refresh after the resource server rejects the current access token with
+// a 401 invalid_token (the token was revoked or expired earlier than the local
+// staleness estimate). staleToken is the token that was rejected; if it no
+// longer matches the current token (another goroutine already refreshed), the
+// implementation returns the current token without a redundant refresh.
+type RefreshingTokenSource interface {
+	TokenSource
+	Refresh(ctx context.Context, staleToken string) (accessToken string, key *crypto.P256PrivateKey, err error)
+}
+
 // Transport is an http.RoundTripper that adds DPoP proof headers
 // and handles nonce retry transparently. It uses a TokenSource to
 // get the current (possibly refreshed) access token on each request.
@@ -206,10 +217,60 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if retryNonce := resp2.Header.Get("DPoP-Nonce"); retryNonce != "" {
 			t.Nonces.Set(origin, retryNonce)
 		}
+		resp = resp2
+	}
+
+	// Reactive refresh: the resource server rejected the access token with a 401
+	// invalid_token (revoked/expired before the local staleness estimate). If the
+	// source can refresh, do so once and retry. Without this the caller would see
+	// a spurious 401 even though a valid refresh token exists.
+	if rs, ok := t.Source.(RefreshingTokenSource); ok && isInvalidTokenError(resp) {
+		newToken, newKey, err := rs.Refresh(req.Context(), accessToken)
+		if err != nil {
+			return nil, fmt.Errorf("oauth: refresh after invalid_token: %w", err)
+		}
+		// Only retry if the token actually changed; otherwise return the original
+		// 401 (its body is still intact) rather than hot-looping on a token the
+		// server keeps rejecting.
+		if newToken == "" || newToken == accessToken {
+			return resp, nil
+		}
+
+		// Commit to the retry: drain and close the original 401 response.
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+
+		retryNonce := t.Nonces.Get(origin)
+		proof2, err := CreateDPoPProof(newKey, req.Method, reqURL, retryNonce, newToken)
+		if err != nil {
+			return nil, err
+		}
+		retryReq := req.Clone(req.Context())
+		retryReq.Header.Set("DPoP", proof2)
+		retryReq.Header.Set("Authorization", "DPoP "+newToken)
+
+		resp2, err := t.base().RoundTrip(retryReq)
+		if err != nil {
+			return nil, err
+		}
+		if n := resp2.Header.Get("DPoP-Nonce"); n != "" {
+			t.Nonces.Set(origin, n)
+		}
 		return resp2, nil
 	}
 
 	return resp, nil
+}
+
+// isInvalidTokenError reports whether resp is a 401 with a DPoP/Bearer
+// WWW-Authenticate challenge carrying error="invalid_token" — the resource
+// server signaling that the access token is no longer valid.
+func isInvalidTokenError(resp *http.Response) bool {
+	if resp.StatusCode != http.StatusUnauthorized {
+		return false
+	}
+	wwwAuth := resp.Header.Get("WWW-Authenticate")
+	return strings.Contains(wwwAuth, `error="invalid_token"`)
 }
 
 // StaticTokenSource is a TokenSource that always returns the same token.
