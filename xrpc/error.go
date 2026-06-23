@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -82,13 +83,17 @@ func parseError(resp *http.Response, body []byte) *Error {
 }
 
 // parseRateLimit extracts rate limit info from response headers.
-// Returns nil if no rate limit headers are present.
+// Returns nil if no rate limit headers are present. It recognizes both the
+// atproto-style RateLimit-* headers and the standard HTTP Retry-After header
+// (delta-seconds or an HTTP-date), folding the latter into Reset so the retry
+// loop honors it. When both are present, RateLimit-Reset wins.
 func parseRateLimit(h http.Header) *RateLimit {
 	limitStr := h.Get("RateLimit-Limit")
 	remainStr := h.Get("RateLimit-Remaining")
 	resetStr := h.Get("RateLimit-Reset")
+	retryAfter := h.Get("Retry-After")
 
-	if limitStr == "" && remainStr == "" && resetStr == "" {
+	if limitStr == "" && remainStr == "" && resetStr == "" && retryAfter == "" {
 		return nil
 	}
 
@@ -104,8 +109,21 @@ func parseRateLimit(h http.Header) *RateLimit {
 			rl.Reset = time.Unix(unix, 0)
 		}
 	}
+	// Fall back to the standard Retry-After header when RateLimit-Reset is
+	// absent. Retry-After is either an integer number of seconds or an
+	// IMF-fixdate (RFC 7231 §7.1.3).
+	if rl.Reset.IsZero() && retryAfter != "" {
+		if secs, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil {
+			rl.Reset = nowFunc().Add(time.Duration(secs) * time.Second)
+		} else if t, err := http.ParseTime(retryAfter); err == nil {
+			rl.Reset = t
+		}
+	}
 	return rl
 }
+
+// nowFunc is overridable in tests; defaults to time.Now.
+var nowFunc = time.Now
 
 // isRetryable reports whether an HTTP status code should be retried.
 func isRetryable(statusCode int) bool {

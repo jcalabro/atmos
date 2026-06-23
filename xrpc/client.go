@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/jcalabro/gt"
@@ -109,6 +110,15 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 	policy := c.retryPolicy()
 	maxAttempts := max(policy.MaxAttempts.Val(), 1)
 
+	// Idempotent methods (GET/HEAD/PUT/DELETE) are safe to retry on any
+	// transient failure. A POST procedure is NOT idempotent: a 5xx or a network
+	// error after the request was sent may mean the server already applied the
+	// write (e.g. createRecord), so a blind retry risks a duplicate. For POST we
+	// therefore only retry on failures that guarantee the request never reached
+	// the server (connection refused) or that the server rejects before
+	// processing (429 rate limit).
+	idempotent := method != http.MethodPost
+
 	_, isRaw := out.(*rawResponse)
 
 	// Pre-read body bytes for seekable retry.
@@ -135,8 +145,11 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		if attempt > 0 {
 			d := policy.delay(attempt - 1)
 
-			// For 429 with RateLimit-Reset, sleep until that timestamp.
-			if e, ok := errors.AsType[*Error](lastErr); ok && e.IsRateLimited() && e.RateLimit != nil && !e.RateLimit.Reset.IsZero() {
+			// Honor a server-supplied retry time (RateLimit-Reset or the
+			// standard Retry-After header, both folded into RateLimit.Reset) for
+			// any retryable status — 429 throttles and 503 backpressure alike —
+			// in preference to the fixed exponential backoff, clamped to MaxDelay.
+			if e, ok := errors.AsType[*Error](lastErr); ok && e.RateLimit != nil && !e.RateLimit.Reset.IsZero() {
 				until := time.Until(e.RateLimit.Reset)
 				if until > 0 && until < policy.MaxDelay.Val() {
 					d = until
@@ -195,8 +208,14 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			// Network error — retry if attempts remain.
-			continue
+			// Network error — retry idempotent methods freely. For a
+			// non-idempotent POST, retry only when the connection was refused
+			// (the request provably never reached the server); any other
+			// transport error is ambiguous and could have committed the write.
+			if idempotent || errors.Is(err, syscall.ECONNREFUSED) {
+				continue
+			}
+			return lastErr
 		}
 
 		respLimit := int64(maxResponseBody)
@@ -231,7 +250,13 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		xErr := parseError(resp, respBody)
 		lastErr = xErr
 
-		if isRetryable(resp.StatusCode) && attempt < maxAttempts-1 {
+		// For a non-idempotent POST, a 5xx may mean the server already applied
+		// the write; only a 429 (rejected before processing) is safe to retry.
+		retryStatus := isRetryable(resp.StatusCode)
+		if !idempotent && resp.StatusCode != http.StatusTooManyRequests {
+			retryStatus = false
+		}
+		if retryStatus && attempt < maxAttempts-1 {
 			continue
 		}
 		return xErr
