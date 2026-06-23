@@ -760,7 +760,7 @@ func (s *FeedThreadgate) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Post)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_FeedThreadgate_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.threadgate")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allow", buf)
 		if len(s.Allow) > 0 {
 			buf = append(buf, cborKey_FeedThreadgate_allow...)
@@ -789,7 +789,7 @@ func (s *FeedThreadgate) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = append(buf, cborKey_FeedThreadgate_post...)
 		buf = cbor.AppendText(buf, s.Post)
 		buf = append(buf, cborKey_FeedThreadgate_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.threadgate")
 		if len(s.Allow) > 0 {
 			buf = append(buf, cborKey_FeedThreadgate_allow...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Allow)))
@@ -858,6 +858,9 @@ func (s *FeedThreadgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Allow = make([]FeedThreadgate_Allow, arrLen)
 					for idx := range arrLen {
@@ -894,6 +897,9 @@ func (s *FeedThreadgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -941,14 +947,12 @@ func (s *FeedThreadgate) MarshalJSON() ([]byte, error) {
 func (s *FeedThreadgate) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_FeedThreadgate_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_FeedThreadgate_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.feed.threadgate")
+	first = false
 	if len(s.Allow) > 0 {
 		if !first {
 			buf = append(buf, ',')

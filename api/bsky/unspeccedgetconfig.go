@@ -122,6 +122,9 @@ func (s *UnspeccedGetConfig_LiveNowConfig) UnmarshalCBORAt(data []byte, pos int)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Domains = make([]string, arrLen)
 					for idx := range arrLen {
@@ -537,6 +540,9 @@ func (s *UnspeccedGetConfig_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

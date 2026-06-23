@@ -14,6 +14,45 @@ import (
 // silently skipped for forward compatibility.
 var errUnknownType = errors.New("unknown event type")
 
+// ErrorFrame is the body of an event-stream error frame (op = -1). Per the
+// event-stream framing spec the body is {error: string, message?: string},
+// where error is a machine-readable code such as "FutureCursor",
+// "OutdatedCursor", or "ConsumerTooSlow". This is distinct from the
+// subscribeRepos #info message (which uses a "name" field); decoding an error
+// frame as #info would silently drop the error code.
+type ErrorFrame struct {
+	Error   string // machine-readable error code
+	Message string // optional human-readable detail
+}
+
+// decodeErrorFrame decodes an op=-1 error-frame body ({error, message}).
+func decodeErrorFrame(body []byte) (*ErrorFrame, error) {
+	count, pos, err := cbor.ReadMapHeader(body, 0)
+	if err != nil {
+		return nil, fmt.Errorf("decode error frame: %w", err)
+	}
+	var ef ErrorFrame
+	for range count {
+		key, newPos, err := cbor.ReadText(body, pos)
+		if err != nil {
+			return nil, fmt.Errorf("decode error frame: %w", err)
+		}
+		pos = newPos
+		switch key {
+		case "error":
+			ef.Error, pos, err = cbor.ReadText(body, pos)
+		case "message":
+			ef.Message, pos, err = cbor.ReadText(body, pos)
+		default:
+			pos, err = cbor.SkipValue(body, pos)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("decode error frame: %w", err)
+		}
+	}
+	return &ef, nil
+}
+
 // errUnknownOp is returned for unrecognized frame op codes, which are
 // silently skipped for forward compatibility per the event stream spec.
 var errUnknownOp = errors.New("unknown frame op")
@@ -67,6 +106,11 @@ type Event struct {
 	// delivered.
 	Resync ResyncKind
 
+	// Error is populated for an event-stream error frame (op = -1). It carries
+	// the machine-readable error code (e.g. "FutureCursor", "ConsumerTooSlow")
+	// and optional message, which a plain #info decode would drop.
+	Error *ErrorFrame
+
 	// Label stream fields (access via Labels()).
 	labelBatch *comatproto.LabelSubscribeLabels_Labels
 	LabelInfo  *comatproto.LabelSubscribeLabels_Info
@@ -111,6 +155,21 @@ type frameHeader struct {
 	T  string // type, e.g. "#commit"
 }
 
+// checkFrameBodyComplete verifies the body is exactly one CBOR value with no
+// trailing bytes. A frame is exactly two concatenated CBOR values (header +
+// body); trailing bytes mean a second frame was smuggled into one message,
+// which the TS reference rejects ("too many CBOR data items in frame").
+func checkFrameBodyComplete(body []byte) error {
+	end, err := cbor.SkipValue(body, 0)
+	if err != nil {
+		return fmt.Errorf("decode frame body: %w", err)
+	}
+	if end != len(body) {
+		return fmt.Errorf("decode frame: %d trailing bytes after body", len(body)-end)
+	}
+	return nil
+}
+
 // decodeFrame decodes an ATProto event stream frame (two concatenated CBOR values:
 // header map + body).
 func decodeFrame(data []byte) (Event, error) {
@@ -120,14 +179,17 @@ func decodeFrame(data []byte) (Event, error) {
 	}
 
 	body := data[bodyStart:]
+	if err := checkFrameBodyComplete(body); err != nil {
+		return Event{}, err
+	}
 
 	if hdr.Op == -1 {
-		// Error frame — decode as Info.
-		var info comatproto.SyncSubscribeRepos_Info
-		if err := info.UnmarshalCBOR(body); err != nil {
-			return Event{}, fmt.Errorf("decode error frame: %w", err)
+		// Error frame: body is {error, message}, NOT the #info {name, message}.
+		ef, err := decodeErrorFrame(body)
+		if err != nil {
+			return Event{}, err
 		}
-		return Event{Info: &info}, nil
+		return Event{Error: ef}, nil
 	}
 
 	if hdr.Op != 1 {
@@ -246,14 +308,17 @@ func decodeLabelFrame(data []byte) (Event, error) {
 	}
 
 	body := data[bodyStart:]
+	if err := checkFrameBodyComplete(body); err != nil {
+		return Event{}, err
+	}
 
 	if hdr.Op == -1 {
-		// Error frame — decode as LabelInfo.
-		var info comatproto.LabelSubscribeLabels_Info
-		if err := info.UnmarshalCBOR(body); err != nil {
-			return Event{}, fmt.Errorf("decode error frame: %w", err)
+		// Error frame: body is {error, message}, NOT the #info {name, message}.
+		ef, err := decodeErrorFrame(body)
+		if err != nil {
+			return Event{}, err
 		}
-		return Event{LabelInfo: &info}, nil
+		return Event{Error: ef}, nil
 	}
 
 	if hdr.Op != 1 {

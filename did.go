@@ -48,9 +48,10 @@ func ParseDID(raw string) (DID, error) {
 		}
 	}
 
-	// Last char cannot be ':'.
-	if raw[len(raw)-1] == ':' {
-		return "", syntaxErr("DID", raw, "identifier cannot end with ':'")
+	// Last char cannot be ':' or '%' (a DID must not end mid-percent-encoding).
+	last := raw[len(raw)-1]
+	if last == ':' || last == '%' {
+		return "", syntaxErr("DID", raw, "identifier cannot end with ':' or '%'")
 	}
 
 	return DID(raw), nil
@@ -115,8 +116,12 @@ func (d *DID) UnmarshalText(b []byte) error {
 	return nil
 }
 
+// isDIDIdentChar reports whether c is valid in a DID method-specific identifier.
+// The atproto DID grammar permits the ASCII set [a-zA-Z0-9._:%-] (percent for
+// percent-encoding, e.g. the host:port colon in did:web:localhost%3A1234). The
+// identifier must not END with '%' or ':', which ParseDID checks separately.
 func isDIDIdentChar(c byte) bool {
-	return isAlphanumeric(c) || c == '.' || c == '_' || c == ':' || c == '-'
+	return isAlphanumeric(c) || c == '.' || c == '_' || c == ':' || c == '-' || c == '%'
 }
 
 func isLowerAlpha(c byte) bool {

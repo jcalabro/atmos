@@ -45,7 +45,7 @@ func (s *ActorDeclaration) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_ActorDeclaration_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "chat.bsky.actor.declaration")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "allowIncoming", buf)
 		buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
 		buf = cbor.AppendText(buf, s.AllowIncoming)
@@ -57,7 +57,7 @@ func (s *ActorDeclaration) AppendCBOR(buf []byte) ([]byte, error) {
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorDeclaration_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "chat.bsky.actor.declaration")
 		buf = append(buf, cborKey_ActorDeclaration_allowIncoming...)
 		buf = cbor.AppendText(buf, s.AllowIncoming)
 		if s.AllowGroupInvites.HasVal() {
@@ -160,14 +160,12 @@ func (s *ActorDeclaration) MarshalJSON() ([]byte, error) {
 func (s *ActorDeclaration) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_ActorDeclaration_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_ActorDeclaration_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "chat.bsky.actor.declaration")
+	first = false
 	if s.AllowGroupInvites.HasVal() {
 		if !first {
 			buf = append(buf, ',')

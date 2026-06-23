@@ -181,6 +181,43 @@ func TestDecodeFrame_Info(t *testing.T) {
 	assert.Equal(t, "OutdatedCursor", evt.Info.Name)
 }
 
+// TestDecodeFrame_TrailingData asserts a frame with bytes after the body is
+// rejected, so a second frame cannot be smuggled into one message and dropped.
+func TestDecodeFrame_TrailingData(t *testing.T) {
+	t.Parallel()
+	body, err := (&comatproto.SyncSubscribeRepos_Info{Name: "OutdatedCursor"}).MarshalCBOR()
+	require.NoError(t, err)
+
+	frame := buildDecodeFrame("#info", body)
+	frame = append(frame, 0xa0) // an extra empty-map CBOR value after the body
+
+	_, err = decodeFrame(frame)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "trailing")
+}
+
+func TestDecodeFrame_ErrorFrame(t *testing.T) {
+	t.Parallel()
+	// op = -1 error frame with the generic {error, message} body.
+	body := cbor.AppendMapHeader(nil, 2)
+	body = cbor.AppendTextKey(body, "error")
+	body = cbor.AppendText(body, "FutureCursor")
+	body = cbor.AppendTextKey(body, "message")
+	body = cbor.AppendText(body, "cursor in the future")
+
+	hdr := cbor.AppendMapHeader(nil, 1)
+	hdr = cbor.AppendTextKey(hdr, "op")
+	hdr = cbor.AppendInt(hdr, -1)
+	frame := append(hdr, body...)
+
+	evt, err := decodeFrame(frame)
+	require.NoError(t, err)
+	require.NotNil(t, evt.Error)
+	assert.Equal(t, "FutureCursor", evt.Error.Error)
+	assert.Equal(t, "cursor in the future", evt.Error.Message)
+	assert.Nil(t, evt.Info)
+}
+
 func TestDecodeFrame_UnknownType(t *testing.T) {
 	t.Parallel()
 	// Build a frame with op=1 and unknown type

@@ -120,21 +120,24 @@ func (t *Tree) LoadAll() error {
 	if t.root == nil {
 		return nil
 	}
-	return t.loadAllNode(t.root)
+	return t.loadAllNode(t.root, 0)
 }
 
-func (t *Tree) loadAllNode(n *node) error {
+func (t *Tree) loadAllNode(n *node, depth int) error {
+	if depth > MaxDepth {
+		return ErrMaxDepthExceeded
+	}
 	if err := t.ensureLoaded(n); err != nil {
 		return err
 	}
 	if n.left != nil {
-		if err := t.loadAllNode(n.left); err != nil {
+		if err := t.loadAllNode(n.left, depth+1); err != nil {
 			return err
 		}
 	}
 	for i := range n.entries {
 		if n.entries[i].right != nil {
-			if err := t.loadAllNode(n.entries[i].right); err != nil {
+			if err := t.loadAllNode(n.entries[i].right, depth+1); err != nil {
 				return err
 			}
 		}
@@ -667,19 +670,22 @@ func (t *Tree) Walk(fn func(key string, val cbor.CID) error) error {
 	if t.root == nil {
 		return nil
 	}
-	return t.walkNode(t.root, fn)
+	return t.walkNode(t.root, fn, 0)
 }
 
-func (t *Tree) walkNode(n *node, fn func(key string, val cbor.CID) error) error {
+func (t *Tree) walkNode(n *node, fn func(key string, val cbor.CID) error, depth int) error {
 	if n == nil {
 		return nil
+	}
+	if depth > MaxDepth {
+		return ErrMaxDepthExceeded
 	}
 	if err := t.ensureLoaded(n); err != nil {
 		return err
 	}
 
 	// Visit left subtree first.
-	if err := t.walkNode(n.left, fn); err != nil {
+	if err := t.walkNode(n.left, fn, depth+1); err != nil {
 		return err
 	}
 
@@ -687,7 +693,7 @@ func (t *Tree) walkNode(n *node, fn func(key string, val cbor.CID) error) error 
 		if err := fn(e.key, e.val); err != nil {
 			return err
 		}
-		if err := t.walkNode(e.right, fn); err != nil {
+		if err := t.walkNode(e.right, fn, depth+1); err != nil {
 			return err
 		}
 	}

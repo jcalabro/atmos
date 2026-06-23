@@ -33,7 +33,7 @@ func (r *Repo) ExportCAR(w io.Writer, key crypto.PrivateKey) error {
 
 	// Walk the MST and collect all blocks.
 	seen := make(map[string]bool)
-	if err := collectBlocks(r.Store, commit.Data, &blocks, seen); err != nil {
+	if err := collectBlocks(r.Store, commit.Data, &blocks, seen, 0); err != nil {
 		return fmt.Errorf("repo: collecting MST blocks: %w", err)
 	}
 
@@ -41,8 +41,11 @@ func (r *Repo) ExportCAR(w io.Writer, key crypto.PrivateKey) error {
 }
 
 // collectBlocks recursively collects MST node blocks and their referenced record blocks.
-// Uses seen to deduplicate blocks.
-func collectBlocks(store mst.BlockStore, cid cbor.CID, blocks *[]car.Block, seen map[string]bool) error {
+// Uses seen to deduplicate blocks. depth bounds recursion against a pathological tree.
+func collectBlocks(store mst.BlockStore, cid cbor.CID, blocks *[]car.Block, seen map[string]bool, depth int) error {
+	if depth > mst.MaxDepth {
+		return mst.ErrMaxDepthExceeded
+	}
 	cidKey := string(cid.Bytes())
 	if seen[cidKey] {
 		return nil
@@ -64,25 +67,29 @@ func collectBlocks(store mst.BlockStore, cid cbor.CID, blocks *[]car.Block, seen
 
 	// Collect left child.
 	if nd.Left.HasVal() {
-		if err := collectBlocks(store, nd.Left.Val(), blocks, seen); err != nil {
+		if err := collectBlocks(store, nd.Left.Val(), blocks, seen, depth+1); err != nil {
 			return err
 		}
 	}
 
 	// Collect entries.
 	for i := range nd.Entries {
-		// Value CID — record block.
+		// Value CID — record block. A missing record block means the export
+		// would be incomplete; surface it rather than silently emitting a CAR
+		// that omits referenced records (the reference impl throws here too).
 		valCID := nd.Entries[i].Value
 		valKey := string(valCID.Bytes())
 		if !seen[valKey] {
 			seen[valKey] = true
-			if valData, err := store.GetBlock(valCID); err == nil {
-				*blocks = append(*blocks, car.Block{CID: valCID, Data: valData})
+			valData, err := store.GetBlock(valCID)
+			if err != nil {
+				return fmt.Errorf("repo: record block %s referenced by MST is missing: %w", valCID.String(), err)
 			}
+			*blocks = append(*blocks, car.Block{CID: valCID, Data: valData})
 		}
 		// Right subtree.
 		if nd.Entries[i].Right.HasVal() {
-			if err := collectBlocks(store, nd.Entries[i].Right.Val(), blocks, seen); err != nil {
+			if err := collectBlocks(store, nd.Entries[i].Right.Val(), blocks, seen, depth+1); err != nil {
 				return err
 			}
 		}

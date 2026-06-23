@@ -1929,6 +1929,9 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Embeds = make([]EmbedRecord_ViewRecord_Embeds, arrLen)
 					for idx := range arrLen {
@@ -1942,6 +1945,9 @@ func (s *EmbedRecord_ViewRecord) UnmarshalCBORAt(data []byte, pos int) (int, err
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

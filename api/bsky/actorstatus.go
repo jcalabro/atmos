@@ -155,7 +155,7 @@ func (s *ActorStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_ActorStatus_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.actor.status")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embed", buf)
 		if s.Embed.HasVal() {
 			buf = append(buf, cborKey_ActorStatus_embed...)
@@ -184,7 +184,7 @@ func (s *ActorStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorStatus_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.actor.status")
 		if s.Embed.HasVal() {
 			buf = append(buf, cborKey_ActorStatus_embed...)
 			{
@@ -329,14 +329,12 @@ func (s *ActorStatus) MarshalJSON() ([]byte, error) {
 func (s *ActorStatus) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_ActorStatus_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_ActorStatus_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.actor.status")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

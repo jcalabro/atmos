@@ -319,6 +319,9 @@ func (s *RepoDescribeRepo_Output) UnmarshalCBORAt(data []byte, pos int) (int, er
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Collections = make([]string, arrLen)
 					for idx := range arrLen {

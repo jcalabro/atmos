@@ -4564,6 +4564,9 @@ func (s *ReportDefs_ReportView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Actions = make([]ModerationDefs_ModEventView, arrLen)
 					for idx := range arrLen {
@@ -4729,6 +4732,9 @@ func (s *ReportDefs_ReportView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

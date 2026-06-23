@@ -83,13 +83,49 @@ func AppendJSONNull(buf []byte) []byte {
 	return append(buf, "null"...)
 }
 
-// AppendJSONBytes appends a JSON-encoded base64 string (for bytes fields) to buf.
+// AppendJSONBytes appends the AT Protocol JSON representation of a lexicon
+// "bytes" value: the sentinel object {"$bytes":"<base64>"} with unpadded
+// standard base64, matching the data-model spec and the generic ToJSON
+// converter. A bare base64 string is NOT spec-compliant and is rejected by
+// conformant decoders.
 func AppendJSONBytes(buf []byte, data []byte) []byte {
-	buf = append(buf, '"')
+	buf = append(buf, `{"$bytes":"`...)
 	encoded := base64.RawStdEncoding.EncodeToString(data)
 	buf = append(buf, encoded...)
-	buf = append(buf, '"')
+	buf = append(buf, '"', '}')
 	return buf
+}
+
+// ReadJSONBytesObject reads the AT Protocol JSON representation of a lexicon
+// "bytes" value: the sentinel object {"$bytes":"<base64>"}. It returns the
+// decoded bytes and the position after the closing brace. Anything other than
+// an object with exactly the single "$bytes" string key is rejected (no silent
+// fallback to a bare string).
+func ReadJSONBytesObject(data []byte, pos int) ([]byte, int, error) {
+	pos, err := ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return nil, 0, err
+	}
+	key, pos, err := ReadJSONKey(data, pos)
+	if err != nil {
+		return nil, 0, err
+	}
+	if key != "$bytes" {
+		return nil, 0, fmt.Errorf("json: expected $bytes key, got %q", key)
+	}
+	raw, pos, err := ReadJSONString(data, pos)
+	if err != nil {
+		return nil, 0, err
+	}
+	decoded, err := base64.RawStdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, 0, fmt.Errorf("json: invalid $bytes base64: %w", err)
+	}
+	newPos, ok := ReadJSONObjectEnd(data, pos)
+	if !ok {
+		return nil, 0, fmt.Errorf("json: expected '}' after $bytes value at pos %d", pos)
+	}
+	return decoded, newPos, nil
 }
 
 // --- JSON Decoding Helpers ---

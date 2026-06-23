@@ -277,6 +277,9 @@ func (s *GraphGetRelationships_Output) UnmarshalCBORAt(data []byte, pos int) (in
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Relationships = make([]GraphGetRelationships_Output_Relationships, arrLen)
 					for idx := range arrLen {

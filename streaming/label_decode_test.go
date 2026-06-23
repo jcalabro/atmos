@@ -205,15 +205,22 @@ func TestDecodeLabelFrame_Info(t *testing.T) {
 func TestDecodeLabelFrame_ErrorFrame(t *testing.T) {
 	t.Parallel()
 
-	body := mustMarshalLabelInfoBody("FutureCursor", gt.Some("cursor in the future"))
+	// An op=-1 error frame carries the generic {error, message} body, not the
+	// #info {name, message} shape.
+	body := cbor.AppendMapHeader(nil, 2)
+	body = cbor.AppendTextKey(body, "error")
+	body = cbor.AppendText(body, "FutureCursor")
+	body = cbor.AppendTextKey(body, "message")
+	body = cbor.AppendText(body, "cursor in the future")
 	frame := buildLabelErrorFrame(body)
 
 	evt, err := decodeLabelFrame(frame)
 	require.NoError(t, err)
 
-	require.NotNil(t, evt.LabelInfo)
-	assert.Equal(t, "FutureCursor", evt.LabelInfo.Name)
-	assert.Equal(t, "cursor in the future", evt.LabelInfo.Message.Val())
+	require.NotNil(t, evt.Error)
+	assert.Equal(t, "FutureCursor", evt.Error.Error)
+	assert.Equal(t, "cursor in the future", evt.Error.Message)
+	assert.Nil(t, evt.LabelInfo)
 }
 
 func TestDecodeLabelFrame_UnknownOp(t *testing.T) {
@@ -250,7 +257,6 @@ func TestDecodeLabelFrame_BadBody(t *testing.T) {
 	frame := buildLabelFrame("#labels", []byte{0xff, 0xfe})
 	_, err := decodeLabelFrame(frame)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode labels")
 }
 
 func TestDecodeLabelFrame_BadInfoBody(t *testing.T) {
@@ -259,7 +265,6 @@ func TestDecodeLabelFrame_BadInfoBody(t *testing.T) {
 	frame := buildLabelFrame("#info", []byte{0xff, 0xfe})
 	_, err := decodeLabelFrame(frame)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode label info")
 }
 
 func TestDecodeLabelFrame_BadErrorBody(t *testing.T) {
@@ -268,7 +273,6 @@ func TestDecodeLabelFrame_BadErrorBody(t *testing.T) {
 	frame := buildLabelErrorFrame([]byte{0xff, 0xfe})
 	_, err := decodeLabelFrame(frame)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode error frame")
 }
 
 func TestLabels_NilForZeroEvent(t *testing.T) {

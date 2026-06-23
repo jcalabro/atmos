@@ -306,6 +306,9 @@ func (s *UnspeccedGetPostThreadV2_Output) UnmarshalCBORAt(data []byte, pos int) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Thread = make([]UnspeccedGetPostThreadV2_ThreadItem, arrLen)
 					for idx := range arrLen {

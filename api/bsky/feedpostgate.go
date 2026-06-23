@@ -320,7 +320,7 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Post)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_FeedPostgate_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.postgate")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "createdAt", buf)
 		buf = append(buf, cborKey_FeedPostgate_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
@@ -349,7 +349,7 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = append(buf, cborKey_FeedPostgate_post...)
 		buf = cbor.AppendText(buf, s.Post)
 		buf = append(buf, cborKey_FeedPostgate_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.postgate")
 		buf = append(buf, cborKey_FeedPostgate_createdAt...)
 		buf = cbor.AppendText(buf, s.CreatedAt)
 		if len(s.EmbeddingRules) > 0 {
@@ -441,6 +441,9 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.EmbeddingRules = make([]FeedPostgate_EmbeddingRules, arrLen)
 					for idx := range arrLen {
@@ -463,6 +466,9 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -510,14 +516,12 @@ func (s *FeedPostgate) MarshalJSON() ([]byte, error) {
 func (s *FeedPostgate) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_FeedPostgate_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_FeedPostgate_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.feed.postgate")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

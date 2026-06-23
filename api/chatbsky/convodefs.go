@@ -955,6 +955,9 @@ func (s *ConvoDefs_ConvoView) UnmarshalCBORAt(data []byte, pos int) (int, error)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Members = make([]ActorDefs_ProfileViewBasic, arrLen)
 					for idx := range arrLen {
@@ -2697,6 +2700,9 @@ func (s *ConvoDefs_LogAddMember) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
 					for idx := range arrLen {
@@ -3222,6 +3228,9 @@ func (s *ConvoDefs_LogAddReaction) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -4516,6 +4525,9 @@ func (s *ConvoDefs_LogCreateMessage) UnmarshalCBORAt(data []byte, pos int) (int,
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -6871,6 +6883,9 @@ func (s *ConvoDefs_LogLockConvo) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
 					for idx := range arrLen {
@@ -7230,6 +7245,9 @@ func (s *ConvoDefs_LogLockConvoPermanently) UnmarshalCBORAt(data []byte, pos int
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -7593,6 +7611,9 @@ func (s *ConvoDefs_LogMemberJoin) UnmarshalCBORAt(data []byte, pos int) (int, er
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
 					for idx := range arrLen {
@@ -7952,6 +7973,9 @@ func (s *ConvoDefs_LogMemberLeave) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -10130,6 +10154,9 @@ func (s *ConvoDefs_LogRemoveMember) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
 					for idx := range arrLen {
@@ -10657,6 +10684,9 @@ func (s *ConvoDefs_LogRemoveReaction) UnmarshalCBORAt(data []byte, pos int) (int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedProfiles = make([]ActorDefs_ProfileViewBasic, arrLen)
 					for idx := range arrLen {
@@ -11036,6 +11066,9 @@ func (s *ConvoDefs_LogUnlockConvo) UnmarshalCBORAt(data []byte, pos int) (int, e
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -12529,6 +12562,9 @@ func (s *ConvoDefs_MessageInput) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Facets = make([]bsky.RichtextFacet, arrLen)
 					for idx := range arrLen {
@@ -13379,6 +13415,9 @@ func (s *ConvoDefs_MessageView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Facets = make([]bsky.RichtextFacet, arrLen)
 					for idx := range arrLen {
@@ -13411,6 +13450,9 @@ func (s *ConvoDefs_MessageView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

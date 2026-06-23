@@ -212,6 +212,9 @@ func (s *AdminGetAccountInfos_Output) UnmarshalCBORAt(data []byte, pos int) (int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Infos = make([]AdminDefs_AccountView, arrLen)
 					for idx := range arrLen {

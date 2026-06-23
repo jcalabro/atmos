@@ -235,8 +235,38 @@ func TestReadJSONString_SurrogatePair(t *testing.T) {
 
 func TestAppendJSONBytes(t *testing.T) {
 	t.Parallel()
+	// Lexicon "bytes" serialize as the spec sentinel object {"$bytes":"<base64>"},
+	// with unpadded standard base64 — NOT a bare base64 string.
 	got := string(AppendJSONBytes(nil, []byte{0xDE, 0xAD}))
-	assert.Equal(t, `"3q0"`, got) // base64 raw standard encoding
+	assert.Equal(t, `{"$bytes":"3q0"}`, got)
+}
+
+func TestReadJSONBytesObject(t *testing.T) {
+	t.Parallel()
+
+	// Round-trip the spec sentinel form.
+	encoded := AppendJSONBytes(nil, []byte{0xDE, 0xAD, 0xBE, 0xEF})
+	decoded, pos, err := ReadJSONBytesObject(encoded, 0)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{0xDE, 0xAD, 0xBE, 0xEF}, decoded)
+	assert.Equal(t, len(encoded), pos)
+
+	// Whitespace tolerance.
+	got, _, err := ReadJSONBytesObject([]byte(`{ "$bytes" : "3q0" }`), 0)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{0xDE, 0xAD}, got)
+
+	// A bare base64 string must be rejected (no silent fallback).
+	_, _, err = ReadJSONBytesObject([]byte(`"3q0"`), 0)
+	assert.Error(t, err)
+
+	// Wrong sentinel key must be rejected.
+	_, _, err = ReadJSONBytesObject([]byte(`{"$link":"3q0"}`), 0)
+	assert.Error(t, err)
+
+	// Invalid base64 must be rejected.
+	_, _, err = ReadJSONBytesObject([]byte(`{"$bytes":"!!!!"}`), 0)
+	assert.Error(t, err)
 }
 
 // --- Benchmarks ---

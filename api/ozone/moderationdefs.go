@@ -5364,6 +5364,9 @@ func (s *ModerationDefs_ModEventEmail) UnmarshalCBORAt(data []byte, pos int) (in
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Policies = make([]string, arrLen)
 					for idx := range arrLen {
@@ -6112,6 +6115,9 @@ func (s *ModerationDefs_ModEventLabel) UnmarshalCBORAt(data []byte, pos int) (in
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.CreateLabelVals = make([]string, arrLen)
 					for idx := range arrLen {
@@ -6136,6 +6142,9 @@ func (s *ModerationDefs_ModEventLabel) UnmarshalCBORAt(data []byte, pos int) (in
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -7839,6 +7848,9 @@ func (s *ModerationDefs_ModEventReverseTakedown) UnmarshalCBORAt(data []byte, po
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Policies = make([]string, arrLen)
 					for idx := range arrLen {
@@ -8218,6 +8230,9 @@ func (s *ModerationDefs_ModEventTag) UnmarshalCBORAt(data []byte, pos int) (int,
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Add = make([]string, arrLen)
 					for idx := range arrLen {
@@ -8254,6 +8269,9 @@ func (s *ModerationDefs_ModEventTag) UnmarshalCBORAt(data []byte, pos int) (int,
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -8755,6 +8773,9 @@ func (s *ModerationDefs_ModEventTakedown) UnmarshalCBORAt(data []byte, pos int) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Policies = make([]string, arrLen)
 					for idx := range arrLen {
@@ -8817,6 +8838,9 @@ func (s *ModerationDefs_ModEventTakedown) UnmarshalCBORAt(data []byte, pos int) 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -10872,6 +10896,9 @@ func (s *ModerationDefs_ModEventView) UnmarshalCBORAt(data []byte, pos int) (int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.SubjectBlobCids = make([]string, arrLen)
 					for idx := range arrLen {
@@ -12375,6 +12402,9 @@ func (s *ModerationDefs_ModEventViewDetail) UnmarshalCBORAt(data []byte, pos int
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -14241,6 +14271,9 @@ func (s *ModerationDefs_RecordView) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.BlobCids = make([]string, arrLen)
 					for idx := range arrLen {
@@ -14722,6 +14755,9 @@ func (s *ModerationDefs_RecordViewDetail) UnmarshalCBORAt(data []byte, pos int) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Blobs = make([]ModerationDefs_BlobView, arrLen)
 					for idx := range arrLen {
@@ -14749,6 +14785,9 @@ func (s *ModerationDefs_RecordViewDetail) UnmarshalCBORAt(data []byte, pos int) 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -16190,6 +16229,9 @@ func (s *ModerationDefs_RepoView) UnmarshalCBORAt(data []byte, pos int) (int, er
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedRecords = make([]json.RawMessage, arrLen)
 					for idx := range arrLen {
@@ -16233,6 +16275,9 @@ func (s *ModerationDefs_RepoView) UnmarshalCBORAt(data []byte, pos int) (int, er
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -16953,6 +16998,9 @@ func (s *ModerationDefs_RepoViewDetail) UnmarshalCBORAt(data []byte, pos int) (i
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
 					for idx := range arrLen {
@@ -16975,6 +17023,9 @@ func (s *ModerationDefs_RepoViewDetail) UnmarshalCBORAt(data []byte, pos int) (i
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -17071,6 +17122,9 @@ func (s *ModerationDefs_RepoViewDetail) UnmarshalCBORAt(data []byte, pos int) (i
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.RelatedRecords = make([]json.RawMessage, arrLen)
 					for idx := range arrLen {
@@ -17125,6 +17179,9 @@ func (s *ModerationDefs_RepoViewDetail) UnmarshalCBORAt(data []byte, pos int) (i
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -20433,6 +20490,9 @@ func (s *ModerationDefs_SubjectStatusView) UnmarshalCBORAt(data []byte, pos int)
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Tags = make([]string, arrLen)
 					for idx := range arrLen {
@@ -20706,6 +20766,9 @@ func (s *ModerationDefs_SubjectStatusView) UnmarshalCBORAt(data []byte, pos int)
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

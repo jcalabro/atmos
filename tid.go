@@ -164,7 +164,12 @@ func ClockFromTID(t TID) *TIDClock {
 	}
 }
 
-// Next generates the next TID, guaranteed greater than the previous.
+// Next generates the next TID, guaranteed greater than the previous (until the
+// 53-bit timestamp ceiling, around the year 2255, is reached — at which point
+// it saturates at the maximum TID rather than panicking). Saturation, rather
+// than an overflow panic in NewTID, keeps a long-running or adversarially-seeded
+// clock (e.g. one built via ClockFromTID from an untrusted repo's rev) from
+// crashing the process.
 func (c *TIDClock) Next() TID {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -172,6 +177,12 @@ func (c *TIDClock) Next() TID {
 	now := time.Now().UnixMicro()
 	if now <= c.lastUnixMicro {
 		now = c.lastUnixMicro + 1
+	}
+	if now > maxTIDMicros {
+		now = maxTIDMicros
+	}
+	if now < 0 {
+		now = 0
 	}
 	c.lastUnixMicro = now
 	return NewTID(now, c.clockID)

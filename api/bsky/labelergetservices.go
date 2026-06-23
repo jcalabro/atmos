@@ -216,6 +216,9 @@ func (s *LabelerGetServices_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Views = make([]LabelerGetServices_Output_Views, arrLen)
 					for idx := range arrLen {

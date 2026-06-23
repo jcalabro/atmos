@@ -578,6 +578,9 @@ func (s *GraphDefs_ListView) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
 					for idx := range arrLen {
@@ -684,6 +687,9 @@ func (s *GraphDefs_ListView) UnmarshalCBORAt(data []byte, pos int) (int, error) 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -1316,6 +1322,9 @@ func (s *GraphDefs_ListViewBasic) UnmarshalCBORAt(data []byte, pos int) (int, er
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -3000,6 +3009,9 @@ func (s *GraphDefs_StarterPackView) UnmarshalCBORAt(data []byte, pos int) (int, 
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Feeds = make([]FeedDefs_GeneratorView, arrLen)
 					for idx := range arrLen {
@@ -3022,6 +3034,9 @@ func (s *GraphDefs_StarterPackView) UnmarshalCBORAt(data []byte, pos int) (int, 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -3090,6 +3105,9 @@ func (s *GraphDefs_StarterPackView) UnmarshalCBORAt(data []byte, pos int) (int, 
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -3720,6 +3738,9 @@ func (s *GraphDefs_StarterPackViewBasic) UnmarshalCBORAt(data []byte, pos int) (
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

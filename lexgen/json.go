@@ -17,16 +17,22 @@ func (g *fileGen) genJSONMethods(typeName string, obj *lexicon.Object, isRecord 
 	fieldNames := sortedKeys(obj.Properties)
 
 	// Build field info list.
-	// $type is always optional in JSON (has omitempty tag) even for records.
-	// This differs from CBOR where records always emit $type.
+	// For records, $type is always emitted as the constant NSID literal so a
+	// programmatically-built record serializes with the correct $type (matching
+	// the CBOR encoding and the data model). For non-records (union members), it
+	// stays optional and is driven by the runtime LexiconTypeID field.
 	var fields []fieldInfo
-	fields = append(fields, fieldInfo{
+	typeField := fieldInfo{
 		jsonName:  "$type",
 		goField:   "LexiconTypeID",
 		goType:    "string",
 		fieldType: "string",
-		required:  false,
-	})
+		required:  isRecord,
+	}
+	if isRecord {
+		typeField.constVal = g.schema.ID
+	}
+	fields = append(fields, typeField)
 	for _, fname := range fieldNames {
 		f := obj.Properties[fname]
 		required := requiredSet[fname]
@@ -85,7 +91,9 @@ func (g *fileGen) genMarshalJSON(buf *strings.Builder, typeName string, fields [
 
 	for _, f := range fields {
 		keyVar := fmt.Sprintf("jsonKey_%s_%s", typeName, sanitizeCBORKeyName(f.jsonName))
-		optional := !f.required || f.nullable
+		// Required fields (including required+nullable) are always emitted;
+		// genJSONEncodeField writes an explicit null for an unset nullable field.
+		optional := !f.required
 
 		if optional {
 			fmt.Fprintf(buf, "\tif %s {\n", g.cborHasValue(f))
@@ -121,9 +129,29 @@ func (g *fileGen) genMarshalJSON(buf *strings.Builder, typeName string, fields [
 func (g *fileGen) genJSONEncodeField(buf *strings.Builder, f fieldInfo, indent string) {
 	accessor := "s." + f.goField
 
-	// Unwrap Option/Ref types.
 	isOption := strings.HasPrefix(f.goType, "gt.Option[")
 	isRef := strings.HasPrefix(f.goType, "gt.Ref[")
+
+	// Handle required+nullable Option/Ref fields: always present, emitted as an
+	// explicit null when unset. The null check MUST precede any .Val() unwrap,
+	// since calling Val() on an empty Option panics.
+	if f.required && f.nullable && (isOption || isRef) {
+		fmt.Fprintf(buf, "%sif !s.%s.HasVal() {\n", indent, f.goField)
+		fmt.Fprintf(buf, "%s\tbuf = cbor.AppendJSONNull(buf)\n", indent)
+		fmt.Fprintf(buf, "%s} else {\n", indent)
+		inner := indent + "\t"
+		valAccessor := "s." + f.goField + ".Val()"
+		if needsMarshalCBOR(g.resolveFieldType(f)) {
+			fmt.Fprintf(buf, "%s\tv := s.%s.Val()\n", inner, f.goField)
+			g.genJSONEncodeValue(buf, f, "v", inner)
+		} else {
+			g.genJSONEncodeValue(buf, f, valAccessor, inner)
+		}
+		fmt.Fprintf(buf, "%s}\n", indent)
+		return
+	}
+
+	// Unwrap Option/Ref types.
 	if isOption || isRef {
 		if needsMarshalCBOR(g.resolveFieldType(f)) {
 			fmt.Fprintf(buf, "%s{\n", indent)
@@ -136,18 +164,6 @@ func (g *fileGen) genJSONEncodeField(buf *strings.Builder, f fieldInfo, indent s
 		}
 	}
 
-	// Handle nullable required fields.
-	if f.required && f.nullable {
-		if isOption || isRef {
-			fmt.Fprintf(buf, "%sif !s.%s.HasVal() {\n", indent, f.goField)
-			fmt.Fprintf(buf, "%s\tbuf = cbor.AppendJSONNull(buf)\n", indent)
-			fmt.Fprintf(buf, "%s} else {\n", indent)
-			g.genJSONEncodeValue(buf, f, accessor, indent+"\t")
-			fmt.Fprintf(buf, "%s}\n", indent)
-			return
-		}
-	}
-
 	g.genJSONEncodeValue(buf, f, accessor, indent)
 }
 
@@ -155,7 +171,11 @@ func (g *fileGen) genJSONEncodeValue(buf *strings.Builder, f fieldInfo, accessor
 	ft := g.resolveFieldType(f)
 	switch ft {
 	case "string":
-		fmt.Fprintf(buf, "%sbuf = cbor.AppendJSONString(buf, %s)\n", indent, accessor)
+		if f.constVal != "" {
+			fmt.Fprintf(buf, "%sbuf = cbor.AppendJSONString(buf, %q)\n", indent, f.constVal)
+		} else {
+			fmt.Fprintf(buf, "%sbuf = cbor.AppendJSONString(buf, %s)\n", indent, accessor)
+		}
 	case "integer":
 		fmt.Fprintf(buf, "%sbuf = cbor.AppendJSONInt(buf, %s)\n", indent, accessor)
 	case "boolean":
@@ -313,15 +333,9 @@ func (g *fileGen) genJSONDecodeField(buf *strings.Builder, f fieldInfo, indent s
 			fmt.Fprintf(buf, "%sif err != nil { return 0, err }\n", indent)
 		}
 	case "bytes":
-		// Read as base64 string, decode.
-		fmt.Fprintf(buf, "%s{\n", indent)
-		fmt.Fprintf(buf, "%s\tvar raw string\n", indent)
-		fmt.Fprintf(buf, "%s\traw, pos, err = cbor.ReadJSONString(data, pos)\n", indent)
-		fmt.Fprintf(buf, "%s\tif err != nil { return 0, err }\n", indent)
-		fmt.Fprintf(buf, "%s\ts.%s, err = base64.RawStdEncoding.DecodeString(raw)\n", indent, f.goField)
-		fmt.Fprintf(buf, "%s\tif err != nil { return 0, err }\n", indent)
-		fmt.Fprintf(buf, "%s}\n", indent)
-		g.imports["encoding/base64"] = true
+		// Read the spec sentinel object {"$bytes":"<base64>"}.
+		fmt.Fprintf(buf, "%ss.%s, pos, err = cbor.ReadJSONBytesObject(data, pos)\n", indent, f.goField)
+		fmt.Fprintf(buf, "%sif err != nil { return 0, err }\n", indent)
 	case "cid-link", "blob", "object", "ref", "union":
 		if elemType := g.refToArrayElemType(f); elemType != "" {
 			fmt.Fprintf(buf, "%s{\n", indent)
@@ -424,11 +438,8 @@ func (g *fileGen) genJSONDecodeArray(buf *strings.Builder, f fieldInfo, indent s
 		fmt.Fprintf(buf, "%s\t\ts.%s = append(s.%s, elem)\n", indent, f.goField, f.goField)
 	case "bytes":
 		fmt.Fprintf(buf, "%s\t\t{\n", indent)
-		fmt.Fprintf(buf, "%s\t\t\tvar raw string\n", indent)
-		fmt.Fprintf(buf, "%s\t\t\traw, pos, err = cbor.ReadJSONString(data, pos)\n", indent)
-		fmt.Fprintf(buf, "%s\t\t\tif err != nil { return 0, err }\n", indent)
 		fmt.Fprintf(buf, "%s\t\t\tvar elem []byte\n", indent)
-		fmt.Fprintf(buf, "%s\t\t\telem, err = base64.RawStdEncoding.DecodeString(raw)\n", indent)
+		fmt.Fprintf(buf, "%s\t\t\telem, pos, err = cbor.ReadJSONBytesObject(data, pos)\n", indent)
 		fmt.Fprintf(buf, "%s\t\t\tif err != nil { return 0, err }\n", indent)
 		fmt.Fprintf(buf, "%s\t\t\ts.%s = append(s.%s, elem)\n", indent, f.goField, f.goField)
 		fmt.Fprintf(buf, "%s\t\t}\n", indent)

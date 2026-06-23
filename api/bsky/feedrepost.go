@@ -62,7 +62,7 @@ func (s *FeedRepost) AppendCBOR(buf []byte) ([]byte, error) {
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_FeedRepost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.repost")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subject", buf)
 		buf = append(buf, cborKey_FeedRepost_subject...)
 		{
@@ -91,7 +91,7 @@ func (s *FeedRepost) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 		buf = append(buf, cborKey_FeedRepost_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.feed.repost")
 		buf = append(buf, cborKey_FeedRepost_subject...)
 		{
 			var err error
@@ -213,14 +213,12 @@ func (s *FeedRepost) MarshalJSON() ([]byte, error) {
 func (s *FeedRepost) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_FeedRepost_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_FeedRepost_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.feed.repost")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

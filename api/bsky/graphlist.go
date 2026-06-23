@@ -170,7 +170,7 @@ func (s *GraphList) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Name)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_GraphList_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.list")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "avatar", buf)
 		if s.Avatar.HasVal() {
 			buf = append(buf, cborKey_GraphList_avatar...)
@@ -227,7 +227,7 @@ func (s *GraphList) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = append(buf, cborKey_GraphList_name...)
 		buf = cbor.AppendText(buf, s.Name)
 		buf = append(buf, cborKey_GraphList_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.list")
 		if s.Avatar.HasVal() {
 			buf = append(buf, cborKey_GraphList_avatar...)
 			{
@@ -409,6 +409,9 @@ func (s *GraphList) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.DescriptionFacets = make([]RichtextFacet, arrLen)
 					for idx := range arrLen {
@@ -457,14 +460,12 @@ func (s *GraphList) MarshalJSON() ([]byte, error) {
 func (s *GraphList) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_GraphList_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_GraphList_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.graph.list")
+	first = false
 	if s.Avatar.HasVal() {
 		if !first {
 			buf = append(buf, ',')

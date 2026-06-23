@@ -76,8 +76,11 @@ func TestExtraFields_JSONNestedValue(t *testing.T) {
 func TestExtraFields_JSONNoExtras(t *testing.T) {
 	t.Parallel()
 
-	// When there are no unknown fields, round-trip should work as before.
+	// When there are no unknown fields, round-trip should work as before, except
+	// that a record always re-emits its constant $type (matching the data model
+	// and the TS reference).
 	input := `{"text":"hello","createdAt":"2024-01-01T00:00:00Z"}`
+	want := `{"$type":"app.bsky.feed.post","text":"hello","createdAt":"2024-01-01T00:00:00Z"}`
 
 	var post FeedPost
 	require.NoError(t, post.UnmarshalJSON([]byte(input)))
@@ -85,7 +88,7 @@ func TestExtraFields_JSONNoExtras(t *testing.T) {
 	out, err := post.MarshalJSON()
 	require.NoError(t, err)
 	assert.True(t, json.Valid(out))
-	assert.JSONEq(t, input, string(out))
+	assert.JSONEq(t, want, string(out))
 }
 
 func TestExtraFields_JSONOrderPreserved(t *testing.T) {
@@ -460,6 +463,7 @@ func TestExtraFields_JSONNullExtraValue(t *testing.T) {
 	t.Parallel()
 
 	input := `{"text":"hi","createdAt":"2024-01-01T00:00:00Z","extra":null}`
+	want := `{"$type":"app.bsky.feed.post","text":"hi","createdAt":"2024-01-01T00:00:00Z","extra":null}`
 
 	var post FeedPost
 	require.NoError(t, post.UnmarshalJSON([]byte(input)))
@@ -467,13 +471,14 @@ func TestExtraFields_JSONNullExtraValue(t *testing.T) {
 	out, err := post.MarshalJSON()
 	require.NoError(t, err)
 	assert.True(t, json.Valid(out))
-	assert.JSONEq(t, input, string(out))
+	assert.JSONEq(t, want, string(out))
 }
 
 func TestExtraFields_JSONEmptyObjectAndArray(t *testing.T) {
 	t.Parallel()
 
 	input := `{"text":"hi","createdAt":"2024-01-01T00:00:00Z","obj":{},"arr":[]}`
+	want := `{"$type":"app.bsky.feed.post","text":"hi","createdAt":"2024-01-01T00:00:00Z","obj":{},"arr":[]}`
 
 	var post FeedPost
 	require.NoError(t, post.UnmarshalJSON([]byte(input)))
@@ -481,7 +486,7 @@ func TestExtraFields_JSONEmptyObjectAndArray(t *testing.T) {
 	out, err := post.MarshalJSON()
 	require.NoError(t, err)
 	assert.True(t, json.Valid(out))
-	assert.JSONEq(t, input, string(out))
+	assert.JSONEq(t, want, string(out))
 }
 
 // --- Duplicate key behavior ---

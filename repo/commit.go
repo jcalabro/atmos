@@ -42,8 +42,18 @@ func DecodeCommitCBOR(data []byte) (*Commit, error) {
 	return decodeCommit(data)
 }
 
+// validCommitVersion reports whether v is an encodable commit version. The
+// decoder only accepts 2 or 3, so encoding anything else (in particular a
+// negative value, which would be cast to a huge uint64) would produce a commit
+// that cannot round-trip and whose CID is meaningless.
+func validCommitVersion(v int64) bool { return v == 2 || v == 3 }
+
 // encodeCommit encodes a commit to DAG-CBOR bytes.
 func encodeCommit(c *Commit) ([]byte, error) {
+	if !validCommitVersion(c.Version) {
+		return nil, fmt.Errorf("repo: unsupported commit version %d, expected 2 or 3", c.Version)
+	}
+
 	// Pre-size: map(6) header + 6 keys + values ≈ 256 bytes typical
 	buf := make([]byte, 0, 256+len(c.DID)+len(c.Rev)+len(c.Sig))
 
@@ -82,6 +92,10 @@ func encodeCommit(c *Commit) ([]byte, error) {
 
 // UnsignedBytes returns the DAG-CBOR encoding of the commit without the sig field.
 func (c *Commit) UnsignedBytes() ([]byte, error) {
+	if !validCommitVersion(c.Version) {
+		return nil, fmt.Errorf("repo: unsupported commit version %d, expected 2 or 3", c.Version)
+	}
+
 	buf := make([]byte, 0, 192+len(c.DID)+len(c.Rev))
 
 	buf = cbor.AppendMapHeader(buf, 5)

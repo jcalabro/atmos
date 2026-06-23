@@ -1513,6 +1513,9 @@ func (s *FeedDefs_GeneratorView) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labels = make([]comatproto.LabelDefs_Label, arrLen)
 					for idx := range arrLen {
@@ -1621,6 +1624,9 @@ func (s *FeedDefs_GeneratorView) UnmarshalCBORAt(data []byte, pos int) (int, err
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -3463,6 +3469,9 @@ func (s *FeedDefs_PostView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -6770,6 +6779,9 @@ func (s *FeedDefs_ThreadViewPost) UnmarshalCBORAt(data []byte, pos int) (int, er
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Replies = make([]FeedDefs_ThreadViewPost_Replies, arrLen)
 					for idx := range arrLen {
@@ -7194,6 +7206,9 @@ func (s *FeedDefs_ThreadgateView) UnmarshalCBORAt(data []byte, pos int) (int, er
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

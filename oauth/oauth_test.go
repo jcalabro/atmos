@@ -975,6 +975,103 @@ func TestDPoPTransport_NonceRetry_401(t *testing.T) {
 	assert.Equal(t, "server-nonce-abc", nonces.Get(originFromURL(srv.URL)))
 }
 
+// refreshableSource is a RefreshingTokenSource that swaps a stale token for a
+// fresh one when Refresh is called.
+type refreshableSource struct {
+	key      *crypto.P256PrivateKey
+	token    string
+	fresh    string
+	refreshN atomic.Int32
+}
+
+func (s *refreshableSource) Token(context.Context) (string, *crypto.P256PrivateKey, error) {
+	return s.token, s.key, nil
+}
+
+func (s *refreshableSource) Refresh(_ context.Context, stale string) (string, *crypto.P256PrivateKey, error) {
+	s.refreshN.Add(1)
+	if s.token == stale {
+		s.token = s.fresh
+	}
+	return s.token, s.key, nil
+}
+
+// TestDPoPTransport_InvalidTokenRefresh asserts the transport refreshes and
+// retries once when the resource server returns 401 invalid_token, surfacing the
+// successful retry rather than the spurious 401.
+func TestDPoPTransport_InvalidTokenRefresh(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	var attempt atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := attempt.Add(1)
+		auth := r.Header.Get("Authorization")
+		if n == 1 {
+			assert.Equal(t, "DPoP stale-token", auth)
+			w.Header().Set("WWW-Authenticate", `DPoP error="invalid_token"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// Retry must carry the refreshed token.
+		assert.Equal(t, "DPoP fresh-token", auth)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	src := &refreshableSource{key: key, token: "stale-token", fresh: "fresh-token"}
+	transport := &Transport{
+		Base:   srv.Client().Transport,
+		Nonces: NewNonceStore(),
+		Source: src,
+	}
+
+	client := &http.Client{Transport: transport}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/resource", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, int32(2), attempt.Load())
+	assert.Equal(t, int32(1), src.refreshN.Load())
+}
+
+// TestDPoPTransport_InvalidTokenNoRetryWhenUnchanged asserts the transport does
+// NOT hot-loop when a refresh returns the same (still-rejected) token.
+func TestDPoPTransport_InvalidTokenNoRetryWhenUnchanged(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	var attempt atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempt.Add(1)
+		w.Header().Set("WWW-Authenticate", `DPoP error="invalid_token"`)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	// fresh == token, so Refresh yields the same token: no retry.
+	src := &refreshableSource{key: key, token: "same-token", fresh: "same-token"}
+	transport := &Transport{Base: srv.Client().Transport, Nonces: NewNonceStore(), Source: src}
+
+	client := &http.Client{Transport: transport}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/resource", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	assert.Equal(t, int32(1), attempt.Load(), "must not retry when token is unchanged")
+}
+
 func TestDPoPTransport_NonceRetry_400_JSON(t *testing.T) {
 	t.Parallel()
 
@@ -1155,6 +1252,41 @@ func TestCallback_IssuerMismatch(t *testing.T) {
 		Iss:   "https://evil.example.com",
 	})
 	assert.ErrorIs(t, err, ErrIssuerMismatch)
+}
+
+// deleteFailStateStore wraps a StateStore but fails DeleteState.
+type deleteFailStateStore struct {
+	StateStore
+}
+
+func (s deleteFailStateStore) DeleteState(context.Context, string) error {
+	return fmt.Errorf("simulated delete failure")
+}
+
+// TestCallback_DeleteStateError asserts the callback fails when the state delete
+// fails — consuming the single-use state is part of replay protection, so a
+// failed delete must not let token exchange proceed.
+func TestCallback_DeleteStateError(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	inner := NewMemoryStateStore()
+	_ = inner.SetState(context.Background(), "s1", &AuthState{
+		Issuer:  "https://as.example.com",
+		DPoPKey: key,
+	})
+
+	c := &Client{StateStore: deleteFailStateStore{inner}}
+
+	_, err = c.Callback(context.Background(), CallbackParams{
+		Code:  "code",
+		State: "s1",
+		Iss:   "https://as.example.com",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "consume state")
 }
 
 func TestCallback_InvalidState(t *testing.T) {
@@ -1393,6 +1525,93 @@ func TestVerifyIssuer_Valid(t *testing.T) {
 	got, err := env.client.verifyIssuer(context.Background(), env.httpClient, "did:plc:testuser1234567890abcde", asURL)
 	require.NoError(t, err)
 	require.Equal(t, pdsURL, got)
+}
+
+// TestRefreshSession_SetsAudToPDS asserts that after a token refresh, the
+// token set's audience is the verified PDS URL (not left empty / pointing at the
+// authorization server). Regression for the refresh half of the aud bug, and the
+// first coverage of the refreshSession success path (sub-check + issuer reverify).
+func TestRefreshSession_SetsAudToPDS(t *testing.T) {
+	t.Parallel()
+
+	const did = "did:plc:testuser1234567890abcde"
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	var pdsURL, asURL string
+
+	pdsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-protected-resource" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resource":              pdsURL,
+			"authorization_servers": []string{asURL},
+		})
+	})
+	asHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                                asURL,
+				"authorization_endpoint":                asURL + "/oauth/authorize",
+				"token_endpoint":                        asURL + "/oauth/token",
+				"pushed_authorization_request_endpoint": asURL + "/oauth/par",
+				"client_id_metadata_document_supported": true,
+				"require_pushed_authorization_requests": true,
+			})
+		case "/oauth/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token":  "at_new",
+				"token_type":    "DPoP",
+				"expires_in":    300,
+				"refresh_token": "rt_new",
+				"scope":         "atproto",
+				"sub":           did,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	doc := &identity.DIDDocument{
+		ID:          did,
+		AlsoKnownAs: []string{"at://test.example.com"},
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: ""},
+		},
+	}
+	env := setupVerifyIssuer(t, pdsHandler, asHandler, &fakeResolver{doc: doc})
+	pdsURL = env.pdsURL
+	asURL = env.asURL
+
+	c := env.client
+	c.HTTPClient = gt.Some(env.httpClient)
+
+	session := &Session{
+		DPoPKey: key,
+		TokenSet: TokenSet{
+			AccessToken:   "at_old",
+			RefreshToken:  "rt_old",
+			Issuer:        asURL,
+			TokenEndpoint: asURL + "/oauth/token",
+			Sub:           did,
+			Aud:           "", // stale: would be wrong after refresh without the fix
+		},
+	}
+	require.NoError(t, c.SessionStore.SetSession(context.Background(), did, session))
+
+	require.NoError(t, c.refreshSession(context.Background(), did, session))
+
+	stored, err := c.SessionStore.GetSession(context.Background(), did)
+	require.NoError(t, err)
+	assert.Equal(t, "at_new", stored.TokenSet.AccessToken)
+	assert.Equal(t, pdsURL, stored.TokenSet.Aud,
+		"refreshed token set audience must be the verified PDS, not empty/AS")
 }
 
 func TestVerifyIssuer_InvalidSub(t *testing.T) {

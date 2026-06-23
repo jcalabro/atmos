@@ -1,10 +1,33 @@
 package crypto
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+// TestPrivateKey_RedactsSecret asserts private keys never render their secret
+// scalar through fmt verbs (%v, %s, %#v) — a defense-in-depth against logging.
+func TestPrivateKey_RedactsSecret(t *testing.T) {
+	t.Parallel()
+	p, err := GenerateP256()
+	require.NoError(t, err)
+	k, err := GenerateK256()
+	require.NoError(t, err)
+
+	for _, s := range []string{
+		fmt.Sprintf("%v", p), p.String(), fmt.Sprintf("%#v", p),
+		fmt.Sprintf("%v", k), k.String(), fmt.Sprintf("%#v", k),
+	} {
+		require.Contains(t, s, "REDACTED")
+	}
+
+	// The redacted form must not contain the raw scalar bytes.
+	pHex := fmt.Sprintf("%x", p.Bytes())
+	require.NotContains(t, strings.ToLower(fmt.Sprintf("%v %#v", p, p)), pHex)
+}
 
 func TestCrossCurve_P256CannotVerifyK256(t *testing.T) {
 	t.Parallel()

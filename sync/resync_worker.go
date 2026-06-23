@@ -109,8 +109,15 @@ func (v *Verifier) Close() error {
 	v.closeOnce.Do(func() {
 		v.workerCancel()
 		v.workerWG.Wait()
+		// Take the write lock so any concurrent sendAsyncError (which may run on
+		// a goroutine outside workerWG, e.g. a streaming scheduler worker)
+		// observes closed==true and bails out instead of sending on a closed
+		// channel.
+		v.closeMu.Lock()
+		v.closed = true
 		close(v.resyncDone)
 		close(v.asyncErrs)
+		v.closeMu.Unlock()
 	})
 	return nil
 }
@@ -370,7 +377,17 @@ func (v *Verifier) sendAsyncError(err error) {
 	if err == nil {
 		return
 	}
-	// Fast check: if the verifier is closed, don't try to send.
+	// Hold the read lock for the whole check-and-send so Close() (which takes the
+	// write lock before closing asyncErrs) cannot close the channel between our
+	// closed check and our send. Multiple senders proceed concurrently under the
+	// shared read lock; only Close contends. This is what makes a send from a
+	// non-workerWG goroutine (e.g. the streaming scheduler) safe.
+	v.closeMu.RLock()
+	defer v.closeMu.RUnlock()
+	if v.closed {
+		return
+	}
+	// Fast check: if the verifier is shutting down, don't try to send.
 	select {
 	case <-v.workerCtx.Done():
 		return

@@ -290,6 +290,9 @@ func (s *UnspeccedSearchPostsSkeleton_Output) UnmarshalCBORAt(data []byte, pos i
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Posts = make([]UnspeccedDefs_SkeletonSearchPost, arrLen)
 					for idx := range arrLen {

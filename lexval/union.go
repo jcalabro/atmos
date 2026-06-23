@@ -29,14 +29,18 @@ func validateUnion(cat *lexicon.Catalog, nsid string, p *path, refs []string, cl
 		targetNSID, defName := lexicon.SplitRef(nsid, ref)
 
 		// Match: $type is the full NSID for main defs, or NSID#defName for non-main.
-		var fullRef string
+		// A main def is matched by EITHER the bare NSID or the explicit NSID#main
+		// form — the canonical TS validator (refsContainType) normalizes both,
+		// so atmos must too or it would reject conformant records that spell out
+		// "#main".
+		var matches bool
 		if defName == "main" {
-			fullRef = targetNSID
+			matches = typeName == targetNSID || typeName == targetNSID+"#main"
 		} else {
-			fullRef = targetNSID + "#" + defName
+			matches = typeName == targetNSID+"#"+defName
 		}
 
-		if typeName == fullRef {
+		if matches {
 			s := cat.Schema(targetNSID)
 			if s == nil {
 				addErr(errs, p, "unresolved union ref: schema "+targetNSID+" not found")

@@ -75,6 +75,9 @@ func NewReader(r io.Reader) (*Reader, error) {
 
 		switch key {
 		case "roots":
+			if hasRoot {
+				return nil, errors.New("car: header has duplicate 'roots' key")
+			}
 			hasRoot = true
 			arrLen, newPos, err := cbor.ReadArrayHeader(headerBuf, pos)
 			if err != nil {
@@ -98,6 +101,9 @@ func NewReader(r io.Reader) (*Reader, error) {
 				roots = append(roots, root)
 			}
 		case "version":
+			if hasVer {
+				return nil, errors.New("car: header has duplicate 'version' key")
+			}
 			hasVer = true
 			ver, pos, err = cbor.ReadUint(headerBuf, pos)
 			if err != nil {
@@ -109,6 +115,13 @@ func NewReader(r io.Reader) (*Reader, error) {
 				return nil, fmt.Errorf("car: skipping header key %q: %w", key, err)
 			}
 		}
+	}
+
+	// Reject trailing bytes after the CBOR header map: a well-formed header
+	// consumes exactly the declared header length. Extra bytes mean a malformed
+	// or smuggled header.
+	if pos != len(headerBuf) {
+		return nil, fmt.Errorf("car: %d trailing bytes after header map", len(headerBuf)-pos)
 	}
 
 	if !hasVer {
@@ -159,6 +172,14 @@ func (r *Reader) Next() (Block, error) {
 	// Read block bytes (CID + data).
 	buf := make([]byte, blockLen)
 	if _, err := io.ReadFull(r.r, buf); err != nil {
+		// The block length was fully read, so any EOF here (including a clean
+		// io.EOF when zero body bytes follow) is a stream truncated mid-block,
+		// not a legitimate end-of-blocks. Surface it as a truncation so callers
+		// never mistake a cut-off CAR for a complete one. The clean terminus is
+		// detected earlier, at the block-length varint (a bare io.EOF there).
+		if errors.Is(err, io.EOF) {
+			return Block{}, errVarintTruncated
+		}
 		return Block{}, fmt.Errorf("car: reading block: %w", err)
 	}
 
@@ -212,6 +233,11 @@ func (r *Reader) NextInto() (Block, error) {
 	}
 
 	if _, err := io.ReadFull(r.r, r.buf); err != nil {
+		// See Next: a fully-read block length followed by an EOF mid-body is a
+		// truncated stream, not a clean end-of-blocks.
+		if errors.Is(err, io.EOF) {
+			return Block{}, errVarintTruncated
+		}
 		return Block{}, fmt.Errorf("car: reading block: %w", err)
 	}
 

@@ -27,6 +27,13 @@ type K256PrivateKey struct {
 	key *secp256k1secec.PrivateKey
 }
 
+// String redacts the secret scalar so a private key is never accidentally
+// logged via %v / %s.
+func (k *K256PrivateKey) String() string { return "K256PrivateKey(REDACTED)" }
+
+// GoString redacts the secret scalar for the %#v verb.
+func (k *K256PrivateKey) GoString() string { return "K256PrivateKey(REDACTED)" }
+
 // GenerateK256 creates a new random K-256 key pair.
 func GenerateK256() (*K256PrivateKey, error) {
 	key, err := secp256k1secec.GenerateKey()

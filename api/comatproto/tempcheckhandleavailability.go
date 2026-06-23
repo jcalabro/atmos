@@ -659,6 +659,9 @@ func (s *TempCheckHandleAvailability_ResultUnavailable) UnmarshalCBORAt(data []b
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Suggestions = make([]TempCheckHandleAvailability_Suggestion, arrLen)
 					for idx := range arrLen {

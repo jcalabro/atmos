@@ -279,6 +279,9 @@ func (s *SignatureSearchAccounts_Output) UnmarshalCBORAt(data []byte, pos int) (
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Accounts = make([]comatproto.AdminDefs_AccountView, arrLen)
 					for idx := range arrLen {

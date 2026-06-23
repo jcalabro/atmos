@@ -513,6 +513,23 @@ func (e *FutureRevError) Error() string {
 		e.Now.Format(time.RFC3339Nano), e.Tolerance)
 }
 
+// InvalidRevError is returned when a commit's rev is not a syntactically valid
+// TID. A non-TID rev would defeat the future-rev guard (which silently passes
+// unparseable revs) and corrupt the per-DID monotonic-rev chain (replay drop
+// compares revs lexically). Rejecting it up front, before any chain state is
+// loaded or advanced, keeps the rev domain well-formed. Bypasses policy.
+type InvalidRevError struct {
+	DID   atmos.DID
+	Rev   string
+	Cause error
+}
+
+func (e *InvalidRevError) Error() string {
+	return fmt.Sprintf("sync: invalid rev (not a TID) for %s: rev=%q: %v", e.DID, e.Rev, e.Cause)
+}
+
+func (e *InvalidRevError) Unwrap() error { return e.Cause }
+
 // ResyncRateLimitedError is returned when a DID has exceeded its
 // per-DID resync rate limit (see VerifierOptions.ResyncLimit/Burst).
 type ResyncRateLimitedError struct {
@@ -1030,6 +1047,15 @@ type Verifier struct {
 	workerCancel context.CancelFunc
 	workerWG     sync.WaitGroup
 	closeOnce    sync.Once
+	// closeMu guards the close of asyncErrs/resyncDone against concurrent sends.
+	// Senders hold an RLock for the duration of their check-and-send; Close holds
+	// the write lock while flipping closed and closing the channels. This is
+	// required because sends can originate from goroutines NOT tracked by
+	// workerWG (e.g. the streaming parallel scheduler worker that drives
+	// VerifyCommit -> handleVerificationFailure -> sendAsyncError), so
+	// workerWG.Wait() alone does not exclude an in-flight send.
+	closeMu sync.RWMutex
+	closed  bool
 
 	// Ordered resync delivery (EnableOrderedResyncDelivery): completed
 	// resyncs are registered here under the per-DID lock instead of
@@ -1859,6 +1885,17 @@ func (v *Verifier) VerifyCommit(ctx context.Context, commit *comatproto.SyncSubs
 	did, err := atmos.ParseDID(commit.Repo)
 	if err != nil {
 		return nil, fmt.Errorf("verifier: invalid DID %q: %w", commit.Repo, err)
+	}
+
+	// Reject non-TID revs before any chain I/O. The rev is the spine of the
+	// monotonic-replay and future-rev guards; a garbage rev would bypass both.
+	// Bypasses policy (a malformed rev is never recoverable via resync).
+	if _, revErr := atmos.ParseTID(commit.Rev); revErr != nil {
+		irErr := &InvalidRevError{DID: did, Rev: commit.Rev, Cause: revErr}
+		if v.opts.OnVerificationFailure.HasVal() {
+			v.opts.OnVerificationFailure.Val()(did, irErr)
+		}
+		return nil, irErr
 	}
 
 	// Future-rev check runs before the per-DID lock and before chain

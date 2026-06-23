@@ -286,6 +286,9 @@ func (s *UnspeccedGetTrendingTopics_Output) UnmarshalCBORAt(data []byte, pos int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Topics = make([]UnspeccedDefs_TrendingTopic, arrLen)
 					for idx := range arrLen {
@@ -308,6 +311,9 @@ func (s *UnspeccedGetTrendingTopics_Output) UnmarshalCBORAt(data []byte, pos int
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

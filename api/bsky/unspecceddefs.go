@@ -1485,6 +1485,9 @@ func (s *UnspeccedDefs_SkeletonTrend) UnmarshalCBORAt(data []byte, pos int) (int
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Dids = make([]string, arrLen)
 					for idx := range arrLen {
@@ -2917,6 +2920,9 @@ func (s *UnspeccedDefs_TrendView) UnmarshalCBORAt(data []byte, pos int) (int, er
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

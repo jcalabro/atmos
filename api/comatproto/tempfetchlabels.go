@@ -221,6 +221,9 @@ func (s *TempFetchLabels_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Labels = make([]LabelDefs_Label, arrLen)
 					for idx := range arrLen {

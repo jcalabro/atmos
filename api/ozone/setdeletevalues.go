@@ -246,6 +246,9 @@ func (s *SetDeleteValues_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Values = make([]string, arrLen)
 					for idx := range arrLen {

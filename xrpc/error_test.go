@@ -124,6 +124,38 @@ func TestParseRateLimit_None(t *testing.T) {
 	assert.Nil(t, parseRateLimit(http.Header{}))
 }
 
+func TestParseRateLimit_RetryAfterSeconds(t *testing.T) {
+	t.Parallel()
+
+	// Pin time so the delta-seconds form is deterministic.
+	fixed := time.Unix(1_700_000_000, 0)
+	h := http.Header{}
+	h.Set("Retry-After", "120")
+	rl := parseRateLimitAt(h, func() time.Time { return fixed })
+	require.NotNil(t, rl)
+	assert.Equal(t, fixed.Add(120*time.Second), rl.Reset)
+}
+
+func TestParseRateLimit_RetryAfterHTTPDate(t *testing.T) {
+	t.Parallel()
+	h := http.Header{}
+	h.Set("Retry-After", "Wed, 21 Oct 2026 07:28:00 GMT")
+	rl := parseRateLimit(h)
+	require.NotNil(t, rl)
+	want, _ := http.ParseTime("Wed, 21 Oct 2026 07:28:00 GMT")
+	assert.Equal(t, want, rl.Reset)
+}
+
+func TestParseRateLimit_RateLimitResetWinsOverRetryAfter(t *testing.T) {
+	t.Parallel()
+	h := http.Header{}
+	h.Set("RateLimit-Reset", "1700000000")
+	h.Set("Retry-After", "120")
+	rl := parseRateLimit(h)
+	require.NotNil(t, rl)
+	assert.Equal(t, time.Unix(1700000000, 0), rl.Reset, "RateLimit-Reset takes precedence")
+}
+
 func TestIsRetryable(t *testing.T) {
 	t.Parallel()
 	assert.True(t, isRetryable(429))

@@ -55,6 +55,18 @@ func TestValidate_String_Format_Datetime(t *testing.T) {
 	f := &lexicon.Field{Type: "string", Format: "datetime"}
 	assert.NoError(t, ValidateValue(nil, "", f, "2023-01-01T00:00:00Z"))
 	assert.Error(t, ValidateValue(nil, "", f, "not-a-datetime"))
+
+	// Lexicon validation matches the canonical TS validator (lenient): a
+	// calendar rollover like Feb 31 (which a TS-based PDS accepts and serves)
+	// must NOT be rejected during validation, even though it's a nonsense date.
+	assert.NoError(t, ValidateValue(nil, "", f, "2024-02-31T00:00:00Z"),
+		"lexicon datetime validation must accept rollover dates per the reference")
+	assert.NoError(t, ValidateValue(nil, "", f, "2023-02-29T00:00:00Z"))
+
+	// Structurally invalid fields are still rejected.
+	assert.Error(t, ValidateValue(nil, "", f, "2024-13-01T00:00:00Z"), "month 13")
+	assert.Error(t, ValidateValue(nil, "", f, "2024-01-01T24:00:00Z"), "hour 24")
+	assert.Error(t, ValidateValue(nil, "", f, "2024-01-01T00:00:00"), "missing timezone")
 }
 
 func TestValidate_String_Format_NSID(t *testing.T) {
@@ -182,6 +194,26 @@ func TestValidate_Integer_Float64(t *testing.T) {
 	f := &lexicon.Field{Type: "integer"}
 	assert.NoError(t, ValidateValue(nil, "", f, float64(5.0)))
 	assert.Error(t, ValidateValue(nil, "", f, float64(5.5)))
+}
+
+func TestValidate_Integer_Float64OutOfRange(t *testing.T) {
+	t.Parallel()
+	// A JSON float64 of exactly 2^63 must be rejected, not silently truncated to
+	// math.MinInt64 (which would then pass a minimum:0 constraint — corruption).
+	min := int64(0)
+	f := &lexicon.Field{Type: "integer", Minimum: &min}
+	const twoPow63 = 9223372036854775808.0 // 2^63
+	assert.Error(t, ValidateValue(nil, "", f, twoPow63),
+		"2^63 must be rejected, not wrapped to MinInt64")
+	assert.Error(t, ValidateValue(nil, "", f, -twoPow63-1),
+		"a value below -2^63 must be rejected")
+	assert.Error(t, ValidateValue(nil, "", f, 1e30),
+		"a far-out-of-range float must be rejected")
+
+	// The largest exactly-representable in-range integer-valued float64 is fine
+	// (2^63 - 1024, the predecessor of 2^63 in float64).
+	maxRepresentable := 9223372036854774784.0 // largest float64 < 2^63
+	assert.NoError(t, ValidateValue(nil, "", &lexicon.Field{Type: "integer"}, maxRepresentable))
 }
 
 func TestValidate_Integer_WrongType(t *testing.T) {
@@ -512,6 +544,38 @@ func TestValidate_Union_Closed_Valid(t *testing.T) {
 	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{
 		"val": map[string]any{"$type": "com.example.typeA", "a": "hi"},
 	}))
+}
+
+// TestValidate_Union_ExplicitMain asserts a $type spelled with an explicit
+// "#main" suffix matches a bare-NSID ref (and vice versa), per the canonical TS
+// refsContainType normalization. atmos previously only matched the bare form.
+func TestValidate_Union_ExplicitMain(t *testing.T) {
+	t.Parallel()
+	cat := lexicon.NewCatalog()
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1,
+		ID:      "com.example.typeA",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "object", Properties: map[string]*lexicon.Field{
+				"a": {Type: "string"},
+			}},
+		},
+	}))
+	require.NoError(t, cat.Add(&lexicon.Schema{
+		Lexicon: 1,
+		ID:      "com.example.test",
+		Defs: map[string]*lexicon.Def{
+			"main": {Type: "record", Record: &lexicon.Object{
+				Properties: map[string]*lexicon.Field{
+					// Ref is the bare NSID; $type below uses the explicit #main.
+					"val": {Type: "union", Refs: []string{"com.example.typeA"}, Closed: true},
+				},
+			}},
+		},
+	}))
+	assert.NoError(t, ValidateRecord(cat, "com.example.test", map[string]any{
+		"val": map[string]any{"$type": "com.example.typeA#main", "a": "hi"},
+	}), "explicit #main must match a bare-NSID ref")
 }
 
 func TestValidate_Union_Closed_Unknown(t *testing.T) {

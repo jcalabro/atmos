@@ -259,7 +259,7 @@ func (s *GraphStarterpack) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.Name)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_GraphStarterpack_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.starterpack")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "feeds", buf)
 		if len(s.Feeds) > 0 {
 			buf = append(buf, cborKey_GraphStarterpack_feeds...)
@@ -299,7 +299,7 @@ func (s *GraphStarterpack) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = append(buf, cborKey_GraphStarterpack_name...)
 		buf = cbor.AppendText(buf, s.Name)
 		buf = append(buf, cborKey_GraphStarterpack_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.starterpack")
 		if len(s.Feeds) > 0 {
 			buf = append(buf, cborKey_GraphStarterpack_feeds...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Feeds)))
@@ -381,6 +381,9 @@ func (s *GraphStarterpack) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Feeds = make([]GraphStarterpack_FeedItem, arrLen)
 					for idx := range arrLen {
@@ -439,6 +442,9 @@ func (s *GraphStarterpack) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.DescriptionFacets = make([]RichtextFacet, arrLen)
 					for idx := range arrLen {
@@ -486,14 +492,12 @@ func (s *GraphStarterpack) MarshalJSON() ([]byte, error) {
 func (s *GraphStarterpack) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_GraphStarterpack_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_GraphStarterpack_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.graph.starterpack")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

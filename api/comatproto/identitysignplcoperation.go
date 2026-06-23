@@ -602,6 +602,9 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.AlsoKnownAs = make([]string, arrLen)
 					for idx := range arrLen {
@@ -624,6 +627,9 @@ func (s *IdentitySignPlcOperation_Input) UnmarshalCBORAt(data []byte, pos int) (
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

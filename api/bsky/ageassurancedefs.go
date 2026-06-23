@@ -121,6 +121,9 @@ func (s *AgeassuranceDefs_Config) UnmarshalCBORAt(data []byte, pos int) (int, er
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Regions = make([]AgeassuranceDefs_ConfigRegion, arrLen)
 					for idx := range arrLen {
@@ -652,6 +655,9 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

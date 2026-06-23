@@ -428,6 +428,9 @@ func (s *ReportRefreshStats_Input) UnmarshalCBORAt(data []byte, pos int) (int, e
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.QueueIds = make([]int64, arrLen)
 					for idx := range arrLen {

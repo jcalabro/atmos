@@ -1267,6 +1267,9 @@ func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Results = make([]RepoApplyWrites_Output_Results, arrLen)
 					for idx := range arrLen {
@@ -1757,6 +1760,9 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

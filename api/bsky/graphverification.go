@@ -44,7 +44,7 @@ func (s *GraphVerification) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_GraphVerification_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.verification")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "handle", buf)
 		buf = append(buf, cborKey_GraphVerification_handle...)
 		buf = cbor.AppendText(buf, s.Handle)
@@ -60,7 +60,7 @@ func (s *GraphVerification) AppendCBOR(buf []byte) ([]byte, error) {
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_GraphVerification_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "app.bsky.graph.verification")
 		buf = append(buf, cborKey_GraphVerification_handle...)
 		buf = cbor.AppendText(buf, s.Handle)
 		buf = append(buf, cborKey_GraphVerification_subject...)
@@ -189,14 +189,12 @@ func (s *GraphVerification) MarshalJSON() ([]byte, error) {
 func (s *GraphVerification) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_GraphVerification_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_GraphVerification_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "app.bsky.graph.verification")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}

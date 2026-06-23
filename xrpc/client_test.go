@@ -271,6 +271,69 @@ func TestQuery_NetworkErrorRetried(t *testing.T) {
 	assert.Equal(t, int32(2), attempts.Load())
 }
 
+// TestProcedure_Not_Retried_On_5xx asserts a non-idempotent POST is NOT retried
+// on a 5xx response (the server may have already applied the write), while an
+// idempotent GET to the same handler IS retried.
+func TestProcedure_Not_Retried_On_5xx(t *testing.T) {
+	t.Parallel()
+
+	var postAttempts atomic.Int32
+	postSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		postAttempts.Add(1)
+		w.WriteHeader(503)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Unavailable"})
+	}))
+	t.Cleanup(postSrv.Close)
+
+	retry := gt.Some(RetryPolicy{MaxAttempts: gt.Some(3), BaseDelay: gt.Some(time.Millisecond), MaxDelay: gt.Some(10 * time.Millisecond), Jitter: gt.Some(0.0)})
+
+	c := &Client{Host: postSrv.URL, Retry: retry, HTTPClient: gt.Some(postSrv.Client())}
+	err := c.Procedure(context.Background(), "test.method", map[string]any{"x": 1}, nil)
+	require.Error(t, err)
+	assert.Equal(t, int32(1), postAttempts.Load(), "POST must not be retried on 5xx")
+
+	// A GET to a 503 handler IS retried (idempotent), exhausting attempts.
+	var getAttempts atomic.Int32
+	getSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		getAttempts.Add(1)
+		w.WriteHeader(503)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Unavailable"})
+	}))
+	t.Cleanup(getSrv.Close)
+
+	c2 := &Client{Host: getSrv.URL, Retry: retry, HTTPClient: gt.Some(getSrv.Client())}
+	var out map[string]any
+	err = c2.Query(context.Background(), "test.method", nil, &out)
+	require.Error(t, err)
+	assert.Equal(t, int32(3), getAttempts.Load(), "GET must be retried on 5xx")
+}
+
+// TestProcedure_Retried_On_429 asserts a POST IS retried on 429 (the server
+// rejected it before processing, so no write occurred).
+func TestProcedure_Retried_On_429(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := attempts.Add(1)
+		if n == 1 {
+			w.WriteHeader(429)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &Client{
+		Host:       srv.URL,
+		Retry:      gt.Some(RetryPolicy{MaxAttempts: gt.Some(3), BaseDelay: gt.Some(time.Millisecond), MaxDelay: gt.Some(10 * time.Millisecond), Jitter: gt.Some(0.0)}),
+		HTTPClient: gt.Some(srv.Client()),
+	}
+	require.NoError(t, c.Procedure(context.Background(), "test.method", map[string]any{"x": 1}, nil))
+	assert.Equal(t, int32(2), attempts.Load(), "POST must be retried on 429")
+}
+
 func TestQuery_NonSeekableBodyNotRetried(t *testing.T) {
 	t.Parallel()
 	var attempts atomic.Int32
@@ -278,9 +341,10 @@ func TestQuery_NonSeekableBodyNotRetried(t *testing.T) {
 		n := attempts.Add(1)
 		body, _ := io.ReadAll(r.Body)
 		if n == 1 {
-			// First attempt: body present, return 503.
+			// First attempt: body present, return 429 (the retryable status that
+			// is safe for a non-idempotent POST).
 			assert.Equal(t, "stream-data", string(body))
-			w.WriteHeader(503)
+			w.WriteHeader(429)
 			return
 		}
 		// Second attempt: body should be empty (non-seekable).
@@ -365,9 +429,22 @@ func TestEncodeParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			tt.check(t, encodeParams(tt.params))
+			qs, err := encodeParams(tt.params)
+			require.NoError(t, err)
+			tt.check(t, qs)
 		})
 	}
+}
+
+func TestEncodeParams_UnsupportedType(t *testing.T) {
+	t.Parallel()
+	// A float (or any unsupported type) must error, not be silently dropped.
+	_, err := encodeParams(map[string]any{"limit": 1.5})
+	require.Error(t, err)
+	// int is supported (a common caller convenience).
+	qs, err := encodeParams(map[string]any{"limit": 50})
+	require.NoError(t, err)
+	require.Contains(t, qs, "limit=50")
 }
 
 func TestProcedure_RetryWithBody(t *testing.T) {
@@ -379,8 +456,13 @@ func TestProcedure_RetryWithBody(t *testing.T) {
 		var in map[string]string
 		require.NoError(t, json.Unmarshal(body, &in))
 		assert.Equal(t, "hello", in["text"])
+		// Use 429 (rate limit), which is the one retryable status that is safe
+		// for a non-idempotent POST — the server rejects before processing, so
+		// no write occurred. (A 5xx is NOT retried for POST; see
+		// TestProcedure_Not_Retried_On_5xx.) This still exercises that the
+		// seekable request body is correctly re-sent on the retry.
 		if attempts.Load() < 2 {
-			w.WriteHeader(503)
+			w.WriteHeader(429)
 			return
 		}
 		w.WriteHeader(200)

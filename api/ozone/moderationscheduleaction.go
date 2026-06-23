@@ -678,6 +678,9 @@ func (s *ModerationScheduleAction_Input) UnmarshalCBORAt(data []byte, pos int) (
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Subjects = make([]string, arrLen)
 					for idx := range arrLen {
@@ -967,6 +970,9 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBORAt(data [
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Failed = make([]ModerationScheduleAction_FailedScheduling, arrLen)
 					for idx := range arrLen {
@@ -989,6 +995,9 @@ func (s *ModerationScheduleAction_ScheduledActionResults) UnmarshalCBORAt(data [
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos
@@ -1739,6 +1748,9 @@ func (s *ModerationScheduleAction_Takedown) UnmarshalCBORAt(data []byte, pos int
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
 						return 0, err
 					}
 					pos = newPos

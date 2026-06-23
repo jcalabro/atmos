@@ -576,6 +576,9 @@ func (s *GraphGetListsWithMembership_Output) UnmarshalCBORAt(data []byte, pos in
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.ListsWithMembership = make([]GraphGetListsWithMembership_ListWithMembership, arrLen)
 					for idx := range arrLen {

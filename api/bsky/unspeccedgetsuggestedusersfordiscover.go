@@ -258,6 +258,9 @@ func (s *UnspeccedGetSuggestedUsersForDiscover_Output) UnmarshalCBORAt(data []by
 					if err != nil {
 						return 0, err
 					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
 					pos = newPos
 					s.Actors = make([]ActorDefs_ProfileView, arrLen)
 					for idx := range arrLen {

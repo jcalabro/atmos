@@ -155,6 +155,21 @@ func readArrayHeaderSlow(data []byte, pos int) (uint64, int, error) {
 	return val, newPos, nil
 }
 
+// CheckArrayLen validates that an array of arrLen elements could plausibly be
+// encoded in the bytes remaining after pos. Every CBOR data item occupies at
+// least one byte, so an array header declaring more elements than there are
+// remaining bytes is always malformed. Rejecting it before allocating the
+// destination slice prevents an attacker-controlled length from triggering a
+// multi-gigabyte makeslice (a fatal, unrecoverable out-of-memory) on the
+// generated decode hot path. Mirrors the guard in car.NewReader.
+func CheckArrayLen(arrLen uint64, data []byte, pos int) error {
+	remaining := max(len(data)-pos, 0)
+	if arrLen > uint64(remaining) {
+		return fmt.Errorf("cbor: array declares %d elements but only %d bytes remain", arrLen, remaining)
+	}
+	return nil
+}
+
 // ReadText reads a CBOR text string at position pos.
 // The fast path for text strings with length 1-23 (single-byte header) avoids
 // the ReadHeader call, which is the dominant cost for short string reads.

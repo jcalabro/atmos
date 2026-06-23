@@ -38,14 +38,14 @@ func (s *LexiconSchema) AppendCBOR(buf []byte) ([]byte, error) {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
 		buf = append(buf, cborKey_LexiconSchema_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "com.atproto.lexicon.schema")
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lexicon", buf)
 		buf = append(buf, cborKey_LexiconSchema_lexicon...)
 		buf = cbor.AppendInt(buf, s.Lexicon)
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_LexiconSchema_dollar_type...)
-		buf = cbor.AppendText(buf, s.LexiconTypeID)
+		buf = cbor.AppendText(buf, "com.atproto.lexicon.schema")
 		buf = append(buf, cborKey_LexiconSchema_lexicon...)
 		buf = cbor.AppendInt(buf, s.Lexicon)
 	}
@@ -123,14 +123,12 @@ func (s *LexiconSchema) MarshalJSON() ([]byte, error) {
 func (s *LexiconSchema) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, '{')
 	first := true
-	if s.LexiconTypeID != "" {
-		if !first {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, jsonKey_LexiconSchema_dollar_type...)
-		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
-		first = false
+	if !first {
+		buf = append(buf, ',')
 	}
+	buf = append(buf, jsonKey_LexiconSchema_dollar_type...)
+	buf = cbor.AppendJSONString(buf, "com.atproto.lexicon.schema")
+	first = false
 	if !first {
 		buf = append(buf, ',')
 	}
