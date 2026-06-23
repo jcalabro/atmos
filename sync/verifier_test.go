@@ -2957,7 +2957,7 @@ func TestVerifyCommit_FutureRevCustomTolerance(t *testing.T) {
 // rev that disagrees with the parseable inner rev is caught downstream
 // as a FieldMismatchError — the test asserts that's how the malformed
 // event surfaces, not as a future-rev rejection.
-func TestVerifyCommit_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
+func TestVerifyCommit_NonTIDRevRejected(t *testing.T) {
 	t.Parallel()
 
 	did := atmos.DID("did:plc:future4")
@@ -2976,19 +2976,19 @@ func TestVerifyCommit_FutureRevUnparseableRevSkipsCheck(t *testing.T) {
 		RKey:       "rec1",
 		Record:     map[string]any{"text": "v"},
 	}})
-	// Replace envelope with something that fails atmos.ParseTID — not
-	// 13 chars. Inner rev still says the synthetic-clock TID.
+	// A rev that fails atmos.ParseTID (not 13 chars). It must be rejected up
+	// front with InvalidRevError, before any chain I/O, so it can never poison
+	// the monotonic-rev chain or slip past the future-rev guard.
 	commit.Rev = "not-a-tid"
 
 	v := futureRevTestVerifier(t, did, key, now, gt.None[time.Duration]())
 
 	_, vErr := v.VerifyCommit(context.Background(), commit)
-	// A1 contract: future-rev gate must not trip on unparseable input.
+	var ire *sync.InvalidRevError
+	require.ErrorAs(t, vErr, &ire)
+	assert.Equal(t, "not-a-tid", ire.Rev)
+	// The future-rev gate is never reached for a malformed rev.
 	assert.Equal(t, uint64(0), v.Stats().FutureRevsRejected)
-	// A2 contract: malformed envelope surfaces as FieldMismatchError
-	// rather than something downstream and less specific.
-	var fme *sync.FieldMismatchError
-	assert.ErrorAs(t, vErr, &fme)
 }
 
 // TestVerifyCommit_FutureRevDisabledByNegativeTolerance covers the

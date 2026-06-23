@@ -204,3 +204,51 @@ func TestVerifier_EnqueueDuringClose(t *testing.T) {
 
 	wg.Wait()
 }
+
+// TestVerifier_SendAsyncErrorDuringClose is the direct regression for the
+// "send on closed channel" panic: sendAsyncError can be invoked from a
+// goroutine that is NOT tracked by workerWG (e.g. the streaming parallel
+// scheduler worker driving VerifyCommit -> handleVerificationFailure on a
+// pending-buffer overflow). Such a sender can race Close()'s close(asyncErrs).
+// Many senders run concurrently with Close; none must panic. Run with -race.
+func TestVerifier_SendAsyncErrorDuringClose(t *testing.T) {
+	t.Parallel()
+
+	for iter := 0; iter < 50; iter++ {
+		v, err := newTestVerifier(t)
+		require.NoError(t, err)
+
+		// Drain asyncErrs so senders that win the race before Close can make
+		// progress rather than all blocking on a full buffer.
+		go func() {
+			for range v.AsyncErrors() { //nolint:revive // intentional drain to EOF
+			}
+		}()
+
+		const senders = 32
+		var wg stdsync.WaitGroup
+		start := make(chan struct{})
+		for i := 0; i < senders; i++ {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						t.Errorf("sender %d panicked: %v", idx, r)
+					}
+				}()
+				<-start
+				sync.SendAsyncErrorForTest(v, &sync.BufferOverflowError{
+					DID:     atmos.DID("did:plc:race"),
+					Dropped: 1,
+				})
+			}(i)
+		}
+
+		// Release all senders, then Close concurrently so the close of
+		// asyncErrs interleaves with in-flight sends.
+		close(start)
+		require.NoError(t, v.Close())
+		wg.Wait()
+	}
+}
