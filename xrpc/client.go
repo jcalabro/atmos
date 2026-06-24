@@ -86,6 +86,50 @@ type rawResponse struct {
 	data []byte
 }
 
+// readResponseBody reads a response body into a single right-sized buffer.
+// contentLength is the response's declared Content-Length (-1 when unknown); the
+// caller owns closing the body.
+//
+// When the server advertises a usable Content-Length (0 <= n <= limit), the
+// buffer is allocated exactly once and filled with io.ReadFull, avoiding the
+// geometric grow-and-recopy of io.ReadAll — which, on a ~280 MB sealed segment,
+// spends ~half its CPU in memclr (zeroing each doubled buffer) + memmove
+// (copying the old contents forward) and churns ~5x the body size in throwaway
+// allocations. Pre-sizing makes the single-goroutine prefetcher that streams the
+// archive substantially faster (it is a serial stage that gates the decode pool).
+//
+// The advertised length is treated as a contract, not a hint: a body that ends
+// short of (io.ErrUnexpectedEOF) or runs past (one extra byte reads) the declared
+// Content-Length is a truncated/over-long transfer and is returned as a hard
+// error rather than a silently short or silently capped buffer — a wrong segment
+// is worse than a failed fetch (it would feed corrupt frames to decode).
+//
+// When Content-Length is absent or negative (chunked / unknown), it falls back
+// to the bounded io.ReadAll path unchanged, so non-segment endpoints and servers
+// that don't set the header keep working exactly as before.
+func readResponseBody(body io.Reader, contentLength, limit int64) ([]byte, error) {
+	if contentLength < 0 || contentLength > limit {
+		// Unknown length, or a declared length over our safety cap: read bounded.
+		// (contentLength > limit is surfaced as the same truncation the LimitReader
+		// would produce; the caller's limit is the zstd-bomb / oversized-body guard.)
+		return io.ReadAll(io.LimitReader(body, limit))
+	}
+	buf := make([]byte, contentLength)
+	if _, err := io.ReadFull(body, buf); err != nil {
+		// ErrUnexpectedEOF here means the body ended before Content-Length bytes:
+		// a truncated transfer. Fail loud rather than return a short buffer.
+		return nil, fmt.Errorf("xrpc: read response body (Content-Length %d): %w", contentLength, err)
+	}
+	// Verify the body does not exceed the declared length. A single extra byte
+	// read succeeding means the server sent more than it advertised — refuse it
+	// rather than silently truncating to Content-Length.
+	var extra [1]byte
+	if m, _ := io.ReadFull(body, extra[:]); m > 0 {
+		return nil, fmt.Errorf("xrpc: response body exceeds Content-Length %d", contentLength)
+	}
+	return buf, nil
+}
+
 // Procedure executes an XRPC procedure (POST). in is JSON-encoded as body.
 func (c *Client) Procedure(ctx context.Context, nsid string, in any, out any) error {
 	if in == nil {
@@ -226,7 +270,7 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		if isRaw {
 			respLimit = maxRawResponseBody
 		}
-		respBody, err := io.ReadAll(io.LimitReader(resp.Body, respLimit))
+		respBody, err := readResponseBody(resp.Body, resp.ContentLength, respLimit)
 		_ = resp.Body.Close()
 		if err != nil {
 			lastErr = err

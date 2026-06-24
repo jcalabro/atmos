@@ -1,6 +1,7 @@
 package xrpc
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -523,6 +524,50 @@ func TestQuery_ConcurrentRequestsDuringRefresh(t *testing.T) {
 
 // TestQuery_NetworkErrorNotRetried_ContextCanceled verifies network errors
 // return context error when context is canceled.
+func TestReadResponseBody_Presized(t *testing.T) {
+	t.Parallel()
+	want := []byte{0x00, 0x01, 0x02, 0xff, 0x10}
+	got, err := readResponseBody(bytes.NewReader(want), int64(len(want)), 1<<20)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestReadResponseBody_UnknownLengthFallback(t *testing.T) {
+	t.Parallel()
+	want := []byte("chunked-body-no-content-length")
+	got, err := readResponseBody(bytes.NewReader(want), -1, 1<<20)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestReadResponseBody_TruncatedBodyFailsLoud(t *testing.T) {
+	t.Parallel()
+	// Declares 10 bytes of Content-Length but the body only has 4: a truncated
+	// transfer must error, never return a short buffer.
+	_, err := readResponseBody(bytes.NewReader([]byte{1, 2, 3, 4}), 10, 1<<20)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
+}
+
+func TestReadResponseBody_OverlongBodyFailsLoud(t *testing.T) {
+	t.Parallel()
+	// Declares 4 bytes but the body has 6: an over-long transfer must error,
+	// never silently truncate to Content-Length.
+	_, err := readResponseBody(bytes.NewReader([]byte{1, 2, 3, 4, 5, 6}), 4, 1<<20)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds Content-Length")
+}
+
+func TestReadResponseBody_ContentLengthOverLimitFallsBackBounded(t *testing.T) {
+	t.Parallel()
+	// A declared length above the safety cap must not pre-allocate it; it falls
+	// back to the bounded read, which truncates at the limit.
+	body := []byte("0123456789")
+	got, err := readResponseBody(bytes.NewReader(body), 10, 4)
+	require.NoError(t, err)
+	assert.Equal(t, body[:4], got)
+}
+
 func TestQueryRaw_Success(t *testing.T) {
 	t.Parallel()
 	want := []byte{0x00, 0x01, 0x02, 0xff}
