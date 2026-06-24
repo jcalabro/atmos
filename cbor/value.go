@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"unicode/utf8"
+	"unsafe"
 )
 
 // Marshal encodes a Go value to DAG-CBOR bytes.
@@ -82,11 +83,38 @@ func appendSortedMap(buf []byte, m map[string]any) ([]byte, error) {
 // Unmarshal decodes DAG-CBOR bytes to a Go value.
 // Returns: nil, bool, int64, float64, string, []byte, CID, []any, map[string]any.
 // Validates that the input contains exactly one CBOR value with no trailing bytes.
+//
+// The returned value owns its memory: text strings and byte strings are copied
+// out of data, so the caller may reuse or free data afterwards. For a zero-copy
+// decode when data outlives the result, see UnmarshalNoCopy.
 func Unmarshal(data []byte) (any, error) {
+	return unmarshal(data, false)
+}
+
+// UnmarshalNoCopy is like Unmarshal but returns string and []byte values that
+// ALIAS data instead of copying it: a decoded text string's bytes point into
+// data, and a decoded byte string is a sub-slice of data. This eliminates the
+// per-string allocation+copy that dominates Unmarshal's cost on string-heavy
+// records (e.g. atproto records, which are mostly text).
+//
+// Aliasing contract (callers MUST honor): the returned value is only valid for
+// as long as data is unchanged. data MUST NOT be mutated or freed/reused while
+// any decoded string or []byte from it is still reachable, or those values will
+// observe the mutation. Strings are immutable in Go so the text values cannot
+// be used to mutate data; the returned []byte values, however, alias data
+// directly — do not write through them. When in doubt, use Unmarshal.
+//
+// This mirrors the ReadBytesNoCopy / streaming buffer-aliasing pattern already
+// used elsewhere in this package for hot decode paths over a stable buffer.
+func UnmarshalNoCopy(data []byte) (any, error) {
+	return unmarshal(data, true)
+}
+
+func unmarshal(data []byte, nocopy bool) (any, error) {
 	if len(data) == 0 {
 		return nil, errors.New("cbor: empty input")
 	}
-	val, pos, err := unmarshalValue(data, 0, 0)
+	val, pos, err := unmarshalValue(data, 0, 0, nocopy)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +124,23 @@ func Unmarshal(data []byte) (any, error) {
 	return val, nil
 }
 
-// unmarshalValue decodes a single DAG-CBOR value at position pos using position-tracking.
-func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
+// aliasString returns b as a string. When nocopy is true it returns a string
+// header aliasing b's backing array (no allocation); otherwise it copies. b is
+// always validated as UTF-8 by the caller before this is reached.
+func aliasString(b []byte, nocopy bool) string {
+	if nocopy {
+		if len(b) == 0 {
+			return ""
+		}
+		return unsafe.String(&b[0], len(b))
+	}
+	return string(b)
+}
+
+// unmarshalValue decodes a single DAG-CBOR value at position pos using
+// position-tracking. When nocopy is true, text/byte strings alias data rather
+// than being copied (see UnmarshalNoCopy).
+func unmarshalValue(data []byte, pos int, depth int, nocopy bool) (any, int, error) {
 	depth++
 	if depth > MaxDepth {
 		return nil, 0, fmt.Errorf("cbor: exceeded max nesting depth of %d", MaxDepth)
@@ -129,6 +172,11 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 		if end > len(data) {
 			return nil, 0, errors.New("cbor: byte string truncated")
 		}
+		if nocopy {
+			// Alias data directly. The caller must not write through this slice
+			// (UnmarshalNoCopy contract).
+			return data[newPos:end:end], end, nil
+		}
 		out := make([]byte, val)
 		copy(out, data[newPos:end])
 		return out, end, nil
@@ -145,7 +193,7 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 		if !utf8.Valid(b) {
 			return nil, 0, errors.New("cbor: text string contains invalid UTF-8")
 		}
-		return string(b), end, nil
+		return aliasString(b, nocopy), end, nil
 
 	case 4: // array
 		if val > MaxSize {
@@ -160,7 +208,7 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 		arr := make([]any, val)
 		p := newPos
 		for i := range val {
-			arr[i], p, err = unmarshalValue(data, p, depth)
+			arr[i], p, err = unmarshalValue(data, p, depth, nocopy)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -177,7 +225,7 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 		if val > uint64(len(data)-newPos) {
 			return nil, 0, errors.New("cbor: map length exceeds remaining input")
 		}
-		return unmarshalMap(data, newPos, val, depth)
+		return unmarshalMap(data, newPos, val, depth, nocopy)
 
 	case 6: // tag
 		if val != tagCIDLink {
@@ -193,8 +241,9 @@ func unmarshalValue(data []byte, pos int, depth int) (any, int, error) {
 	}
 }
 
-// unmarshalMap decodes a CBOR map with validation.
-func unmarshalMap(data []byte, pos int, count uint64, depth int) (map[string]any, int, error) {
+// unmarshalMap decodes a CBOR map with validation. When nocopy is true, map
+// keys and string values alias data rather than being copied.
+func unmarshalMap(data []byte, pos int, count uint64, depth int, nocopy bool) (map[string]any, int, error) {
 	m := make(map[string]any, count)
 	var prevKey string
 	for i := range count {
@@ -216,7 +265,11 @@ func unmarshalMap(data []byte, pos int, count uint64, depth int) (map[string]any
 		if !utf8.Valid(keyBytes) {
 			return nil, 0, errors.New("cbor: map key contains invalid UTF-8")
 		}
-		key := string(keyBytes)
+		// In nocopy mode the key aliases data (Go stores a string's header, not a
+		// copy of its bytes, when it is used as a map key), consistent with the
+		// UnmarshalNoCopy contract that data outlives the result. The ordering and
+		// duplicate-key comparisons below read the bytes and are valid either way.
+		key := aliasString(keyBytes, nocopy)
 
 		if i > 0 {
 			cmp := compareCBORKeys(prevKey, key)
@@ -230,7 +283,7 @@ func unmarshalMap(data []byte, pos int, count uint64, depth int) (map[string]any
 		prevKey = key
 
 		var v any
-		v, pos, err = unmarshalValue(data, end, depth)
+		v, pos, err = unmarshalValue(data, end, depth, nocopy)
 		if err != nil {
 			return nil, 0, err
 		}
