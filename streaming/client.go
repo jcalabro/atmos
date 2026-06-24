@@ -817,6 +817,26 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 	timer := time.NewTimer(c.batchTimeout)
 	defer timer.Stop()
 
+	// The timer also drives ordered-resync sweeps while the batch is
+	// empty. When a new batch starts, drain any stale empty-sweep tick
+	// so the first event gets a full BatchTimeout window.
+	resetBatchTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(c.batchTimeout)
+	}
+
+	appendBatch := func(evt Event) {
+		if len(batch) == 0 {
+			resetBatchTimer()
+		}
+		batch = append(batch, evt)
+	}
+
 	// flushBatch yields the current batch and updates the cursor to
 	// max(currentCursor, watermark). Returns true if the caller
 	// stopped iterating.
@@ -859,13 +879,13 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 	// iterating (flush on a full batch).
 	emitResyncs := func(rs []sync.ResyncEvent, resetTimer bool) bool {
 		for _, r := range rs {
-			batch = append(batch, eventFromAsyncResync(r))
+			appendBatch(eventFromAsyncResync(r))
 			if len(batch) >= c.batchSize {
 				if flushBatch() {
 					return true
 				}
 				if resetTimer {
-					timer.Reset(c.batchTimeout)
+					resetBatchTimer()
 				}
 			}
 		}
@@ -893,12 +913,12 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				return true
 			}
 			if resetTimer {
-				timer.Reset(c.batchTimeout)
+				resetBatchTimer()
 			}
 			if !yield(nil, vr.accountErr) {
 				return true
 			}
-			batch = append(batch, vr.evt)
+			appendBatch(vr.evt)
 			if seq := vr.evt.seqOf(); seq > 0 {
 				inflight.Remove(seq)
 			}
@@ -907,7 +927,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 					return true
 				}
 				if resetTimer {
-					timer.Reset(c.batchTimeout)
+					resetBatchTimer()
 				}
 			}
 			return false
@@ -920,7 +940,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				return true
 			}
 			if resetTimer {
-				timer.Reset(c.batchTimeout)
+				resetBatchTimer()
 			}
 			if !yield(nil, vr.hookErr) {
 				return true
@@ -933,7 +953,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			}
 			return false
 		}
-		batch = append(batch, vr.evt)
+		appendBatch(vr.evt)
 		if seq := vr.evt.seqOf(); seq > 0 {
 			inflight.Remove(seq)
 		}
@@ -942,7 +962,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				return true
 			}
 			if resetTimer {
-				timer.Reset(c.batchTimeout)
+				resetBatchTimer()
 			}
 		}
 		return false
@@ -977,7 +997,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			if flushBatch() {
 				return false
 			}
-			timer.Reset(c.batchTimeout)
+			resetBatchTimer()
 			return yield(nil, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)})
 		}
 
@@ -1009,7 +1029,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				if flushBatch() {
 					return false
 				}
-				timer.Reset(c.batchTimeout)
+				resetBatchTimer()
 				if !yield(nil, &GapError{Expected: lastSeenSeq + 1, Got: seq}) {
 					return false
 				}
@@ -1095,12 +1115,12 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 				resyncEvents = nil
 				continue
 			}
-			batch = append(batch, eventFromAsyncResync(res))
+			appendBatch(eventFromAsyncResync(res))
 			if len(batch) >= c.batchSize {
 				if flushBatch() {
 					return true
 				}
-				timer.Reset(c.batchTimeout)
+				resetBatchTimer()
 			}
 
 		case err, ok := <-verifierAsyncErrs:
@@ -1111,7 +1131,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			if flushBatch() {
 				return true
 			}
-			timer.Reset(c.batchTimeout)
+			resetBatchTimer()
 			if !yield(nil, err) {
 				return true
 			}
@@ -1123,7 +1143,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			if flushBatch() {
 				return true
 			}
-			timer.Reset(c.batchTimeout)
+			resetBatchTimer()
 			if !yield(nil, err) {
 				return true
 			}
@@ -1142,7 +1162,7 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func(
 			if flushBatch() {
 				return true
 			}
-			timer.Reset(c.batchTimeout)
+			resetBatchTimer()
 
 		case <-ctx.Done():
 			if flushBatch() {

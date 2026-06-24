@@ -85,13 +85,13 @@ func TestBatch_FullBatch(t *testing.T) {
 
 func TestBatch_TimeoutFlush(t *testing.T) {
 	t.Parallel()
-	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+	srv := startMockRelay(t, func(conn *websocket.Conn, r *http.Request) {
 		ctx := context.Background()
 		_ = conn.Write(ctx, websocket.MessageBinary,
 			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")))
 		_ = conn.Write(ctx, websocket.MessageBinary,
 			buildFrame("#identity", buildIdentityBody(2, "did:plc:bob")))
-		<-ctx.Done()
+		<-r.Context().Done()
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -100,7 +100,8 @@ func TestBatch_TimeoutFlush(t *testing.T) {
 	client := mustNewClient(t, Options{
 		URL:          wsURL(srv),
 		BatchSize:    gt.Some(100),
-		BatchTimeout: gt.Some(10 * time.Millisecond),
+		BatchTimeout: gt.Some(100 * time.Millisecond),
+		Parallelism:  gt.Some(1),
 	})
 
 	for batch, err := range client.Events(ctx) {
@@ -109,6 +110,76 @@ func TestBatch_TimeoutFlush(t *testing.T) {
 		cancel()
 		break
 	}
+}
+
+func TestBatch_TimeoutStartsWithFirstEvent(t *testing.T) {
+	t.Parallel()
+
+	const batchTimeout = 200 * time.Millisecond
+	firstWritten := make(chan struct{})
+	secondWritten := make(chan struct{})
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, r *http.Request) {
+		ctx := context.Background()
+		time.Sleep(390 * time.Millisecond)
+		_ = conn.Write(ctx, websocket.MessageBinary,
+			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")))
+		close(firstWritten)
+
+		time.Sleep(60 * time.Millisecond)
+		_ = conn.Write(ctx, websocket.MessageBinary,
+			buildFrame("#identity", buildIdentityBody(2, "did:plc:bob")))
+		close(secondWritten)
+		<-r.Context().Done()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{
+		URL:          wsURL(srv),
+		BatchSize:    gt.Some(100),
+		BatchTimeout: gt.Some(batchTimeout),
+		Parallelism:  gt.Some(1),
+	})
+
+	batchLens := make(chan int, 1)
+	errs := make(chan error, 1)
+	go func() {
+		for batch, err := range client.Events(ctx) {
+			if err != nil {
+				errs <- err
+				return
+			}
+			batchLens <- len(batch)
+			return
+		}
+	}()
+
+	select {
+	case <-firstWritten:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+
+	select {
+	case n := <-batchLens:
+		t.Fatalf("batch flushed before second frame arrived: len=%d", n)
+	case err := <-errs:
+		require.NoError(t, err)
+	case <-secondWritten:
+	}
+
+	select {
+	case n := <-batchLens:
+		assert.Equal(t, 2, n)
+	case err := <-errs:
+		require.NoError(t, err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+
+	cancel()
 }
 
 func TestBatch_ErrorBreaksBatch(t *testing.T) {
