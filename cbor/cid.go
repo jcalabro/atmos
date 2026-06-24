@@ -5,6 +5,7 @@ import (
 	"encoding/base32"
 	"errors"
 	"fmt"
+	"unsafe"
 )
 
 // Multicodec constants for CID codec and hash function identifiers.
@@ -231,8 +232,27 @@ func (c CID) AppendBytes(buf []byte) []byte {
 }
 
 // String returns the base32lower multibase string representation (b-prefixed).
+//
+// It encodes in a single allocation. The naive form
+// ("b" + base32Lower.EncodeToString(c.Bytes())) costs three allocations — the
+// 36-byte Bytes() slice, the base32 result, and the "b"+ concatenation — and
+// CID.String is on the per-record decode hot path (every commit's CID), where
+// that was ~⅙ of all decode allocations downstream (bluesky-social/jetstream
+// #142). Here we write the 'b' multibase prefix and the base32 of the fixed
+// 36-byte CID body directly into one output buffer.
 func (c CID) String() string {
-	return "b" + base32Lower.EncodeToString(c.Bytes())
+	// CID body: 0x01 (CIDv1), codec, 0x12 (sha-256), 0x20 (len 32), then hash.
+	var raw [36]byte
+	raw[0], raw[1], raw[2], raw[3] = 0x01, c.codec, 0x12, 0x20
+	copy(raw[4:], c.hash[:])
+
+	out := make([]byte, 1+base32Lower.EncodedLen(len(raw)))
+	out[0] = 'b'
+	base32Lower.Encode(out[1:], raw[:])
+	// out is freshly allocated, fully written, and never mutated or aliased
+	// after this point, so the zero-copy string view is safe — the same pattern
+	// already used by aliasString/ReadText in this package.
+	return unsafe.String(&out[0], len(out))
 }
 
 // Defined returns true if this CID has been set.
