@@ -55,6 +55,28 @@ type Options struct {
 	// None = 1s.
 	RetryBaseDelay gt.Option[time.Duration]
 
+	// DownloadTimeout bounds a single repo download attempt: the getRepo
+	// request, CAR streaming read, and (if enabled) commit verification.
+	// It deliberately does NOT cover Handler.HandleRepo or the
+	// Store.OnComplete durability write, which operate on the
+	// already-downloaded repo and must not be killed by a network deadline.
+	//
+	// When the deadline fires, the in-flight download is aborted and the
+	// repo is recorded StateFailed for this Run — it is NOT retried in the
+	// per-DID loop, because retrying a repo that just hung past the deadline
+	// would re-hang and multiply worker occupancy (a naive retry would pin a
+	// worker for DownloadTimeout * (MaxRetries+1)). A failed repo is retried
+	// on a later pass like any other failure, so progress is not lost.
+	//
+	// This bounds worst-case worker (and, under a batch barrier, producer)
+	// occupancy per repo: without it, a PDS that accepts the connection and
+	// then trickles or stalls bytes mid-stream can pin a worker indefinitely
+	// (bounded only by the SyncClient's own HTTP client timeout, if any).
+	//
+	// None = DefaultDownloadTimeout. Set to 0 (gt.Some(0)) to disable the
+	// per-attempt deadline entirely.
+	DownloadTimeout gt.Option[time.Duration]
+
 	// RetryMaxDelay caps the backoff between non-rate-limit retries
 	// (connection errors, 5xx, timeouts). It does NOT cap waits the
 	// server itself dictates via a 429 Retry-After / RateLimit-Reset:

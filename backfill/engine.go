@@ -25,6 +25,19 @@ import (
 // store transitions.
 var errOnCompleteRecorded = errors.New("backfill: OnComplete recording failed; handler already ran")
 
+// errDownloadTimeout is returned from tryRepo when a single download
+// attempt exceeds Options.DownloadTimeout. processRepo treats it as a
+// terminal failure for this Run rather than a retryable transient: the
+// repo just demonstrated it hangs past the deadline, so retrying it in the
+// per-DID loop would re-hang and multiply worker occupancy. It is recorded
+// StateFailed and retried on a later pass like any other failure.
+//
+// It deliberately does not wrap context.DeadlineExceeded: that error
+// satisfies net.Error with Timeout() == true, which xrpc.IsTransient
+// classifies as retryable. Keeping this sentinel distinct is what lets
+// processRepo fail-fast instead of retrying.
+var errDownloadTimeout = errors.New("backfill: repo download exceeded DownloadTimeout")
+
 // ErrEngineAlreadyRan is returned by Run when called a second time on
 // the same Engine. Engines are single-shot to avoid silently sharing
 // the per-Run progress counter across multiple concurrent or sequential
@@ -72,6 +85,18 @@ const defaultRetryBaseDelay = time.Second
 
 // defaultRetryMaxDelay is the default value of Options.RetryMaxDelay.
 const defaultRetryMaxDelay = 30 * time.Second
+
+// DefaultDownloadTimeout is the default value of Options.DownloadTimeout:
+// the wall-clock ceiling on a single repo download attempt (getRepo request
+// + CAR read + optional commit verification). The largest repos observed in
+// production download in roughly 3 minutes; 5 minutes is a defensive,
+// defensible ceiling that only ever bites a genuinely pathological or stalled
+// download. When it fires the repo is failed for this Run (not retried in the
+// per-DID loop) and picked up on a later pass.
+//
+// Exported so callers that bound their own budgets against the engine can key
+// off the real value instead of duplicating the literal.
+const DefaultDownloadTimeout = 5 * time.Minute
 
 // retryRateLimitCeiling caps how long the engine will sleep for a single
 // server-directed 429 Retry-After / RateLimit-Reset. Managed PDS hosts use a
@@ -212,6 +237,15 @@ func (e *Engine) workerCount() int {
 		return e.opts.Workers.Val()
 	}
 	return defaultWorkers
+}
+
+// downloadTimeout returns the per-attempt download deadline. None ->
+// DefaultDownloadTimeout; an explicit 0 (or negative) disables the deadline.
+func (e *Engine) downloadTimeout() time.Duration {
+	if e.opts.DownloadTimeout.HasVal() {
+		return e.opts.DownloadTimeout.Val()
+	}
+	return DefaultDownloadTimeout
 }
 
 func (e *Engine) batchSize() int {
@@ -412,6 +446,15 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 
 		host := hostFromErr(err)
 
+		// A download that blew past DownloadTimeout is terminal for this
+		// Run: retrying it in-loop would re-hang and multiply worker
+		// occupancy (DownloadTimeout * (maxRetries+1)). Record the failure
+		// and let a later pass pick it up. Reported with the running attempt
+		// count so OnFail/diagnostics reflect the work already spent.
+		if errors.Is(err, errDownloadTimeout) {
+			return e.recordFail(ctx, job.entry.DID, host, err, attempts)
+		}
+
 		var delay time.Duration
 		if xrpc.IsRateLimited(err) {
 			// 429: honor the server's Retry-After/RateLimit-Reset.
@@ -534,21 +577,14 @@ func (e *Engine) recordFail(ctx context.Context, did atmos.DID, host string, err
 // DID→PDS itself. The host the CAR actually came from (the post-redirect
 // host) is threaded into Store.OnComplete for per-host attribution.
 func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
-	body, host, err := e.opts.SyncClient.GetRepoStreamHost(ctx, job.entry.DID, "")
+	// The download phase (getRepo + CAR read + optional verify) runs under a
+	// per-attempt deadline so a stalled or trickling PDS cannot pin a worker
+	// indefinitely. HandleRepo and OnComplete below operate on the
+	// already-downloaded repo under the parent ctx — they must not be killed
+	// by a network deadline.
+	rp, commit, host, err := e.download(ctx, job.entry.DID)
 	if err != nil {
 		return err
-	}
-	defer func() { _ = body.Close() }()
-
-	rp, commit, err := atmosrepo.LoadFromCAR(bufio.NewReader(body))
-	if err != nil {
-		return err
-	}
-
-	if e.opts.VerifyCommits.ValOr(false) {
-		if err := atmossync.VerifyCommitWithDirectory(ctx, e.opts.Directory.ValOr(nil), commit); err != nil {
-			return err
-		}
 	}
 
 	if err := e.opts.Handler.HandleRepo(ctx, job.entry.DID, rp, commit); err != nil {
@@ -568,6 +604,52 @@ func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
 
 	e.notifyProgress()
 	return nil
+}
+
+// download fetches and parses a repo under the per-attempt DownloadTimeout.
+// On a timeout that is ours (the parent ctx is still healthy) it returns
+// errDownloadTimeout so processRepo fails the repo for this Run without
+// retrying it in-loop; if the parent ctx was cancelled it surfaces the
+// underlying error so processRepo unwinds via its ctx.Err() check.
+func (e *Engine) download(ctx context.Context, did atmos.DID) (rp *atmosrepo.Repo, commit *atmosrepo.Commit, host string, err error) {
+	dlCtx := ctx
+	if timeout := e.downloadTimeout(); timeout > 0 {
+		var cancel context.CancelFunc
+		dlCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	// translate maps a download-phase failure caused by our derived deadline
+	// (parent still healthy) to errDownloadTimeout; everything else passes
+	// through unchanged.
+	translate := func(err error) error {
+		if err == nil || ctx.Err() != nil {
+			return err
+		}
+		if dlCtx.Err() != nil && errors.Is(dlCtx.Err(), context.DeadlineExceeded) {
+			return fmt.Errorf("%w: %w", errDownloadTimeout, err)
+		}
+		return err
+	}
+
+	body, host, err := e.opts.SyncClient.GetRepoStreamHost(dlCtx, did, "")
+	if err != nil {
+		return nil, nil, "", translate(err)
+	}
+	defer func() { _ = body.Close() }()
+
+	rp, commit, err = atmosrepo.LoadFromCAR(bufio.NewReader(body))
+	if err != nil {
+		return nil, nil, "", translate(err)
+	}
+
+	if e.opts.VerifyCommits.ValOr(false) {
+		if err := atmossync.VerifyCommitWithDirectory(dlCtx, e.opts.Directory.ValOr(nil), commit); err != nil {
+			return nil, nil, "", translate(err)
+		}
+	}
+
+	return rp, commit, host, nil
 }
 
 // notifyProgress increments the completed counter and fires
