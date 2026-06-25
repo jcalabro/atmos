@@ -23,51 +23,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildFrame constructs an ATProto event stream frame: CBOR header + CBOR body.
-func buildFrame(t string, body []byte) []byte {
-	hdr := cbor.AppendMapHeader(nil, 2)
-	hdr = cbor.AppendTextKey(hdr, "op")
-	hdr = cbor.AppendInt(hdr, 1)
-	hdr = cbor.AppendTextKey(hdr, "t")
-	hdr = cbor.AppendText(hdr, t)
-	return append(hdr, body...)
-}
-
 // buildErrorFrame constructs an error frame (op=-1).
 func buildErrorFrame(body []byte) []byte {
 	hdr := cbor.AppendMapHeader(nil, 1)
 	hdr = cbor.AppendTextKey(hdr, "op")
 	hdr = cbor.AppendInt(hdr, -1)
 	return append(hdr, body...)
-}
-
-func buildIdentityBody(seq int64, did string) []byte {
-	evt := &comatproto.SyncSubscribeRepos_Identity{
-		LexiconTypeID: "com.atproto.sync.subscribeRepos#identity",
-		DID:           did,
-		Seq:           seq,
-		Time:          "2024-01-01T00:00:00Z",
-	}
-	data, err := evt.MarshalCBOR()
-	if err != nil {
-		panic(err)
-	}
-	return data
-}
-
-func buildAccountBody(seq int64, did string, active bool) []byte {
-	evt := &comatproto.SyncSubscribeRepos_Account{
-		LexiconTypeID: "com.atproto.sync.subscribeRepos#account",
-		DID:           did,
-		Seq:           seq,
-		Active:        active,
-		Time:          "2024-01-01T00:00:00Z",
-	}
-	data, err := evt.MarshalCBOR()
-	if err != nil {
-		panic(err)
-	}
-	return data
 }
 
 func buildInfoBody(name string) []byte {
@@ -91,13 +52,6 @@ func buildErrorBody(errCode, message string) []byte {
 	b = cbor.AppendTextKey(b, "message")
 	b = cbor.AppendText(b, message)
 	return b
-}
-
-func mustNewClient(t *testing.T, opts Options) *Client {
-	t.Helper()
-	c, err := NewClient(opts)
-	require.NoError(t, err)
-	return c
 }
 
 func startMockRelay(t *testing.T, handler func(conn *websocket.Conn, r *http.Request)) *httptest.Server {
