@@ -436,12 +436,25 @@ func TestBatch_CursorAfterBatch(t *testing.T) {
 		}
 	}
 	assert.GreaterOrEqual(t, batchCount, 2)
-	// After the loop completes, the cursor should reflect the last batch.
-	// First yield sees cursor 0 (nothing stored yet), second yield sees 5
-	// (first batch's cursor stored after first yield returned).
+	// The cursor is stored after each yield returns, so the value observed at
+	// the start of a yield reflects the PREVIOUS batch. The first two batches
+	// (seqs 1-5, 6-10) are consumed before the cancel, so these are
+	// deterministic.
 	assert.Equal(t, int64(0), cursorsAfterYield[0], "cursor during first yield")
 	assert.Equal(t, int64(5), cursorsAfterYield[1], "cursor during second yield")
-	assert.Equal(t, int64(10), client.Cursor(), "cursor after loop")
+	// After the loop, the cursor reflects the last DELIVERED batch. A graceful
+	// cancel is lossless: readLoop drains already-completed in-flight work
+	// before returning, so whether the trailing seq-99 batch is delivered
+	// depends on whether its processing won the race with the cancel. Either
+	// outcome is loss-free — seq 99 is delivered (cursor 99) or left for the
+	// next subscribe to re-fetch from cursor 10. Assert the invariant that
+	// holds both ways rather than a racy exact value.
+	final := client.Cursor()
+	assert.Contains(t, []int64{10, 99}, final, "cursor after loop is the last delivered batch")
+	if batchCount >= 3 {
+		// The trailing batch was delivered, so its cursor (99) must be visible.
+		assert.Equal(t, int64(99), final, "delivered trailing batch advances the cursor")
+	}
 }
 
 func TestBatch_MultipleBatches(t *testing.T) {

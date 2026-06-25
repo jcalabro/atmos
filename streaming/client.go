@@ -726,20 +726,31 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 	// window has advanced past our cursor.
 	lastSeenSeq := c.cursor.Load()
 
+	// workCtx runs the scheduler workers (verification) and their result
+	// delivery. It is derived from ctx WITHOUT inheriting cancellation, so a
+	// graceful consumer-ctx cancel at a phase cutover does not abandon a
+	// verification that is already in flight: the verifier advances its durable
+	// per-DID rev as a side effect of VerifyCommit, so a result computed but
+	// then dropped would be lost forever (the re-subscribe re-delivers the
+	// event, but the now-advanced verifier rev-replay-drops it). On consumer
+	// cancel we instead drain those in-flight results (bounded — see the
+	// ctx.Done() branch below) and THEN cancelWork to unblock any verifier
+	// network I/O. cancelWork on every readLoop exit prevents a worker leak.
+	workCtx, cancelWork := context.WithCancel(context.WithoutCancel(ctx))
+
 	sched := parallel.NewSchedulerWithContext(
-		ctx,
+		workCtx,
 		c.parallelism,
 		queueCap,
 		func(jctx context.Context, j schedJob) error {
-			// jctx is the readLoop's ctx (consumer's parent ctx); a
-			// cancel propagates into VerifyCommit/VerifySync,
-			// OnAccountEvent, and the PLC/CAR network calls they make,
-			// so consumer shutdown unblocks any blocking I/O the
-			// verifier holds.
+			// jctx is workCtx; it is cancelled when readLoop returns (or when
+			// the bounded post-cancel drain elapses), which propagates into
+			// VerifyCommit/VerifySync, OnAccountEvent, and the PLC/CAR network
+			// calls they make, so shutdown still unblocks blocking verifier I/O.
 			res := c.verifyOne(jctx, j.evt)
 			select {
 			case resultCh <- res:
-			case <-ctx.Done():
+			case <-workCtx.Done():
 			}
 			return nil
 		},
@@ -795,7 +806,15 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 			}
 		},
 	)
-	defer sched.Shutdown()
+	// cancelWork BEFORE sched.Shutdown: Shutdown's wg.Wait() blocks until every
+	// worker returns, and a worker wedged in verifier I/O only unblocks when
+	// workCtx is cancelled. Deferring them separately would run Shutdown first
+	// (LIFO) and hang. Any lossless drain on a graceful cancel happens earlier,
+	// before readLoop returns; by here we want a prompt teardown.
+	defer func() {
+		cancelWork()
+		sched.Shutdown()
+	}()
 
 	// Reader goroutine: reads raw frames and sends them to msgCh.
 	// Guaranteed not to leak because consumeLoop calls conn.CloseNow()
@@ -1111,10 +1130,62 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 		return false
 	}
 
+	// drainCancelDoneResults runs on a graceful consumer-ctx cancel. It pulls
+	// in-flight verification results into the batch so an event whose
+	// verification completed — advancing the verifier's durable per-DID rev as a
+	// side effect — is delivered rather than dropped. A dropped completed event
+	// would be lost forever: the next subscribe re-delivers it, but the
+	// now-advanced verifier rev-replay-drops it (ops==nil → silentDrop).
+	//
+	// The drain waits for results until cancelGrace elapses, then triggers
+	// cancelWork to unblock any verifier still wedged in blocking I/O (e.g. a
+	// slow SaveChain / PLC fetch) and stops. This is the safe middle ground:
+	//   - A verification that already finished delivers its result within the
+	//     grace window (it only needs to send on resultCh — microseconds), so
+	//     no committed-rev event is lost.
+	//   - A verification still running at grace expiry has NOT committed its rev
+	//     (SaveChain is its last step), so abandoning it is safe — re-delivery
+	//     re-verifies cleanly — and cancelWork makes shutdown prompt regardless.
+	// cancelGrace is well under any consumer's shutdown deadline; the common
+	// case (all work already done) returns immediately when pendingResults hits
+	// zero without waiting on the timer.
+	drainCancelDoneResults := func() {
+		if pendingResults <= 0 {
+			return
+		}
+		const cancelGrace = 750 * time.Millisecond
+		graceTimer := time.NewTimer(cancelGrace)
+		defer graceTimer.Stop()
+		for pendingResults > 0 {
+			select {
+			case vr := <-resultCh:
+				pendingResults--
+				_ = handleVerifyResult(vr, false)
+			case <-graceTimer.C:
+				// Unblock any wedged verifier I/O; stragglers' results (if any
+				// land now) are abandoned, but they have no committed rev.
+				cancelWork()
+				return
+			}
+		}
+	}
+
 	for {
 		select {
 		case res := <-msgCh:
 			if res.err != nil {
+				// A consumer-ctx cancel usually surfaces HERE first: conn.Read
+				// observes ctx.Done and the reader delivers its error before the
+				// ctx.Done() select arm below can run. Treat that case as a
+				// graceful cancel and drain in-flight results losslessly (see
+				// drainCancelDoneResults) rather than the bail-on-ctx.Done
+				// drainResults, so a completed verification (verifier rev already
+				// advanced) is delivered, not dropped-then-rev-replay-lost.
+				if ctx.Err() != nil {
+					drainCancelDoneResults()
+					flushBatch()
+					return false
+				}
 				if drainResults() {
 					return true
 				}
@@ -1189,6 +1260,16 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 			resetBatchTimer()
 
 		case <-ctx.Done():
+			// Graceful consumer cancel. Drain results for work already
+			// dispatched to the scheduler before returning, so an in-flight
+			// verification (whose verifier rev-state has advanced) is delivered
+			// rather than silently lost — a dropped tail event re-delivered on
+			// the next subscribe would be rev-replay-dropped and lost forever.
+			// Bounded by drainGrace so a genuinely stuck verifier cannot hang
+			// shutdown; workCtx is left alive for the drain and cancelled (via
+			// the deferred cancelWork) only after we return, which unblocks any
+			// verifier I/O that outlived the grace window.
+			drainCancelDoneResults()
 			if flushBatch() {
 				return true
 			}
