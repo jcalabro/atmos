@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync/atomic"
@@ -21,6 +22,20 @@ import (
 )
 
 const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
+
+// Conn is the WebSocket surface the client consumes. *websocket.Conn
+// satisfies it; tests inject an in-memory implementation via Options.Dial.
+type Conn interface {
+	Read(ctx context.Context) (websocket.MessageType, []byte, error)
+	Close(code websocket.StatusCode, reason string) error
+	CloseNow() error
+	SetReadLimit(n int64)
+}
+
+// DialFunc opens a connection to the resolved WebSocket URL (cursor and
+// query already appended). resp is the upgrade HTTP response, used to
+// classify a non-101 status as a non-retryable DialError; it may be nil.
+type DialFunc func(ctx context.Context, url string) (Conn, *http.Response, error)
 
 // Options configures a streaming client.
 type Options struct {
@@ -143,13 +158,18 @@ type Options struct {
 	//     websocket OS buffer rather than shedding events.
 	//   - All other guarantees from Parallelism > 1 still hold.
 	Parallelism gt.Option[int]
+
+	// Dial, when set, replaces the default websocket dial. The client
+	// uses the returned Conn for all transport. Intended for tests that
+	// drive the client over an in-memory connection.
+	Dial gt.Option[DialFunc]
 }
 
 // Client connects to an ATProto event stream (firehose or label stream).
 type Client struct {
 	opts           Options
 	cursor         atomic.Int64
-	conn           atomic.Pointer[websocket.Conn]
+	conn           atomic.Pointer[Conn]
 	cursorCount    int64 // only used in readLoop goroutine
 	cursorInterval int64
 	batchSize      int
@@ -376,7 +396,7 @@ func (c *Client) Close() error {
 		return nil
 	}
 
-	return conn.Close(websocket.StatusNormalClosure, "client closing")
+	return (*conn).Close(websocket.StatusNormalClosure, "client closing")
 }
 
 // IsLeader returns whether this node currently believes it holds the
@@ -558,7 +578,7 @@ func (c *Client) releaseOnShutdown() {
 }
 
 // dial connects to the WebSocket endpoint with the current cursor.
-func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
+func (c *Client) dial(ctx context.Context) (Conn, error) {
 	u := c.opts.URL
 	parsed, err := url.Parse(u)
 	if err != nil {
@@ -585,7 +605,11 @@ func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 		u = parsed.String()
 	}
 
-	conn, resp, err := dial(ctx, u)
+	dialFn := dial
+	if c.opts.Dial.HasVal() {
+		dialFn = c.opts.Dial.Val()
+	}
+	conn, resp, err := dialFn(ctx, u)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
@@ -601,7 +625,7 @@ func (c *Client) dial(ctx context.Context) (*websocket.Conn, error) {
 	}
 
 	conn.SetReadLimit(c.opts.MaxMessageSize.Val())
-	c.conn.Store(conn)
+	c.conn.Store(&conn)
 	return conn, nil
 }
 
@@ -630,7 +654,7 @@ type readResult struct {
 // Returns true when the caller's yield function asked to stop
 // iterating; false on connection errors or context cancellation
 // (caller should reconnect or exit).
-func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn, yield func([]Event, error) bool) bool {
+func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, error) bool) bool {
 	// schedJob carries one decoded event through the scheduler.
 	type schedJob struct {
 		evt Event

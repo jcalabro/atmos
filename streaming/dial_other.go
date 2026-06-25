@@ -14,7 +14,7 @@ const atmosModulePath = "github.com/jcalabro/atmos"
 
 var atmosUserAgent = "atmos/" + atmosVersion()
 
-func dial(ctx context.Context, u string) (*websocket.Conn, *http.Response, error) {
+func dial(ctx context.Context, u string) (Conn, *http.Response, error) {
 	return websocket.Dial(ctx, u, &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"User-Agent": []string{atmosUserAgent},
