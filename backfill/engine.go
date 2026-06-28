@@ -643,6 +643,20 @@ func (e *Engine) download(ctx context.Context, did atmos.DID) (rp *atmosrepo.Rep
 		return nil, nil, "", translate(err)
 	}
 
+	// The engine always requests a FULL repo (GetRepoStreamHost with an empty
+	// `since`), so the downloaded CAR must carry every block the MST
+	// references. A stream truncated exactly on a block boundary still parses
+	// cleanly — the CAR framing reader sees a legitimate-looking io.EOF — and
+	// LoadFromCAR returns a repo whose MST points at blocks that never
+	// arrived. CheckComplete is the semantic catch for that case; it wraps the
+	// failure in io.ErrUnexpectedEOF so it classifies as a transient
+	// truncation (xrpc.IsTransient) and the retry loop re-fetches, rather than
+	// the missing block surfacing later as a non-transient handler error that
+	// permanently fails an otherwise-recoverable repo.
+	if err := rp.CheckComplete(); err != nil {
+		return nil, nil, "", translate(err)
+	}
+
 	if e.opts.VerifyCommits.ValOr(false) {
 		if err := atmossync.VerifyCommitWithDirectory(dlCtx, e.opts.Directory.ValOr(nil), commit); err != nil {
 			return nil, nil, "", translate(err)

@@ -2,6 +2,7 @@
 package mst
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"unsafe"
@@ -10,9 +11,19 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// ErrBlockNotFound is returned (wrapped) by a BlockStore.GetBlock when the
+// requested CID is absent. MemBlockStore wraps it; other BlockStore
+// implementations should do the same so callers can classify a missing block
+// with errors.Is rather than string-matching. A missing block reached while
+// walking an MST loaded from a downloaded CAR almost always means the CAR was
+// truncated on a block boundary (a complete-looking but partial stream), which
+// callers treat as a transient download corruption.
+var ErrBlockNotFound = errors.New("block not found")
+
 // BlockStore is a content-addressed block storage interface.
 type BlockStore interface {
-	// GetBlock retrieves a block by its CID. Returns an error if not found.
+	// GetBlock retrieves a block by its CID. Returns an error wrapping
+	// ErrBlockNotFound if the CID is absent.
 	GetBlock(cid cbor.CID) ([]byte, error)
 	// PutBlock stores a block at the given CID.
 	PutBlock(cid cbor.CID, data []byte) error
@@ -37,7 +48,7 @@ func NewMemBlockStore() *MemBlockStore {
 func (s *MemBlockStore) GetBlock(cid cbor.CID) ([]byte, error) {
 	data, ok := s.blocks[cid]
 	if !ok {
-		return nil, fmt.Errorf("block not found: %s", cid.String())
+		return nil, fmt.Errorf("%w: %s", ErrBlockNotFound, cid.String())
 	}
 	return data, nil
 }

@@ -5,7 +5,9 @@
 package repo
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/jcalabro/atmos"
@@ -96,6 +98,56 @@ func (r *Repo) Delete(collection, rkey string) error {
 		return err
 	}
 	return r.Tree.Remove(key)
+}
+
+// CheckComplete verifies the repo is structurally complete: every MST node
+// and every referenced record block reachable from the data root resolves in
+// the backing block store. It is the read-side analogue of the producer-side
+// completeness check in ExportCAR (which refuses to emit a CAR omitting a
+// referenced record).
+//
+// The intended use is right after loading a FULL-repo CAR (getRepo with no
+// `since`). A CAR truncated exactly on a block boundary loads without error —
+// the framing reader sees a clean io.EOF — but leaves the MST referencing
+// blocks that never arrived. CheckComplete catches that by walking the tree:
+//
+//   - Tree.Walk loads every interior MST node via the store, so a missing
+//     node surfaces from the walk itself.
+//   - Each visited entry's record-block CID is fetched explicitly, since the
+//     walk only hands back the value CID without loading the block.
+//
+// A missing block is reported wrapped in both [mst.ErrBlockNotFound] (so the
+// specific cause is matchable) and io.ErrUnexpectedEOF (so transport/retry
+// logic — e.g. xrpc transient classification — treats it as the truncated
+// download it almost always is, symmetric with a mid-block CAR truncation).
+//
+// Do NOT call this on an intentional diff CAR (getRepo with `since`): its
+// unchanged blocks are legitimately absent and the walk would fail.
+func (r *Repo) CheckComplete() error {
+	if r.Tree == nil {
+		return nil
+	}
+	err := r.Tree.Walk(func(key string, val cbor.CID) error {
+		if _, err := r.Store.GetBlock(val); err != nil {
+			if errors.Is(err, mst.ErrBlockNotFound) {
+				return fmt.Errorf("repo: incomplete CAR: record block %s for %q missing: %w: %w",
+					val.String(), key, io.ErrUnexpectedEOF, err)
+			}
+			return fmt.Errorf("repo: reading record block %s for %q: %w", val.String(), key, err)
+		}
+		return nil
+	})
+	if err == nil {
+		return nil
+	}
+	// A missing interior MST node surfaces from Walk itself (ensureLoaded ->
+	// store.GetBlock). Classify it the same way as a missing record block so a
+	// boundary-truncated CAR is uniformly retryable regardless of which level
+	// of the tree the truncation severed.
+	if errors.Is(err, mst.ErrBlockNotFound) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return fmt.Errorf("repo: incomplete CAR: MST node missing: %w: %w", io.ErrUnexpectedEOF, err)
+	}
+	return err
 }
 
 // Commit creates a signed commit for the current state.
