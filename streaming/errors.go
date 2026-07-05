@@ -55,10 +55,67 @@ type DecodeError struct {
 func (e *DecodeError) Error() string { return e.Err.Error() }
 func (e *DecodeError) Unwrap() error { return e.Err }
 
-// ErrorRawFrame extracts the raw frame bytes from a DecodeError, or nil.
+// UnknownFrameError indicates a well-formed frame whose type ("t") or op
+// code this build does not recognize — a relay speaking a newer protocol
+// revision. Per the atproto event-stream spec the client stays connected
+// and keeps reading; the frame itself is never delivered as an Event. It
+// is surfaced as an iterator error rather than skipped silently because
+// for archival consumers an unrecognized frame IS data loss: the relay
+// consumed a seq for it but nothing can be stored, and the remediation
+// (upgrade the client) is the opposite of a relay-side gap's (data is
+// gone upstream; nothing to do).
+//
+// When Seq is non-zero it was extracted from the frame body and gap
+// detection has accounted for this frame: no spurious GapError fires on
+// the next recognized frame. When Seq is 0 the body carried no readable
+// seq, and the next recognized frame fires a GapError that covers the
+// unknown frame's position. Unknown frames never enter the watermark, so
+// the reconnect cursor does not advance past one until a later
+// recognized event does — a reconnect may therefore re-deliver and
+// re-report the same unknown frame (at-least-once, like events).
+type UnknownFrameError struct {
+	T     string // frame type from the header, e.g. "#futureThing"; empty for unknown ops
+	Op    int64  // frame op code; 1 for typed messages, anything else is an unknown op
+	Seq   int64  // best-effort seq from the frame body, or 0 if unavailable
+	Frame []byte // raw WebSocket message
+}
+
+func (e *UnknownFrameError) Error() string {
+	return fmt.Sprintf("unknown frame: op=%d t=%q seq=%d", e.Op, e.T, e.Seq)
+}
+
+// StreamError is an event-stream error frame (op = -1) sent by the
+// server, e.g. "FutureCursor" or "ConsumerTooSlow", usually immediately
+// before it closes the connection. The client yields it on the iterator
+// (after flushing events that preceded it) and keeps its normal
+// lifecycle: the server's close lands as a read error and the client
+// reconnects with backoff from the persisted cursor.
+//
+// Consumers should watch for repeats. A persistent FutureCursor loop
+// means the persisted cursor is ahead of everything the relay has
+// (cursor corruption, or a relay restored from an older backup) and will
+// never resolve without operator intervention — each reconnect
+// re-subscribes with the same cursor and receives the same error frame.
+type StreamError struct {
+	Code    string // machine-readable error code, e.g. "FutureCursor"
+	Message string // optional human-readable detail
+}
+
+func (e *StreamError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("stream error frame: %s: %s", e.Code, e.Message)
+	}
+	return fmt.Sprintf("stream error frame: %s", e.Code)
+}
+
+// ErrorRawFrame extracts the raw frame bytes from a DecodeError or
+// UnknownFrameError, or nil.
 func ErrorRawFrame(err error) []byte {
 	if de, ok := errors.AsType[*DecodeError](err); ok {
 		return de.Frame
+	}
+	if ue, ok := errors.AsType[*UnknownFrameError](err); ok {
+		return ue.Frame
 	}
 	return nil
 }

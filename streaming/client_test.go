@@ -439,24 +439,175 @@ func TestErrorFrame(t *testing.T) {
 
 	client := mustNewClient(t, Options{URL: wsURL(srv)})
 
-	var events []Event
+	// An op=-1 error frame must surface its machine-readable code +
+	// message as a *StreamError on the iterator's error slot — not be
+	// misdecoded as an #info "name", and not be delivered as an Event a
+	// consumer could silently ignore (a FutureCursor reconnect loop
+	// with no signal would be invisible to operators).
+	var streamErrs []*StreamError
 	for batch, err := range client.Events(ctx) {
+		if se, ok := errors.AsType[*StreamError](err); ok {
+			streamErrs = append(streamErrs, se)
+			cancel()
+			continue
+		}
+		if err != nil {
+			continue
+		}
+		require.Empty(t, batch, "the error frame must not be delivered as an event")
+	}
+
+	require.Len(t, streamErrs, 1)
+	assert.Equal(t, "OutdatedCursor", streamErrs[0].Code)
+	assert.Equal(t, "cursor too old", streamErrs[0].Message)
+}
+
+// TestErrorFrame_FlushesPrecedingEvents pins the ordered-error contract
+// for StreamError: events that arrived before the op=-1 frame are
+// flushed to the consumer ahead of the error, same as DecodeError and
+// GapError.
+func TestErrorFrame_FlushesPrecedingEvents(t *testing.T) {
+	t.Parallel()
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn,
+			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")),
+			buildErrorFrame(buildErrorBody("ConsumerTooSlow", "you snooze you lose")),
+		)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
+
+	var order []string
+	for batch, err := range client.Events(ctx) {
+		if se, ok := errors.AsType[*StreamError](err); ok {
+			order = append(order, "error:"+se.Code)
+			cancel()
+			continue
+		}
+		if err != nil {
+			continue
+		}
+		for range batch {
+			order = append(order, "event")
+		}
+	}
+
+	require.Equal(t, []string{"event", "error:ConsumerTooSlow"}, order,
+		"the pre-error event must be yielded before the StreamError")
+}
+
+// TestUnknownFrame_SurfacesErrorAndSuppressesGap sends recognized
+// frames around an unknown-typed frame carrying the middle seq. The
+// consumer must observe one *UnknownFrameError for the middle frame,
+// both surrounding events, and NO GapError — the unknown frame's seq is
+// accounted for by the best-effort body extraction, so the loss is
+// attributed to "unknown frame" rather than misreported as a relay-side
+// gap.
+func TestUnknownFrame_SurfacesErrorAndSuppressesGap(t *testing.T) {
+	t.Parallel()
+
+	unknownBody := cbor.AppendMapHeader(nil, 2)
+	unknownBody = cbor.AppendTextKey(unknownBody, "seq")
+	unknownBody = cbor.AppendInt(unknownBody, 2)
+	unknownBody = cbor.AppendTextKey(unknownBody, "did")
+	unknownBody = cbor.AppendText(unknownBody, "did:plc:future")
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn,
+			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")),
+			buildFrame("#futureThing", unknownBody),
+			buildFrame("#identity", buildIdentityBody(3, "did:plc:bob")),
+		)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
+
+	var events []Event
+	var unknownErrs []*UnknownFrameError
+	var gapErrs []*GapError
+	for batch, err := range client.Events(ctx) {
+		if ue, ok := errors.AsType[*UnknownFrameError](err); ok {
+			unknownErrs = append(unknownErrs, ue)
+			continue
+		}
+		if ge, ok := errors.AsType[*GapError](err); ok {
+			gapErrs = append(gapErrs, ge)
+			continue
+		}
 		if err != nil {
 			continue
 		}
 		events = append(events, batch...)
-		if len(events) >= 1 {
+		if len(events) >= 2 {
 			cancel()
 		}
 	}
 
-	require.Len(t, events, 1)
-	// An error frame must surface its machine-readable code + message via
-	// Event.Error, not be misdecoded as an #info "name".
-	require.NotNil(t, events[0].Error)
-	assert.Equal(t, "OutdatedCursor", events[0].Error.Error)
-	assert.Equal(t, "cursor too old", events[0].Error.Message)
-	assert.Nil(t, events[0].Info)
+	require.Len(t, events, 2, "both recognized frames must be delivered")
+	require.Len(t, unknownErrs, 1, "the unknown frame must surface exactly one UnknownFrameError")
+	assert.Equal(t, "#futureThing", unknownErrs[0].T)
+	assert.Equal(t, int64(1), unknownErrs[0].Op)
+	assert.Equal(t, int64(2), unknownErrs[0].Seq)
+	assert.NotEmpty(t, unknownErrs[0].Frame)
+	assert.Empty(t, gapErrs,
+		"the unknown frame's extracted seq must suppress the spurious GapError on the next frame")
+}
+
+// TestUnknownFrame_NoSeqFallsBackToGap pins the fallback contract: when
+// an unknown frame's body carries no readable seq, the consumer gets
+// the UnknownFrameError (Seq=0) AND the next recognized frame fires a
+// GapError covering the hole — the loss stays visible either way, just
+// attributed with less precision.
+func TestUnknownFrame_NoSeqFallsBackToGap(t *testing.T) {
+	t.Parallel()
+
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn,
+			buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")),
+			buildFrame("#futureThing", cbor.AppendMapHeader(nil, 0)),
+			buildFrame("#identity", buildIdentityBody(3, "did:plc:bob")),
+		)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := mustNewClient(t, Options{URL: wsURL(srv), Parallelism: gt.Some(1)})
+
+	var events []Event
+	var unknownErrs []*UnknownFrameError
+	var gapErrs []*GapError
+	for batch, err := range client.Events(ctx) {
+		if ue, ok := errors.AsType[*UnknownFrameError](err); ok {
+			unknownErrs = append(unknownErrs, ue)
+			continue
+		}
+		if ge, ok := errors.AsType[*GapError](err); ok {
+			gapErrs = append(gapErrs, ge)
+			continue
+		}
+		if err != nil {
+			continue
+		}
+		events = append(events, batch...)
+		if len(events) >= 2 {
+			cancel()
+		}
+	}
+
+	require.Len(t, events, 2)
+	require.Len(t, unknownErrs, 1)
+	assert.Zero(t, unknownErrs[0].Seq)
+	require.Len(t, gapErrs, 1, "with no extractable seq the hole must fall back to a GapError")
+	assert.Equal(t, int64(2), gapErrs[0].Expected)
+	assert.Equal(t, int64(3), gapErrs[0].Got)
 }
 
 func TestInfoEvent(t *testing.T) {

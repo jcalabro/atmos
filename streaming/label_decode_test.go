@@ -1,6 +1,7 @@
 package streaming
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jcalabro/atmos/api/comatproto"
@@ -215,11 +216,10 @@ func TestDecodeLabelFrame_ErrorFrame(t *testing.T) {
 	frame := buildLabelErrorFrame(body)
 
 	evt, err := decodeLabelFrame(frame)
-	require.NoError(t, err)
-
-	require.NotNil(t, evt.Error)
-	assert.Equal(t, "FutureCursor", evt.Error.Error)
-	assert.Equal(t, "cursor in the future", evt.Error.Message)
+	se, ok := errors.AsType[*StreamError](err)
+	require.True(t, ok, "op=-1 label frame must decode to *StreamError, got %v", err)
+	assert.Equal(t, "FutureCursor", se.Code)
+	assert.Equal(t, "cursor in the future", se.Message)
 	assert.Nil(t, evt.LabelInfo)
 }
 
@@ -237,7 +237,10 @@ func TestDecodeLabelFrame_UnknownOp(t *testing.T) {
 	frame := append(hdr, body...)
 
 	_, err := decodeLabelFrame(frame)
-	require.ErrorIs(t, err, errUnknownOp)
+	ue, ok := errors.AsType[*UnknownFrameError](err)
+	require.True(t, ok, "unknown op must decode to *UnknownFrameError, got %v", err)
+	assert.Equal(t, int64(2), ue.Op)
+	assert.Equal(t, "#labels", ue.T)
 }
 
 func TestDecodeLabelFrame_UnknownType(t *testing.T) {
@@ -247,7 +250,10 @@ func TestDecodeLabelFrame_UnknownType(t *testing.T) {
 	frame := buildLabelFrame("#unknown", body)
 
 	_, err := decodeLabelFrame(frame)
-	require.ErrorIs(t, err, errUnknownType)
+	ue, ok := errors.AsType[*UnknownFrameError](err)
+	require.True(t, ok, "unknown type must decode to *UnknownFrameError, got %v", err)
+	assert.Equal(t, "#unknown", ue.T)
+	assert.Equal(t, int64(1), ue.Op)
 }
 
 func TestDecodeLabelFrame_BadBody(t *testing.T) {

@@ -1023,13 +1023,10 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 	// Returns false if the caller wants to stop iterating.
 	dispatch := func(data []byte) bool {
 		evt, err := c.decode(data)
-		if errors.Is(err, errUnknownType) || errors.Is(err, errUnknownOp) {
-			return true
-		}
 		if err != nil {
 			// Drain any results that completed while this frame was
 			// waiting in msgCh so events that arrived BEFORE the bad
-			// frame land in the batch ahead of the DecodeError. Without
+			// frame land in the batch ahead of the error. Without
 			// this, the dispatch goroutine could yield the error while
 			// pre-error events were still in flight in the scheduler,
 			// breaking the "partial batch flushes before error" contract
@@ -1041,6 +1038,28 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 				return false
 			}
 			resetBatchTimer()
+			// Typed frame-level errors pass through as-is so consumers
+			// can classify them: *UnknownFrameError (forward-compat: an
+			// unrecognized but well-formed frame; reading continues) and
+			// *StreamError (an op=-1 server error frame, e.g.
+			// FutureCursor, which the server usually follows with a
+			// close — the reconnect loop handles that as a normal
+			// connection loss). Everything else is a malformed frame,
+			// wrapped in *DecodeError with the raw bytes attached.
+			if ue, ok := errors.AsType[*UnknownFrameError](err); ok {
+				// Account for the unknown frame's seq so the next
+				// recognized frame doesn't fire a spurious GapError:
+				// the frame arrived, we just can't represent it. It
+				// never enters inflight, so the watermark (and thus
+				// the reconnect cursor) is unaffected.
+				if ue.Seq > 0 && !c.isJetstream && ue.Seq > lastSeenSeq {
+					lastSeenSeq = ue.Seq
+				}
+				return yield(nil, ue)
+			}
+			if se, ok := errors.AsType[*StreamError](err); ok {
+				return yield(nil, se)
+			}
 			return yield(nil, &DecodeError{Frame: data, Err: fmt.Errorf("decode: %w", err)})
 		}
 

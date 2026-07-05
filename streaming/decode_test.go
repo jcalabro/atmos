@@ -1,6 +1,7 @@
 package streaming
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jcalabro/atmos/api/comatproto"
@@ -198,7 +199,10 @@ func TestDecodeFrame_TrailingData(t *testing.T) {
 
 func TestDecodeFrame_ErrorFrame(t *testing.T) {
 	t.Parallel()
-	// op = -1 error frame with the generic {error, message} body.
+	// op = -1 error frame with the generic {error, message} body. It
+	// must decode into a *StreamError carrying the machine-readable
+	// code — not be misdecoded as a #info body (which would drop the
+	// code by reading the wrong key).
 	body := cbor.AppendMapHeader(nil, 2)
 	body = cbor.AppendTextKey(body, "error")
 	body = cbor.AppendText(body, "FutureCursor")
@@ -211,16 +215,46 @@ func TestDecodeFrame_ErrorFrame(t *testing.T) {
 	frame := append(hdr, body...)
 
 	evt, err := decodeFrame(frame)
-	require.NoError(t, err)
-	require.NotNil(t, evt.Error)
-	assert.Equal(t, "FutureCursor", evt.Error.Error)
-	assert.Equal(t, "cursor in the future", evt.Error.Message)
+	se, ok := errors.AsType[*StreamError](err)
+	require.True(t, ok, "op=-1 frame must decode to *StreamError, got %v", err)
+	assert.Equal(t, "FutureCursor", se.Code)
+	assert.Equal(t, "cursor in the future", se.Message)
 	assert.Nil(t, evt.Info)
 }
 
 func TestDecodeFrame_UnknownType(t *testing.T) {
 	t.Parallel()
-	// Build a frame with op=1 and unknown type
+	// A frame with op=1 and an unrecognized type must surface as a
+	// *UnknownFrameError with the header type, a best-effort seq read
+	// from the body, and the raw frame attached.
+	hdr := make([]byte, 0, 32)
+	hdr = cbor.AppendMapHeader(hdr, 2)
+	hdr = cbor.AppendText(hdr, "op")
+	hdr = cbor.AppendInt(hdr, 1)
+	hdr = cbor.AppendText(hdr, "t")
+	hdr = cbor.AppendText(hdr, "#unknown")
+
+	body := make([]byte, 0, 16)
+	body = cbor.AppendMapHeader(body, 1)
+	body = cbor.AppendTextKey(body, "seq")
+	body = cbor.AppendInt(body, 77)
+
+	frame := append(hdr, body...)
+	_, err := decodeFrame(frame)
+	ue, ok := errors.AsType[*UnknownFrameError](err)
+	require.True(t, ok, "unknown type must decode to *UnknownFrameError, got %v", err)
+	assert.Equal(t, "#unknown", ue.T)
+	assert.Equal(t, int64(1), ue.Op)
+	assert.Equal(t, int64(77), ue.Seq)
+	assert.Equal(t, frame, ue.Frame)
+	assert.Equal(t, frame, ErrorRawFrame(ue))
+}
+
+func TestDecodeFrame_UnknownTypeNoSeq(t *testing.T) {
+	t.Parallel()
+	// An unknown type whose body carries no readable seq reports Seq=0
+	// (the caller then lets the next recognized frame's GapError cover
+	// the hole).
 	hdr := make([]byte, 0, 32)
 	hdr = cbor.AppendMapHeader(hdr, 2)
 	hdr = cbor.AppendText(hdr, "op")
@@ -233,7 +267,9 @@ func TestDecodeFrame_UnknownType(t *testing.T) {
 
 	frame := append(hdr, body...)
 	_, err := decodeFrame(frame)
-	require.ErrorIs(t, err, errUnknownType)
+	ue, ok := errors.AsType[*UnknownFrameError](err)
+	require.True(t, ok, "unknown type must decode to *UnknownFrameError, got %v", err)
+	assert.Zero(t, ue.Seq)
 }
 
 func TestDecodeFrame_UnknownOp(t *testing.T) {
@@ -250,5 +286,34 @@ func TestDecodeFrame_UnknownOp(t *testing.T) {
 
 	frame := append(hdr, body...)
 	_, err := decodeFrame(frame)
-	require.ErrorIs(t, err, errUnknownOp)
+	ue, ok := errors.AsType[*UnknownFrameError](err)
+	require.True(t, ok, "unknown op must decode to *UnknownFrameError, got %v", err)
+	assert.Equal(t, int64(2), ue.Op)
+}
+
+func TestBestEffortSeq(t *testing.T) {
+	t.Parallel()
+
+	withSeq := cbor.AppendMapHeader(nil, 2)
+	withSeq = cbor.AppendTextKey(withSeq, "did")
+	withSeq = cbor.AppendText(withSeq, "did:plc:abc")
+	withSeq = cbor.AppendTextKey(withSeq, "seq")
+	withSeq = cbor.AppendInt(withSeq, 123)
+	assert.Equal(t, int64(123), bestEffortSeq(withSeq))
+
+	noSeq := cbor.AppendMapHeader(nil, 1)
+	noSeq = cbor.AppendTextKey(noSeq, "did")
+	noSeq = cbor.AppendText(noSeq, "did:plc:abc")
+	assert.Zero(t, bestEffortSeq(noSeq))
+
+	// seq of the wrong CBOR type: 0, not a panic or garbage.
+	badSeq := cbor.AppendMapHeader(nil, 1)
+	badSeq = cbor.AppendTextKey(badSeq, "seq")
+	badSeq = cbor.AppendText(badSeq, "not-an-int")
+	assert.Zero(t, bestEffortSeq(badSeq))
+
+	// Not a map at all.
+	assert.Zero(t, bestEffortSeq(cbor.AppendInt(nil, 7)))
+	assert.Zero(t, bestEffortSeq(nil))
+	assert.Zero(t, bestEffortSeq([]byte{0xff}))
 }

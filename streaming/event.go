@@ -10,28 +10,25 @@ import (
 	"github.com/jcalabro/atmos/sync"
 )
 
-// errUnknownType is returned for unrecognized event types, which are
-// silently skipped for forward compatibility.
+// errUnknownType is the internal sentinel body decoders return for an
+// unrecognized event type; the frame-level decoders (decodeFrame,
+// decodeLabelFrame, decodeJetstreamFrame) translate it into a
+// *UnknownFrameError carrying the raw frame and best-effort seq.
 var errUnknownType = errors.New("unknown event type")
 
-// ErrorFrame is the body of an event-stream error frame (op = -1). Per the
-// event-stream framing spec the body is {error: string, message?: string},
-// where error is a machine-readable code such as "FutureCursor",
-// "OutdatedCursor", or "ConsumerTooSlow". This is distinct from the
-// subscribeRepos #info message (which uses a "name" field); decoding an error
-// frame as #info would silently drop the error code.
-type ErrorFrame struct {
-	Error   string // machine-readable error code
-	Message string // optional human-readable detail
-}
-
-// decodeErrorFrame decodes an op=-1 error-frame body ({error, message}).
-func decodeErrorFrame(body []byte) (*ErrorFrame, error) {
+// decodeStreamErrorFrame decodes an op=-1 error-frame body
+// ({error, message}) into a *StreamError. Per the event-stream framing
+// spec the body is {error: string, message?: string}, where error is a
+// machine-readable code such as "FutureCursor", "OutdatedCursor", or
+// "ConsumerTooSlow". This is distinct from the subscribeRepos #info
+// message (which uses a "name" field); decoding an error frame as #info
+// would silently drop the error code.
+func decodeStreamErrorFrame(body []byte) (*StreamError, error) {
 	count, pos, err := cbor.ReadMapHeader(body, 0)
 	if err != nil {
 		return nil, fmt.Errorf("decode error frame: %w", err)
 	}
-	var ef ErrorFrame
+	var se StreamError
 	for range count {
 		key, newPos, err := cbor.ReadText(body, pos)
 		if err != nil {
@@ -40,9 +37,9 @@ func decodeErrorFrame(body []byte) (*ErrorFrame, error) {
 		pos = newPos
 		switch key {
 		case "error":
-			ef.Error, pos, err = cbor.ReadText(body, pos)
+			se.Code, pos, err = cbor.ReadText(body, pos)
 		case "message":
-			ef.Message, pos, err = cbor.ReadText(body, pos)
+			se.Message, pos, err = cbor.ReadText(body, pos)
 		default:
 			pos, err = cbor.SkipValue(body, pos)
 		}
@@ -50,12 +47,40 @@ func decodeErrorFrame(body []byte) (*ErrorFrame, error) {
 			return nil, fmt.Errorf("decode error frame: %w", err)
 		}
 	}
-	return &ef, nil
+	return &se, nil
 }
 
-// errUnknownOp is returned for unrecognized frame op codes, which are
-// silently skipped for forward compatibility per the event stream spec.
-var errUnknownOp = errors.New("unknown frame op")
+// bestEffortSeq extracts an int64 "seq" field from a CBOR-map frame
+// body, returning 0 when the body is not a map or carries no readable
+// seq. Used to attribute a seq to unknown frame types so gap detection
+// can account for them; every sequenced-stream message type in the
+// atproto lexicons carries a top-level "seq", so a future frame type is
+// overwhelmingly likely to be readable here even though we cannot
+// decode the rest of it.
+func bestEffortSeq(body []byte) int64 {
+	count, pos, err := cbor.ReadMapHeader(body, 0)
+	if err != nil {
+		return 0
+	}
+	for range count {
+		key, next, err := cbor.ReadText(body, pos)
+		if err != nil {
+			return 0
+		}
+		pos = next
+		if key == "seq" {
+			v, _, err := cbor.ReadInt(body, pos)
+			if err != nil {
+				return 0
+			}
+			return v
+		}
+		if pos, err = cbor.SkipValue(body, pos); err != nil {
+			return 0
+		}
+	}
+	return 0
+}
 
 // ResyncKind classifies events whose operations represent an
 // authoritative full-repo replacement rather than an incremental commit
@@ -105,11 +130,6 @@ type Event struct {
 	// an empty authoritative repo; the Event itself must still be
 	// delivered.
 	Resync ResyncKind
-
-	// Error is populated for an event-stream error frame (op = -1). It carries
-	// the machine-readable error code (e.g. "FutureCursor", "ConsumerTooSlow")
-	// and optional message, which a plain #info decode would drop.
-	Error *ErrorFrame
 
 	// Label stream fields (access via Labels()).
 	labelBatch *comatproto.LabelSubscribeLabels_Labels
@@ -185,18 +205,22 @@ func decodeFrame(data []byte) (Event, error) {
 
 	if hdr.Op == -1 {
 		// Error frame: body is {error, message}, NOT the #info {name, message}.
-		ef, err := decodeErrorFrame(body)
+		se, err := decodeStreamErrorFrame(body)
 		if err != nil {
 			return Event{}, err
 		}
-		return Event{Error: ef}, nil
+		return Event{}, se
 	}
 
 	if hdr.Op != 1 {
-		return Event{}, errUnknownOp
+		return Event{}, &UnknownFrameError{T: hdr.T, Op: hdr.Op, Seq: bestEffortSeq(body), Frame: data}
 	}
 
-	return decodeMessageBody(hdr.T, body)
+	evt, err := decodeMessageBody(hdr.T, body)
+	if errors.Is(err, errUnknownType) {
+		return Event{}, &UnknownFrameError{T: hdr.T, Op: hdr.Op, Seq: bestEffortSeq(body), Frame: data}
+	}
+	return evt, err
 }
 
 // decodeFrameHeader reads the CBOR map header {op: int, t: string}.
@@ -314,15 +338,15 @@ func decodeLabelFrame(data []byte) (Event, error) {
 
 	if hdr.Op == -1 {
 		// Error frame: body is {error, message}, NOT the #info {name, message}.
-		ef, err := decodeErrorFrame(body)
+		se, err := decodeStreamErrorFrame(body)
 		if err != nil {
 			return Event{}, err
 		}
-		return Event{Error: ef}, nil
+		return Event{}, se
 	}
 
 	if hdr.Op != 1 {
-		return Event{}, errUnknownOp
+		return Event{}, &UnknownFrameError{T: hdr.T, Op: hdr.Op, Seq: bestEffortSeq(body), Frame: data}
 	}
 
 	switch hdr.T {
@@ -339,6 +363,6 @@ func decodeLabelFrame(data []byte) (Event, error) {
 		}
 		return Event{LabelInfo: &v}, nil
 	default:
-		return Event{}, errUnknownType
+		return Event{}, &UnknownFrameError{T: hdr.T, Op: hdr.Op, Seq: bestEffortSeq(body), Frame: data}
 	}
 }

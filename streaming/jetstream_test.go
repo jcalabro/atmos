@@ -5,6 +5,7 @@ package streaming
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -141,7 +142,11 @@ func TestDecodeJetstreamUnknownKind(t *testing.T) {
 
 	frame := []byte(`{"did": "did:plc:test", "time_us": 123, "kind": "future_type"}`)
 	_, err := decodeJetstreamFrame(frame)
-	assert.ErrorIs(t, err, errUnknownType)
+	ue, ok := errors.AsType[*UnknownFrameError](err)
+	require.True(t, ok, "unknown jetstream kind must decode to *UnknownFrameError, got %v", err)
+	assert.Equal(t, "future_type", ue.T)
+	assert.Equal(t, int64(123), ue.Seq, "Seq carries time_us, Jetstream's cursor unit")
+	assert.Equal(t, frame, ue.Frame)
 }
 
 func TestDecodeJetstreamMalformed(t *testing.T) {
@@ -548,14 +553,14 @@ func TestJetstream_Integration_CursorTracking(t *testing.T) {
 	assert.Equal(t, int64(999), client.Cursor())
 }
 
-func TestJetstream_Integration_UnknownKindSkipped(t *testing.T) {
+func TestJetstream_Integration_UnknownKindSurfaced(t *testing.T) {
 	t.Parallel()
 
 	srv := startMockJetstream(t, func(conn *websocket.Conn, _ *http.Request) {
 		writeJetstreamFrames(conn,
-			// Unknown kind — should be silently skipped.
+			// Unknown kind — surfaced as *UnknownFrameError, stream continues.
 			[]byte(`{"did":"did:plc:a","time_us":100,"kind":"future_event_type"}`),
-			// Valid commit — should be received.
+			// Valid commit — still received after the unknown frame.
 			[]byte(`{"did":"did:plc:b","time_us":200,"kind":"commit","commit":{"rev":"r","operation":"create","collection":"x","rkey":"1","record":{}}}`),
 		)
 	})
@@ -566,7 +571,12 @@ func TestJetstream_Integration_UnknownKindSkipped(t *testing.T) {
 	client := mustNewClient(t, Options{URL: jetstreamURL(srv)})
 
 	var events []Event
+	var unknownErrs []*UnknownFrameError
 	for batch, err := range client.Events(ctx) {
+		if ue, ok := errors.AsType[*UnknownFrameError](err); ok {
+			unknownErrs = append(unknownErrs, ue)
+			continue
+		}
 		require.NoError(t, err)
 		events = append(events, batch...)
 		if len(events) >= 1 {
@@ -574,8 +584,10 @@ func TestJetstream_Integration_UnknownKindSkipped(t *testing.T) {
 		}
 	}
 
-	require.Len(t, events, 1)
+	require.Len(t, events, 1, "the recognized frame after the unknown one must still deliver")
 	assert.Equal(t, "did:plc:b", events[0].Jetstream.DID)
+	require.Len(t, unknownErrs, 1)
+	assert.Equal(t, "future_event_type", unknownErrs[0].T)
 }
 
 func TestJetstreamEvent_CursorFieldRoundtrip(t *testing.T) {

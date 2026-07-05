@@ -116,7 +116,12 @@ func decodeJetstreamFrame(data []byte) (Event, error) {
 		if raw.Kind == "" {
 			return Event{}, fmt.Errorf("decode jetstream frame: missing kind field")
 		}
-		return Event{}, errUnknownType
+		// A well-formed frame with a kind this build doesn't know —
+		// forward compatibility, same contract as an unknown firehose
+		// frame type. T carries the JSON kind; Op is 1 by convention
+		// (Jetstream JSON has no op field). Seq is time_us, Jetstream's
+		// cursor unit; gap accounting doesn't apply (isJetstream).
+		return Event{}, &UnknownFrameError{T: raw.Kind, Op: 1, Seq: raw.TimeUS, Frame: data}
 	}
 
 	return evt, nil

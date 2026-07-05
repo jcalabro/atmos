@@ -38,6 +38,30 @@
 // verifier error) is encountered — in which case the partial batch is
 // yielded first, followed by the error.
 //
+// # Stream-level errors
+//
+// The iterator's error slot carries advisory, per-frame conditions;
+// yielding one does NOT end iteration, and consumers typically classify
+// and continue:
+//
+//   - [*DecodeError] — a malformed frame (bad CBOR/JSON). The raw bytes
+//     are attached; reading continues on the same connection.
+//   - [*UnknownFrameError] — a well-formed frame whose type or op code
+//     this build does not recognize (a relay speaking a newer protocol
+//     revision). Reading continues; see the type's doc for seq/gap
+//     accounting. Archival consumers should treat these as data loss
+//     that a client upgrade would fix.
+//   - [*StreamError] — an op=-1 error frame sent by the server (e.g.
+//     "FutureCursor", "ConsumerTooSlow"), usually followed by a
+//     server-side close; the client then reconnects with backoff as
+//     usual. A repeating StreamError across reconnects (FutureCursor in
+//     particular) indicates a condition that will not resolve on its
+//     own — the persisted cursor is ahead of the relay — and warrants
+//     operator attention.
+//   - [*GapError] — the relay's seq counter jumped forward; events in
+//     the gap were never delivered on this connection.
+//   - [*DropError] — see Parallel verification below.
+//
 // For label events, use [Event.Labels] to access the individual
 // labels — including negation labels (Neg=true) that revoke a previous label.
 //
