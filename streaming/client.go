@@ -1168,25 +1168,45 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 	// cancelGrace is well under any consumer's shutdown deadline; the common
 	// case (all work already done) returns immediately when pendingResults hits
 	// zero without waiting on the timer.
-	drainCancelDoneResults := func() {
+	//
+	// Returns true when the consumer stopped iterating (a yield inside
+	// handleVerifyResult/flushBatch returned false). Once that happens
+	// delivery MUST cease — range-over-func panics on any yield after
+	// false ("range function continued iteration after function for
+	// loop body returned false") — but the drain keeps RECEIVING within
+	// the grace window with stopped=true so workers blocked sending on
+	// resultCh are released before their results are abandoned (they
+	// have committed revs, but the consumer's own body-return already
+	// chose to stop; re-delivery loss is the consumer's accepted cost
+	// of stopping mid-batch, same as the pre-drain era).
+	drainCancelDoneResults := func() bool {
 		if pendingResults <= 0 {
-			return
+			return false
 		}
 		const cancelGrace = 750 * time.Millisecond
 		graceTimer := time.NewTimer(cancelGrace)
 		defer graceTimer.Stop()
+		stopped := false
 		for pendingResults > 0 {
 			select {
 			case vr := <-resultCh:
 				pendingResults--
-				_ = handleVerifyResult(vr, false)
+				if stopped {
+					// Consumer already stopped: receive (to unblock the
+					// worker's send) but do not deliver — yield is dead.
+					continue
+				}
+				if handleVerifyResult(vr, false) {
+					stopped = true
+				}
 			case <-graceTimer.C:
 				// Unblock any wedged verifier I/O; stragglers' results (if any
 				// land now) are abandoned, but they have no committed rev.
 				cancelWork()
-				return
+				return stopped
 			}
 		}
+		return stopped
 	}
 
 	for {
@@ -1201,7 +1221,11 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 				// drainResults, so a completed verification (verifier rev already
 				// advanced) is delivered, not dropped-then-rev-replay-lost.
 				if ctx.Err() != nil {
-					drainCancelDoneResults()
+					if drainCancelDoneResults() {
+						// Consumer stopped mid-drain: yield is dead, and
+						// flushBatch (which yields) must not run.
+						return true
+					}
 					flushBatch()
 					return false
 				}
@@ -1288,7 +1312,11 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 			// shutdown; workCtx is left alive for the drain and cancelled (via
 			// the deferred cancelWork) only after we return, which unblocks any
 			// verifier I/O that outlived the grace window.
-			drainCancelDoneResults()
+			if drainCancelDoneResults() {
+				// Consumer stopped mid-drain: yield is dead, and
+				// flushBatch (which yields) must not run.
+				return true
+			}
 			if flushBatch() {
 				return true
 			}
