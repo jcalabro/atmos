@@ -1,3 +1,6 @@
+// Tests require a real WebSocket (browser API), unavailable in Node/WASI.
+//go:build !js && !wasip1
+
 package streaming
 
 import (
