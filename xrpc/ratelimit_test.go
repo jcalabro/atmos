@@ -25,10 +25,10 @@ func TestProactiveRateLimit_DelaysWhenExhausted(t *testing.T) {
 	// Test wait() directly with millisecond precision to avoid the
 	// Unix-second truncation that made the HTTP-based test flaky/slow.
 	var s rateLimitState
-	s.update(&RateLimit{Remaining: 0, Reset: time.Now().Add(50 * time.Millisecond)})
+	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(50 * time.Millisecond)})
 
 	start := time.Now()
-	require.NoError(t, s.wait(context.Background()))
+	require.NoError(t, s.wait(context.Background(), "a.example"))
 	elapsed := time.Since(start)
 
 	assert.GreaterOrEqual(t, elapsed, 40*time.Millisecond, "should have waited for rate limit reset")

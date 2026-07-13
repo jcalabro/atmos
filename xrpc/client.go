@@ -178,11 +178,18 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		}
 	}
 
+	// Proactive rate limiting is keyed by host. At request time only the
+	// host we dial is known (c.Host); a redirecting front door (relay ->
+	// PDS) resolves to the responding host only after the fact, so the
+	// wait below catches direct-to-host clients while redirected requests
+	// rely on the reactive 429 handling in the retry loop.
+	reqHost := hostOfURL(c.Host)
+
 	var lastErr error
 	for attempt := range maxAttempts {
-		// Proactive rate limiting: if we know quota is exhausted, wait
-		// before sending the next request to avoid a 429.
-		if err := c.rl.wait(ctx); err != nil {
+		// Proactive rate limiting: if we know this host's quota is
+		// exhausted, wait before sending the next request to avoid a 429.
+		if err := c.rl.wait(ctx, reqHost); err != nil {
 			return err
 		}
 
@@ -277,9 +284,11 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 			continue
 		}
 
-		// Track rate limit headers on every response.
+		// Track rate limit headers on every response, attributed to the
+		// host that actually answered (post-redirect), which for a
+		// relay-fronted request is the PDS rather than the relay.
 		if rl := parseRateLimit(resp.Header); rl != nil {
-			c.rl.update(rl)
+			c.rl.update(respHost(resp), rl)
 		}
 
 		// Success.
@@ -377,6 +386,26 @@ func (c *Client) QueryStreamHost(ctx context.Context, nsid string, params map[st
 	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10)) // 64KB for error JSON
 	return nil, host, parseError(resp, respBody)
+}
+
+// hostOfURL extracts the host (host:port) from a base URL string, or ""
+// if the URL does not parse. Used to key proactive rate-limit state.
+func hostOfURL(base string) string {
+	u, err := url.Parse(base)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
+// respHost returns the host that served resp: the final request URL's host
+// after any redirects (the PDS, not the relay that 302'd us there), or ""
+// when the response carries no usable request URL.
+func respHost(resp *http.Response) string {
+	if resp.Request != nil && resp.Request.URL != nil {
+		return resp.Request.URL.Host
+	}
+	return ""
 }
 
 // encodeParams encodes query parameters. Values: string, int, int64, bool,
