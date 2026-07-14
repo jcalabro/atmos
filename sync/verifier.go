@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -28,6 +29,27 @@ const (
 	DefaultResyncLimit = rate.Limit(5.0 / 60.0)
 	DefaultResyncBurst = 5
 )
+
+// DefaultResyncTimeout is the default value of
+// VerifierOptions.ResyncTimeout: the wall-clock ceiling on one
+// resync's fetch phase (getRepo request + CAR download/parse +
+// signature check). Matches backfill.DefaultDownloadTimeout's
+// rationale: the largest healthy repos download in a few minutes;
+// only a pathologically slow host or an effectively-unfetchable repo
+// hits the ceiling, and an unbounded fetch is how one giant repo
+// pinned resync workers for 10+ hours in production
+// (bluesky-social/jetstream#299).
+const DefaultResyncTimeout = 5 * time.Minute
+
+// ErrResyncTimeout marks a resync fetch that exceeded
+// VerifierOptions.ResyncTimeout. Wrapped inside the
+// *ResyncFailedError's Cause chain; match with errors.Is. A DID that
+// repeatedly hits this ceiling is effectively un-resyncable at the
+// current budget — its chain stays broken and verification for that
+// DID stays degraded until the repo shrinks or the budget grows.
+// Consumers should surface it distinctly from transient network
+// failures.
+var ErrResyncTimeout = errors.New("sync: resync fetch exceeded ResyncTimeout")
 
 // DefaultFutureRevTolerance is the maximum a rev's TID timestamp may
 // lead wall clock before the event is rejected as future-dated.
@@ -836,6 +858,21 @@ type VerifierOptions struct {
 	// in that case.)
 	ResyncBurst gt.Option[int]
 
+	// ResyncTimeout bounds one resync's fetch phase: the getRepo
+	// request, CAR download/parse, and fetched-commit signature
+	// check. None → DefaultResyncTimeout. An explicit zero or
+	// negative value disables the budget (the transport's own limits
+	// still apply) — same escape-hatch semantics as
+	// backfill.Options.DownloadTimeout.
+	//
+	// When the budget fires, the resync fails with a
+	// *ResyncFailedError whose cause chain matches ErrResyncTimeout.
+	// The fetch phase runs WITHOUT the per-DID verification lock, so
+	// even an over-budget fetch never blocks same-DID VerifyCommit
+	// traffic — the budget bounds worker occupancy, not lock hold
+	// time (which is bounded by the apply phase alone).
+	ResyncTimeout gt.Option[time.Duration]
+
 	// OnResync fires once per successful resync, after state has
 	// advanced and before ops return to the caller. oldRev is "" on
 	// the first resync ever performed for did. Invoked synchronously
@@ -1216,16 +1253,40 @@ func (v *Verifier) allowResync(did atmos.DID) bool {
 	return lim.Allow()
 }
 
-// resync fetches the authoritative repo via getRepo, verifies the
-// fetched commit's signature, walks its MST, and yields every record
-// as an ActionResync op. Advances chain state to the fetched
-// (rev, data). Subject to the per-DID resync rate limit. Caller must
-// hold the per-DID mutex.
+// resyncTimeout returns the per-attempt fetch budget. None →
+// DefaultResyncTimeout; an explicit zero or negative disables the
+// budget. Mirrors backfill.Engine.downloadTimeout.
+func (v *Verifier) resyncTimeout() time.Duration {
+	if v.opts.ResyncTimeout.HasVal() {
+		return v.opts.ResyncTimeout.Val()
+	}
+	return DefaultResyncTimeout
+}
+
+// fetchedRepo carries the result of a resync's unlocked fetch phase
+// (resyncFetch) into its locked apply phase (resyncApplyLocked).
+type fetchedRepo struct {
+	rp     *repo.Repo
+	commit *repo.Commit
+}
+
+// resyncFetch is the network half of a resync: hosting gate, per-DID
+// rate limit, then getRepo + CAR parse + fetched-commit signature
+// check, all bounded by ResyncTimeout and a low-speed-transfer guard.
+//
+// It runs WITHOUT the per-DID mutex — deliberately. A repo download
+// can legitimately take minutes (multi-hundred-MB repos on slow
+// PDSes); holding the verification lock across it starves every
+// VerifyCommit/VerifySync/OnAccountEvent for the DID, which in
+// production cascaded into a full ingest stall
+// (bluesky-social/jetstream#299). Anything that must be consistent
+// with chain state happens in resyncApplyLocked instead, which
+// re-validates against the then-current state under the lock.
 //
 // Under HostingGate, resyncs for non-active DIDs are short-circuited
 // with ResyncFailedError{Reason: ReasonAccountInactive} — the PDS
 // would refuse the getRepo anyway and we save the round-trip.
-func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReason) ([]VerifierOp, error) {
+func (v *Verifier) resyncFetch(ctx context.Context, did atmos.DID, reason ResyncReason) (*fetchedRepo, error) {
 	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
 		v.resyncFailures.Add(1)
 		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
@@ -1238,25 +1299,76 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 		return nil, &ResyncRateLimitedError{DID: did}
 	}
 
-	body, err := v.opts.SyncClient.Val().GetRepoStream(ctx, did, "")
-	if err != nil {
+	fetchCtx := ctx
+	if budget := v.resyncTimeout(); budget > 0 {
+		var cancel context.CancelFunc
+		fetchCtx, cancel = context.WithTimeout(ctx, budget)
+		defer cancel()
+	}
+	// fail classifies one fetch-phase error: when our budget expired
+	// but the caller's ctx is still healthy, the failure is ours —
+	// mark it with ErrResyncTimeout so consumers can tell "repo is
+	// effectively un-resyncable at this budget" apart from transient
+	// network noise. Same classification backfill.Engine.download uses.
+	fail := func(cause error) (*fetchedRepo, error) {
+		if fetchCtx.Err() != nil && ctx.Err() == nil {
+			cause = fmt.Errorf("%w: %w", ErrResyncTimeout, cause)
+		}
 		v.resyncFailures.Add(1)
-		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: cause}
+	}
+
+	body, err := v.opts.SyncClient.Val().GetRepoStream(fetchCtx, did, "")
+	if err != nil {
+		return fail(err)
 	}
 	defer func() { _ = body.Close() }()
 
-	rp, commit, err := repo.LoadFromCAR(body)
+	// Low-speed guard + buffered reads, same as IterRecords: kills a
+	// host that trickles bytes to dodge idle timeouts, and batches
+	// the CAR reader's 1-byte varint reads.
+	str := newSlowTransferReaderFromBody(body)
+	defer str.Close()
+
+	rp, commit, err := repo.LoadFromCAR(bufio.NewReader(str))
 	if err != nil {
-		v.resyncFailures.Add(1)
-		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+		return fail(err)
 	}
 
 	// Verify the fetched commit's signature. No chain check: the
 	// whole point of resync is that the chain is broken.
-	if err := v.verifyCommitSignature(ctx, did, commit); err != nil {
-		v.resyncFailures.Add(1)
-		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+	if err := v.verifyCommitSignature(fetchCtx, did, commit); err != nil {
+		return fail(err)
 	}
+
+	return &fetchedRepo{rp: rp, commit: commit}, nil
+}
+
+// resyncApplyLocked is the state half of a resync: validates the
+// fetched commit against the CURRENT chain state, walks the MST into
+// ActionResync ops, and advances chain state to the fetched
+// (rev, data). Caller must hold the per-DID mutex.
+//
+// Because the fetch ran unlocked, chain state may have advanced while
+// the download was in flight (a concurrent #sync resync, or a commit
+// that verified cleanly). validateFetchedCommit's rev-regression gate
+// is what makes that safe: a fetch that is now stale is rejected here
+// instead of rolling the chain back. The hosting gate is also
+// re-checked — an OnAccountEvent during the fetch may have
+// deactivated the account.
+//
+// Returns the ops, the pre-apply rev ("" on first sighting), or an
+// error.
+func (v *Verifier) resyncApplyLocked(ctx context.Context, did atmos.DID, reason ResyncReason, fr *fetchedRepo) ([]VerifierOp, string, error) {
+	if aiErr, err := v.checkHostingGate(ctx, did); err != nil {
+		v.resyncFailures.Add(1)
+		return nil, "", &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+	} else if aiErr != nil {
+		v.resyncFailures.Add(1)
+		return nil, "", &ResyncFailedError{DID: did, Reason: ReasonAccountInactive, Cause: aiErr}
+	}
+
+	commit := fr.commit
 
 	// Load prior state for both the OnResync callback (oldRev) and the
 	// validation gates below (rev-regression check).
@@ -1271,19 +1383,21 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 	// commit, or a strictly older rev would otherwise corrupt our
 	// chain state. Signature verify already rules out commits signed
 	// by some other key, so DID/version checks are belt-and-suspenders;
-	// the rev-regression check is the substantive guard.
+	// the rev-regression check is the substantive guard — and, since
+	// the fetch/apply split, also the staleness guard for state that
+	// advanced during the unlocked download.
 	if err := validateFetchedCommit(did, commit, old); err != nil {
 		v.resyncFailures.Add(1)
-		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: err}
+		return nil, "", &ResyncFailedError{DID: did, Reason: reason, Cause: err}
 	}
 
 	// Walk MST, build ops. Keep the zero-record case as a non-nil
 	// empty slice so downstream streaming can emit an explicit empty
 	// resync Event instead of confusing it with a silent drop.
 	ops := make([]VerifierOp, 0)
-	walkErr := rp.Tree.Walk(func(key string, val cbor.CID) error {
+	walkErr := fr.rp.Tree.Walk(func(key string, val cbor.CID) error {
 		col, rkey := repo.SplitMSTKey(key)
-		data, err := rp.Store.GetBlock(val)
+		data, err := fr.rp.Store.GetBlock(val)
 		if err != nil {
 			return fmt.Errorf("walk %s: %w", key, err)
 		}
@@ -1300,12 +1414,12 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 	})
 	if walkErr != nil {
 		v.resyncFailures.Add(1)
-		return nil, &ResyncFailedError{DID: did, Reason: reason, Cause: walkErr}
+		return nil, "", &ResyncFailedError{DID: did, Reason: reason, Cause: walkErr}
 	}
 
 	if err := v.opts.StateStore.SaveChain(ctx, did, ChainState{Rev: commit.Rev, Data: commit.Data}); err != nil {
 		v.resyncFailures.Add(1)
-		return nil, &ResyncFailedError{DID: did, Reason: reason,
+		return nil, "", &ResyncFailedError{DID: did, Reason: reason,
 			Cause: fmt.Errorf("save chain state: %w", err)}
 	}
 
@@ -1313,20 +1427,36 @@ func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReaso
 	if v.opts.OnResync.HasVal() {
 		v.opts.OnResync.Val()(did, oldRev, commit.Rev, reason)
 	}
-	return ops, nil
+	return ops, oldRev, nil
+}
+
+// resync is the fetch/apply composition for callers that do NOT hold
+// the per-DID mutex: fetch unlocked, then acquire the lock only for
+// the apply phase. Callers that need the lock held across more than
+// the apply (the async worker, which must also drain pending and
+// register the outbox entry under the same acquisition) call the two
+// halves directly.
+func (v *Verifier) resync(ctx context.Context, did atmos.DID, reason ResyncReason) ([]VerifierOp, error) {
+	fr, err := v.resyncFetch(ctx, did, reason)
+	if err != nil {
+		return nil, err
+	}
+	unlock := v.lockDID(did)
+	defer unlock()
+	ops, _, err := v.resyncApplyLocked(ctx, did, reason, fr)
+	return ops, err
 }
 
 // Resync forces an immediate resync of one DID. Useful for consumers
 // running PolicyError that want to repair a chain break or inversion
-// failure themselves. Subject to the per-DID resync rate limit and
-// per-DID mutex.
+// failure themselves. Subject to the per-DID resync rate limit; the
+// per-DID mutex is held only for the apply phase, not the network
+// fetch.
 //
 // Reports ReasonSyncEvent to OnResync, conflated with upstream-driven
 // #sync events: the operator's intent (re-fetch authoritative state)
 // is identical.
 func (v *Verifier) Resync(ctx context.Context, did atmos.DID) ([]VerifierOp, error) {
-	unlock := v.lockDID(did)
-	defer unlock()
 	return v.resync(ctx, did, ReasonSyncEvent)
 }
 
@@ -2504,7 +2634,28 @@ func (v *Verifier) VerifySync(ctx context.Context, syncEvt *comatproto.SyncSubsc
 		}
 	}
 
-	ops, rsErr := v.resync(ctx, did, ReasonSyncEvent)
+	// Resync fall-through. The per-DID lock is RELEASED for the fetch
+	// and re-acquired for the apply (bluesky-social/jetstream#299):
+	// #sync events for giant repos otherwise hold the lock across a
+	// possibly-minutes-long download, parking every same-DID
+	// VerifyCommit on a scheduler worker — the same wedge shape as
+	// the async-worker path. Dropping the lock mid-method is safe
+	// because resyncApplyLocked re-validates everything the gates
+	// above established that could move during the fetch: the hosting
+	// gate is re-checked, and validateFetchedCommit's rev-regression
+	// gate rejects a fetch made stale by state that advanced while
+	// the download was in flight. (The unlock variable is reassigned
+	// so the deferred unlock releases the second acquisition; it is
+	// parked on a no-op during the unlocked window so a panic inside
+	// the fetch cannot double-unlock.)
+	unlock()
+	unlock = func() {}
+	fr, rsErr := v.resyncFetch(ctx, did, ReasonSyncEvent)
+	unlock = v.lockDID(did)
+	var ops []VerifierOp
+	if rsErr == nil {
+		ops, _, rsErr = v.resyncApplyLocked(ctx, did, ReasonSyncEvent, fr)
+	}
 	if rsErr != nil && resyncRetryable(rsErr) {
 		// The #sync directive is consumed by this failure: without a
 		// retry, an idle DID stays stale until its next commit

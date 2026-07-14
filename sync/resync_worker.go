@@ -146,11 +146,22 @@ func (v *Verifier) worker() {
 	}
 }
 
-// runResyncJob is the per-job worker body. Holds the per-DID
-// serialization lock for the duration of the resync HTTP call AND
-// the pending drain, so subsequent verifyCommit calls for the same
-// DID continue to land in the pending buffer (FSM still in
-// statusResyncing).
+// runResyncJob is the per-job worker body.
+//
+// The job runs in two phases with deliberately different lock scopes
+// (bluesky-social/jetstream#299):
+//
+//   - Fetch (resyncFetch) runs WITHOUT the per-DID lock. The FSM is
+//     already in statusResyncing (set by the enqueuer), so concurrent
+//     verifyCommit calls for the DID land in the pending buffer
+//     without waiting on the download. A multi-minute CAR fetch no
+//     longer parks the DID's scheduler workers in lockDID.
+//   - Apply + pending drain + outbox registration run under ONE
+//     per-DID lock acquisition. The apply re-validates the fetched
+//     commit against the then-current chain state (rev-regression
+//     gate rejects a fetch made stale during the download), and
+//     registering the outbox entry under the same acquisition is what
+//     preserves the ordered-delivery happens-before guarantee.
 func (v *Verifier) runResyncJob(job resyncJob) {
 	state := v.lookupResyncState(job.did)
 	if state == nil {
@@ -160,40 +171,35 @@ func (v *Verifier) runResyncJob(job resyncJob) {
 		return
 	}
 
-	unlock := v.lockDID(job.did)
-	defer unlock()
-
 	// Honor both the readLoop's context AND the verifier's worker
 	// context. Close() cancels workerCtx; either being cancelled
 	// should abort an in-flight getRepo or replay.
 	ctx, cancelCtx := mergeCtx(job.ctx, v.workerCtx)
 	defer cancelCtx()
 
-	// Capture pre-resync rev for OnResync / ResyncEvent.OldRev.
-	oldRev := ""
-	if old, _ := v.opts.StateStore.LoadChain(ctx, job.did); old != nil {
-		oldRev = old.Rev
-	}
-
-	ops, err := v.resync(ctx, job.did, job.reason)
+	// Phase 1: fetch, unlocked.
+	fr, err := v.resyncFetch(ctx, job.did, job.reason)
 	if err != nil {
 		v.sendAsyncError(err)
 		v.markIdleAndCleanup(state, job.did)
 		return
 	}
 
-	// Capture post-resync rev. resync() advanced state to
-	// (newRev, newData) before returning; reload to get newRev.
-	newRev := ""
-	newState, err := v.opts.StateStore.LoadChain(ctx, job.did)
+	// Phase 2: apply + drain + register, under one lock acquisition.
+	unlock := v.lockDID(job.did)
+	defer unlock()
+
+	ops, oldRev, err := v.resyncApplyLocked(ctx, job.did, job.reason, fr)
 	if err != nil {
-		v.sendAsyncError(fmt.Errorf("verifier: load post-resync chain state for %s: %w", job.did, err))
+		v.sendAsyncError(err)
 		v.markIdleAndCleanup(state, job.did)
 		return
 	}
-	if newState != nil {
-		newRev = newState.Rev
-	}
+
+	// The apply advanced chain state to exactly the fetched commit's
+	// (rev, data); pending replays below may advance it further, but
+	// the event's NewRev is the resync point itself.
+	newRev := fr.commit.Rev
 
 	// Drain pending: replay each commit through verifyCommitInline.
 	// Replays at or below newRev drop silently via the existing
