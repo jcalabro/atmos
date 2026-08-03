@@ -153,9 +153,10 @@ func TestEngine_BoundaryTruncatedCAR_RetriesAndCompletes(t *testing.T) {
 	var handlerCalls atomic.Int32
 	var walkedRecords atomic.Int32
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:     sc,
+		Relay:          singleHostRelay(t),
+		NewHostClient:  singleHostBuilder(sc),
 		Store:          store,
-		Workers:        gt.Some(1),
+		HostWorkers:    gt.Some(1),
 		MaxRetries:     gt.Some(3), // 4 attempts: trunc, trunc, full -> completes on 3rd
 		RetryBaseDelay: gt.Some(time.Millisecond),
 		RetryMaxDelay:  gt.Some(5 * time.Millisecond),
@@ -207,9 +208,10 @@ func TestEngine_BoundaryTruncatedCAR_ExhaustsBudget(t *testing.T) {
 	store := newMemStore()
 	var handlerCalls atomic.Int32
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:     sc,
+		Relay:          singleHostRelay(t),
+		NewHostClient:  singleHostBuilder(sc),
 		Store:          store,
-		Workers:        gt.Some(1),
+		HostWorkers:    gt.Some(1),
 		MaxRetries:     gt.Some(2), // 3 attempts, all truncated
 		RetryBaseDelay: gt.Some(time.Millisecond),
 		RetryMaxDelay:  gt.Some(5 * time.Millisecond),

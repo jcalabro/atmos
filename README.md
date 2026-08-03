@@ -18,7 +18,7 @@
 | [`atmos/api/comatproto`](https://pkg.go.dev/github.com/jcalabro/atmos/api/comatproto) | generated XRPC types and client functions for the `com.atproto.*` lexicons |
 | [`atmos/api/lextypes`](https://pkg.go.dev/github.com/jcalabro/atmos/api/lextypes) | shared generated Lexicon helper types, including blob, CID link, and open union support |
 | [`atmos/api/ozone`](https://pkg.go.dev/github.com/jcalabro/atmos/api/ozone) | generated XRPC types and client functions for the `tools.ozone.*` lexicons |
-| [`atmos/backfill`](https://pkg.go.dev/github.com/jcalabro/atmos/backfill) | concurrent engine for downloading and processing all repositories from a relay or PDS |
+| [`atmos/backfill`](https://pkg.go.dev/github.com/jcalabro/atmos/backfill) | fleet engine that discovers PDSes through relay listHosts, enumerates each PDS directly, and downloads repositories with host-aware concurrency and durable cursors |
 | [`atmos/car`](https://pkg.go.dev/github.com/jcalabro/atmos/car) | CAR files |
 | [`atmos/cbor`](https://pkg.go.dev/github.com/jcalabro/atmos/cbor) | DAG-CBOR implementation |
 | [`atmos/crypto`](https://pkg.go.dev/github.com/jcalabro/atmos/crypto) | P-256 and K-256 (secp256k1) key pairs, signing, verification, and did:key encoding |

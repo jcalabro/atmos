@@ -17,6 +17,8 @@
 package sync
 
 import (
+	"fmt"
+
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/identity"
@@ -52,6 +54,37 @@ type ListReposPage struct {
 	Entries    []ListReposEntry
 	NextCursor string
 }
+
+// ListHostsEntry is one upstream host reported by a relay's listHosts
+// endpoint. AccountCount is the relay's last-observed floor, not an
+// authoritative count of repositories currently hosted by the PDS.
+type ListHostsEntry struct {
+	Hostname     string
+	Status       string
+	AccountCount int64
+	Seq          int64
+}
+
+// ListHostsPage is one page yielded by [Client.ListHosts].
+type ListHostsPage struct {
+	Entries    []ListHostsEntry
+	NextCursor string
+}
+
+// ListEntryError reports one malformed entry in an otherwise usable
+// listRepos or listHosts response. Iterators yield these errors and continue;
+// callers should record and drop the entry rather than aborting the crawl.
+type ListEntryError struct {
+	Endpoint string
+	Index    int
+	Err      error
+}
+
+func (e *ListEntryError) Error() string {
+	return fmt.Sprintf("sync: malformed %s entry %d: %v", e.Endpoint, e.Index, e.Err)
+}
+
+func (e *ListEntryError) Unwrap() error { return e.Err }
 
 // Options configures a sync Client.
 type Options struct {

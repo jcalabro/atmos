@@ -21,9 +21,29 @@ type StoreEntry struct {
 	Active bool
 }
 
-// Store persists per-DID backfill state. Implementations must be safe
-// for concurrent use across distinct DIDs. The engine guarantees no
-// two callbacks are in flight for the same DID simultaneously.
+// HostInfo is the relay-observed metadata for one upstream PDS. RelayAccounts
+// is a floor and must not be treated as the PDS's authoritative repo count.
+type HostInfo struct {
+	Hostname      string
+	RelayStatus   string
+	RelayAccounts int64
+	Seq           int64
+}
+
+// HostState is a fleet-level lifecycle state.
+type HostState string
+
+const (
+	HostStatePending   HostState = "pending"
+	HostStateRunning   HostState = "running"
+	HostStateBackoff   HostState = "backoff"
+	HostStateDrained   HostState = "drained"
+	HostStateExhausted HostState = "exhausted"
+)
+
+// Store persists per-DID and per-host backfill state. Implementations must be
+// safe for concurrent calls. The engine serializes callbacks for a given DID
+// and runs host callbacks independently.
 //
 // Store implementations are responsible for being fast: Lookup is
 // called once per listRepos entry on the producer goroutine, which is
@@ -38,7 +58,7 @@ type Store interface {
 	// whose DID Lookup reported as StateUnknown. Implementations must
 	// durably persist a row at StateDiscovered (recording
 	// entry.Active) before returning. An error here aborts the Run.
-	OnDiscover(ctx context.Context, entry sync.ListReposEntry) error
+	OnDiscover(ctx context.Context, host string, entry sync.ListReposEntry) error
 
 	// OnUpdate is called when the engine sees a known DID whose
 	// listRepos.Active value differs from the value the Store last
@@ -49,18 +69,15 @@ type Store interface {
 	// OnUpdate fires regardless of whether the new value is true or
 	// false: an account flipping inactive→active or active→inactive
 	// both reach this callback exactly once per flip.
-	OnUpdate(ctx context.Context, entry sync.ListReposEntry) error
+	OnUpdate(ctx context.Context, host string, entry sync.ListReposEntry) error
 
 	// OnComplete is called when a DID's repo has been downloaded and
 	// Handler.HandleRepo returned nil. Implementations must durably
 	// persist StateComplete before returning. commit.Rev is the rev
 	// to record as the BackfillRev.
 	//
-	// host is the server the CAR was actually downloaded from — the
-	// final host after any relay 302 redirect to the account's PDS, so
-	// implementations can record per-host attribution without resolving
-	// identity. It may be empty if the transport did not surface a
-	// final URL.
+	// host is the validated roster hostname used to enumerate and route the
+	// repo. Redirect-aware rate-limit attribution remains an xrpc concern.
 	OnComplete(ctx context.Context, did atmos.DID, host string, commit *repo.Commit) error
 
 	// OnFail is called when the engine exhausts its retry budget for
@@ -69,10 +86,18 @@ type Store interface {
 	// must durably persist StateFailed before returning; a future
 	// Run will see StateFailed via Lookup and re-enqueue the DID.
 	//
-	// host is the server the failing request was sent to — the final
-	// host after any relay 302 redirect — for per-host failure
-	// attribution. It is empty when the failure occurred before any
-	// response was received (e.g. a dial error), or when the error
-	// carried no host; implementations must tolerate an empty host.
+	// host is the validated roster hostname used to enumerate and route the
+	// repo, including failures before a response is received.
 	OnFail(ctx context.Context, did atmos.DID, host string, err error, attempts int) error
+
+	// OnHost upserts relay metadata each time listHosts reports the host.
+	OnHost(ctx context.Context, host HostInfo) error
+	// HostCursor returns the last terminal batch cursor and whether this host
+	// was fully enumerated by a prior run.
+	HostCursor(ctx context.Context, hostname string) (cursor string, drained bool, err error)
+	// SaveHostCursor persists a cursor only after every covered repo reached a
+	// terminal state. Consumer durability ordering remains the Store's job.
+	SaveHostCursor(ctx context.Context, hostname, cursor string) error
+	OnHostDrained(ctx context.Context, hostname, lastNonEmptyCursor string) error
+	OnHostExhausted(ctx context.Context, hostname string, err error, attempts int) error
 }

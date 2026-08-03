@@ -23,6 +23,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func singleHostRelay(t testing.TB) *atmossync.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"hosts": []map[string]any{{
+			"hostname": "pds.example.test", "status": "active", "accountCount": 1_000_000,
+		}}})
+	}))
+	t.Cleanup(srv.Close)
+	return atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{
+		Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+	}})
+}
+
+func singleHostBuilder(client *atmossync.Client) gt.Option[func(string) (*atmossync.Client, error)] {
+	return gt.Some(func(string) (*atmossync.Client, error) { return client, nil })
+}
+
 type recordingRetrySleeper struct {
 	mu     stdsync.Mutex
 	delays []time.Duration
@@ -69,7 +86,7 @@ func (s *engineInternalStore) Lookup(_ context.Context, did atmos.DID) (StoreEnt
 	return StoreEntry{State: st, Active: s.active[string(did)]}, nil
 }
 
-func (s *engineInternalStore) OnDiscover(_ context.Context, entry atmossync.ListReposEntry) error {
+func (s *engineInternalStore) OnDiscover(_ context.Context, _ string, entry atmossync.ListReposEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.state[string(entry.DID)] = StateDiscovered
@@ -77,7 +94,7 @@ func (s *engineInternalStore) OnDiscover(_ context.Context, entry atmossync.List
 	return nil
 }
 
-func (s *engineInternalStore) OnUpdate(_ context.Context, entry atmossync.ListReposEntry) error {
+func (s *engineInternalStore) OnUpdate(_ context.Context, _ string, entry atmossync.ListReposEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.active[string(entry.DID)] = entry.Active
@@ -97,6 +114,16 @@ func (s *engineInternalStore) OnFail(_ context.Context, did atmos.DID, _ string,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.state[string(did)] = StateFailed
+	return nil
+}
+
+func (s *engineInternalStore) OnHost(context.Context, HostInfo) error { return nil }
+func (s *engineInternalStore) HostCursor(context.Context, string) (string, bool, error) {
+	return "", false, nil
+}
+func (s *engineInternalStore) SaveHostCursor(context.Context, string, string) error { return nil }
+func (s *engineInternalStore) OnHostDrained(context.Context, string, string) error  { return nil }
+func (s *engineInternalStore) OnHostExhausted(context.Context, string, error, int) error {
 	return nil
 }
 
@@ -173,9 +200,10 @@ func TestEngine_RateLimitServerResetHonoredWithoutWallClockSleep(t *testing.T) {
 	sleeper := &recordingRetrySleeper{}
 	store := newEngineInternalStore()
 	engine := NewEngine(Options{
-		SyncClient:                sc,
+		Relay:                     singleHostRelay(t),
+		NewHostClient:             singleHostBuilder(sc),
 		Store:                     store,
-		Workers:                   gt.Some(1),
+		HostWorkers:               gt.Some(1),
 		MaxRetries:                gt.Some(0),
 		RetryRateLimitMaxAttempts: gt.Some(5),
 		RetryBaseDelay:            gt.Some(time.Millisecond),
@@ -266,9 +294,10 @@ func TestEngine_DownloadTimeout_HangingServerFailsWithoutRetry(t *testing.T) {
 	var onFailMu stdsync.Mutex
 	var onFailErr error
 	engine := NewEngine(Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		// A non-zero retry budget that MUST NOT be spent: a download
 		// timeout is terminal, not transient.
 		MaxRetries:      gt.Some(3),
@@ -350,10 +379,11 @@ func TestEngine_DownloadTimeout_ParentCancelIsNotARepoFailure(t *testing.T) {
 	store := newEngineInternalStore()
 	ctx, cancel := context.WithCancel(context.Background())
 	engine := NewEngine(Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(3),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(3),
 		// Long download timeout so it is the PARENT cancel, not our derived
 		// deadline, that ends the download.
 		DownloadTimeout: gt.Some(30 * time.Second),
@@ -418,9 +448,10 @@ func TestEngine_DownloadTimeout_DisabledAllowsSlowDownload(t *testing.T) {
 
 	store := newEngineInternalStore()
 	engine := NewEngine(Options{
-		SyncClient:      sc,
+		Relay:           singleHostRelay(t),
+		NewHostClient:   singleHostBuilder(sc),
 		Store:           store,
-		Workers:         gt.Some(1),
+		HostWorkers:     gt.Some(1),
 		DownloadTimeout: gt.Some(time.Duration(0)), // disabled
 		Handler: HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil

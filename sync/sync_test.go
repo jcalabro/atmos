@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -199,6 +200,63 @@ type listReposRepo struct {
 	Active bool   `json:"active"`
 }
 
+func TestListHosts_PaginationAndMalformedEntry(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/xrpc/com.atproto.sync.listHosts", r.URL.Path)
+		switch requests.Add(1) {
+		case 1:
+			require.Empty(t, r.URL.Query().Get("cursor"))
+			_, _ = io.WriteString(w, `{"cursor":"next","hosts":[{"hostname":"pds1.example.com","status":"active","accountCount":12,"seq":9},{"hostname":"","accountCount":1}]}`)
+		case 2:
+			require.Equal(t, "next", r.URL.Query().Get("cursor"))
+			_, _ = io.WriteString(w, `{"hosts":[{"hostname":"pds2.example.com","status":"offline"}]}`)
+		default:
+			t.Fatalf("unexpected listHosts request")
+		}
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var got []sync.ListHostsEntry
+	var malformed int
+	for page, err := range sc.ListHosts(context.Background(), 1000, "") {
+		if err != nil {
+			var entryErr *sync.ListEntryError
+			require.ErrorAs(t, err, &entryErr)
+			malformed++
+			continue
+		}
+		got = append(got, page.Entries...)
+	}
+	require.Equal(t, 1, malformed)
+	require.Equal(t, []sync.ListHostsEntry{
+		{Hostname: "pds1.example.com", Status: "active", AccountCount: 12, Seq: 9},
+		{Hostname: "pds2.example.com", Status: "offline"},
+	}, got)
+}
+
+func TestListHosts_CursorLoopTerminates(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		_, _ = io.WriteString(w, `{"cursor":"loop","hosts":[{"hostname":"pds.example.com"}]}`)
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var gotErr error
+	for _, err := range sc.ListHosts(context.Background(), 1000, "") {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	require.ErrorContains(t, gotErr, "cursor loop")
+	require.Equal(t, int32(2), requests.Load())
+}
+
 func TestListRepos_Pagination(t *testing.T) {
 	t.Parallel()
 
@@ -276,6 +334,26 @@ func TestListRepos_Empty(t *testing.T) {
 		count++
 	}
 	assert.Equal(t, 0, count)
+}
+
+func TestListRepos_CursorLoopTerminates(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		_, _ = io.WriteString(w, `{"cursor":"loop","repos":[{"did":"did:plc:loop","head":"h","rev":"r","active":true}]}`)
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var gotErr error
+	for _, err := range sc.ListRepos(context.Background(), 1000, "") {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	require.ErrorContains(t, gotErr, "cursor loop")
+	require.Equal(t, int32(2), requests.Load())
 }
 
 func TestSplitKey(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -26,6 +25,31 @@ import (
 	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/require"
 )
+
+const singleHostName = "pds.example.test"
+
+func singleHostRelay(t testing.TB) *atmossync.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/xrpc/com.atproto.sync.listHosts", r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]any{"hosts": []map[string]any{{
+			"hostname": singleHostName, "status": "active", "accountCount": 1_000_000,
+		}}})
+	}))
+	t.Cleanup(srv.Close)
+	return atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{
+		Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+	}})
+}
+
+func singleHostBuilder(client *atmossync.Client) gt.Option[func(string) (*atmossync.Client, error)] {
+	return gt.Some(func(hostname string) (*atmossync.Client, error) {
+		if hostname != singleHostName {
+			return nil, fmt.Errorf("unexpected test host %q", hostname)
+		}
+		return client, nil
+	})
+}
 
 // buildTestRepoCAR generates a signed CAR for a fake repo containing n
 // app.bsky.feed.post records. The returned bytes are what
@@ -219,15 +243,20 @@ func (fs *flakyTestServer) handle(w http.ResponseWriter, r *http.Request) {
 // records every callback so tests can assert on transition order
 // and counts.
 type memStore struct {
-	mu       sync.Mutex
-	state    map[string]backfill.State
-	active   map[string]bool                     // DID -> last-recorded entry.Active
-	entries  map[string]atmossync.ListReposEntry // DID -> entry as seen by OnDiscover
-	updates  map[string]atmossync.ListReposEntry // DID -> last entry seen by OnUpdate
-	commits  map[string]string                   // DID -> commit.Rev as seen by OnComplete
-	hosts    map[string]string                   // DID -> host as seen by OnComplete/OnFail
-	failures map[string]int                      // DID -> attempts at OnFail
-	failErrs map[string]error                    // DID -> last err at OnFail
+	mu             sync.Mutex
+	state          map[string]backfill.State
+	active         map[string]bool                     // DID -> last-recorded entry.Active
+	entries        map[string]atmossync.ListReposEntry // DID -> entry as seen by OnDiscover
+	updates        map[string]atmossync.ListReposEntry // DID -> last entry seen by OnUpdate
+	commits        map[string]string                   // DID -> commit.Rev as seen by OnComplete
+	hosts          map[string]string                   // DID -> host as seen by OnComplete/OnFail
+	failures       map[string]int                      // DID -> attempts at OnFail
+	failErrs       map[string]error                    // DID -> last err at OnFail
+	discoveryHosts map[string]string
+	hostInfos      map[string]backfill.HostInfo
+	hostCursors    map[string]string
+	hostDrained    map[string]bool
+	hostExhausted  map[string]int
 
 	discoverCalls atomic.Int32
 	updateCalls   atomic.Int32
@@ -241,6 +270,7 @@ type memStore struct {
 	failOnUpdate   map[string]error
 	failOnComplete map[string]error
 	failOnFail     map[string]error
+	onSaveCursor   func(host, cursor string) error
 }
 
 // Compile-time assertion that memStore implements backfill.Store.
@@ -248,14 +278,19 @@ var _ backfill.Store = (*memStore)(nil)
 
 func newMemStore() *memStore {
 	return &memStore{
-		state:    make(map[string]backfill.State),
-		active:   make(map[string]bool),
-		entries:  make(map[string]atmossync.ListReposEntry),
-		updates:  make(map[string]atmossync.ListReposEntry),
-		commits:  make(map[string]string),
-		hosts:    make(map[string]string),
-		failures: make(map[string]int),
-		failErrs: make(map[string]error),
+		state:          make(map[string]backfill.State),
+		active:         make(map[string]bool),
+		entries:        make(map[string]atmossync.ListReposEntry),
+		updates:        make(map[string]atmossync.ListReposEntry),
+		commits:        make(map[string]string),
+		hosts:          make(map[string]string),
+		failures:       make(map[string]int),
+		failErrs:       make(map[string]error),
+		discoveryHosts: make(map[string]string),
+		hostInfos:      make(map[string]backfill.HostInfo),
+		hostCursors:    make(map[string]string),
+		hostDrained:    make(map[string]bool),
+		hostExhausted:  make(map[string]int),
 	}
 }
 
@@ -269,7 +304,7 @@ func (s *memStore) Lookup(_ context.Context, did atmos.DID) (backfill.StoreEntry
 	return backfill.StoreEntry{State: st, Active: s.active[string(did)]}, nil
 }
 
-func (s *memStore) OnDiscover(_ context.Context, entry atmossync.ListReposEntry) error {
+func (s *memStore) OnDiscover(_ context.Context, host string, entry atmossync.ListReposEntry) error {
 	s.discoverCalls.Add(1)
 	if s.failOnDiscover != nil {
 		if err, ok := s.failOnDiscover[string(entry.DID)]; ok {
@@ -281,10 +316,11 @@ func (s *memStore) OnDiscover(_ context.Context, entry atmossync.ListReposEntry)
 	s.state[string(entry.DID)] = backfill.StateDiscovered
 	s.active[string(entry.DID)] = entry.Active
 	s.entries[string(entry.DID)] = entry
+	s.discoveryHosts[string(entry.DID)] = host
 	return nil
 }
 
-func (s *memStore) OnUpdate(_ context.Context, entry atmossync.ListReposEntry) error {
+func (s *memStore) OnUpdate(_ context.Context, _ string, entry atmossync.ListReposEntry) error {
 	s.updateCalls.Add(1)
 	if s.failOnUpdate != nil {
 		if err, ok := s.failOnUpdate[string(entry.DID)]; ok {
@@ -329,6 +365,39 @@ func (s *memStore) OnFail(_ context.Context, did atmos.DID, host string, err err
 	return nil
 }
 
+func (s *memStore) OnHost(_ context.Context, info backfill.HostInfo) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hostInfos[info.Hostname] = info
+	return nil
+}
+func (s *memStore) HostCursor(_ context.Context, host string) (string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.hostCursors[host], s.hostDrained[host], nil
+}
+func (s *memStore) SaveHostCursor(_ context.Context, host, cursor string) error {
+	if s.onSaveCursor != nil {
+		return s.onSaveCursor(host, cursor)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hostCursors[host] = cursor
+	return nil
+}
+func (s *memStore) OnHostDrained(_ context.Context, host, _ string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hostDrained[host] = true
+	return nil
+}
+func (s *memStore) OnHostExhausted(_ context.Context, host string, _ error, attempts int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hostExhausted[host] = attempts
+	return nil
+}
+
 // preset writes a state directly without going through a callback.
 // Used by tests to simulate "this DID was already at state X from a
 // previous Run."
@@ -367,12 +436,13 @@ func TestEngine_DiscoversUnknownDIDs(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
-		Workers: gt.Some(1),
+		HostWorkers: gt.Some(1),
 	})
 
 	require.NoError(t, engine.Run(context.Background()))
@@ -404,12 +474,13 @@ func TestEngine_SkipsCompleteDIDs(t *testing.T) {
 	store.preset("did:plc:done", backfill.StateComplete)
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
-		Workers: gt.Some(1),
+		HostWorkers: gt.Some(1),
 	})
 
 	require.NoError(t, engine.Run(context.Background()))
@@ -442,12 +513,13 @@ func TestEngine_RecordsInactiveDIDsButSkipsDispatch(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
-		Workers: gt.Some(1),
+		HostWorkers: gt.Some(1),
 	})
 
 	require.NoError(t, engine.Run(context.Background()))
@@ -477,12 +549,13 @@ func TestEngine_StoreErrorAborts_OnDiscover(t *testing.T) {
 	store.failOnDiscover = map[string]error{"did:plc:aaa": errSentinel}
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
-		Workers: gt.Some(1),
+		HostWorkers: gt.Some(1),
 	})
 
 	err := engine.Run(context.Background())
@@ -503,18 +576,20 @@ func TestEngine_ValidatesRequiredOptions(t *testing.T) {
 		want string
 	}{
 		{
-			name: "missing SyncClient",
+			name: "missing Relay",
 			opts: backfill.Options{Store: newMemStore(), Handler: noopHandler},
-			want: "SyncClient",
+			want: "Relay",
 		},
 		{
 			name: "missing Store",
-			opts: backfill.Options{SyncClient: dummySync, Handler: noopHandler},
+			opts: backfill.Options{Relay: singleHostRelay(t),
+				NewHostClient: singleHostBuilder(dummySync), Handler: noopHandler},
 			want: "Store",
 		},
 		{
 			name: "missing Handler",
-			opts: backfill.Options{SyncClient: dummySync, Store: newMemStore()},
+			opts: backfill.Options{Relay: singleHostRelay(t),
+				NewHostClient: singleHostBuilder(dummySync), Store: newMemStore()},
 			want: "Handler",
 		},
 	}
@@ -554,9 +629,10 @@ func TestEngine_HandleRepo_HappyPath(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, r *atmosrepo.Repo, commit *atmosrepo.Commit) error {
 			n := 0
 			require.NoError(t, r.Tree.Walk(func(_ string, _ cbor.CID) error {
@@ -600,10 +676,11 @@ func TestEngine_HandlerErrorTransitionsToFailed(t *testing.T) {
 	store := newMemStore()
 	var onErrorCalls atomic.Int32
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(2),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(2),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return errSentinel // non-transient (xrpc.IsTransient is false for arbitrary errors)
 		}),
@@ -637,9 +714,10 @@ func TestEngine_TransientRetryThenSuccess(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:     sc,
+		Relay:          singleHostRelay(t),
+		NewHostClient:  singleHostBuilder(sc),
 		Store:          store,
-		Workers:        gt.Some(1),
+		HostWorkers:    gt.Some(1),
 		MaxRetries:     gt.Some(5),
 		RetryBaseDelay: gt.Some(time.Millisecond),
 		RetryMaxDelay:  gt.Some(10 * time.Millisecond),
@@ -673,9 +751,10 @@ func TestEngine_OnProgressFires(t *testing.T) {
 	var maxCompleted atomic.Int64
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -693,16 +772,10 @@ func TestEngine_OnProgressFires(t *testing.T) {
 	require.Equal(t, int64(3), maxCompleted.Load())
 }
 
-// TestEngine_DownloadsViaRelay_NoResolution verifies the engine
-// downloads via the SyncClient (relay) WITHOUT resolving DID→PDS: even
-// when a Directory is configured (for verification), the resolver is
-// never consulted on the download path. It also asserts the host the
-// CAR came from is surfaced to Store.OnComplete.
-//
-// This replaces an earlier test of per-DID PLC resolution + direct-PDS
-// routing, which was removed: that resolution serialized a bulk crawl
-// against the PLC directory. Routing is now always relay→302→PDS.
-func TestEngine_DownloadsViaRelay_NoResolution(t *testing.T) {
+// TestEngine_DownloadsDirectWithoutResolution verifies direct-PDS routing
+// does not add a per-DID PLC lookup and attributes completion to the roster
+// hostname rather than transport details.
+func TestEngine_DownloadsDirectWithoutResolution(t *testing.T) {
 	t.Parallel()
 
 	did := "did:plc:test123"
@@ -728,9 +801,10 @@ func TestEngine_DownloadsViaRelay_NoResolution(t *testing.T) {
 
 	memstore := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      memstore,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         memstore,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -744,11 +818,7 @@ func TestEngine_DownloadsViaRelay_NoResolution(t *testing.T) {
 	require.Equal(t, backfill.StateComplete, memstore.state[did])
 	require.Equal(t, int32(0), resolver.calls.Load(), "ResolveDID must not be called during backfill")
 
-	// The host surfaced to OnComplete is the server that served the CAR
-	// (here the relay test server, since it has no redirect).
-	wantHost, err := url.Parse(ts.srv.URL)
-	require.NoError(t, err)
-	require.Equal(t, wantHost.Host, memstore.hosts[did])
+	require.Equal(t, singleHostName, memstore.hosts[did])
 }
 
 // countingResolver is an identity.Resolver that counts ResolveDID calls
@@ -806,9 +876,10 @@ func TestEngine_Concurrency(t *testing.T) {
 	store := newMemStore()
 	var current, maxConcurrent atomic.Int32
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(8),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(8),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			c := current.Add(1)
 			for {
@@ -851,9 +922,10 @@ func TestEngine_Cancellation(t *testing.T) {
 	var once sync.Once
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(2),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(2),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			once.Do(cancel)
 			return nil
@@ -871,13 +943,13 @@ func TestEngine_Cancellation(t *testing.T) {
 	require.Less(t, store.completeCalls.Load(), int32(n/2))
 }
 
-// TestEngine_BatchRandomizesOrder verifies that the engine shuffles
-// its batch before dispatching. The test server returns 3 entries per
+// TestEngine_BatchPreservesHostOrder verifies that a single-host batch no
+// longer pays for a load-spreading shuffle. The test server returns 3 entries per
 // page; with BatchSize=30 the engine must
 // accumulate all 10 pages before any dispatch happens, and the
 // dispatched order should differ from the listRepos enumeration
 // order.
-func TestEngine_BatchRandomizesOrder(t *testing.T) {
+func TestEngine_BatchPreservesHostOrder(t *testing.T) {
 	t.Parallel()
 
 	const n = 30
@@ -898,10 +970,11 @@ func TestEngine_BatchRandomizesOrder(t *testing.T) {
 	var order []string
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		BatchSize:  gt.Some(n),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		BatchSize:     gt.Some(n),
 		Handler: backfill.HandlerFunc(func(_ context.Context, did atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			mu.Lock()
 			order = append(order, string(did))
@@ -916,8 +989,7 @@ func TestEngine_BatchRandomizesOrder(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.Len(t, order, n)
-	// Probability of the shuffled order matching listRepos order is ~1/30!
-	require.NotEqual(t, dids, order, "shuffled order should differ from enumeration order")
+	require.Equal(t, dids, order)
 }
 
 // TestEngine_RetryExhaustionTransitionsToFailed verifies that when a
@@ -935,9 +1007,10 @@ func TestEngine_RetryExhaustionTransitionsToFailed(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:     sc,
+		Relay:          singleHostRelay(t),
+		NewHostClient:  singleHostBuilder(sc),
 		Store:          store,
-		Workers:        gt.Some(1),
+		HostWorkers:    gt.Some(1),
 		MaxRetries:     gt.Some(2),
 		RetryBaseDelay: gt.Some(time.Millisecond),
 		RetryMaxDelay:  gt.Some(10 * time.Millisecond),
@@ -966,10 +1039,11 @@ func TestEngine_RetryDisabled(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(0),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(0),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -996,9 +1070,10 @@ func TestEngine_RetriesFailedFromPriorRun(t *testing.T) {
 	store.preset("did:plc:retryme", backfill.StateFailed)
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1030,10 +1105,11 @@ func TestEngine_OnCompleteFailure_DoesNotCallOnFail(t *testing.T) {
 	var onErrCalls atomic.Int32
 	var onErrMsg atomic.Pointer[string]
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(3),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(3),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			handlerCalls.Add(1)
 			return nil
@@ -1082,10 +1158,11 @@ func TestEngine_OnFailFailure_SurfacesViaOnError(t *testing.T) {
 	var mu sync.Mutex
 	var msgs []string
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(0),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(0),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return errSentinel
 		}),
@@ -1162,10 +1239,11 @@ func TestEngine_VerifyCommitFailure_TransitionsToFailed(t *testing.T) {
 
 	memstore := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      memstore,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(0),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         memstore,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(0),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			t.Fatal("handler must not run when VerifyCommit fails")
 			return nil
@@ -1218,9 +1296,10 @@ func TestEngine_VerifyCommitsOff_SkipsVerification(t *testing.T) {
 
 	memstore := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      memstore,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         memstore,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1245,8 +1324,9 @@ func TestEngine_VerifyCommits_RequiresDirectory(t *testing.T) {
 
 	sc := atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{Host: "http://unused"}})
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      newMemStore(),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         newMemStore(),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1259,10 +1339,8 @@ func TestEngine_VerifyCommits_RequiresDirectory(t *testing.T) {
 	require.Contains(t, err.Error(), "Directory is required when VerifyCommits")
 }
 
-// TestEngine_OnFail_RecordsHost verifies that the host a failing
-// getRepo was sent to (carried on the xrpc.Error) is surfaced to
-// Store.OnFail, so per-host failure attribution works without identity
-// resolution.
+// TestEngine_OnFail_RecordsHost verifies failure attribution uses the
+// validated roster hostname even when the request fails.
 func TestEngine_OnFail_RecordsHost(t *testing.T) {
 	t.Parallel()
 
@@ -1289,10 +1367,11 @@ func TestEngine_OnFail_RecordsHost(t *testing.T) {
 
 	memstore := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      memstore,
-		Workers:    gt.Some(1),
-		MaxRetries: gt.Some(0),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         memstore,
+		HostWorkers:   gt.Some(1),
+		MaxRetries:    gt.Some(0),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1300,12 +1379,10 @@ func TestEngine_OnFail_RecordsHost(t *testing.T) {
 
 	require.NoError(t, engine.Run(context.Background()))
 
-	wantHost, err := url.Parse(srv.URL)
-	require.NoError(t, err)
 	memstore.mu.Lock()
 	defer memstore.mu.Unlock()
 	require.Equal(t, backfill.StateFailed, memstore.state[did])
-	require.Equal(t, wantHost.Host, memstore.hosts[did], "OnFail must receive the host the request was sent to")
+	require.Equal(t, singleHostName, memstore.hosts[did])
 }
 
 // TestEngine_LoadFromCARFailure_RetriesAndFails verifies that
@@ -1328,9 +1405,10 @@ func TestEngine_LoadFromCARFailure_RetriesAndFails(t *testing.T) {
 	store := newMemStore()
 	var handlerCalls atomic.Int32
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:     sc,
+		Relay:          singleHostRelay(t),
+		NewHostClient:  singleHostBuilder(sc),
 		Store:          store,
-		Workers:        gt.Some(1),
+		HostWorkers:    gt.Some(1),
 		MaxRetries:     gt.Some(2),
 		RetryBaseDelay: gt.Some(time.Millisecond),
 		RetryMaxDelay:  gt.Some(5 * time.Millisecond),
@@ -1346,11 +1424,9 @@ func TestEngine_LoadFromCARFailure_RetriesAndFails(t *testing.T) {
 	require.Equal(t, 3, store.failures[did], "expected initial + 2 retries")
 }
 
-// TestEngine_ProducerError_CancelsWorkers verifies that when listRepos
-// fails mid-stream, workers stop in-flight work promptly via runCtx
-// cancellation rather than draining the full buffered channel, and
-// Run returns the wrapped error.
-func TestEngine_ProducerError_CancelsWorkers(t *testing.T) {
+// TestEngine_ProducerErrorExhaustsHost verifies that a host-scoped listRepos
+// failure is terminal for that host, not fatal to the fleet.
+func TestEngine_ProducerErrorExhaustsHost(t *testing.T) {
 	t.Parallel()
 
 	// listFailServer serves N pages of listRepos then 500s; getRepo
@@ -1406,10 +1482,12 @@ func TestEngine_ProducerError_CancelsWorkers(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(8),
-		MaxRetries: gt.Some(0),
+		Relay:           singleHostRelay(t),
+		NewHostClient:   singleHostBuilder(sc),
+		Store:           store,
+		HostWorkers:     gt.Some(8),
+		MaxRetries:      gt.Some(0),
+		HostMaxAttempts: gt.Some(1),
 		Handler: backfill.HandlerFunc(func(ctx context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			// Block until cancel.
 			<-ctx.Done()
@@ -1417,9 +1495,8 @@ func TestEngine_ProducerError_CancelsWorkers(t *testing.T) {
 		}),
 	})
 
-	err := engine.Run(context.Background())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "listRepos")
+	require.NoError(t, engine.Run(context.Background()))
+	require.Zero(t, repoServes.Load())
 }
 
 // TestEngine_RunIsSingleShot verifies a second Run call returns
@@ -1435,9 +1512,10 @@ func TestEngine_RunIsSingleShot(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1476,9 +1554,10 @@ func TestEngine_ActiveFlip_FiresOnUpdate(t *testing.T) {
 	sc := atmossync.NewClient(atmossync.Options{Client: xc})
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1517,9 +1596,10 @@ func TestEngine_OnUpdateError_AbortsRun(t *testing.T) {
 	sc := atmossync.NewClient(atmossync.Options{Client: xc})
 
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
@@ -1529,9 +1609,9 @@ func TestEngine_OnUpdateError_AbortsRun(t *testing.T) {
 	require.ErrorIs(t, err, errSentinel)
 }
 
-// TestEngine_OnProgress_Monotonic verifies that OnProgress callbacks
-// observe strictly increasing Stats.Completed values (the engine
-// serializes the Add+callback under a lock).
+// TestEngine_OnProgress_Monotonic verifies that lifecycle snapshots never
+// regress. Host-state transitions may repeat Completed while exposing host and
+// enumeration progress; repo completions themselves remain serialized.
 func TestEngine_OnProgress_Monotonic(t *testing.T) {
 	t.Parallel()
 
@@ -1549,17 +1629,18 @@ func TestEngine_OnProgress_Monotonic(t *testing.T) {
 
 	store := newMemStore()
 	var mu sync.Mutex
-	var observed []int64
+	var observed []backfill.Stats
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(8),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(8),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			return nil
 		}),
 		OnProgress: gt.Some(func(s backfill.Stats) {
 			mu.Lock()
-			observed = append(observed, s.Completed)
+			observed = append(observed, s)
 			mu.Unlock()
 		}),
 	})
@@ -1567,12 +1648,16 @@ func TestEngine_OnProgress_Monotonic(t *testing.T) {
 	require.NoError(t, engine.Run(context.Background()))
 	mu.Lock()
 	defer mu.Unlock()
-	require.Len(t, observed, n)
+	require.GreaterOrEqual(t, len(observed), n)
 	for i := 1; i < len(observed); i++ {
-		require.Greater(t, observed[i], observed[i-1],
-			"OnProgress.Completed must increase strictly: idx=%d, %d <= %d", i, observed[i], observed[i-1])
+		require.GreaterOrEqual(t, observed[i].Completed, observed[i-1].Completed,
+			"OnProgress.Completed regressed at idx=%d", i)
 	}
-	require.Equal(t, int64(n), observed[len(observed)-1])
+	final := observed[len(observed)-1]
+	require.Equal(t, int64(n), final.Completed)
+	require.Equal(t, int64(n), final.ReposEnumerated)
+	require.Equal(t, int64(1), final.HostsDrained)
+	require.Zero(t, final.ActiveHosts)
 }
 
 // TestEngine_RateLimit_HonoredThenSucceeds verifies the engine treats a
@@ -1617,9 +1702,10 @@ func TestEngine_RateLimit_HonoredThenSucceeds(t *testing.T) {
 
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:                sc,
+		Relay:                     singleHostRelay(t),
+		NewHostClient:             singleHostBuilder(sc),
 		Store:                     store,
-		Workers:                   gt.Some(1),
+		HostWorkers:               gt.Some(1),
 		MaxRetries:                gt.Some(0), // a 429 must not consume the ordinary-transient budget
 		RetryRateLimitMaxAttempts: gt.Some(5),
 		RetryBaseDelay:            gt.Some(time.Millisecond),
@@ -1670,9 +1756,10 @@ func TestEngine_RateLimit_ExhaustsBudgetThenFails(t *testing.T) {
 	const rlBudget = 3
 	store := newMemStore()
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:                sc,
+		Relay:                     singleHostRelay(t),
+		NewHostClient:             singleHostBuilder(sc),
 		Store:                     store,
-		Workers:                   gt.Some(1),
+		HostWorkers:               gt.Some(1),
 		MaxRetries:                gt.Some(0),
 		RetryRateLimitMaxAttempts: gt.Some(rlBudget),
 		RetryBaseDelay:            gt.Some(time.Millisecond),
@@ -1689,10 +1776,9 @@ func TestEngine_RateLimit_ExhaustsBudgetThenFails(t *testing.T) {
 	require.Equal(t, int32(rlBudget+1), attempts.Load())
 }
 
-// TestEngine_StartCursor_PassedToListRepos confirms the cursor
-// configured on Options is sent to the relay on the first request.
-// This is the resume mechanism end-to-end.
-func TestEngine_StartCursor_PassedToListRepos(t *testing.T) {
+// TestEngine_HostCursor_PassedToListRepos confirms the Store's per-host
+// cursor is sent on the first direct-PDS request.
+func TestEngine_HostCursor_PassedToListRepos(t *testing.T) {
 	t.Parallel()
 
 	var firstCursor string
@@ -1714,23 +1800,21 @@ func TestEngine_StartCursor_PassedToListRepos(t *testing.T) {
 	sc := atmossync.NewClient(atmossync.Options{Client: xc})
 
 	store := newMemStore()
+	store.hostCursors[singleHostName] = "resume-token-x"
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient:  sc,
-		Store:       store,
-		Handler:     backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
-		StartCursor: gt.Some("resume-token-x"),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		Handler:       backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
 	})
 
 	require.NoError(t, engine.Run(context.Background()))
 	require.Equal(t, "resume-token-x", firstCursor)
 }
 
-// TestEngine_OnBatchComplete_FiresPerBatch confirms OnBatchComplete
-// is called once per completed batch, with the cursor the relay
-// returned for the final page in that batch. testServer paginates 3
-// entries per page; with BatchSize=3 and 4 DIDs we get two batches
-// (3 + 1).
-func TestEngine_OnBatchComplete_FiresPerBatch(t *testing.T) {
+// TestEngine_SaveHostCursor_FiresPerBatch confirms the Store receives one
+// checkpoint per completed host batch.
+func TestEngine_SaveHostCursor_FiresPerBatch(t *testing.T) {
 	t.Parallel()
 
 	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
@@ -1745,17 +1829,18 @@ func TestEngine_OnBatchComplete_FiresPerBatch(t *testing.T) {
 	var observedCursors []string
 	var mu sync.Mutex
 	store := newMemStore()
+	store.onSaveCursor = func(_ string, cursor string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		observedCursors = append(observedCursors, cursor)
+		return nil
+	}
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		BatchSize:  gt.Some(3),
-		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
-		OnBatchComplete: gt.Some(func(cursor string) error {
-			mu.Lock()
-			defer mu.Unlock()
-			observedCursors = append(observedCursors, cursor)
-			return nil
-		}),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		BatchSize:     gt.Some(3),
+		Handler:       backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
 	})
 	require.NoError(t, engine.Run(context.Background()))
 
@@ -1769,46 +1854,10 @@ func TestEngine_OnBatchComplete_FiresPerBatch(t *testing.T) {
 	require.Equal(t, "", observedCursors[1], "final page cursor must be empty")
 }
 
-func TestEngine_OnPageComplete_FiresPerListReposPage(t *testing.T) {
-	t.Parallel()
-
-	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
-	repos := map[string][]byte{}
-	for _, d := range dids {
-		repos[d] = buildTestRepoCAR(t, d, 1)
-	}
-	ts := newTestServer(t, repos, dids)
-	xc := &xrpc.Client{Host: ts.srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}
-	sc := atmossync.NewClient(atmossync.Options{Client: xc})
-
-	var observedCursors []string
-	var mu sync.Mutex
-	store := newMemStore()
-	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		BatchSize:  gt.Some(3),
-		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
-		OnPageComplete: gt.Some(func(cursor string) error {
-			mu.Lock()
-			defer mu.Unlock()
-			observedCursors = append(observedCursors, cursor)
-			return nil
-		}),
-	})
-	require.NoError(t, engine.Run(context.Background()))
-
-	mu.Lock()
-	defer mu.Unlock()
-	require.Len(t, observedCursors, 2)
-	require.Equal(t, "did:plc:ccc", observedCursors[0])
-	require.Equal(t, "", observedCursors[1])
-}
-
-// TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback verifies the
-// checkpoint invariant: OnBatchComplete does not fire until every
+// TestEngine_SaveHostCursor_WaitsForJobs verifies the checkpoint invariant:
+// SaveHostCursor does not fire until every
 // eligible job in the batch has reached a terminal state.
-func TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback(t *testing.T) {
+func TestEngine_SaveHostCursor_WaitsForJobs(t *testing.T) {
 	t.Parallel()
 
 	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd", "did:plc:eee", "did:plc:fff"}
@@ -1825,18 +1874,19 @@ func TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback(t *testing.T) {
 	var batchCompleteCalls atomic.Int32
 
 	store := newMemStore()
+	store.onSaveCursor = func(_, _ string) error {
+		batchCompleteCalls.Add(1)
+		return nil
+	}
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Workers:    gt.Some(1),
-		BatchSize:  gt.Some(6),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		HostWorkers:   gt.Some(1),
+		BatchSize:     gt.Some(6),
 		Handler: backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
 			handlerEntered.Add(1)
 			<-handlerRelease
-			return nil
-		}),
-		OnBatchComplete: gt.Some(func(_ string) error {
-			batchCompleteCalls.Add(1)
 			return nil
 		}),
 	})
@@ -1865,9 +1915,9 @@ func TestEngine_OnBatchComplete_WaitsForJobsBeforeCallback(t *testing.T) {
 	require.Equal(t, int32(1), batchCompleteCalls.Load(), "6 DIDs with BatchSize=6 = 1 batch")
 }
 
-// TestEngine_OnBatchCompleteError_AbortsRun confirms an error from
-// the callback aborts the Run with a wrapped error.
-func TestEngine_OnBatchCompleteError_AbortsRun(t *testing.T) {
+// TestEngine_SaveHostCursorError_AbortsRun confirms persistence failure aborts
+// the run rather than silently advancing enumeration.
+func TestEngine_SaveHostCursorError_AbortsRun(t *testing.T) {
 	t.Parallel()
 
 	dids := []string{"did:plc:aaa", "did:plc:bbb", "did:plc:ccc", "did:plc:ddd"}
@@ -1881,17 +1931,16 @@ func TestEngine_OnBatchCompleteError_AbortsRun(t *testing.T) {
 
 	store := newMemStore()
 	wantErr := errors.New("persist failed")
+	store.onSaveCursor = func(_, _ string) error { return wantErr }
 	engine := backfill.NewEngine(backfill.Options{
-		SyncClient: sc,
-		Store:      store,
-		Handler:    backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
-		OnBatchComplete: gt.Some(func(_ string) error {
-			return wantErr
-		}),
+		Relay:         singleHostRelay(t),
+		NewHostClient: singleHostBuilder(sc),
+		Store:         store,
+		Handler:       backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error { return nil }),
 	})
 
 	err := engine.Run(context.Background())
 	require.Error(t, err)
 	require.ErrorIs(t, err, wantErr)
-	require.Contains(t, err.Error(), "on_batch_complete")
+	require.Contains(t, err.Error(), "save_host_cursor")
 }
