@@ -83,8 +83,15 @@ type Store interface {
 	// OnFail is called when the engine exhausts its retry budget for
 	// a DID within the current Run. attempts is the total number of
 	// download attempts made (initial + retries). Implementations
-	// must durably persist StateFailed before returning; a future
-	// Run will see StateFailed via Lookup and re-enqueue the DID.
+	// must durably persist StateFailed before returning.
+	//
+	// StateFailed is terminal for cursor purposes: the host's cursor
+	// advances past a failed DID. Because a subsequent Run resumes
+	// from that cursor (and skips drained hosts entirely), the engine
+	// does not re-list failed DIDs; retrying them from Store state is
+	// the consumer's responsibility. The engine only re-dispatches a
+	// StateFailed DID if enumeration happens to revisit it (a lagging
+	// cursor after a crash, or the DID appearing on another host).
 	//
 	// host is the validated roster hostname used to enumerate and route the
 	// repo, including failures before a response is received.

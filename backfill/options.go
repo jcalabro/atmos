@@ -37,6 +37,12 @@ type Options struct {
 	HostBackoffMax  gt.Option[time.Duration]
 	HostMaxAttempts gt.Option[int]
 
+	// DiscoverOnly enumerates hosts and repos — firing OnHost, OnDiscover,
+	// and OnUpdate — without downloading anything. Host cursors and drained
+	// state advance exactly as in a downloading run, so a later downloading
+	// Run against the same Store will NOT revisit these hosts; downloading
+	// rows recorded during a DiscoverOnly run is the consumer's job (e.g., a
+	// retry pass driven by Store state). None=false.
 	DiscoverOnly       gt.Option[bool]
 	IncludeBannedHosts gt.Option[bool]
 

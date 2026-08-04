@@ -79,9 +79,26 @@ type Engine struct {
 	builder     func(string) (*atmossync.Client, error)
 
 	claimMu sync.Mutex
-	claims  map[atmos.DID]struct{}
+	claims  map[atmos.DID]*didClaim
 	didMu   [didLockShards]sync.Mutex
 }
+
+// didClaim is the in-Run ownership record for a DID that appears on more
+// than one host (migration windows). The claiming host's worker resolves it
+// after the DID's terminal Store transition; other hosts listing the same
+// DID must not checkpoint a cursor past it until then. terminal is published
+// before done closes, so waiters may read it after <-done without locking.
+type didClaim struct {
+	done     chan struct{}
+	terminal bool
+}
+
+// errClaimNotTerminal marks a batch barrier that observed a cross-host DID
+// claim resolve without a terminal Store transition (the owning host's
+// producer aborted before dispatch, or the run is unwinding). The waiting
+// host's attempt fails retryably — its cursor is not saved past the DID —
+// rather than fatally.
+var errClaimNotTerminal = errors.New("backfill: cross-host claim resolved without a terminal state")
 
 func NewEngine(opts Options) *Engine { return &Engine{opts: opts} }
 
@@ -100,7 +117,7 @@ func (e *Engine) Run(ctx context.Context) error {
 		return err
 	}
 	e.globalSlots = make(chan struct{}, e.globalDownloadCount())
-	e.claims = make(map[atmos.DID]struct{})
+	e.claims = make(map[atmos.DID]*didClaim)
 	if e.opts.NewHostClient.HasVal() {
 		e.builder = e.opts.NewHostClient.Val()
 	} else {
@@ -198,7 +215,8 @@ func (e *Engine) validate() error {
 func (e *Engine) enumerateHosts(ctx context.Context, terminal map[string]HostState) ([]hostCandidate, error) {
 	seen := make(map[string]struct{})
 	hosts := make([]hostCandidate, 0)
-	capped := false
+	examined := 0
+pages:
 	for page, err := range e.opts.Relay.ListHosts(ctx, listPageLimit, "") {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -212,6 +230,17 @@ func (e *Engine) enumerateHosts(ctx context.Context, terminal map[string]HostSta
 			return nil, fmt.Errorf("backfill: listHosts: %w", err)
 		}
 		for _, entry := range page.Entries {
+			// The cap counts every examined entry — before dedup and
+			// validation — so a hostile relay cannot bypass it with
+			// duplicates or junk names; it bounds total work, not just
+			// retained roster size.
+			if examined >= e.maxHosts() {
+				if cb := e.opts.OnRosterCapped; cb.HasVal() {
+					cb.Val()(e.maxHosts())
+				}
+				break pages
+			}
+			examined++
 			hostname := strings.ToLower(entry.Hostname)
 			if _, ok := seen[hostname]; ok {
 				continue
@@ -223,15 +252,6 @@ func (e *Engine) enumerateHosts(ctx context.Context, terminal map[string]HostSta
 					}
 					continue
 				}
-			}
-			if len(seen) >= e.maxHosts() {
-				if !capped {
-					capped = true
-					if cb := e.opts.OnRosterCapped; cb.HasVal() {
-						cb.Val()(e.maxHosts())
-					}
-				}
-				continue
 			}
 			seen[hostname] = struct{}{}
 			info := HostInfo{Hostname: hostname, RelayStatus: entry.Status, RelayAccounts: entry.AccountCount, Seq: entry.Seq}
@@ -254,6 +274,12 @@ func (e *Engine) enumerateHosts(ctx context.Context, terminal map[string]HostSta
 			}
 			hosts = append(hosts, hostCandidate{info: info})
 		}
+	}
+	// The ListHosts iterator also returns silently on cancellation; without
+	// this check a cancel between pages could look like an empty roster and
+	// let Run return nil as if the fleet had converged.
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	sort.Slice(hosts, func(i, j int) bool {
 		if hosts[i].info.RelayAccounts == hosts[j].info.RelayAccounts {
@@ -377,6 +403,15 @@ type repoJob struct {
 	client *atmossync.Client
 	entry  atmossync.ListReposEntry
 	done   chan<- error
+
+	// claim is set on the job that owns the DID for this Run; the worker
+	// resolves it after the DID's terminal Store transition.
+	claim *didClaim
+	// wait is set instead of claim when another host's pipeline already owns
+	// the DID. The worker blocks until the owner resolves, so this host's
+	// batch barrier — and therefore its cursor — cannot advance past a DID
+	// that never reached a terminal state.
+	wait *didClaim
 }
 
 func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmossync.Client) (string, error) {
@@ -428,19 +463,37 @@ func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmo
 		}
 		if batchEntries >= e.batchSize() {
 			if err := e.finishBatch(ctx, jobs, batch, host.Hostname, batchCursor); err != nil {
-				return "", &fatalStoreError{err}
+				return "", classifyBatchErr(err)
 			}
 			batch = batch[:0]
 			batchEntries = 0
 			batchCursor = ""
 		}
 	}
+	// ListRepos' iterator returns silently when ctx is cancelled; without
+	// this check a cancellation landing between pages would fall through and
+	// mark a half-enumerated host drained.
+	if err := ctx.Err(); err != nil {
+		e.releaseClaims(batch)
+		return "", err
+	}
 	if batchEntries > 0 {
 		if err := e.finishBatch(ctx, jobs, batch, host.Hostname, batchCursor); err != nil {
-			return "", &fatalStoreError{err}
+			return "", classifyBatchErr(err)
 		}
 	}
 	return lastNonEmpty, nil
+}
+
+// classifyBatchErr separates retryable barrier outcomes from fatal Store
+// failures. A cross-host claim that resolved without a terminal state means
+// the owning host's attempt aborted; this host retries (re-lists, re-claims)
+// rather than killing the Run.
+func classifyBatchErr(err error) error {
+	if errors.Is(err, errClaimNotTerminal) {
+		return err
+	}
+	return &fatalStoreError{err}
 }
 
 func (e *Engine) reconcile(ctx context.Context, host string, client *atmossync.Client, entry atmossync.ListReposEntry) (repoJob, bool, error) {
@@ -465,11 +518,16 @@ func (e *Engine) reconcile(ctx context.Context, host string, client *atmossync.C
 	}
 	e.claimMu.Lock()
 	defer e.claimMu.Unlock()
-	if _, claimed := e.claims[entry.DID]; claimed {
-		return repoJob{}, false, nil
+	if owner, claimed := e.claims[entry.DID]; claimed {
+		// Another host's pipeline owns this DID (migration window). Dispatch
+		// a wait-only job so this host's batch barrier blocks until the owner
+		// reaches a terminal state — otherwise this host could save a cursor
+		// covering a DID that never landed OnComplete/OnFail.
+		return repoJob{host: host, entry: entry, wait: owner}, true, nil
 	}
-	e.claims[entry.DID] = struct{}{}
-	return repoJob{host: host, client: client, entry: entry}, true, nil
+	claim := &didClaim{done: make(chan struct{})}
+	e.claims[entry.DID] = claim
+	return repoJob{host: host, client: client, entry: entry, claim: claim}, true, nil
 }
 
 func didShard(did atmos.DID) uint8 {
@@ -494,7 +552,12 @@ func (e *Engine) finishBatch(ctx context.Context, jobs chan<- repoJob, batch []r
 func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob) error {
 	done := make(chan error, len(batch))
 	sent := 0
+	var waits []*didClaim
 	for i, job := range batch {
+		if job.wait != nil {
+			waits = append(waits, job.wait)
+			continue
+		}
 		job.done = done
 		select {
 		case <-ctx.Done():
@@ -517,35 +580,80 @@ func (e *Engine) dispatchBatch(ctx context.Context, jobs chan<- repoJob, batch [
 			}
 		}
 	}
+	// Cross-host claims last: the cursor this barrier gates covers DIDs owned
+	// by another host's pipeline, so it must not be saved until each of them
+	// reached a terminal Store transition too.
+	for _, claim := range waits {
+		if err := e.awaitClaim(ctx, claim); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (e *Engine) workerLoop(ctx context.Context, jobs <-chan repoJob) {
 	for job := range jobs {
 		if ctx.Err() != nil {
-			e.releaseClaim(job.entry.DID)
+			e.resolveClaim(job.entry.DID, job.claim, false)
 			if job.done != nil {
 				job.done <- ctx.Err()
 			}
 			continue
 		}
 		err := e.processRepo(ctx, job)
-		e.releaseClaim(job.entry.DID)
+		e.resolveClaim(job.entry.DID, job.claim, err == nil)
 		if job.done != nil {
 			job.done <- err
 		}
 	}
 }
 
-func (e *Engine) releaseClaim(did atmos.DID) {
+// awaitClaim blocks until the owning host's pipeline resolves the claim.
+// Only batch barriers (producer goroutines) wait here, never workers:
+// owner jobs are always handed to their host's worker pool before the
+// producer blocks, and workers never wait on foreign claims, so claim
+// resolution cannot form a cross-host cycle.
+func (e *Engine) awaitClaim(ctx context.Context, claim *didClaim) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-claim.done:
+	}
+	if !claim.terminal {
+		return errClaimNotTerminal
+	}
+	return nil
+}
+
+// resolveClaim publishes the claim outcome and releases the DID for later
+// sightings (a re-listed host attempt re-claims it via reconcile).
+//
+// It takes the DID's shard lock (same didMu → claimMu order as reconcile) so
+// deletion cannot interleave with another producer's Lookup+claim sequence:
+// without it, a producer could Lookup before the owner's OnComplete commits,
+// observe the claim already deleted, re-claim, and run the Handler twice in
+// one Run.
+func (e *Engine) resolveClaim(did atmos.DID, claim *didClaim, terminal bool) {
+	if claim == nil {
+		return
+	}
+	mu := &e.didMu[didShard(did)]
+	mu.Lock()
+	defer mu.Unlock()
+	claim.terminal = terminal
+	close(claim.done)
 	e.claimMu.Lock()
-	delete(e.claims, did)
+	if e.claims[did] == claim {
+		delete(e.claims, did)
+	}
 	e.claimMu.Unlock()
 }
 
+// releaseClaims resolves the claims of never-dispatched owner jobs as
+// non-terminal so cross-host waiters unblock (and retry) instead of hanging.
 func (e *Engine) releaseClaims(jobs []repoJob) {
 	for _, job := range jobs {
-		e.releaseClaim(job.entry.DID)
+		e.resolveClaim(job.entry.DID, job.claim, false)
 	}
 }
 
@@ -648,6 +756,12 @@ func (e *Engine) download(ctx context.Context, client *atmossync.Client, did atm
 	if err != nil {
 		return nil, nil, host, translate(err)
 	}
+	// The PDS is untrusted: a CAR whose commit identifies a different DID
+	// must not be handled or recorded under the requested DID. (rp.DID is
+	// parsed from the commit, so one comparison covers both.)
+	if rp.DID != did {
+		return nil, nil, host, fmt.Errorf("backfill: getRepo DID mismatch: requested %s, CAR commit is %s", did, rp.DID)
+	}
 	if err := rp.CheckComplete(); err != nil {
 		return nil, nil, host, translate(err)
 	}
@@ -684,8 +798,13 @@ func rateLimitDelay(err error, baseDelay time.Duration, attempt int) time.Durati
 }
 
 func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
+	// A zero base or ceiling means "no delay", not "maximum delay" —
+	// validation permits zero to disable backoff entirely.
+	if base <= 0 || maxDelay <= 0 {
+		return 0
+	}
 	delay := maxDelay
-	if base > 0 && attempt < bits.LeadingZeros64(uint64(base)) {
+	if attempt < bits.LeadingZeros64(uint64(base)) {
 		if shifted := base << attempt; shifted < maxDelay {
 			delay = shifted
 		}

@@ -41,7 +41,12 @@ func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string)
 				return
 			}
 
-			if len(out.Repos) == 0 {
+			next := out.Cursor.ValOr("")
+			// An empty page is only terminal when it carries no continuation
+			// cursor; a server may legitimately return an empty intermediate
+			// page. Stopping on entries-empty alone silently truncates the
+			// crawl. The cursor-loop guard below bounds repeat cursors.
+			if len(out.Repos) == 0 && next == "" {
 				return
 			}
 
@@ -61,11 +66,6 @@ func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string)
 					Head:   r.Head,
 					Active: r.Active.ValOr(true),
 				})
-			}
-
-			next := ""
-			if out.Cursor.HasVal() {
-				next = out.Cursor.Val()
 			}
 
 			if len(batch) > 0 {
@@ -107,7 +107,10 @@ func (c *Client) ListHosts(ctx context.Context, limit int64, startCursor string)
 				yield(ListHostsPage{}, err)
 				return
 			}
-			if len(out.Hosts) == 0 {
+			next := out.Cursor.ValOr("")
+			// Same continuation rule as ListRepos: only entries-empty AND
+			// cursor-empty is terminal.
+			if len(out.Hosts) == 0 && next == "" {
 				return
 			}
 
@@ -133,7 +136,6 @@ func (c *Client) ListHosts(ctx context.Context, limit int64, startCursor string)
 				})
 			}
 
-			next := out.Cursor.ValOr("")
 			if len(entries) > 0 {
 				if !yield(ListHostsPage{Entries: entries, NextCursor: next}, nil) {
 					return

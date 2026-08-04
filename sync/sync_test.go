@@ -237,6 +237,58 @@ func TestListHosts_PaginationAndMalformedEntry(t *testing.T) {
 	}, got)
 }
 
+func TestListHosts_EmptyPageWithCursorContinues(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch requests.Add(1) {
+		case 1:
+			_, _ = io.WriteString(w, `{"cursor":"skip","hosts":[]}`)
+		case 2:
+			require.Equal(t, "skip", r.URL.Query().Get("cursor"))
+			_, _ = io.WriteString(w, `{"hosts":[{"hostname":"pds.example.com","status":"active"}]}`)
+		default:
+			t.Errorf("unexpected extra listHosts request")
+		}
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var got []sync.ListHostsEntry
+	for page, err := range sc.ListHosts(context.Background(), 1000, "") {
+		require.NoError(t, err)
+		got = append(got, page.Entries...)
+	}
+	require.Equal(t, []sync.ListHostsEntry{{Hostname: "pds.example.com", Status: "active"}}, got)
+}
+
+func TestListRepos_EmptyPageWithCursorContinues(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch requests.Add(1) {
+		case 1:
+			_, _ = io.WriteString(w, `{"cursor":"skip","repos":[]}`)
+		case 2:
+			require.Equal(t, "skip", r.URL.Query().Get("cursor"))
+			_, _ = io.WriteString(w, `{"repos":[{"did":"did:plc:tail","head":"h","rev":"r","active":true}]}`)
+		default:
+			t.Errorf("unexpected extra listRepos request")
+		}
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var dids []string
+	for page, err := range sc.ListRepos(context.Background(), 1000, "") {
+		require.NoError(t, err)
+		for _, entry := range page.Entries {
+			dids = append(dids, string(entry.DID))
+		}
+	}
+	require.Equal(t, []string{"did:plc:tail"}, dids)
+}
+
 func TestListHosts_CursorLoopTerminates(t *testing.T) {
 	t.Parallel()
 	var requests atomic.Int32

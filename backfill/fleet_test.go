@@ -77,6 +77,7 @@ func fleetOptions(t *testing.T, store backfill.Store, hosts ...*fleetPDS) backfi
 	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/xrpc/com.atproto.sync.listRepos" {
 			relayListRepos.Add(1)
+			t.Error("relay listRepos must not be used by the fleet engine")
 			http.Error(w, "relay listRepos must not be used", http.StatusInternalServerError)
 			return
 		}
@@ -145,6 +146,125 @@ func TestEngineFleet_CrossHostDIDDeduplicated(t *testing.T) {
 	require.NoError(t, backfill.NewEngine(opts).Run(context.Background()))
 	require.Equal(t, int32(1), store.completeCalls.Load())
 	require.Equal(t, int32(1), a.getCalls.Load()+b.getCalls.Load())
+}
+
+// TestEngineFleet_CrossHostClaimGatesSecondHostCursor proves the dedup
+// barrier: when a DID appears on two hosts and the first host's download is
+// still in flight, the second host must not checkpoint a cursor covering
+// that DID until the download reaches a terminal Store transition.
+func TestEngineFleet_CrossHostClaimGatesSecondHostCursor(t *testing.T) {
+	t.Parallel()
+	store := newMemStore()
+	did := "did:plc:claim-gate"
+	car := buildTestRepoCAR(t, did, 1)
+
+	downloadStarted := make(chan struct{})
+	releaseDownload := make(chan struct{})
+	var once sync.Once
+	a := &fleetPDS{hostname: "claim-a.example.test", dids: []string{did}, repos: map[string][]byte{did: car}}
+	a.get = func(_ http.ResponseWriter, _ *http.Request) bool {
+		once.Do(func() { close(downloadStarted) })
+		<-releaseDownload
+		return false
+	}
+	// B lists the same DID, but only after A's download is in flight, so B's
+	// reconcile is guaranteed to observe A's claim. B paginates: the page
+	// carrying the duplicate DID has a continuation cursor, so a correct
+	// engine MUST call SaveHostCursor for B (an engine that skips straight to
+	// drained would silently dodge the barrier assertions below).
+	b := &fleetPDS{hostname: "claim-b.example.test", dids: []string{did}, repos: map[string][]byte{did: car}}
+	b.list = func(w http.ResponseWriter, r *http.Request) bool {
+		<-downloadStarted
+		if r.URL.Query().Get("cursor") == "" {
+			_ = json.NewEncoder(w).Encode(listPage{
+				Cursor: "after-claim",
+				Repos:  []listRepo{{DID: did, Head: "head", Rev: "rev", Active: true}},
+			})
+			return true
+		}
+		_ = json.NewEncoder(w).Encode(listPage{})
+		return true
+	}
+
+	var mu sync.Mutex
+	var events []string
+	store.onSaveCursor = func(host, cursor string) error {
+		mu.Lock()
+		events = append(events, "cursor:"+host)
+		mu.Unlock()
+		store.mu.Lock()
+		store.hostCursors[host] = cursor
+		store.mu.Unlock()
+		return nil
+	}
+
+	opts := fleetOptions(t, store, a, b)
+	opts.Handler = backfill.HandlerFunc(func(_ context.Context, _ atmos.DID, _ *atmosrepo.Repo, _ *atmosrepo.Commit) error {
+		mu.Lock()
+		events = append(events, "handled")
+		mu.Unlock()
+		return nil
+	})
+
+	done := make(chan error, 1)
+	go func() { done <- backfill.NewEngine(opts).Run(context.Background()) }()
+
+	<-downloadStarted
+	// Give B's producer time to list the DID and reach its batch barrier;
+	// its cursor must not be saved while A's download is un-terminal.
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	for _, ev := range events {
+		require.NotEqual(t, "cursor:"+b.hostname, ev,
+			"second host checkpointed past a DID whose download had not reached a terminal state")
+	}
+	mu.Unlock()
+
+	close(releaseDownload)
+	require.NoError(t, <-done)
+	require.Equal(t, int32(1), store.completeCalls.Load())
+
+	mu.Lock()
+	defer mu.Unlock()
+	handledAt := -1
+	bCursorAt := -1
+	for i, ev := range events {
+		if ev == "handled" && handledAt == -1 {
+			handledAt = i
+		}
+		if ev == "cursor:"+b.hostname && bCursorAt == -1 {
+			bCursorAt = i
+		}
+	}
+	require.GreaterOrEqual(t, handledAt, 0)
+	require.NotEqual(t, -1, bCursorAt, "B's paginated listing must have checkpointed a cursor")
+	require.Greater(t, bCursorAt, handledAt, "B's cursor must land after the owning download completed")
+}
+
+// TestEngineFleet_DIDMismatchedCARFails verifies an untrusted PDS cannot
+// substitute another account's repo: a valid CAR whose commit DID differs
+// from the requested DID must land OnFail, never Handler/OnComplete.
+func TestEngineFleet_DIDMismatchedCARFails(t *testing.T) {
+	t.Parallel()
+	store := newMemStore()
+	requested, imposter := "did:plc:victim", "did:plc:imposter"
+	host := &fleetPDS{
+		hostname: "mismatch.example.test",
+		dids:     []string{requested},
+		repos:    map[string][]byte{requested: buildTestRepoCAR(t, imposter, 1)},
+	}
+	opts := fleetOptions(t, store, host)
+	var handled atomic.Int32
+	opts.Handler = backfill.HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error {
+		handled.Add(1)
+		return nil
+	})
+	opts.MaxRetries = gt.Some(0)
+	require.NoError(t, backfill.NewEngine(opts).Run(context.Background()))
+	require.Zero(t, handled.Load(), "a DID-mismatched CAR must never reach the Handler")
+	require.Zero(t, store.completeCalls.Load())
+	require.Equal(t, backfill.StateFailed, store.state[requested])
+	require.ErrorContains(t, store.failErrs[requested], "DID mismatch")
 }
 
 func TestEngineFleet_HostFailureRecoversAndPermanentFailureExhausts(t *testing.T) {
@@ -258,11 +378,13 @@ func TestEngineFleet_GlobalDownloadCapIsFleetWide(t *testing.T) {
 		select {
 		case <-entered:
 		case <-time.After(time.Second):
+			close(release) // unblock any parked handler so server cleanup terminates
 			t.Fatal("timed out waiting for two download attempts")
 		}
 	}
 	select {
 	case <-entered:
+		close(release) // unblock parked handlers so server cleanup terminates
 		t.Fatal("a third download entered while the two fleet slots were occupied")
 	case <-time.After(25 * time.Millisecond):
 	}
@@ -300,11 +422,13 @@ func TestEngineFleet_MaxActiveHostsCapsListReposLoops(t *testing.T) {
 		select {
 		case <-entered:
 		case <-time.After(time.Second):
+			close(release) // unblock any parked handler so server cleanup terminates
 			t.Fatal("timed out waiting for active hosts")
 		}
 	}
 	select {
 	case <-entered:
+		close(release) // unblock parked handlers so server cleanup terminates
 		t.Fatal("a third listRepos loop entered above MaxActiveHosts")
 	case <-time.After(25 * time.Millisecond):
 	}

@@ -464,6 +464,14 @@ func TestEngine_DownloadTimeout_DisabledAllowsSlowDownload(t *testing.T) {
 	require.Equal(t, StateComplete, store.state[did])
 }
 
+func TestBackoffDelay_ZeroMeansNoDelay(t *testing.T) {
+	t.Parallel()
+	require.Zero(t, backoffDelay(0, time.Hour, 0), "zero base must disable the delay, not select the max")
+	require.Zero(t, backoffDelay(0, time.Hour, 5))
+	require.Zero(t, backoffDelay(time.Second, 0, 3), "zero ceiling must disable the delay")
+	require.Positive(t, backoffDelay(time.Second, time.Hour, 0))
+}
+
 // TestEngine_translateDownloadDeadline_Classification is a focused unit test
 // of the parent-vs-derived deadline mapping that download() relies on.
 func TestEngine_translateDownloadDeadline_Classification(t *testing.T) {
