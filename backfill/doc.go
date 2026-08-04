@@ -1,5 +1,5 @@
-// Package backfill drives bulk enumeration and download of repos from
-// an atproto relay or PDS.
+// Package backfill drives fleet-wide repository enumeration and direct-PDS
+// downloads from an atproto relay's listHosts roster.
 //
 // # Lifecycle
 //
@@ -8,14 +8,17 @@
 // caller-supplied Store:
 //
 //	Unknown ──OnDiscover──> Discovered ──OnComplete──> Complete
-//	                            │
-//	                            └──OnFail──> Failed ──(re-run)──> Discovered/Complete
+//	                            │                       ▲
+//	                            └──OnFail──> Failed ────┘ (later Run)
 //
-// On Run() the engine paginates listRepos, calls Store.Lookup for
-// each entry, dispatches Discovered/Failed DIDs whose entry.Active is
-// true, and skips Complete/inactive DIDs from download. Workers
-// download each dispatched DID's repo, parse it, optionally verify
-// the commit signature, and invoke Handler.HandleRepo.
+// On Run() the engine paginates listHosts on the relay, then runs bounded,
+// independent listRepos pipelines against each eligible PDS. It dispatches
+// Discovered/Failed active DIDs for direct getRepo download and skips
+// Complete or inactive DIDs. Fleet-wide download slots bound aggregate I/O;
+// per-host workers and backoff prevent one unhealthy PDS from starving the
+// rest of the roster. Run proves termination with a final listHosts pass;
+// producer failures that exhaust their host budget are reported but do not
+// block healthy hosts from draining.
 //
 // # Active-flip tracking
 //
@@ -35,24 +38,12 @@
 //
 // # Resume across Runs
 //
-// By default each Run() walks listRepos from the beginning. To resume
-// from a prior Run's progress, set Options.StartCursor to the cursor
-// last persisted via Options.OnBatchComplete.
-//
-// Cursor advancement granularity is controlled by Options.BatchSize.
-// BatchSize counts every listRepos entry, including inactive and
-// already-complete repos. The engine still fetches listRepos in pages
-// of 1000 (the remote protocol cap), so batch boundaries are aligned
-// to page boundaries. When OnBatchComplete fires, every eligible DID
-// covered by that batch has reached StateComplete or StateFailed for
-// this Run. If the Store cannot persist one of those terminal states,
-// Run aborts before advancing the cursor. A new Run with that cursor
-// starts at the page after the saved one.
-//
-// The cursor is opaque; treat it as a string. Persist it durably
-// (e.g., in your Store's underlying database) before returning from
-// the OnBatchComplete callback if you want crash-after-this-batch to
-// skip the same work on restart.
+// Each PDS has an independent opaque listRepos cursor owned by Store.
+// Cursor advancement granularity is controlled by Options.BatchSize and is
+// page-aligned. SaveHostCursor is called only after every eligible DID covered
+// by the checkpoint reached OnComplete or OnFail. Store implementations must
+// order cursor durability after any data those terminal callbacks describe;
+// a lagging cursor is safe because restart re-lists and Lookup deduplicates.
 //
 // # Extension surface
 //
