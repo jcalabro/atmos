@@ -153,6 +153,8 @@ func (c *Client) Do(ctx context.Context, method, nsid, contentType string, param
 func (c *Client) doInternal(ctx context.Context, method, nsid, contentType string, params map[string]any, body io.Reader, out any, bearerOverride string) error {
 	policy := c.retryPolicy()
 	maxAttempts := max(policy.MaxAttempts.Val(), 1)
+	maxRetryDelay := policy.MaxDelay.ValOr(DefaultRetryPolicy.MaxDelay.Val())
+	serverDelayLimit := max(time.Duration(0), min(maxRetryDelay, MaxServerDirectedDelay))
 
 	// Idempotent methods (GET/HEAD/PUT/DELETE) are safe to retry on any
 	// transient failure. A POST procedure is NOT idempotent: a 5xx or a network
@@ -189,8 +191,10 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 	for attempt := range maxAttempts {
 		// Proactive rate limiting: if we know this host's quota is
 		// exhausted, wait before sending the next request to avoid a 429.
-		if err := c.rl.wait(ctx, reqHost); err != nil {
-			return err
+		if attempt == 0 {
+			if err := c.rl.wait(ctx, reqHost); err != nil {
+				return err
+			}
 		}
 
 		if attempt > 0 {
@@ -199,11 +203,12 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 			// Honor a server-supplied retry time (RateLimit-Reset or the
 			// standard Retry-After header, both folded into RateLimit.Reset) for
 			// any retryable status — 429 throttles and 503 backpressure alike —
-			// in preference to the fixed exponential backoff, clamped to MaxDelay.
+			// in preference to the fixed exponential backoff, clamped to both
+			// MaxDelay and MaxServerDirectedDelay.
 			if e, ok := errors.AsType[*Error](lastErr); ok && e.RateLimit != nil && !e.RateLimit.Reset.IsZero() {
 				until := time.Until(e.RateLimit.Reset)
-				if until > 0 && until < policy.MaxDelay.Val() {
-					d = until
+				if until > 0 {
+					d = min(until, serverDelayLimit)
 				}
 			}
 
@@ -288,7 +293,7 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		// host that actually answered (post-redirect), which for a
 		// relay-fronted request is the PDS rather than the relay.
 		if rl := parseRateLimit(resp.Header); rl != nil {
-			c.rl.update(respHost(resp), rl)
+			c.rl.update(respHost(resp), rl, serverDelayLimit)
 		}
 
 		// Success.

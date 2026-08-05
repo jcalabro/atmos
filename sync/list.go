@@ -10,6 +10,18 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 )
 
+const (
+	// MaxCursorLength bounds opaque pagination state retained in memory and
+	// echoed into subsequent request URLs.
+	MaxCursorLength = 4 << 10
+	// MaxConsecutiveEmptyPages prevents a server from keeping an iterator
+	// alive forever with unique cursors that never enumerate anything.
+	MaxConsecutiveEmptyPages = 10
+	// MaxListMetadataLength bounds advisory fields before callers persist or
+	// log them. Real revs, CIDs, and status values are far smaller.
+	MaxListMetadataLength = 4 << 10
+)
+
 // ListRepos paginates through repos on the service starting at
 // startCursor, yielding one page at a time so callers can perform
 // batch operations and persist the relay's cursor for resume across
@@ -25,8 +37,17 @@ import (
 // iteration continues; transport errors terminate iteration.
 func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string) iter.Seq2[ListReposPage, error] {
 	return func(yield func(ListReposPage, error) bool) {
+		if limit <= 0 {
+			yield(ListReposPage{}, fmt.Errorf("sync: listRepos limit must be positive"))
+			return
+		}
+		if len(startCursor) > MaxCursorLength {
+			yield(ListReposPage{}, fmt.Errorf("sync: listRepos cursor exceeds %d bytes", MaxCursorLength))
+			return
+		}
 		cursor := startCursor
 		seen := map[string]struct{}{}
+		emptyPages := 0
 		if cursor != "" {
 			seen[cursor] = struct{}{}
 		}
@@ -40,8 +61,25 @@ func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string)
 				yield(ListReposPage{}, err)
 				return
 			}
+			if int64(len(out.Repos)) > limit {
+				yield(ListReposPage{}, fmt.Errorf("sync: listRepos returned %d entries with limit %d", len(out.Repos), limit))
+				return
+			}
 
 			next := out.Cursor.ValOr("")
+			if len(next) > MaxCursorLength {
+				yield(ListReposPage{}, fmt.Errorf("sync: listRepos cursor exceeds %d bytes", MaxCursorLength))
+				return
+			}
+			if len(out.Repos) == 0 {
+				emptyPages++
+				if emptyPages > MaxConsecutiveEmptyPages {
+					yield(ListReposPage{}, fmt.Errorf("sync: listRepos exceeded %d consecutive empty pages", MaxConsecutiveEmptyPages))
+					return
+				}
+			} else {
+				emptyPages = 0
+			}
 			// An empty page is only terminal when it carries no continuation
 			// cursor; a server may legitimately return an empty intermediate
 			// page. Stopping on entries-empty alone silently truncates the
@@ -52,6 +90,12 @@ func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string)
 
 			batch := make([]ListReposEntry, 0, len(out.Repos))
 			for i, r := range out.Repos {
+				if len(r.Rev) > MaxListMetadataLength || len(r.Head) > MaxListMetadataLength {
+					if !yield(ListReposPage{}, &ListEntryError{Endpoint: "listRepos", Index: i, Err: fmt.Errorf("rev or head exceeds %d bytes", MaxListMetadataLength)}) {
+						return
+					}
+					continue
+				}
 				did, err := atmos.ParseDID(r.DID)
 				if err != nil {
 					if !yield(ListReposPage{}, &ListEntryError{Endpoint: "listRepos", Index: i, Err: err}) {
@@ -68,7 +112,10 @@ func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string)
 				})
 			}
 
-			if len(batch) > 0 {
+			// Yield intermediate empty pages too. Backfill callers need to count
+			// every remote page against their host budget, including pages whose
+			// entries were empty or all malformed.
+			if len(batch) > 0 || next != "" {
 				if !yield(ListReposPage{Entries: batch, NextCursor: next}, nil) {
 					return
 				}
@@ -92,8 +139,17 @@ func (c *Client) ListRepos(ctx context.Context, limit int64, startCursor string)
 // response errors terminate iteration.
 func (c *Client) ListHosts(ctx context.Context, limit int64, startCursor string) iter.Seq2[ListHostsPage, error] {
 	return func(yield func(ListHostsPage, error) bool) {
+		if limit <= 0 {
+			yield(ListHostsPage{}, fmt.Errorf("sync: listHosts limit must be positive"))
+			return
+		}
+		if len(startCursor) > MaxCursorLength {
+			yield(ListHostsPage{}, fmt.Errorf("sync: listHosts cursor exceeds %d bytes", MaxCursorLength))
+			return
+		}
 		cursor := startCursor
 		seen := map[string]struct{}{}
+		emptyPages := 0
 		if cursor != "" {
 			seen[cursor] = struct{}{}
 		}
@@ -107,7 +163,24 @@ func (c *Client) ListHosts(ctx context.Context, limit int64, startCursor string)
 				yield(ListHostsPage{}, err)
 				return
 			}
+			if int64(len(out.Hosts)) > limit {
+				yield(ListHostsPage{}, fmt.Errorf("sync: listHosts returned %d entries with limit %d", len(out.Hosts), limit))
+				return
+			}
 			next := out.Cursor.ValOr("")
+			if len(next) > MaxCursorLength {
+				yield(ListHostsPage{}, fmt.Errorf("sync: listHosts cursor exceeds %d bytes", MaxCursorLength))
+				return
+			}
+			if len(out.Hosts) == 0 {
+				emptyPages++
+				if emptyPages > MaxConsecutiveEmptyPages {
+					yield(ListHostsPage{}, fmt.Errorf("sync: listHosts exceeded %d consecutive empty pages", MaxConsecutiveEmptyPages))
+					return
+				}
+			} else {
+				emptyPages = 0
+			}
 			// Same continuation rule as ListRepos: only entries-empty AND
 			// cursor-empty is terminal.
 			if len(out.Hosts) == 0 && next == "" {
@@ -118,6 +191,12 @@ func (c *Client) ListHosts(ctx context.Context, limit int64, startCursor string)
 			for i, host := range out.Hosts {
 				if host.Hostname == "" {
 					if !yield(ListHostsPage{}, &ListEntryError{Endpoint: "listHosts", Index: i, Err: fmt.Errorf("empty hostname")}) {
+						return
+					}
+					continue
+				}
+				if len(host.Status.ValOr("")) > MaxListMetadataLength {
+					if !yield(ListHostsPage{}, &ListEntryError{Endpoint: "listHosts", Index: i, Err: fmt.Errorf("status exceeds %d bytes", MaxListMetadataLength)}) {
 						return
 					}
 					continue
@@ -136,7 +215,7 @@ func (c *Client) ListHosts(ctx context.Context, limit int64, startCursor string)
 				})
 			}
 
-			if len(entries) > 0 {
+			if len(entries) > 0 || next != "" {
 				if !yield(ListHostsPage{Entries: entries, NextCursor: next}, nil) {
 					return
 				}

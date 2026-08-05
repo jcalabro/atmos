@@ -32,9 +32,10 @@ type Error struct {
 
 // RateLimit contains rate limit information from response headers.
 type RateLimit struct {
-	Limit     int
-	Remaining int
-	Reset     time.Time
+	Limit        int
+	Remaining    int
+	RemainingSet bool // true only when RateLimit-Remaining was present and valid
+	Reset        time.Time
 }
 
 func (e *Error) Error() string {
@@ -103,10 +104,15 @@ func parseRateLimitAt(h http.Header, now func() time.Time) *RateLimit {
 
 	rl := &RateLimit{}
 	if limitStr != "" {
-		rl.Limit, _ = strconv.Atoi(limitStr)
+		if limit, err := strconv.Atoi(strings.TrimSpace(limitStr)); err == nil && limit >= 0 {
+			rl.Limit = limit
+		}
 	}
 	if remainStr != "" {
-		rl.Remaining, _ = strconv.Atoi(remainStr)
+		if remaining, err := strconv.Atoi(strings.TrimSpace(remainStr)); err == nil && remaining >= 0 {
+			rl.Remaining = remaining
+			rl.RemainingSet = true
+		}
 	}
 	if resetStr != "" {
 		if unix, err := strconv.ParseInt(resetStr, 10, 64); err == nil {
@@ -117,7 +123,8 @@ func parseRateLimitAt(h http.Header, now func() time.Time) *RateLimit {
 	// absent. Retry-After is either an integer number of seconds or an
 	// IMF-fixdate (RFC 7231 §7.1.3).
 	if rl.Reset.IsZero() && retryAfter != "" {
-		if secs, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil {
+		const maxDurationSeconds = int64(^uint64(0)>>1) / int64(time.Second)
+		if secs, err := strconv.ParseInt(strings.TrimSpace(retryAfter), 10, 64); err == nil && secs >= 0 && secs <= maxDurationSeconds {
 			rl.Reset = now().Add(time.Duration(secs) * time.Second)
 		} else if t, err := http.ParseTime(retryAfter); err == nil {
 			rl.Reset = t

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/bits"
 	"math/rand/v2"
 	"sort"
@@ -21,7 +22,15 @@ import (
 
 var errOnCompleteRecorded = errors.New("backfill: OnComplete recording failed; handler already ran")
 var errDownloadTimeout = errors.New("backfill: repo download exceeded DownloadTimeout")
+
+// ErrEngineAlreadyRan is returned by a second call to an Engine's Run method.
 var ErrEngineAlreadyRan = errors.New("backfill: Engine.Run already invoked; engines are single-shot")
+
+// ErrHostPageLimit marks a PDS enumeration that exceeded MaxPagesPerHost.
+var ErrHostPageLimit = errors.New("backfill: host listRepos page limit exceeded")
+
+// ErrRepoTooLarge marks a getRepo CAR that exceeded MaxRepoBytes.
+var ErrRepoTooLarge = errors.New("backfill: repo exceeds MaxRepoBytes")
 
 const (
 	listPageLimit                    = 1000
@@ -30,16 +39,18 @@ const (
 	defaultHostWorkers               = 32
 	defaultMaxActiveHosts            = 512
 	defaultMaxHosts                  = 50_000
+	defaultMaxPagesPerHost           = 10_000
 	defaultHostBackoffBase           = time.Minute
 	defaultHostBackoffMax            = time.Hour
 	defaultHostMaxAttempts           = 8
-	DefaultMaxRetries                = 3
-	DefaultRetryRateLimitMaxAttempts = 20
+	DefaultMaxRetries                = 1
+	DefaultRetryRateLimitMaxAttempts = 1
 	defaultRetryBaseDelay            = time.Second
 	defaultRetryMaxDelay             = 30 * time.Second
 	DefaultDownloadTimeout           = 5 * time.Minute
-	retryRateLimitCeiling            = 330 * time.Second
-	didLockShards                    = 256
+	// DefaultMaxRepoBytes is the default decoded getRepo CAR size limit.
+	DefaultMaxRepoBytes int64 = 2 << 30
+	didLockShards             = 256
 )
 
 type retrySleeper interface {
@@ -182,7 +193,7 @@ func (e *Engine) validate() error {
 	for name, value := range map[string]int{
 		"GlobalDownloads": e.globalDownloadCount(), "HostWorkers": e.hostWorkerLimit(),
 		"MaxActiveHosts": e.maxActiveHosts(), "MaxHosts": e.maxHosts(),
-		"HostMaxAttempts": e.hostMaxAttempts(),
+		"HostMaxAttempts": e.hostMaxAttempts(), "MaxPagesPerHost": e.maxPagesPerHost(),
 	} {
 		if value <= 0 {
 			return fmt.Errorf("backfill: %s must be positive", name)
@@ -190,6 +201,9 @@ func (e *Engine) validate() error {
 	}
 	if e.batchSize() <= 0 {
 		return fmt.Errorf("backfill: BatchSize must be positive")
+	}
+	if e.maxRepoBytes() <= 0 {
+		return fmt.Errorf("backfill: MaxRepoBytes must be positive")
 	}
 	for name, value := range map[string]int{
 		"MaxRetries":                e.opts.MaxRetries.ValOr(DefaultMaxRetries),
@@ -333,6 +347,7 @@ func (e *Engine) runFleet(ctx context.Context, hosts []hostCandidate, terminal m
 func (e *Engine) runHostManager(ctx context.Context, active chan struct{}, host HostInfo) (HostState, error) {
 	var client *atmossync.Client
 	var lastErr error
+	pagesRemaining := e.maxPagesPerHost()
 	for attempt := 1; attempt <= e.hostMaxAttempts(); attempt++ {
 		e.notifyHostState(host, HostStatePending, attempt, nil)
 		if client == nil {
@@ -353,7 +368,7 @@ func (e *Engine) runHostManager(ctx context.Context, active chan struct{}, host 
 			}
 			e.activeHosts.Add(1)
 			e.notifyHostState(host, HostStateRunning, attempt, nil)
-			lastNonEmpty, runErr := e.runHostAttempt(ctx, host, client)
+			lastNonEmpty, runErr := e.runHostAttempt(ctx, host, client, &pagesRemaining)
 			<-active
 			e.activeHosts.Add(-1)
 			if runErr == nil {
@@ -370,6 +385,9 @@ func (e *Engine) runHostManager(ctx context.Context, active chan struct{}, host 
 			var fatal *fatalStoreError
 			if errors.As(runErr, &fatal) {
 				return "", fatal.err
+			}
+			if errors.Is(runErr, ErrHostPageLimit) {
+				return e.exhaustHost(ctx, host, runErr, attempt)
 			}
 			lastErr = runErr
 		}
@@ -414,7 +432,10 @@ type repoJob struct {
 	wait *didClaim
 }
 
-func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmossync.Client) (string, error) {
+func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmossync.Client, pagesRemaining *int) (string, error) {
+	if *pagesRemaining <= 0 {
+		return "", fmt.Errorf("%w: host %s", ErrHostPageLimit, host.Hostname)
+	}
 	startCursor, _, err := e.opts.Store.HostCursor(ctx, host.Hostname)
 	if err != nil {
 		return "", &fatalStoreError{fmt.Errorf("backfill: store host_cursor %s: %w", host.Hostname, err)}
@@ -445,6 +466,7 @@ func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmo
 			e.releaseClaims(batch)
 			return "", fmt.Errorf("backfill: host %s listRepos: %w", host.Hostname, listErr)
 		}
+		*pagesRemaining = *pagesRemaining - 1
 		batchEntries += len(page.Entries)
 		batchCursor = page.NextCursor
 		if page.NextCursor != "" {
@@ -468,6 +490,10 @@ func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmo
 			batch = batch[:0]
 			batchEntries = 0
 			batchCursor = ""
+		}
+		if *pagesRemaining == 0 && page.NextCursor != "" {
+			e.releaseClaims(batch)
+			return "", fmt.Errorf("%w: host %s exceeded %d pages", ErrHostPageLimit, host.Hostname, e.maxPagesPerHost())
 		}
 	}
 	// ListRepos' iterator returns silently when ctx is cancelled; without
@@ -660,9 +686,10 @@ func (e *Engine) releaseClaims(jobs []repoJob) {
 func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 	maxRetries := e.opts.MaxRetries.ValOr(DefaultMaxRetries)
 	rlMaxAttempts := e.opts.RetryRateLimitMaxAttempts.ValOr(DefaultRetryRateLimitMaxAttempts)
+	totalRetryLimit := max(maxRetries, rlMaxAttempts)
 	baseDelay := e.opts.RetryBaseDelay.ValOr(defaultRetryBaseDelay)
 	maxDelay := e.opts.RetryMaxDelay.ValOr(defaultRetryMaxDelay)
-	transientAttempt, rlAttempt, attempts := 0, 0, 0
+	transientAttempt, rlAttempt, retries, attempts := 0, 0, 0, 0
 	for {
 		err := e.tryRepo(ctx, job)
 		attempts++
@@ -681,18 +708,19 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 		}
 		var delay time.Duration
 		if xrpc.IsRateLimited(err) {
-			if rlAttempt >= rlMaxAttempts {
+			if rlAttempt >= rlMaxAttempts || retries >= totalRetryLimit {
 				return e.recordFail(ctx, job.entry.DID, requestHost, fmt.Errorf("backfill: still rate limited after %d attempts: %w", rlAttempt+1, err), attempts)
 			}
 			rlAttempt++
 			delay = rateLimitDelay(err, baseDelay, rlAttempt)
 		} else {
-			if !xrpc.IsTransient(err) || transientAttempt >= maxRetries {
+			if !xrpc.IsTransient(err) || transientAttempt >= maxRetries || retries >= totalRetryLimit {
 				return e.recordFail(ctx, job.entry.DID, requestHost, err, attempts)
 			}
 			delay = backoffDelay(baseDelay, maxDelay, transientAttempt)
 			transientAttempt++
 		}
+		retries++
 		if err := e.sleep(ctx, delay); err != nil {
 			return err
 		}
@@ -752,7 +780,8 @@ func (e *Engine) download(ctx context.Context, client *atmossync.Client, did atm
 		return nil, nil, "", translate(err)
 	}
 	defer func() { _ = body.Close() }()
-	rp, commit, err := atmosrepo.LoadFromCAR(bufio.NewReader(body))
+	limited := &maxBytesReader{r: body, remaining: e.maxRepoBytes()}
+	rp, commit, err := atmosrepo.LoadFromCAR(bufio.NewReader(limited))
 	if err != nil {
 		return nil, nil, host, translate(err)
 	}
@@ -791,10 +820,10 @@ func (e *Engine) recordFail(ctx context.Context, did atmos.DID, host string, cau
 func rateLimitDelay(err error, baseDelay time.Duration, attempt int) time.Duration {
 	if reset := xrpc.RetryAfter(err); !reset.IsZero() {
 		if wait := time.Until(reset); wait > 0 {
-			return min(wait, retryRateLimitCeiling)
+			return min(wait, xrpc.MaxServerDirectedDelay)
 		}
 	}
-	return max(baseDelay, backoffDelay(baseDelay, retryRateLimitCeiling, attempt-1))
+	return max(baseDelay, backoffDelay(baseDelay, xrpc.MaxServerDirectedDelay, attempt-1))
 }
 
 func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
@@ -867,6 +896,7 @@ func (e *Engine) hostWorkerLimit() int {
 }
 func (e *Engine) maxActiveHosts() int  { return e.opts.MaxActiveHosts.ValOr(defaultMaxActiveHosts) }
 func (e *Engine) maxHosts() int        { return e.opts.MaxHosts.ValOr(defaultMaxHosts) }
+func (e *Engine) maxPagesPerHost() int { return e.opts.MaxPagesPerHost.ValOr(defaultMaxPagesPerHost) }
 func (e *Engine) hostMaxAttempts() int { return e.opts.HostMaxAttempts.ValOr(defaultHostMaxAttempts) }
 func (e *Engine) hostBackoffBase() time.Duration {
 	return e.opts.HostBackoffBase.ValOr(defaultHostBackoffBase)
@@ -877,6 +907,35 @@ func (e *Engine) hostBackoffMax() time.Duration {
 func (e *Engine) batchSize() int { return e.opts.BatchSize.ValOr(defaultBatchSize) }
 func (e *Engine) downloadTimeout() time.Duration {
 	return e.opts.DownloadTimeout.ValOr(DefaultDownloadTimeout)
+}
+func (e *Engine) maxRepoBytes() int64 { return e.opts.MaxRepoBytes.ValOr(DefaultMaxRepoBytes) }
+
+// maxBytesReader fails as soon as a peer sends more than remaining bytes. It
+// probes one byte past the boundary so an oversized CAR ending exactly at a
+// block boundary cannot be mistaken for a complete smaller repository.
+type maxBytesReader struct {
+	r         io.Reader
+	remaining int64
+}
+
+func (r *maxBytesReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if r.remaining > 0 {
+		if int64(len(p)) > r.remaining {
+			p = p[:r.remaining]
+		}
+		n, err := r.r.Read(p)
+		r.remaining -= int64(n)
+		return n, err
+	}
+	var probe [1]byte
+	n, err := r.r.Read(probe[:])
+	if n > 0 {
+		return 0, ErrRepoTooLarge
+	}
+	return 0, err
 }
 
 func (e *Engine) workerCount(relayAccounts int64) int {

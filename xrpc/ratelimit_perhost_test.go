@@ -23,7 +23,7 @@ func TestProactiveRateLimit_PerHost_OtherHostNotBlocked(t *testing.T) {
 
 	// Exhausting host A must not delay requests bound for host B.
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(1 * time.Second)})
+	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(1 * time.Second)}, 2*time.Second)
 
 	start := time.Now()
 	require.NoError(t, s.wait(context.Background(), "b.example"))
@@ -38,7 +38,7 @@ func TestProactiveRateLimit_PerHost_SameHostStillWaits(t *testing.T) {
 	}
 
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(50 * time.Millisecond)})
+	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(50 * time.Millisecond)}, time.Second)
 
 	start := time.Now()
 	require.NoError(t, s.wait(context.Background(), "a.example"))
@@ -50,9 +50,9 @@ func TestProactiveRateLimit_PerHost_RemainingQuotaClears(t *testing.T) {
 	t.Parallel()
 
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(10 * time.Second)})
+	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(10 * time.Second)}, time.Minute)
 	// A newer response with remaining quota clears the parked state.
-	s.update("a.example", &RateLimit{Remaining: 5, Reset: time.Now().Add(10 * time.Second)})
+	s.update("a.example", &RateLimit{Remaining: 5, RemainingSet: true, Reset: time.Now().Add(10 * time.Second)}, time.Minute)
 
 	start := time.Now()
 	require.NoError(t, s.wait(context.Background(), "a.example"))
@@ -63,7 +63,7 @@ func TestProactiveRateLimit_PerHost_ExpiredResetIgnored(t *testing.T) {
 	t.Parallel()
 
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(-1 * time.Second)})
+	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(-1 * time.Second)}, time.Second)
 
 	start := time.Now()
 	require.NoError(t, s.wait(context.Background(), "a.example"))
@@ -74,7 +74,7 @@ func TestProactiveRateLimit_PerHost_EmptyHostIgnored(t *testing.T) {
 	t.Parallel()
 
 	var s rateLimitState
-	s.update("", &RateLimit{Remaining: 0, Reset: time.Now().Add(10 * time.Second)})
+	s.update("", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(10 * time.Second)}, time.Second)
 
 	start := time.Now()
 	require.NoError(t, s.wait(context.Background(), ""))
@@ -86,11 +86,11 @@ func TestProactiveRateLimit_PerHost_ExpiredEntriesSwept(t *testing.T) {
 	t.Parallel()
 
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(5 * time.Millisecond)})
+	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(5 * time.Millisecond)}, time.Second)
 	time.Sleep(10 * time.Millisecond)
 	// Any later update sweeps entries whose reset has passed, keeping the
 	// map bounded by currently-parked hosts.
-	s.update("b.example", &RateLimit{Remaining: 3, Reset: time.Now().Add(10 * time.Second)})
+	s.update("b.example", &RateLimit{Remaining: 3, RemainingSet: true, Reset: time.Now().Add(10 * time.Second)}, time.Second)
 
 	s.mu.Lock()
 	_, ok := s.exhausted["a.example"]

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -406,6 +407,63 @@ func TestListRepos_CursorLoopTerminates(t *testing.T) {
 	}
 	require.ErrorContains(t, gotErr, "cursor loop")
 	require.Equal(t, int32(2), requests.Load())
+}
+
+func TestListRepos_RejectsPageLargerThanRequestedLimit(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"repos":[{"did":"did:plc:a"},{"did":"did:plc:b"}]}`)
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var gotErr error
+	for _, err := range sc.ListRepos(context.Background(), 1, "") {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	require.ErrorContains(t, gotErr, "returned 2 entries with limit 1")
+}
+
+func TestListRepos_RejectsOversizedCursor(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"cursor": strings.Repeat("x", sync.MaxCursorLength+1),
+			"repos":  []map[string]any{{"did": "did:plc:a"}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var gotErr error
+	for _, err := range sc.ListRepos(context.Background(), 1000, "") {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	require.ErrorContains(t, gotErr, "cursor exceeds")
+}
+
+func TestListRepos_TooManyConsecutiveEmptyPages(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := requests.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{"cursor": fmt.Sprintf("cursor-%d", n), "repos": []any{}})
+	}))
+	t.Cleanup(srv.Close)
+	sc := sync.NewClient(sync.Options{Client: &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)})}})
+
+	var gotErr error
+	for _, err := range sc.ListRepos(context.Background(), 1000, "") {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	require.ErrorContains(t, gotErr, "consecutive empty pages")
+	require.Equal(t, int32(sync.MaxConsecutiveEmptyPages+1), requests.Load())
 }
 
 func TestSplitKey(t *testing.T) {

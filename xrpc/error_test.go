@@ -156,6 +156,23 @@ func TestParseRateLimit_RateLimitResetWinsOverRetryAfter(t *testing.T) {
 	assert.Equal(t, time.Unix(1700000000, 0), rl.Reset, "RateLimit-Reset takes precedence")
 }
 
+func TestParseRateLimit_InvalidNumericHeadersAreNotActionable(t *testing.T) {
+	t.Parallel()
+	fixed := time.Unix(1_700_000_000, 0)
+
+	for _, value := range []string{"-1", "999999999999999999999999999999999"} {
+		t.Run(value, func(t *testing.T) {
+			h := http.Header{}
+			h.Set("RateLimit-Remaining", value)
+			h.Set("Retry-After", value)
+			rl := parseRateLimitAt(h, func() time.Time { return fixed })
+			require.NotNil(t, rl)
+			assert.False(t, rl.RemainingSet)
+			assert.True(t, rl.Reset.IsZero())
+		})
+	}
+}
+
 func TestIsRetryable(t *testing.T) {
 	t.Parallel()
 	assert.True(t, isRetryable(429))

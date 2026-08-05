@@ -32,6 +32,9 @@ type Options struct {
 	MaxActiveHosts gt.Option[int]
 	// MaxHosts bounds the untrusted relay roster. None=50,000.
 	MaxHosts gt.Option[int]
+	// MaxPagesPerHost bounds listRepos responses consumed from one PDS across
+	// all retries in a Run. None=10,000 (up to 10 million listed repos).
+	MaxPagesPerHost gt.Option[int]
 
 	HostBackoffBase gt.Option[time.Duration]
 	HostBackoffMax  gt.Option[time.Duration]
@@ -54,14 +57,21 @@ type Options struct {
 	OnRosterCapped     gt.Option[func(limit int)]
 	OnDownloadSlotWait gt.Option[func(time.Duration)]
 
-	MaxRetries                gt.Option[int]
-	RetryBaseDelay            gt.Option[time.Duration]
-	RetryMaxDelay             gt.Option[time.Duration]
+	// MaxRetries bounds ordinary transient retries. Together with
+	// RetryRateLimitMaxAttempts, the larger value also bounds total retries
+	// across both failure classes. None=1.
+	MaxRetries     gt.Option[int]
+	RetryBaseDelay gt.Option[time.Duration]
+	RetryMaxDelay  gt.Option[time.Duration]
+	// RetryRateLimitMaxAttempts bounds rate-limit retries. None=1.
 	RetryRateLimitMaxAttempts gt.Option[int]
 	DownloadTimeout           gt.Option[time.Duration]
-	Directory                 gt.Option[*identity.Directory]
-	VerifyCommits             gt.Option[bool]
-	BatchSize                 gt.Option[int]
+	// MaxRepoBytes bounds the decoded CAR stream retained for one getRepo.
+	// None=2 GiB.
+	MaxRepoBytes  gt.Option[int64]
+	Directory     gt.Option[*identity.Directory]
+	VerifyCommits gt.Option[bool]
+	BatchSize     gt.Option[int]
 }
 
 // Stats is a point-in-time snapshot delivered after lifecycle changes.

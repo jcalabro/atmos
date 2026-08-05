@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	stdsync "sync"
@@ -145,6 +146,55 @@ func buildEngineInternalRepoCAR(t *testing.T, did string) []byte {
 	var buf bytes.Buffer
 	require.NoError(t, r.ExportCAR(&buf, key))
 	return buf.Bytes()
+}
+
+func TestDefaultHostileInputLimits(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, 1, DefaultMaxRetries)
+	require.Equal(t, 1, DefaultRetryRateLimitMaxAttempts)
+	require.Equal(t, int64(2<<30), DefaultMaxRepoBytes)
+	require.Equal(t, 30*time.Second, xrpc.MaxServerDirectedDelay)
+}
+
+func TestEngine_DefaultRetryBudgetIsSharedAcrossFailureClasses(t *testing.T) {
+	t.Parallel()
+
+	did := "did:plc:mixedfailures"
+	carData := buildEngineInternalRepoCAR(t, did)
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.listRepos":
+			listReposOnce(w, did)
+		case "/xrpc/com.atproto.sync.getRepo":
+			switch attempts.Add(1) {
+			case 1:
+				http.Error(w, "temporary", http.StatusServiceUnavailable)
+			case 2:
+				http.Error(w, "rate limited", http.StatusTooManyRequests)
+			default:
+				_, _ = w.Write(carData)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	store := newEngineInternalStore()
+	engine := NewEngine(Options{
+		Relay: singleHostRelay(t),
+		NewHostClient: singleHostBuilder(atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{
+			Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+		}})),
+		Store: store, HostWorkers: gt.Some(1), RetryBaseDelay: gt.Some(time.Duration(0)),
+		Handler: HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	require.Equal(t, int32(2), attempts.Load(), "one retry means two total attempts even when the failure class changes")
+	require.Equal(t, int32(1), store.fail.Load())
+	require.Equal(t, int32(0), store.complete.Load())
 }
 
 func TestEngine_RateLimitServerResetHonoredWithoutWallClockSleep(t *testing.T) {
@@ -462,6 +512,91 @@ func TestEngine_DownloadTimeout_DisabledAllowsSlowDownload(t *testing.T) {
 	require.Equal(t, int32(1), store.complete.Load())
 	require.Equal(t, int32(0), store.fail.Load())
 	require.Equal(t, StateComplete, store.state[did])
+}
+
+func TestEngine_MaxRepoBytesRejectsOversizedCAR(t *testing.T) {
+	t.Parallel()
+
+	did := "did:plc:oversized"
+	carData := buildEngineInternalRepoCAR(t, did)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.listRepos":
+			listReposOnce(w, did)
+		case "/xrpc/com.atproto.sync.getRepo":
+			w.Header().Set("Content-Type", "application/vnd.ipld.car")
+			_, _ = w.Write(carData)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	store := newEngineInternalStore()
+	var gotErr error
+	engine := NewEngine(Options{
+		Relay: singleHostRelay(t),
+		NewHostClient: singleHostBuilder(atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{
+			Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+		}})),
+		Store: store, HostWorkers: gt.Some(1), MaxRepoBytes: gt.Some(int64(len(carData) - 1)),
+		Handler: HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
+		OnError: gt.Some(func(_ atmos.DID, err error) { gotErr = err }),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	require.Equal(t, int32(1), store.fail.Load())
+	require.ErrorIs(t, gotErr, ErrRepoTooLarge)
+}
+
+func TestEngine_MaxPagesPerHostExhaustsEndlessPagination(t *testing.T) {
+	t.Parallel()
+
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/xrpc/com.atproto.sync.listRepos" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		n := requests.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"cursor": fmt.Sprintf("cursor-%d", n),
+			"repos":  []map[string]any{{"did": fmt.Sprintf("did:plc:repo%d", n), "active": false}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	store := newEngineInternalStore()
+	var exhaustedErr error
+	engine := NewEngine(Options{
+		Relay: singleHostRelay(t),
+		NewHostClient: singleHostBuilder(atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{
+			Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+		}})),
+		Store: store, DiscoverOnly: gt.Some(true), MaxPagesPerHost: gt.Some(3), HostMaxAttempts: gt.Some(1),
+		Handler: HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
+		OnHostState: gt.Some(func(_ HostInfo, state HostState, _ int, err error) {
+			if state == HostStateExhausted {
+				exhaustedErr = err
+			}
+		}),
+	})
+
+	require.NoError(t, engine.Run(context.Background()))
+	require.Equal(t, int32(3), requests.Load())
+	require.ErrorIs(t, exhaustedErr, ErrHostPageLimit)
+}
+
+func TestMaxBytesReader(t *testing.T) {
+	t.Parallel()
+
+	got, err := io.ReadAll(&maxBytesReader{r: bytes.NewReader([]byte("abc")), remaining: 3})
+	require.NoError(t, err)
+	require.Equal(t, []byte("abc"), got)
+
+	got, err = io.ReadAll(&maxBytesReader{r: bytes.NewReader([]byte("abc")), remaining: 2})
+	require.ErrorIs(t, err, ErrRepoTooLarge)
+	require.Equal(t, []byte("ab"), got)
 }
 
 func TestBackoffDelay_ZeroMeansNoDelay(t *testing.T) {

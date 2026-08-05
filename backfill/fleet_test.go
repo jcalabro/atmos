@@ -528,6 +528,8 @@ func TestEngineFleet_RejectsInvalidBounds(t *testing.T) {
 		{"negative retry delay", func(o *backfill.Options) { o.RetryBaseDelay = gt.Some(-time.Second) }, "RetryBaseDelay must be non-negative"},
 		{"negative host delay", func(o *backfill.Options) { o.HostBackoffMax = gt.Some(-time.Second) }, "HostBackoffMax must be non-negative"},
 		{"negative timeout", func(o *backfill.Options) { o.DownloadTimeout = gt.Some(-time.Second) }, "DownloadTimeout must be non-negative"},
+		{"zero repo bytes", func(o *backfill.Options) { o.MaxRepoBytes = gt.Some(int64(0)) }, "MaxRepoBytes must be positive"},
+		{"zero host pages", func(o *backfill.Options) { o.MaxPagesPerHost = gt.Some(0) }, "MaxPagesPerHost must be positive"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

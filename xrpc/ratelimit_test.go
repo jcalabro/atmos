@@ -25,7 +25,7 @@ func TestProactiveRateLimit_DelaysWhenExhausted(t *testing.T) {
 	// Test wait() directly with millisecond precision to avoid the
 	// Unix-second truncation that made the HTTP-based test flaky/slow.
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, Reset: time.Now().Add(50 * time.Millisecond)})
+	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(50 * time.Millisecond)}, time.Second)
 
 	start := time.Now()
 	require.NoError(t, s.wait(context.Background(), "a.example"))
@@ -68,6 +68,63 @@ func TestProactiveRateLimit_NoHeaders_NoTracking(t *testing.T) {
 	require.NoError(t, c.Query(context.Background(), "test.method", nil, &out))
 	require.NoError(t, c.Query(context.Background(), "test.method", nil, &out))
 	assert.Less(t, time.Since(start), 200*time.Millisecond)
+}
+
+// Retry-After is honored without requiring RateLimit-Remaining, but the peer
+// cannot park the client for longer than MaxServerDirectedDelay.
+func TestProactiveRateLimit_RetryAfterWithoutRemainingIsBounded(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "300000")
+		http.Error(w, "try later", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &Client{Host: srv.URL, Retry: gt.Some(noRetry()), HTTPClient: gt.Some(srv.Client())}
+	var out map[string]bool
+	require.Error(t, c.Query(context.Background(), "test.method", nil, &out))
+
+	now := time.Now()
+	c.rl.mu.Lock()
+	reset, ok := c.rl.exhausted[hostOfURL(srv.URL)]
+	c.rl.mu.Unlock()
+	require.True(t, ok)
+	require.Greater(t, reset, now.Add(MaxServerDirectedDelay-time.Second))
+	require.LessOrEqual(t, reset, now.Add(MaxServerDirectedDelay+time.Second))
+}
+
+func TestProactiveRateLimit_ParkingUsesLowerConfiguredMaxDelay(t *testing.T) {
+	t.Parallel()
+	if runtime.GOARCH == "wasm" {
+		t.Skip("timing-sensitive test unreliable under WASM")
+	}
+
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			w.Header().Set("RateLimit-Remaining", "0")
+			w.Header().Set("RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &Client{
+		Host: srv.URL,
+		Retry: gt.Some(RetryPolicy{
+			MaxAttempts: gt.Some(1), BaseDelay: gt.Some(time.Millisecond),
+			MaxDelay: gt.Some(25 * time.Millisecond), Jitter: gt.Some(0.0),
+		}),
+		HTTPClient: gt.Some(srv.Client()),
+	}
+	var out map[string]bool
+	require.NoError(t, c.Query(context.Background(), "test.method", nil, &out))
+
+	start := time.Now()
+	require.NoError(t, c.Query(context.Background(), "test.method", nil, &out))
+	elapsed := time.Since(start)
+	assert.GreaterOrEqual(t, elapsed, 15*time.Millisecond)
+	assert.Less(t, elapsed, 200*time.Millisecond)
 }
 
 func TestProactiveRateLimit_RemainingPositive_NoDelay(t *testing.T) {
