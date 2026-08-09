@@ -29,6 +29,7 @@ type Server struct {
 type entry struct {
 	method  string // "GET" or "POST"
 	handler Handler
+	sub     *subscriptionEntry // non-nil for subscription endpoints
 }
 
 // HandleQuery registers a handler for a query (GET) endpoint.
@@ -84,6 +85,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		NSID:    nsid,
 		Params:  Params{vals: r.URL.Query()},
 		HTTPReq: r,
+	}
+
+	if e.sub != nil {
+		s.serveSubscription(w, r, e.sub, req)
+		return
 	}
 
 	if err := e.handler.ServeXRPC(r.Context(), w, req); err != nil {

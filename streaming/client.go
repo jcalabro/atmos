@@ -30,12 +30,31 @@ type Conn interface {
 	Close(code websocket.StatusCode, reason string) error
 	CloseNow() error
 	SetReadLimit(n int64)
+
+	// Subprotocol returns the subprotocol the server selected during the
+	// WebSocket handshake, or "" when none was negotiated.
+	Subprotocol() string
+}
+
+// DialConfig carries per-connection handshake settings resolved from
+// Options. Custom DialFunc implementations should offer cfg.Subprotocols
+// via the Sec-WebSocket-Protocol header (none means no header) and may
+// honor cfg.Compression where the transport supports it.
+type DialConfig struct {
+	// Subprotocols to offer, in preference order. Empty means offer
+	// nothing: the connection falls back to the stream's lexicon-declared
+	// default subprotocol (xrpc.v0.cbor for all existing streams).
+	Subprotocols []xrpc.Subprotocol
+
+	// Compression is the permessage-deflate mode for the connection.
+	// Ignored on GOOS=js (the browser owns extension negotiation).
+	Compression websocket.CompressionMode
 }
 
 // DialFunc opens a connection to the resolved WebSocket URL (cursor and
 // query already appended). resp is the upgrade HTTP response, used to
 // classify a non-101 status as a non-retryable DialError; it may be nil.
-type DialFunc func(ctx context.Context, url string) (Conn, *http.Response, error)
+type DialFunc func(ctx context.Context, url string, cfg DialConfig) (Conn, *http.Response, error)
 
 // Options configures a streaming client.
 type Options struct {
@@ -159,6 +178,31 @@ type Options struct {
 	//   - All other guarantees from Parallelism > 1 still hold.
 	Parallelism gt.Option[int]
 
+	// Subprotocols is the list of XRPC event-stream subprotocols to
+	// offer via the Sec-WebSocket-Protocol header, in preference order
+	// (atproto proposal 0015). None (the default) offers nothing: the
+	// connection uses the stream's lexicon-declared default, which is
+	// xrpc.v0.cbor for all existing streams — exactly today's behavior.
+	//
+	// Set to offer xrpc.v1.json (optionally followed by xrpc.v0.cbor as
+	// a fallback) against servers that support JSON framing. When the
+	// server echoes xrpc.v1.json, the client decodes single-object JSON
+	// text frames; when nothing is echoed, it falls back to the legacy
+	// CBOR framing. Only recognized tokens may be offered — the client
+	// must be able to decode whatever the server selects.
+	//
+	// Not supported for Jetstream URLs, whose bespoke JSON envelope
+	// predates subprotocol negotiation.
+	Subprotocols gt.Option[[]xrpc.Subprotocol]
+
+	// Compression is the permessage-deflate WebSocket compression mode
+	// offered during the handshake. None means disabled. JSON streams
+	// compress well — the proposal recommends permessage-deflate with
+	// context takeover — but note websocket.CompressionContextTakeover
+	// costs a 32 KB sliding window per connection, so it is a deliberate
+	// opt-in. Ignored on GOOS=js.
+	Compression gt.Option[websocket.CompressionMode]
+
 	// Dial, when set, replaces the default websocket dial. The client
 	// uses the returned Conn for all transport. Intended for tests that
 	// drive the client over an in-memory connection.
@@ -178,6 +222,7 @@ type Client struct {
 	decode         func([]byte) (Event, error)
 	syncClient     *sync.Client // nil disables automatic #sync resync
 	isJetstream    bool
+	isLabels       bool
 
 	// ownsVerifier is true if NewClient auto-attached the default
 	// verifier (i.e. the caller didn't supply one). Close() shuts down
@@ -254,6 +299,21 @@ func NewClient(opts Options) (*Client, error) {
 		isJS = true
 	}
 
+	if opts.Subprotocols.HasVal() {
+		subs := opts.Subprotocols.Val()
+		if len(subs) == 0 {
+			return nil, errors.New("Options.Subprotocols must not be empty when set")
+		}
+		if isJS {
+			return nil, errors.New("Options.Subprotocols is not supported for Jetstream URLs")
+		}
+		for _, s := range subs {
+			if !s.Valid() {
+				return nil, fmt.Errorf("unsupported subprotocol: %q", s)
+			}
+		}
+	}
+
 	ownsVerifier := false
 
 	// Resolve the sync client for automatic #sync resync.
@@ -308,6 +368,7 @@ func NewClient(opts Options) (*Client, error) {
 		decode:              decode,
 		syncClient:          sc,
 		isJetstream:         isJS,
+		isLabels:            isLabels,
 		ownsVerifier:        ownsVerifier,
 		lock:                lk,
 		lockOpts:            lockOpts,
@@ -498,7 +559,7 @@ func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) boo
 		attempt = 0
 
 		// Read loop — process messages until error.
-		yieldStopped := c.readLoop(ctx, conn, yield)
+		yieldStopped := c.readLoop(ctx, conn, c.connCodec(conn), yield)
 		_ = conn.CloseNow()
 		if yieldStopped {
 			return true
@@ -577,6 +638,34 @@ func (c *Client) releaseOnShutdown() {
 	}
 }
 
+// connCodec resolves the frame codec for one connection from the
+// subprotocol the server selected during the handshake. An empty (or
+// unrecognized — coder/websocket rejects echoes we did not offer, but a
+// custom DialFunc might not) selection keeps the URL-derived legacy
+// decoder, per the spec's fallback to the lexicon-declared default.
+func (c *Client) connCodec(conn Conn) connCodec {
+	if xrpc.Subprotocol(conn.Subprotocol()) == xrpc.SubprotocolV1JSON {
+		decode := decodeV1JSONFrame
+		if c.isLabels {
+			decode = decodeV1JSONLabelFrame
+		}
+		return connCodec{decode: decode, wantType: websocket.MessageText}
+	}
+	return connCodec{decode: c.decode}
+}
+
+// connCodec is one connection's negotiated frame handling: the frame
+// decoder and, when wantType is non-zero, the WebSocket message type
+// every frame must arrive as (a v1.json frame in a binary message is a
+// protocol violation and surfaces as *DecodeError). wantType zero means
+// no enforcement — the legacy paths never checked, and Jetstream is
+// text while v0 firehose is binary, so enforcement there would be a
+// behavior change.
+type connCodec struct {
+	decode   func([]byte) (Event, error)
+	wantType websocket.MessageType
+}
+
 // dial connects to the WebSocket endpoint with the current cursor.
 func (c *Client) dial(ctx context.Context) (Conn, error) {
 	u := c.opts.URL
@@ -609,7 +698,11 @@ func (c *Client) dial(ctx context.Context) (Conn, error) {
 	if c.opts.Dial.HasVal() {
 		dialFn = c.opts.Dial.Val()
 	}
-	conn, resp, err := dialFn(ctx, u)
+	cfg := DialConfig{
+		Subprotocols: c.opts.Subprotocols.ValOr(nil),
+		Compression:  c.opts.Compression.ValOr(websocket.CompressionDisabled),
+	}
+	conn, resp, err := dialFn(ctx, u, cfg)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
@@ -631,8 +724,9 @@ func (c *Client) dial(ctx context.Context) (Conn, error) {
 
 // readResult is a raw WebSocket message read by the reader goroutine.
 type readResult struct {
-	data []byte
-	err  error
+	msgType websocket.MessageType
+	data    []byte
+	err     error
 }
 
 // readLoop runs the firehose with per-event work (verification and
@@ -654,7 +748,7 @@ type readResult struct {
 // Returns true when the caller's yield function asked to stop
 // iterating; false on connection errors or context cancellation
 // (caller should reconnect or exit).
-func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, error) bool) bool {
+func (c *Client) readLoop(ctx context.Context, conn Conn, codec connCodec, yield func([]Event, error) bool) bool {
 	// schedJob carries one decoded event through the scheduler.
 	type schedJob struct {
 		evt Event
@@ -824,9 +918,9 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 	msgCh := make(chan readResult, 1)
 	go func() {
 		for {
-			_, data, err := conn.Read(ctx)
+			msgType, data, err := conn.Read(ctx)
 			select {
-			case msgCh <- readResult{data, err}:
+			case msgCh <- readResult{msgType, data, err}:
 			case <-ctx.Done():
 				return
 			}
@@ -1022,7 +1116,7 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 	// resultCh for events with no DID or (b) AddWork to scheduler.
 	// Returns false if the caller wants to stop iterating.
 	dispatch := func(data []byte) bool {
-		evt, err := c.decode(data)
+		evt, err := codec.decode(data)
 		if err != nil {
 			// Drain any results that completed while this frame was
 			// waiting in msgCh so events that arrived BEFORE the bad
@@ -1236,6 +1330,24 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, yield func([]Event, er
 					return true
 				}
 				return false
+			}
+			// Strict message-type enforcement for negotiated
+			// subprotocols: a v1.json connection must carry every frame
+			// as a text message. A binary frame is a protocol violation
+			// — surface it as a DecodeError (draining first, same
+			// ordering contract as decode failures) and keep reading.
+			if codec.wantType != 0 && res.msgType != codec.wantType {
+				if drainResults() {
+					return true
+				}
+				if flushBatch() {
+					return true
+				}
+				resetBatchTimer()
+				if !yield(nil, &DecodeError{Frame: res.data, Err: fmt.Errorf("unexpected websocket message type %v (want %v)", res.msgType, codec.wantType)}) {
+					return true
+				}
+				continue
 			}
 			if !dispatch(res.data) {
 				return flushBatch()

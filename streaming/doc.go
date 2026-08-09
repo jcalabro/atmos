@@ -10,6 +10,24 @@
 // See the package examples for minimal, compile-checked consumers for
 // public relay, Jetstream, labeler, and explicit Sync 1.1 verifier usage.
 //
+// # Subprotocol negotiation (JSON event streams)
+//
+// Firehose and label streams can additionally negotiate the versioned
+// XRPC wire subprotocols from atproto proposal 0015 via
+// [Options.Subprotocols]. Offering [xrpc.SubprotocolV1JSON] asks the
+// server for the v1 framing — one self-describing JSON object per text
+// frame ({"$type":"message","payload":{...}}) — and the client decodes
+// whichever subprotocol the server echoes back. When the server echoes
+// nothing (or the option is unset, the default), the connection uses
+// the stream's lexicon-declared default, xrpc.v0.cbor for all existing
+// streams, and behaves exactly as before. On a negotiated v1.json
+// connection the client is strict: binary frames and malformed
+// envelopes surface as [*DecodeError].
+//
+// [Options.Compression] opts into permessage-deflate, which the
+// proposal recommends for JSON streams; it defaults to off because
+// context takeover costs a 32 KB sliding window per connection.
+//
 // For repository events, use [Event.Operations] to iterate over record
 // mutations. When a #sync event arrives (indicating a broken commit chain),
 // Operations automatically re-fetches the full repository and yields every

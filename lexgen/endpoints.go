@@ -182,11 +182,30 @@ func (g *fileGen) genSubscription(defName string, def *lexicon.Def) (string, err
 	}
 	typeName := g.typeName(defName)
 
+	// The lexicon-declared default subprotocol (atproto proposal 0015),
+	// emitted as a constant so services can wire it into
+	// xrpcserver.SubscriptionConfig without hand-copying tokens.
+	var subprotocol string
+	if def.Subprotocol != "" {
+		subprotocol = fmt.Sprintf(
+			"// %s_Subprotocol is the stream's default wire subprotocol when a\n"+
+				"// client does not negotiate one via Sec-WebSocket-Protocol.\n"+
+				"const %s_Subprotocol = %q",
+			typeName, typeName, def.Subprotocol)
+	}
+
 	// Generate the message union type.
 	if def.Message.Schema.Type == "union" {
-		return g.genUnionType(typeName+"_Message", def.Message.Schema.Refs, def.Message.Schema.Closed)
+		union, err := g.genUnionType(typeName+"_Message", def.Message.Schema.Refs, def.Message.Schema.Closed)
+		if err != nil {
+			return "", err
+		}
+		if subprotocol != "" {
+			return subprotocol + "\n\n" + union, nil
+		}
+		return union, nil
 	}
-	return "", nil
+	return subprotocol, nil
 }
 
 // genEndpointSchema generates types from an endpoint's input/output schema.

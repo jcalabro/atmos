@@ -8,18 +8,36 @@ import (
 	"runtime/debug"
 
 	"github.com/coder/websocket"
+	"github.com/jcalabro/atmos/xrpc"
 )
 
 const atmosModulePath = "github.com/jcalabro/atmos"
 
 var atmosUserAgent = "atmos/" + atmosVersion()
 
-func dial(ctx context.Context, u string) (Conn, *http.Response, error) {
-	return websocket.Dial(ctx, u, &websocket.DialOptions{
+func dial(ctx context.Context, u string, cfg DialConfig) (Conn, *http.Response, error) {
+	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"User-Agent": []string{atmosUserAgent},
 		},
-	})
+		Subprotocols:    subprotocolStrings(cfg.Subprotocols),
+		CompressionMode: cfg.Compression,
+	}
+	return websocket.Dial(ctx, u, opts)
+}
+
+// subprotocolStrings converts typed subprotocol tokens to the []string
+// that websocket.DialOptions/AcceptOptions expect. nil in, nil out (no
+// Sec-WebSocket-Protocol header is sent for an empty offer).
+func subprotocolStrings(subs []xrpc.Subprotocol) []string {
+	if len(subs) == 0 {
+		return nil
+	}
+	out := make([]string, len(subs))
+	for i, s := range subs {
+		out[i] = string(s)
+	}
+	return out
 }
 
 func atmosVersion() string {
