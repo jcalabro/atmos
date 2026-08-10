@@ -3149,7 +3149,7 @@ func (s *FeedDefs_PostView) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.Debug != nil {
 		n++
 	}
 	if s.Embed.HasVal() {
@@ -3194,7 +3194,7 @@ func (s *FeedDefs_PostView) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "debug", buf)
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_FeedDefs_PostView_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -3302,7 +3302,7 @@ func (s *FeedDefs_PostView) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_FeedDefs_PostView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_FeedDefs_PostView_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -3687,7 +3687,7 @@ func (s *FeedDefs_PostView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_FeedDefs_PostView_cid...)
 	buf = cbor.AppendJSONString(buf, s.CID)
 	first = false
-	if true {
+	if s.Debug != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -7076,7 +7076,7 @@ func (s *FeedDefs_ThreadgateView) AppendCBOR(buf []byte) ([]byte, error) {
 	if len(s.Lists) > 0 {
 		n++
 	}
-	if true {
+	if s.Record != nil {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -7110,7 +7110,7 @@ func (s *FeedDefs_ThreadgateView) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "record", buf)
-		if true {
+		if s.Record != nil {
 			buf = append(buf, cborKey_FeedDefs_ThreadgateView_record...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -7139,7 +7139,7 @@ func (s *FeedDefs_ThreadgateView) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
-		if true {
+		if s.Record != nil {
 			buf = append(buf, cborKey_FeedDefs_ThreadgateView_record...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -7305,7 +7305,7 @@ func (s *FeedDefs_ThreadgateView) AppendJSON(buf []byte) ([]byte, error) {
 		buf = append(buf, ']')
 		first = false
 	}
-	if true {
+	if s.Record != nil {
 		if !first {
 			buf = append(buf, ',')
 		}

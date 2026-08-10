@@ -58,7 +58,7 @@ func (s *ServerCreateAccount_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ServerCreateAccount_Output_did...)
 	buf = cbor.AppendJSONString(buf, s.DID)
 	first = false
-	if true {
+	if s.DidDoc != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -183,7 +183,7 @@ func (s *ServerCreateAccount_Output) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.DidDoc != nil {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -198,7 +198,7 @@ func (s *ServerCreateAccount_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "didDoc", buf)
-		if true {
+		if s.DidDoc != nil {
 			buf = append(buf, cborKey_ServerCreateAccount_Output_didDoc...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -219,7 +219,7 @@ func (s *ServerCreateAccount_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ServerCreateAccount_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		if true {
+		if s.DidDoc != nil {
 			buf = append(buf, cborKey_ServerCreateAccount_Output_didDoc...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -417,7 +417,7 @@ func (s *ServerCreateAccount_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.Password.Val())
 		first = false
 	}
-	if true {
+	if s.PlcOp != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -647,7 +647,7 @@ func (s *ServerCreateAccount_Input) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.Email.HasVal() {
 		n++
 	}
-	if true {
+	if s.PlcOp != nil {
 		n++
 	}
 	if s.Password.HasVal() {
@@ -684,7 +684,7 @@ func (s *ServerCreateAccount_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.Email.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "plcOp", buf)
-		if true {
+		if s.PlcOp != nil {
 			buf = append(buf, cborKey_ServerCreateAccount_Input_plcOp...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -730,7 +730,7 @@ func (s *ServerCreateAccount_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ServerCreateAccount_Input_email...)
 			buf = cbor.AppendText(buf, s.Email.Val())
 		}
-		if true {
+		if s.PlcOp != nil {
 			buf = append(buf, cborKey_ServerCreateAccount_Input_plcOp...)
 			buf = cbor.AppendNull(buf)
 		}

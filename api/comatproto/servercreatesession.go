@@ -66,7 +66,7 @@ func (s *ServerCreateSession_Output) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ServerCreateSession_Output_did...)
 	buf = cbor.AppendJSONString(buf, s.DID)
 	first = false
-	if true {
+	if s.DidDoc != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -304,7 +304,7 @@ func (s *ServerCreateSession_Output) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.Active.HasVal() {
 		n++
 	}
-	if true {
+	if s.DidDoc != nil {
 		n++
 	}
 	if s.Status.HasVal() {
@@ -338,7 +338,7 @@ func (s *ServerCreateSession_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendBool(buf, s.Active.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "didDoc", buf)
-		if true {
+		if s.DidDoc != nil {
 			buf = append(buf, cborKey_ServerCreateSession_Output_didDoc...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -382,7 +382,7 @@ func (s *ServerCreateSession_Output) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ServerCreateSession_Output_active...)
 			buf = cbor.AppendBool(buf, s.Active.Val())
 		}
-		if true {
+		if s.DidDoc != nil {
 			buf = append(buf, cborKey_ServerCreateSession_Output_didDoc...)
 			buf = cbor.AppendNull(buf)
 		}

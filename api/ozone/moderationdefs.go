@@ -12687,7 +12687,7 @@ func (s *ModerationDefs_ModTool) MarshalCBOR() ([]byte, error) {
 
 func (s *ModerationDefs_ModTool) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 1 + countExtra(s.extra, extraEncodingCBOR)
-	if true {
+	if s.Meta != nil {
 		n++
 	}
 	if s.LexiconTypeID != "" {
@@ -12697,7 +12697,7 @@ func (s *ModerationDefs_ModTool) AppendCBOR(buf []byte) ([]byte, error) {
 	if len(s.extra) > 0 {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "meta", buf)
-		if true {
+		if s.Meta != nil {
 			buf = append(buf, cborKey_ModerationDefs_ModTool_meta...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -12711,7 +12711,7 @@ func (s *ModerationDefs_ModTool) AppendCBOR(buf []byte) ([]byte, error) {
 		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
-		if true {
+		if s.Meta != nil {
 			buf = append(buf, cborKey_ModerationDefs_ModTool_meta...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -12810,7 +12810,7 @@ func (s *ModerationDefs_ModTool) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
-	if true {
+	if s.Meta != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -18928,7 +18928,7 @@ func (s *ModerationDefs_ScheduledActionView) AppendCBOR(buf []byte) ([]byte, err
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.EventData != nil {
 		n++
 	}
 	if s.ExecuteAt.HasVal() {
@@ -18982,7 +18982,7 @@ func (s *ModerationDefs_ScheduledActionView) AppendCBOR(buf []byte) ([]byte, err
 		buf = append(buf, cborKey_ModerationDefs_ScheduledActionView_createdBy...)
 		buf = cbor.AppendText(buf, s.CreatedBy)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "eventData", buf)
-		if true {
+		if s.EventData != nil {
 			buf = append(buf, cborKey_ModerationDefs_ScheduledActionView_eventData...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -19044,7 +19044,7 @@ func (s *ModerationDefs_ScheduledActionView) AppendCBOR(buf []byte) ([]byte, err
 		buf = cbor.AppendText(buf, s.CreatedAt)
 		buf = append(buf, cborKey_ModerationDefs_ScheduledActionView_createdBy...)
 		buf = cbor.AppendText(buf, s.CreatedBy)
-		if true {
+		if s.EventData != nil {
 			buf = append(buf, cborKey_ModerationDefs_ScheduledActionView_eventData...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -19391,7 +19391,7 @@ func (s *ModerationDefs_ScheduledActionView) AppendJSON(buf []byte) ([]byte, err
 	buf = append(buf, jsonKey_ModerationDefs_ScheduledActionView_did...)
 	buf = cbor.AppendJSONString(buf, s.DID)
 	first = false
-	if true {
+	if s.EventData != nil {
 		if !first {
 			buf = append(buf, ',')
 		}

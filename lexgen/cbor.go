@@ -261,6 +261,11 @@ func (g *fileGen) cborHasValue(f fieldInfo) string {
 		return "s." + f.goField
 	case "bytes":
 		return "s." + f.goField + " != nil"
+	case "unknown", "null":
+		// json.RawMessage: an unguarded nil would emit a key with no
+		// value (invalid JSON) on the JSON path, and a spurious null on
+		// the CBOR path.
+		return "s." + f.goField + " != nil"
 	case "array":
 		return "len(s." + f.goField + ") > 0"
 	default:
