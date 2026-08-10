@@ -262,7 +262,7 @@ func (s *IdentitySignPlcOperation_Input) AppendJSON(buf []byte) ([]byte, error) 
 		buf = append(buf, ']')
 		first = false
 	}
-	if true {
+	if s.Services != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -278,7 +278,7 @@ func (s *IdentitySignPlcOperation_Input) AppendJSON(buf []byte) ([]byte, error) 
 		buf = cbor.AppendJSONString(buf, s.Token.Val())
 		first = false
 	}
-	if true {
+	if s.VerificationMethods != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -451,7 +451,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 	if s.Token.HasVal() {
 		n++
 	}
-	if true {
+	if s.Services != nil {
 		n++
 	}
 	if len(s.AlsoKnownAs) > 0 {
@@ -460,7 +460,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 	if len(s.RotationKeys) > 0 {
 		n++
 	}
-	if true {
+	if s.VerificationMethods != nil {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -477,7 +477,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			buf = cbor.AppendText(buf, s.Token.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "services", buf)
-		if true {
+		if s.Services != nil {
 			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_services...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -498,7 +498,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			}
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "verificationMethods", buf)
-		if true {
+		if s.VerificationMethods != nil {
 			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_verificationMethods...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -512,7 +512,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_token...)
 			buf = cbor.AppendText(buf, s.Token.Val())
 		}
-		if true {
+		if s.Services != nil {
 			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_services...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -530,7 +530,7 @@ func (s *IdentitySignPlcOperation_Input) AppendCBOR(buf []byte) ([]byte, error) 
 				buf = cbor.AppendText(buf, item)
 			}
 		}
-		if true {
+		if s.VerificationMethods != nil {
 			buf = append(buf, cborKey_IdentitySignPlcOperation_Input_verificationMethods...)
 			buf = cbor.AppendNull(buf)
 		}

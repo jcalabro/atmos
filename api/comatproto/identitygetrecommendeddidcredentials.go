@@ -63,7 +63,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendJSON(buf []byte) ([]
 		buf = append(buf, ']')
 		first = false
 	}
-	if true {
+	if s.Services != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -71,7 +71,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendJSON(buf []byte) ([]
 		buf = append(buf, s.Services...)
 		first = false
 	}
-	if true {
+	if s.VerificationMethods != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -226,7 +226,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.Services != nil {
 		n++
 	}
 	if len(s.AlsoKnownAs) > 0 {
@@ -235,7 +235,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 	if len(s.RotationKeys) > 0 {
 		n++
 	}
-	if true {
+	if s.VerificationMethods != nil {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -247,7 +247,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "services", buf)
-		if true {
+		if s.Services != nil {
 			buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_services...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -268,7 +268,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 			}
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "verificationMethods", buf)
-		if true {
+		if s.VerificationMethods != nil {
 			buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_verificationMethods...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -278,7 +278,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 			buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		if true {
+		if s.Services != nil {
 			buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_services...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -296,7 +296,7 @@ func (s *IdentityGetRecommendedDidCredentials_Output) AppendCBOR(buf []byte) ([]
 				buf = cbor.AppendText(buf, item)
 			}
 		}
-		if true {
+		if s.VerificationMethods != nil {
 			buf = append(buf, cborKey_IdentityGetRecommendedDidCredentials_Output_verificationMethods...)
 			buf = cbor.AppendNull(buf)
 		}

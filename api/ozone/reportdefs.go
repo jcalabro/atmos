@@ -3270,7 +3270,7 @@ func (s *ReportDefs_ReportActivityView) MarshalCBOR() ([]byte, error) {
 
 func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 6 + countExtra(s.extra, extraEncodingCBOR)
-	if true {
+	if s.Meta != nil {
 		n++
 	}
 	if s.LexiconTypeID != "" {
@@ -3292,7 +3292,7 @@ func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = append(buf, cborKey_ReportDefs_ReportActivityView_id...)
 		buf = cbor.AppendInt(buf, s.Id)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "meta", buf)
-		if true {
+		if s.Meta != nil {
 			buf = append(buf, cborKey_ReportDefs_ReportActivityView_meta...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -3350,7 +3350,7 @@ func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
 	} else {
 		buf = append(buf, cborKey_ReportDefs_ReportActivityView_id...)
 		buf = cbor.AppendInt(buf, s.Id)
-		if true {
+		if s.Meta != nil {
 			buf = append(buf, cborKey_ReportDefs_ReportActivityView_meta...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -3648,7 +3648,7 @@ func (s *ReportDefs_ReportActivityView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ReportDefs_ReportActivityView_isAutomated...)
 	buf = cbor.AppendJSONBool(buf, s.IsAutomated)
 	first = false
-	if true {
+	if s.Meta != nil {
 		if !first {
 			buf = append(buf, ',')
 		}

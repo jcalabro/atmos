@@ -540,6 +540,12 @@ func TestGenerate_UnknownField(t *testing.T) {
 	assert.Contains(t, code, "json.RawMessage")
 	assert.Contains(t, code, `json:"record"`)
 	assert.Contains(t, code, `json:"debug,omitempty"`)
+
+	// An optional unknown field must be presence-guarded on nil, not
+	// emitted unconditionally: a constant-true guard writes `"debug":`
+	// followed by a nil RawMessage, producing invalid JSON.
+	assert.Contains(t, code, "if s.Debug != nil {")
+	assert.NotContains(t, code, "if true {")
 }
 
 // --- Subscription test ---

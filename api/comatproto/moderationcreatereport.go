@@ -1064,7 +1064,7 @@ func (s *ModerationCreateReport_ModTool) MarshalCBOR() ([]byte, error) {
 
 func (s *ModerationCreateReport_ModTool) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 1 + countExtra(s.extra, extraEncodingCBOR)
-	if true {
+	if s.Meta != nil {
 		n++
 	}
 	if s.LexiconTypeID != "" {
@@ -1074,7 +1074,7 @@ func (s *ModerationCreateReport_ModTool) AppendCBOR(buf []byte) ([]byte, error) 
 	if len(s.extra) > 0 {
 		ei := 0
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "meta", buf)
-		if true {
+		if s.Meta != nil {
 			buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -1088,7 +1088,7 @@ func (s *ModerationCreateReport_ModTool) AppendCBOR(buf []byte) ([]byte, error) 
 		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
-		if true {
+		if s.Meta != nil {
 			buf = append(buf, cborKey_ModerationCreateReport_ModTool_meta...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -1187,7 +1187,7 @@ func (s *ModerationCreateReport_ModTool) AppendJSON(buf []byte) ([]byte, error) 
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
-	if true {
+	if s.Meta != nil {
 		if !first {
 			buf = append(buf, ',')
 		}

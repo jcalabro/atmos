@@ -7130,7 +7130,7 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.Debug != nil {
 		n++
 	}
 	if s.Avatar.HasVal() {
@@ -7178,7 +7178,7 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "debug", buf)
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_ActorDefs_ProfileView_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -7291,7 +7291,7 @@ func (s *ActorDefs_ProfileView) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ActorDefs_ProfileView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_ActorDefs_ProfileView_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -7705,7 +7705,7 @@ func (s *ActorDefs_ProfileView) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.CreatedAt.Val())
 		first = false
 	}
-	if true {
+	if s.Debug != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -8116,7 +8116,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.Debug != nil {
 		n++
 	}
 	if s.Avatar.HasVal() {
@@ -8158,7 +8158,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "debug", buf)
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -8261,7 +8261,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewBasic_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -8643,7 +8643,7 @@ func (s *ActorDefs_ProfileViewBasic) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.CreatedAt.Val())
 		first = false
 	}
-	if true {
+	if s.Debug != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
@@ -9028,7 +9028,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.LexiconTypeID != "" {
 		n++
 	}
-	if true {
+	if s.Debug != nil {
 		n++
 	}
 	if s.Avatar.HasVal() {
@@ -9097,7 +9097,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "debug", buf)
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -9263,7 +9263,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
-		if true {
+		if s.Debug != nil {
 			buf = append(buf, cborKey_ActorDefs_ProfileViewDetailed_debug...)
 			buf = cbor.AppendNull(buf)
 		}
@@ -9842,7 +9842,7 @@ func (s *ActorDefs_ProfileViewDetailed) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.CreatedAt.Val())
 		first = false
 	}
-	if true {
+	if s.Debug != nil {
 		if !first {
 			buf = append(buf, ',')
 		}
