@@ -58,6 +58,15 @@ func TestSubprotocolOptionValidation(t *testing.T) {
 		require.ErrorContains(t, err, "must not be empty")
 	})
 
+	t.Run("duplicate tokens rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := NewClient(Options{
+			URL:          "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
+			Subprotocols: gt.Some([]xrpc.Subprotocol{xrpc.SubprotocolV1JSON, xrpc.SubprotocolV1JSON}),
+		})
+		require.ErrorContains(t, err, "duplicate subprotocol")
+	})
+
 	t.Run("jetstream rejected", func(t *testing.T) {
 		t.Parallel()
 		_, err := NewClient(Options{
@@ -172,6 +181,104 @@ func TestV1JSONRejectsBinaryFrames(t *testing.T) {
 	require.Len(t, gapErrs, 1)
 	assert.Equal(t, int64(2), gapErrs[0].Expected)
 	assert.Equal(t, int64(3), gapErrs[0].Got)
+}
+
+// TestSubprotocolEchoStrictness asserts RFC 6455 §4.1 step 6: a
+// non-empty server selection that was not in the client's offer (an
+// unoffered token, or a case-variant — tokens are case-sensitive per
+// RFC 7936) fails the connection with a non-retryable DialError rather
+// than silently proceeding on a guessed codec. coder/websocket's own
+// echo verification is EqualFold and custom DialFuncs may not verify
+// at all, so the client enforces this itself.
+func TestSubprotocolEchoStrictness(t *testing.T) {
+	t.Parallel()
+
+	// The iterator must yield the DialError once and then terminate on
+	// its own — even though the consumer keeps accepting (no cancel, no
+	// break) — because redialing would renegotiate the same violation
+	// in a backoff-free loop. The 5s ctx bounds the test if it doesn't.
+	expectDialError := func(t *testing.T, opts Options) *DialError {
+		t.Helper()
+		client := mustNewClient(t, opts)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var de *DialError
+		for batch, err := range client.Events(ctx) {
+			require.Empty(t, batch)
+			require.Error(t, err)
+			require.Nil(t, de, "iterator must terminate after the first DialError")
+			var ok bool
+			de, ok = errors.AsType[*DialError](err)
+			require.True(t, ok, "want DialError, got %v", err)
+		}
+		require.NoError(t, ctx.Err(), "iterator must self-terminate, not run out the clock")
+		require.NotNil(t, de)
+		return de
+	}
+
+	t.Run("case-variant echo fails the connection", func(t *testing.T) {
+		t.Parallel()
+		conn := newMemConnTyped("XRPC.V1.JSON",
+			memFrame{websocket.MessageBinary, buildFrame("#identity", buildIdentityBody(1, "did:plc:case"))})
+
+		de := expectDialError(t, Options{
+			URL:          "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
+			Subprotocols: gt.Some([]xrpc.Subprotocol{xrpc.SubprotocolV1JSON, xrpc.SubprotocolV0CBOR}),
+			Parallelism:  gt.Some(1),
+			Dial: gt.Some(DialFunc(func(_ context.Context, _ string, _ DialConfig) (Conn, *http.Response, error) {
+				return conn, nil, nil
+			})),
+		})
+		assert.Contains(t, de.Error(), "unoffered subprotocol")
+	})
+
+	t.Run("unoffered echo fails the connection", func(t *testing.T) {
+		t.Parallel()
+		// Server claims v1.json but the client never offered anything.
+		conn := newMemConnTyped(string(xrpc.SubprotocolV1JSON),
+			memFrame{websocket.MessageBinary, buildFrame("#identity", buildIdentityBody(1, "did:plc:unoffered"))})
+
+		de := expectDialError(t, Options{
+			URL:         "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
+			Parallelism: gt.Some(1),
+			Dial: gt.Some(DialFunc(func(_ context.Context, _ string, _ DialConfig) (Conn, *http.Response, error) {
+				return conn, nil, nil
+			})),
+		})
+		assert.Contains(t, de.Error(), "unoffered subprotocol")
+	})
+
+	t.Run("offered v0 echo enforces binary frames", func(t *testing.T) {
+		t.Parallel()
+		// An explicit v0 selection (not fallback) enforces binary
+		// message typing; the frame decodes on the legacy path.
+		conn := newMemConnTyped(string(xrpc.SubprotocolV0CBOR),
+			memFrame{websocket.MessageBinary, buildFrame("#identity", buildIdentityBody(1, "did:plc:v0"))})
+
+		client := mustNewClient(t, Options{
+			URL:          "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
+			Subprotocols: gt.Some([]xrpc.Subprotocol{xrpc.SubprotocolV1JSON, xrpc.SubprotocolV0CBOR}),
+			Parallelism:  gt.Some(1),
+			Dial: gt.Some(DialFunc(func(_ context.Context, _ string, _ DialConfig) (Conn, *http.Response, error) {
+				return conn, nil, nil
+			})),
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var events []Event
+		for batch, err := range client.Events(ctx) {
+			require.NoError(t, err)
+			events = append(events, batch...)
+			if len(events) >= 1 {
+				cancel()
+			}
+		}
+		require.Len(t, events, 1)
+		assert.Equal(t, "did:plc:v0", events[0].Identity.DID)
+	})
 }
 
 // TestUnnegotiatedConnStaysCBOR asserts that when the server echoes no

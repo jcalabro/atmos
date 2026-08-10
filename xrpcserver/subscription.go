@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -43,7 +44,9 @@ type Message interface {
 // Return nil for a normal close. Returning an error closes the
 // connection with websocket.StatusInternalError; no error detail is
 // leaked to the client. To hand the client a typed stream error (e.g.
-// FutureCursor), call stream.SendError first and then return nil.
+// FutureCursor), call stream.SendError — which also closes the
+// connection, per the spec's close-after-error-frame rule — and then
+// return nil.
 type SubscriptionHandler func(ctx context.Context, p Params, stream *Stream) error
 
 // SubscriptionConfig declares a subscription endpoint's wire contract.
@@ -107,7 +110,10 @@ func (s *Server) HandleSubscription(nsid string, cfg SubscriptionConfig, fn Subs
 		return fmt.Errorf("unsupported default subprotocol: %q", def)
 	}
 
-	supported := cfg.Subprotocols.ValOr([]xrpc.Subprotocol{def})
+	// Clone: ValOr hands back the caller's slice, and storing it would
+	// let post-registration mutation bypass validation (or race with
+	// ServeHTTP's iteration).
+	supported := slices.Clone(cfg.Subprotocols.ValOr([]xrpc.Subprotocol{def}))
 	hasDefault := false
 	for _, sub := range supported {
 		if !sub.Valid() {
@@ -154,25 +160,51 @@ func (s *Server) serveSubscription(w http.ResponseWriter, r *http.Request, sub *
 		}
 	}
 
-	subs := make([]string, len(sub.supported))
-	for i, sp := range sub.supported {
-		subs[i] = string(sp)
+	// Intersect the client's offer with the supported set BEFORE Accept,
+	// matching case-sensitively (RFC 7936: subprotocol tokens are
+	// case-sensitive). websocket.Accept matches with EqualFold and echoes
+	// the CLIENT's casing, so handing it the full supported set would put
+	// a non-canonical token (e.g. "XRPC.V1.JSON") on the wire — a token
+	// we never registered and the client arguably never offered. With the
+	// exact-match intersection, Accept can only echo a canonical token,
+	// and a case-variant offer falls back to the lexicon default like any
+	// other unrecognized token.
+	offered := make(map[string]struct{}, 2)
+	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for token := range strings.SplitSeq(header, ",") {
+			offered[strings.TrimSpace(token)] = struct{}{}
+		}
+	}
+	var exactSubs []string
+	for _, sp := range sub.supported {
+		if _, ok := offered[string(sp)]; ok {
+			exactSubs = append(exactSubs, string(sp))
+		}
 	}
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		Subprotocols:    subs,
+		Subprotocols:    exactSubs,
 		CompressionMode: sub.compression,
 	})
 	if err != nil {
 		// Accept has already written an HTTP error response.
 		return
 	}
+	// Accept hijacked the connection: net/http will not clean it up if
+	// the handler panics, and CloseRead's background reader would pin
+	// both the socket and a goroutine until the client goes away. The
+	// deferred CloseNow is the unconditional backstop; the graceful
+	// Close calls below run first on non-panic paths and make it a
+	// no-op. The panic itself keeps propagating to net/http's
+	// handler-panic recovery and logging.
+	defer func() { _ = conn.CloseNow() }()
 
 	// Negotiation fallback (proposal 0015): when the client offered
 	// nothing we recognize, Accept echoes no subprotocol and the
-	// connection proceeds on the lexicon-declared default.
-	negotiated := xrpc.Subprotocol(conn.Subprotocol())
-	if negotiated == "" {
-		negotiated = sub.defaultSub
+	// connection proceeds on the lexicon-declared default. A non-empty
+	// echo is always a member of exactSubs, hence canonical.
+	negotiated := sub.defaultSub
+	if echoed := conn.Subprotocol(); echoed != "" {
+		negotiated = xrpc.Subprotocol(echoed)
 	}
 
 	// Subscriptions are server-push: the client sends nothing after the
@@ -183,8 +215,10 @@ func (s *Server) serveSubscription(w http.ResponseWriter, r *http.Request, sub *
 
 	stream := &Stream{
 		conn:         conn,
+		nsid:         req.NSID,
 		subprotocol:  negotiated,
 		writeTimeout: sub.writeTimeout,
+		writeGate:    make(chan struct{}, 1),
 	}
 
 	if err := sub.handler(ctx, req.Params, stream); err != nil {
@@ -209,19 +243,41 @@ func (s *Server) serveSubscription(w http.ResponseWriter, r *http.Request, sub *
 // an error frame.
 type Stream struct {
 	conn         *websocket.Conn
+	nsid         string // the subscription endpoint's NSID, for $type agreement checks
 	subprotocol  xrpc.Subprotocol
 	writeTimeout time.Duration
 
-	// mu serializes writes and makes the terminal check-and-write
-	// atomic: without it a Send racing a SendError could put a message
-	// frame on the wire after the error frame, which the event-stream
-	// spec forbids (a stream closes immediately after an error frame).
-	mu sync.Mutex
+	// writeGate is a single-slot semaphore serializing writes and
+	// making the terminal check-and-write atomic: without it a Send
+	// racing a SendError could put a message frame on the wire after
+	// the error frame, which the event-stream spec forbids (a stream
+	// closes immediately after an error frame). A semaphore rather
+	// than a mutex so waiters honor their context: a Send queued
+	// behind a wedged write returns ctx.Err() at its own deadline
+	// instead of pinning its goroutine for the writer's full timeout.
+	writeGate chan struct{}
 
 	// terminal is set once an error frame has been sent; the stream
-	// must go quiet afterwards. Guarded by mu.
-	terminal bool
+	// must go quiet afterwards. Written only while holding writeGate;
+	// atomic so Send/SendError can fail fast with ErrStreamTerminal
+	// before queueing on the gate (SendError closes the connection,
+	// which cancels the handler ctx — without the fast path a
+	// post-terminal Send would race that cancellation and
+	// nondeterministically report ctx.Err() instead).
+	terminal atomic.Bool
 }
+
+// acquireWrite takes the write gate, or gives up when ctx is done.
+func (st *Stream) acquireWrite(ctx context.Context) error {
+	select {
+	case st.writeGate <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (st *Stream) releaseWrite() { <-st.writeGate }
 
 // ErrStreamTerminal is returned by Send/SendError after an error frame
 // has been sent on the stream.
@@ -237,9 +293,11 @@ func (st *Stream) Subprotocol() xrpc.Subprotocol {
 //
 // fragment is the lexicon message fragment including the leading '#',
 // e.g. "#commit" — it becomes the v0 header's "t" value. msg must JSON-
-// encode with a "$type" of the full "<nsid>#<fragment>" (see Message);
-// the fragment and the message's type must agree, which passing the
-// generated *_Message union guarantees.
+// encode with a "$type" of exactly "<endpoint nsid><fragment>" (see
+// Message); on v1 connections a mismatch is rejected before framing,
+// since v1 consumers dispatch on the payload's own $type and a
+// disagreement would silently change the message's meaning relative to
+// v0. Passing the generated *_Message union guarantees agreement.
 func (st *Stream) Send(ctx context.Context, fragment string, msg Message) error {
 	if !strings.HasPrefix(fragment, "#") {
 		return fmt.Errorf("fragment %q must start with '#'", fragment)
@@ -251,7 +309,7 @@ func (st *Stream) Send(ctx context.Context, fragment string, msg Message) error 
 	switch st.subprotocol {
 	case xrpc.SubprotocolV1JSON:
 		msgType = websocket.MessageText
-		frame, err = appendV1JSONMessageFrame(nil, msg)
+		frame, err = appendV1JSONMessageFrame(nil, st.nsid+fragment, msg)
 	default: // xrpc.v0.cbor
 		msgType = websocket.MessageBinary
 		frame, err = appendV0MessageFrame(nil, fragment, msg)
@@ -260,18 +318,29 @@ func (st *Stream) Send(ctx context.Context, fragment string, msg Message) error 
 		return fmt.Errorf("encode %s frame: %w", fragment, err)
 	}
 
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	if st.terminal {
+	// Fast path: fail post-terminal sends deterministically, before ctx
+	// (which SendError's connection close is about to cancel) can win a
+	// race in acquireWrite's select.
+	if st.terminal.Load() {
+		return ErrStreamTerminal
+	}
+	if err := st.acquireWrite(ctx); err != nil {
+		return err
+	}
+	defer st.releaseWrite()
+	if st.terminal.Load() {
 		return ErrStreamTerminal
 	}
 	return st.write(ctx, msgType, frame)
 }
 
-// SendError sends a stream error frame (e.g. "FutureCursor") and marks
-// the stream terminal: all subsequent Send/SendError calls fail with
-// ErrStreamTerminal. Per the event-stream spec the connection closes
-// immediately after an error frame — return from the handler right
+// SendError sends a stream error frame (e.g. "FutureCursor"), marks
+// the stream terminal — all subsequent Send/SendError calls fail with
+// ErrStreamTerminal — and closes the WebSocket with a normal-closure
+// status. The event-stream spec requires the connection to close
+// immediately after an error frame; performing the close here (rather
+// than relying on the handler to return promptly) makes that hold even
+// for a handler that keeps running. Return from the handler right
 // after calling this. message may be empty.
 func (st *Stream) SendError(ctx context.Context, code, message string) error {
 	if code == "" {
@@ -289,13 +358,32 @@ func (st *Stream) SendError(ctx context.Context, code, message string) error {
 		frame = appendV0ErrorFrame(nil, code, message)
 	}
 
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	if st.terminal {
+	if st.terminal.Load() {
 		return ErrStreamTerminal
 	}
-	st.terminal = true
-	return st.write(ctx, msgType, frame)
+	if err := st.acquireWrite(ctx); err != nil {
+		return err
+	}
+	if st.terminal.Load() {
+		st.releaseWrite()
+		return ErrStreamTerminal
+	}
+	// Terminal on attempt, not on success: a failed error-frame write
+	// means a wedged or gone connection — retrying could not produce a
+	// well-ordered stream, so the stream is dead either way and the
+	// close below tears the connection down.
+	st.terminal.Store(true)
+	writeErr := st.write(ctx, msgType, frame)
+	st.releaseWrite()
+
+	// Close outside the gate: the close handshake can block for seconds
+	// on an unresponsive peer, and concurrent Sends should fail fast
+	// with ErrStreamTerminal (terminal is already set) rather than
+	// queue behind it. No frame can slip between the write above and
+	// this close. serveSubscription's own close then no-ops on the
+	// already-closed connection.
+	_ = st.conn.Close(websocket.StatusNormalClosure, "")
+	return writeErr
 }
 
 func (st *Stream) write(ctx context.Context, msgType websocket.MessageType, frame []byte) error {
@@ -337,10 +425,12 @@ func appendV0ErrorFrame(buf []byte, code, message string) []byte {
 }
 
 // appendV1JSONMessageFrame appends a v1 message frame:
-// {"$type":"message","payload":<msg JSON>}. The payload must carry a
-// "$type" — a payload without one is not lexicon-decodable and is
-// rejected here rather than shipped to every consumer.
-func appendV1JSONMessageFrame(buf []byte, msg Message) ([]byte, error) {
+// {"$type":"message","payload":<msg JSON>}. The payload must carry the
+// expected "<nsid>#<fragment>" in its "$type" — v1 consumers dispatch
+// on the payload's own type, so a mismatched or missing one would
+// silently change the message's meaning relative to the v0 framing of
+// the same Send call (whose header "t" is the fragment argument).
+func appendV1JSONMessageFrame(buf []byte, expectedType string, msg Message) ([]byte, error) {
 	buf = append(buf, `{"$type":"message","payload":`...)
 	payloadStart := len(buf)
 	buf, err := msg.AppendJSON(buf)
@@ -350,6 +440,9 @@ func appendV1JSONMessageFrame(buf []byte, msg Message) ([]byte, error) {
 	typ, err := cbor.PeekJSONType(buf[payloadStart:])
 	if err != nil || typ == "" {
 		return nil, errors.New("payload has no $type: pass the generated message union or set LexiconTypeID")
+	}
+	if typ != expectedType {
+		return nil, fmt.Errorf("payload $type %q does not match %q: fragment and message disagree", typ, expectedType)
 	}
 	return append(buf, '}'), nil
 }

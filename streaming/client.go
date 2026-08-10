@@ -7,6 +7,7 @@ import (
 	"iter"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -307,10 +308,17 @@ func NewClient(opts Options) (*Client, error) {
 		if isJS {
 			return nil, errors.New("Options.Subprotocols is not supported for Jetstream URLs")
 		}
+		seen := make(map[xrpc.Subprotocol]struct{}, len(subs))
 		for _, s := range subs {
 			if !s.Valid() {
 				return nil, fmt.Errorf("unsupported subprotocol: %q", s)
 			}
+			// RFC 6455 forbids duplicate tokens in the offer, and the
+			// browser WebSocket constructor (GOOS=js) throws on them.
+			if _, dup := seen[s]; dup {
+				return nil, fmt.Errorf("duplicate subprotocol: %q", s)
+			}
+			seen[s] = struct{}{}
 		}
 	}
 
@@ -478,8 +486,13 @@ func (c *Client) IsLeader() bool {
 // during leader failover the same event may be emitted more than once.
 // Consumers must handle events idempotently.
 //
-// The iterator yields events until the context is cancelled. Cancel the
-// context to stop; [Client.Close] only closes the current WebSocket but
+// The iterator yields events until the context is cancelled, with one
+// exception: a non-retryable *DialError (a deterministic rejection —
+// wrong URL, non-WebSocket endpoint, or an RFC 6455 handshake
+// violation such as an unoffered subprotocol selection) is yielded
+// once and then ends the iteration, since redialing would reproduce
+// the same failure without backoff. Cancel the context to stop
+// otherwise; [Client.Close] only closes the current WebSocket but
 // does not stop the iterator.
 //
 // Events must not be called concurrently from multiple goroutines.
@@ -545,9 +558,12 @@ func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) boo
 			}
 
 			// Non-retryable dial errors (e.g. wrong URL, non-WebSocket
-			// endpoint) are yielded to the caller.
+			// endpoint) are yielded to the caller and end the iterator:
+			// redialing reproduces the same failure, so continuing on a
+			// consumer's accept would be a backoff-free dial spin.
 			if err, ok := errors.AsType[*DialError](err); ok {
-				return !yield(nil, err)
+				yield(nil, err)
+				return true
 			}
 
 			// Dial failed — backoff and retry.
@@ -558,8 +574,22 @@ func (c *Client) consumeLoop(ctx context.Context, yield func([]Event, error) boo
 		// Reset backoff after successful connection.
 		attempt = 0
 
+		// A server that selected a subprotocol the client never offered
+		// is a handshake violation: RFC 6455 §4.1 step 6 says fail the
+		// connection. Non-retryable — the server's config is wrong, and
+		// redialing would negotiate the same thing.
+		codec, codecErr := c.connCodec(conn)
+		if codecErr != nil {
+			_ = conn.Close(websocket.StatusProtocolError, "invalid negotiated subprotocol")
+			// Terminal regardless of the consumer's response: redialing
+			// renegotiates the same misconfiguration, so continuing
+			// would be a backoff-free handshake loop.
+			yield(nil, &DialError{Err: codecErr})
+			return true
+		}
+
 		// Read loop — process messages until error.
-		yieldStopped := c.readLoop(ctx, conn, c.connCodec(conn), yield)
+		yieldStopped := c.readLoop(ctx, conn, codec, yield)
 		_ = conn.CloseNow()
 		if yieldStopped {
 			return true
@@ -639,19 +669,36 @@ func (c *Client) releaseOnShutdown() {
 }
 
 // connCodec resolves the frame codec for one connection from the
-// subprotocol the server selected during the handshake. An empty (or
-// unrecognized — coder/websocket rejects echoes we did not offer, but a
-// custom DialFunc might not) selection keeps the URL-derived legacy
-// decoder, per the spec's fallback to the lexicon-declared default.
-func (c *Client) connCodec(conn Conn) connCodec {
-	if xrpc.Subprotocol(conn.Subprotocol()) == xrpc.SubprotocolV1JSON {
+// subprotocol the server selected during the handshake.
+//
+// An empty selection keeps the URL-derived legacy decoder, per proposal
+// 0015's fallback to the lexicon-declared default. A non-empty
+// selection must exactly match a token the client offered — RFC 6455
+// §4.1 step 6 requires the client to FAIL the connection when the
+// server indicates a subprotocol that was not in the offer, and tokens
+// are case-sensitive (RFC 7936). Silent fallback here would keep a
+// connection the spec says is dead and, against a server that then
+// frames v1, grind out a decode error on every frame. coder/websocket's
+// own echo verification is EqualFold (case-variants pass) and custom
+// DialFuncs may not verify at all, so the exact check lives here.
+func (c *Client) connCodec(conn Conn) (connCodec, error) {
+	selected := xrpc.Subprotocol(conn.Subprotocol())
+	if selected == "" {
+		return connCodec{decode: c.decode}, nil
+	}
+	if !slices.Contains(c.opts.Subprotocols.ValOr(nil), selected) {
+		return connCodec{}, fmt.Errorf("server selected unoffered subprotocol %q", selected)
+	}
+	switch selected {
+	case xrpc.SubprotocolV1JSON:
 		decode := decodeV1JSONFrame
 		if c.isLabels {
 			decode = decodeV1JSONLabelFrame
 		}
-		return connCodec{decode: decode, wantType: websocket.MessageText}
+		return connCodec{decode: decode, wantType: websocket.MessageText}, nil
+	default: // xrpc.v0.cbor (Valid() gated the offer to these two)
+		return connCodec{decode: c.decode, wantType: websocket.MessageBinary}, nil
 	}
-	return connCodec{decode: c.decode}
 }
 
 // connCodec is one connection's negotiated frame handling: the frame
@@ -707,11 +754,16 @@ func (c *Client) dial(ctx context.Context) (Conn, error) {
 		_ = resp.Body.Close()
 	}
 	if err != nil {
-		// If the server returned an HTTP response but didn't upgrade to
-		// WebSocket (e.g. 200 "Welcome to Jetstream", 404 Not Found),
-		// wrap it as a non-retryable DialError so consumeLoop surfaces
-		// it to the caller instead of retrying forever.
-		if resp != nil && resp.StatusCode != 101 {
+		// A server HTTP response paired with a dial error is a
+		// deterministic rejection, not a transient network failure —
+		// either a non-upgrade response (e.g. 200 "Welcome to
+		// Jetstream", 404 Not Found) or a 101 whose handshake failed
+		// client-side verification (bad Sec-WebSocket-Accept, an
+		// unoffered subprotocol echo, bad extensions). Wrap it as a
+		// non-retryable DialError so consumeLoop surfaces it to the
+		// caller; redialing would renegotiate the same thing. Errors
+		// with no response (DNS, TCP, timeout) stay retryable.
+		if resp != nil {
 			return nil, &DialError{StatusCode: resp.StatusCode, Err: err}
 		}
 		return nil, err

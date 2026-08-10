@@ -22,7 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testNSID = "com.example.test.subscribeThings"
+// The real subscribeRepos NSID: v1 framing requires the payload's
+// "$type" NSID to agree with the endpoint the stream is registered
+// under, and the test messages are generated subscribeRepos unions.
+const testNSID = "com.atproto.sync.subscribeRepos"
 
 func identityUnion(seq int64, did string) comatproto.SyncSubscribeRepos_Message {
 	return comatproto.SyncSubscribeRepos_Message{
@@ -287,6 +290,62 @@ func TestSubscriptionErrorFrames(t *testing.T) {
 	})
 }
 
+// TestSubscriptionSendErrorClosesConnection asserts the spec's
+// "stream closes immediately after an error frame" holds even when the
+// handler blocks after SendError instead of returning.
+func TestSubscriptionSendErrorClosesConnection(t *testing.T) {
+	t.Parallel()
+
+	srv := startSubscriptionServer(t, SubscriptionConfig{},
+		func(ctx context.Context, _ Params, stream *Stream) error {
+			require.NoError(t, stream.SendError(ctx, "FutureCursor", ""))
+			// A misbehaving handler that never returns: the client must
+			// still see the connection close.
+			<-ctx.Done()
+			return nil
+		})
+
+	conn := dialSub(t, srv)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// First read: the error frame.
+	_, data, err := conn.Read(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "FutureCursor")
+
+	// Second read: the close, without waiting on the handler.
+	_, _, err = conn.Read(ctx)
+	require.Error(t, err)
+	assert.Equal(t, websocket.StatusNormalClosure, websocket.CloseStatus(err))
+}
+
+// TestSubscriptionV1TypeMismatch asserts a v1 Send whose payload $type
+// disagrees with the fragment argument is rejected rather than framed:
+// v1 consumers dispatch on the payload's own $type, so a mismatch
+// would silently change the message's meaning vs the v0 framing.
+func TestSubscriptionV1TypeMismatch(t *testing.T) {
+	t.Parallel()
+
+	srv := startSubscriptionServer(t, SubscriptionConfig{
+		Subprotocols: gt.Some([]xrpc.Subprotocol{xrpc.SubprotocolV0CBOR, xrpc.SubprotocolV1JSON}),
+	},
+		func(ctx context.Context, _ Params, stream *Stream) error {
+			err := stream.Send(ctx, "#commit", identityUnion(1, "did:plc:x"))
+			assert.ErrorContains(t, err, "does not match")
+			// Correct pairing still works afterwards.
+			return stream.Send(ctx, "#identity", identityUnion(2, "did:plc:ok"))
+		})
+
+	conn := dialSub(t, srv, string(xrpc.SubprotocolV1JSON))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, data, err := conn.Read(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "did:plc:ok")
+}
+
 // TestSubscriptionNegotiationFallback asserts an unrecognized client
 // offer falls back to the lexicon default rather than failing.
 func TestSubscriptionNegotiationFallback(t *testing.T) {
@@ -301,6 +360,37 @@ func TestSubscriptionNegotiationFallback(t *testing.T) {
 
 	// Offer a token the server does not support.
 	conn := dialSub(t, srv, "acme.custom.proto")
+	assert.Empty(t, conn.Subprotocol())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	msgType, _, err := conn.Read(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, websocket.MessageBinary, msgType)
+	assert.Equal(t, xrpc.SubprotocolV0CBOR, <-got)
+}
+
+// TestSubscriptionCaseVariantOffer asserts subprotocol tokens match
+// case-sensitively (RFC 7936): a case-variant offer is an unrecognized
+// token — nothing is echoed and the connection falls back to the
+// lexicon default. Without the pre-Accept exact-match intersection,
+// websocket.Accept would EqualFold-match the offer and echo the
+// client's non-canonical casing.
+func TestSubscriptionCaseVariantOffer(t *testing.T) {
+	t.Parallel()
+
+	got := make(chan xrpc.Subprotocol, 1)
+	srv := startSubscriptionServer(t, SubscriptionConfig{
+		Subprotocols: gt.Some([]xrpc.Subprotocol{xrpc.SubprotocolV0CBOR, xrpc.SubprotocolV1JSON}),
+	},
+		func(ctx context.Context, _ Params, stream *Stream) error {
+			got <- stream.Subprotocol()
+			return stream.Send(ctx, "#identity", identityUnion(1, "did:plc:case"))
+		})
+
+	conn := dialSub(t, srv, "XRPC.V1.JSON")
+	// Unrecognized token: no echo, lexicon-default (v0 CBOR) framing.
 	assert.Empty(t, conn.Subprotocol())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -389,6 +479,27 @@ func TestSubscriptionHandlerError(t *testing.T) {
 	status := websocket.CloseStatus(err)
 	assert.Equal(t, websocket.StatusInternalError, status)
 	assert.NotContains(t, err.Error(), "secret detail")
+}
+
+// TestSubscriptionHandlerPanicClosesConnection asserts a panicking
+// handler does not leak the hijacked connection: Accept hijacks the
+// socket out of net/http's cleanup, so the deferred CloseNow backstop
+// is what guarantees the client sees the connection die.
+func TestSubscriptionHandlerPanicClosesConnection(t *testing.T) {
+	t.Parallel()
+
+	srv := startSubscriptionServer(t, SubscriptionConfig{},
+		func(context.Context, Params, *Stream) error {
+			panic("handler exploded")
+		})
+
+	conn := dialSub(t, srv)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, _, err := conn.Read(ctx)
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, context.DeadlineExceeded, "connection must die, not hang")
 }
 
 // TestSubscriptionClientDisconnectCancelsContext asserts the handler
