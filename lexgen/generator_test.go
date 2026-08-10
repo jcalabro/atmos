@@ -573,6 +573,29 @@ func TestGenerate_Subscription(t *testing.T) {
 	assert.Contains(t, code, "gt.Ref[lextypes.UnknownUnionVariant]")
 	// No client function generated for subscription (WebSocket, not HTTP).
 	assert.NotContains(t, code, "func SyncSubscribeRepos(")
+	// No subprotocol declared, so no constant.
+	assert.NotContains(t, code, "SyncSubscribeRepos_Subprotocol")
+}
+
+func TestGenerate_SubscriptionSubprotocol(t *testing.T) {
+	t.Parallel()
+	files := genOne(t, &lexicon.Schema{
+		Lexicon: 1, ID: "com.atproto.sync.subscribeRepos",
+		Defs: map[string]*lexicon.Def{
+			"main": {
+				Type:        "subscription",
+				Subprotocol: "xrpc.v1.json",
+				Message: &lexicon.Message{
+					Schema: &lexicon.Field{Type: "union", Refs: []string{"#commit"}},
+				},
+			},
+			"commit": {Type: "object", Required: []string{"seq"}, Properties: map[string]*lexicon.Field{"seq": {Type: "integer"}}},
+		},
+	})
+
+	code := string(files["api/comatproto/syncsubscriberepos.go"])
+	assert.Contains(t, code, `const SyncSubscribeRepos_Subprotocol = "xrpc.v1.json"`)
+	assert.Contains(t, code, "type SyncSubscribeRepos_Message struct")
 }
 
 // --- Blob upload procedure test ---

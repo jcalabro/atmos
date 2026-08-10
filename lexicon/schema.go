@@ -59,6 +59,10 @@ type Def struct {
 
 	// Subscription
 	Message *Message `json:"message,omitempty"`
+	// Subprotocol is the stream's default wire subprotocol when a client
+	// does not negotiate one via Sec-WebSocket-Protocol (atproto
+	// proposal 0015), e.g. "xrpc.v1.json". Empty means "xrpc.v0.cbor".
+	Subprotocol string `json:"subprotocol,omitempty"`
 
 	// Inline object fields (when Type is "object")
 	Properties map[string]*Field `json:"properties,omitempty"`

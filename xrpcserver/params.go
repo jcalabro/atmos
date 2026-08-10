@@ -9,6 +9,24 @@
 // Typed generic helpers (Query, Procedure, RawQuery, etc.) let users write
 // plain Go functions while the framework handles JSON encode/decode and
 // error envelope serialization.
+//
+// # Subscriptions
+//
+// [Server.HandleSubscription] registers a WebSocket subscription (XRPC
+// "subscription" type) endpoint. The server owns the upgrade,
+// Sec-WebSocket-Protocol negotiation per atproto proposal 0015, and
+// per-message wire framing; the handler owns everything else (event
+// sourcing, cursor replay, filtering, fan-out policy).
+//
+// Two subprotocols are supported: xrpc.v0.cbor (the legacy default —
+// binary frames of a CBOR {op, t} header concatenated with the message
+// body) and xrpc.v1.json (text frames of one self-describing JSON
+// object). [SubscriptionConfig.Subprotocol] declares the stream's
+// lexicon default for unnegotiated clients, and
+// [SubscriptionConfig.Subprotocols] the full negotiable set, which must
+// include the default. Handlers call [Stream.Send] with the generated
+// message union and the framing follows whatever was negotiated;
+// [Stream.SendError] emits a terminal stream error frame.
 package xrpcserver
 
 import (

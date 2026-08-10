@@ -17,13 +17,34 @@ import (
 // memConn is an in-memory Conn: Read yields queued frames in order, then
 // blocks until Close. It lets a test drive the client without a socket.
 type memConn struct {
-	frames chan []byte
-	closed chan struct{}
-	once   sync.Once
+	frames  chan memFrame
+	closed  chan struct{}
+	once    sync.Once
+	subprot string
+}
+
+// memFrame is a queued message with its websocket message type.
+type memFrame struct {
+	msgType websocket.MessageType
+	data    []byte
 }
 
 func newMemConn(frames ...[]byte) *memConn {
-	c := &memConn{frames: make(chan []byte, len(frames)), closed: make(chan struct{})}
+	c := &memConn{frames: make(chan memFrame, len(frames)), closed: make(chan struct{})}
+	for _, f := range frames {
+		c.frames <- memFrame{websocket.MessageBinary, f}
+	}
+	return c
+}
+
+// newMemConnTyped builds a memConn with per-frame message types and a
+// negotiated subprotocol, for driving the v1.json client path.
+func newMemConnTyped(subprotocol string, frames ...memFrame) *memConn {
+	c := &memConn{
+		frames:  make(chan memFrame, len(frames)),
+		closed:  make(chan struct{}),
+		subprot: subprotocol,
+	}
 	for _, f := range frames {
 		c.frames <- f
 	}
@@ -33,7 +54,7 @@ func newMemConn(frames ...[]byte) *memConn {
 func (c *memConn) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
 	select {
 	case f := <-c.frames:
-		return websocket.MessageBinary, f, nil
+		return f.msgType, f.data, nil
 	case <-c.closed:
 		return 0, nil, io.EOF
 	case <-ctx.Done():
@@ -44,6 +65,7 @@ func (c *memConn) Read(ctx context.Context) (websocket.MessageType, []byte, erro
 func (c *memConn) Close(websocket.StatusCode, string) error { c.closeOnce(); return nil }
 func (c *memConn) CloseNow() error                          { c.closeOnce(); return nil }
 func (c *memConn) SetReadLimit(int64)                       {}
+func (c *memConn) Subprotocol() string                      { return c.subprot }
 func (c *memConn) closeOnce()                               { c.once.Do(func() { close(c.closed) }) }
 
 // TestDialInjection drives the client over an injected in-memory Conn and
@@ -60,7 +82,7 @@ func TestDialInjection(t *testing.T) {
 	client := mustNewClient(t, Options{
 		URL:         "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
 		Parallelism: gt.Some(1),
-		Dial: gt.Some(DialFunc(func(_ context.Context, url string) (Conn, *http.Response, error) {
+		Dial: gt.Some(DialFunc(func(_ context.Context, url string, _ DialConfig) (Conn, *http.Response, error) {
 			dialedURL = url
 			return conn, nil, nil
 		})),
@@ -99,7 +121,7 @@ func TestDialInjectionCursorInURL(t *testing.T) {
 		URL:         "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
 		Cursor:      gt.Some(int64(5)),
 		Parallelism: gt.Some(1),
-		Dial: gt.Some(DialFunc(func(_ context.Context, url string) (Conn, *http.Response, error) {
+		Dial: gt.Some(DialFunc(func(_ context.Context, url string, _ DialConfig) (Conn, *http.Response, error) {
 			dialedURL = url
 			return conn, nil, nil
 		})),
