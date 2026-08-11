@@ -490,13 +490,22 @@ func FuzzPeekJSONType(f *testing.F) {
 	})
 }
 
-// FuzzFromJSONToJSON tests CBOR↔JSON conversion round-trips. FromJSON recognizes
-// {"$bytes": "..."} and {"$link": "..."} sentinels, while ToJSON produces them.
-func FuzzFromJSONToJSON(f *testing.F) {
+// FuzzJSONCBORRoundTrip starts from arbitrary atproto JSON and crosses both
+// format boundaries:
+//
+//	JSON → value → canonical CBOR → value → JSON → value → canonical CBOR
+//
+// The two canonical CBOR byte strings (and therefore their CIDs) must match.
+// Comparing JSON bytes would be weaker and incorrect: object order and optional
+// base64 padding may differ without changing the atproto data-model value.
+func FuzzJSONCBORRoundTrip(f *testing.F) {
 	f.Add([]byte(`null`))
 	f.Add([]byte(`true`))
 	f.Add([]byte(`42`))
-	f.Add([]byte(`3.14`))
+	f.Add([]byte(`9007199254740993`))
+	f.Add([]byte(`9223372036854775807`))
+	f.Add([]byte(`-9223372036854775808`))
+	f.Add([]byte(`3.14`)) // invalid atproto number; must reject without panic
 	f.Add([]byte(`"hello"`))
 	f.Add([]byte(`[1,2,3]`))
 	f.Add([]byte(`{"key":"value"}`))
@@ -504,30 +513,97 @@ func FuzzFromJSONToJSON(f *testing.F) {
 	cid := ComputeCID(CodecDagCBOR, []byte("test"))
 	f.Add([]byte(`{"$link":"` + cid.String() + `"}`))
 	f.Add([]byte(`{"nested":{"$bytes":"YWJj"},"arr":[1,"two"]}`))
+	f.Add([]byte(`{"nested":{"$bytes":"YWI="},"arr":[1,"two"]}`))
+	f.Add([]byte(`{"duplicate":1,"duplicate":2}`))
 	f.Add([]byte(``))
 	f.Add([]byte(`{{{`))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		val, err := FromJSON(data)
+		fromJSON, err := FromJSON(data)
 		if err != nil {
 			return
 		}
-		// Re-encode to JSON.
-		encoded, err := ToJSON(val)
+		canonical1, err := Marshal(fromJSON)
+		if err != nil {
+			t.Fatalf("FromJSON produced an unencodable value: %v", err)
+		}
+		fromCBOR, err := Unmarshal(canonical1)
+		if err != nil {
+			t.Fatalf("canonical CBOR failed to decode: %v", err)
+		}
+		jsonBytes, err := ToJSON(fromCBOR)
+		if err != nil {
+			t.Fatalf("CBOR value failed to encode as atproto JSON: %v", err)
+		}
+		fromJSON2, err := FromJSON(jsonBytes)
+		if err != nil {
+			t.Fatalf("generated atproto JSON failed to decode: %v", err)
+		}
+		canonical2, err := Marshal(fromJSON2)
+		if err != nil {
+			t.Fatalf("round-tripped JSON value failed to encode as CBOR: %v", err)
+		}
+		if !bytes.Equal(canonical1, canonical2) {
+			t.Fatalf("JSON/CBOR semantic mismatch:\n  first:  %x\n  second: %x\n  JSON: %s", canonical1, canonical2, jsonBytes)
+		}
+		cid1 := ComputeCID(CodecDagCBOR, canonical1)
+		cid2 := ComputeCID(CodecDagCBOR, canonical2)
+		if !cid1.Equal(cid2) {
+			t.Fatalf("JSON/CBOR CID mismatch: %s != %s", cid1.String(), cid2.String())
+		}
+	})
+}
+
+// FuzzCBORJSONRoundTrip starts from arbitrary bytes. When they are valid
+// canonical DAG-CBOR and their value is representable by the atproto JSON data
+// model, the full CBOR → JSON → CBOR path must reproduce the original bytes and
+// CID. Valid DAG-CBOR floats are outside atproto and are intentionally skipped.
+func FuzzCBORJSONRoundTrip(f *testing.F) {
+	seeds := []any{
+		nil,
+		true,
+		int64(9007199254740993),
+		int64(9223372036854775807),
+		int64(-9223372036854775808),
+		"hello",
+		[]byte{0, 1, 0xfe, 0xff},
+		ComputeCID(CodecDagCBOR, []byte("linked record")),
+		[]any{int64(1), "two", false, nil},
+		map[string]any{"z": []byte{1, 2}, "a": int64(1)},
+	}
+	for _, seed := range seeds {
+		encoded, err := Marshal(seed)
+		if err != nil {
+			f.Fatalf("marshal seed: %v", err)
+		}
+		f.Add(encoded)
+	}
+	f.Add([]byte{0xff})
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		value, err := Unmarshal(data)
 		if err != nil {
 			return
 		}
-		// Re-decode and re-encode should be stable.
-		val2, err := FromJSON(encoded)
+		jsonBytes, err := ToJSON(value)
 		if err != nil {
-			t.Fatalf("round-trip FromJSON failed: %v", err)
+			return // valid DAG-CBOR value outside the atproto data model (e.g. float)
 		}
-		encoded2, err := ToJSON(val2)
+		fromJSON, err := FromJSON(jsonBytes)
 		if err != nil {
-			t.Fatalf("round-trip ToJSON failed: %v", err)
+			t.Fatalf("generated atproto JSON failed to decode: %v", err)
 		}
-		if !bytes.Equal(encoded, encoded2) {
-			t.Fatalf("JSON round-trip not stable:\n  first:  %s\n  second: %s", encoded, encoded2)
+		roundTripped, err := Marshal(fromJSON)
+		if err != nil {
+			t.Fatalf("round-tripped JSON value failed to encode as CBOR: %v", err)
+		}
+		if !bytes.Equal(data, roundTripped) {
+			t.Fatalf("CBOR/JSON semantic mismatch:\n  input:  %x\n  output: %x\n  JSON: %s", data, roundTripped, jsonBytes)
+		}
+		cid1 := ComputeCID(CodecDagCBOR, data)
+		cid2 := ComputeCID(CodecDagCBOR, roundTripped)
+		if !cid1.Equal(cid2) {
+			t.Fatalf("CBOR/JSON CID mismatch: %s != %s", cid1.String(), cid2.String())
 		}
 	})
 }

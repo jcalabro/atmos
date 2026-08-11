@@ -1,88 +1,164 @@
 package cbor
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"strconv"
 )
 
-// ToJSON converts a CBOR data model value to ATProto JSON bytes.
-// Bytes become {"$bytes": "<base64>"}, CID links become {"$link": "<cid-string>"}.
+// ToJSON converts an atproto data-model value to JSON bytes. Bytes become
+// {"$bytes":"<base64>"}, and CID links become {"$link":"<cid-string>"}.
+// Values outside the atproto data model, including floats, are rejected.
 func ToJSON(v any) ([]byte, error) {
-	converted := toJSONValue(v)
+	converted, err := toJSONValue(v)
+	if err != nil {
+		return nil, err
+	}
 	return json.Marshal(converted)
 }
 
-// FromJSON parses ATProto JSON bytes back to a CBOR data model value.
-// Recognizes {"$bytes": "..."} and {"$link": "..."} sentinel objects.
+// FromJSON parses exactly one atproto JSON data-model value. JSON integer tokens
+// are decoded directly to signed int64 without passing through float64; fractions
+// and out-of-range integers are rejected. $bytes and $link sentinel objects are
+// converted to []byte and CID, respectively.
 func FromJSON(data []byte) (any, error) {
-	var raw any
-	if err := json.Unmarshal(data, &raw); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	value, err := decodeJSONValue(dec)
+	if err != nil {
 		return nil, err
 	}
-	return fromJSONValue(raw)
+	var extra any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return nil, errors.New("cbor/json: multiple JSON values")
+		}
+		return nil, err
+	}
+	return fromJSONValue(value)
 }
 
-func toJSONValue(v any) any {
+func toJSONValue(v any) (any, error) {
 	switch val := v.(type) {
-	case nil:
-		return nil
-	case bool:
-		return val
-	case int64:
-		return val
-	case float64:
-		return val
-	case string:
-		return val
+	case nil, bool, int64, string:
+		return val, nil
+	case int:
+		return int64(val), nil
 	case []byte:
-		return map[string]any{
-			"$bytes": base64.RawStdEncoding.EncodeToString(val),
-		}
+		return map[string]any{"$bytes": base64.RawStdEncoding.EncodeToString(val)}, nil
 	case CID:
-		return map[string]any{
-			"$link": val.String(),
-		}
+		return map[string]any{"$link": val.String()}, nil
 	case []any:
 		out := make([]any, len(val))
 		for i, item := range val {
-			out[i] = toJSONValue(item)
+			converted, err := toJSONValue(item)
+			if err != nil {
+				return nil, fmt.Errorf("cbor/json: array item %d: %w", i, err)
+			}
+			out[i] = converted
 		}
-		return out
+		return out, nil
 	case map[string]any:
 		out := make(map[string]any, len(val))
-		for k, v := range val {
-			out[k] = toJSONValue(v)
+		for key, item := range val {
+			converted, err := toJSONValue(item)
+			if err != nil {
+				return nil, fmt.Errorf("cbor/json: field %q: %w", key, err)
+			}
+			out[key] = converted
 		}
-		return out
+		return out, nil
 	default:
-		return val
+		return nil, fmt.Errorf("cbor/json: unsupported atproto value %T", v)
+	}
+}
+
+// decodeJSONValue uses Decoder.Token so object key occurrences remain visible;
+// decoding directly into map[string]any would silently accept duplicate keys by
+// retaining only the last value.
+func decodeJSONValue(dec *json.Decoder) (any, error) {
+	token, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	delim, ok := token.(json.Delim)
+	if !ok {
+		return token, nil
+	}
+
+	switch delim {
+	case '[':
+		var values []any
+		for dec.More() {
+			value, err := decodeJSONValue(dec)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+		end, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if end != json.Delim(']') {
+			return nil, fmt.Errorf("cbor/json: expected array end, got %v", end)
+		}
+		return values, nil
+	case '{':
+		values := make(map[string]any)
+		for dec.More() {
+			keyToken, err := dec.Token()
+			if err != nil {
+				return nil, err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return nil, fmt.Errorf("cbor/json: object key has type %T", keyToken)
+			}
+			if _, exists := values[key]; exists {
+				return nil, fmt.Errorf("cbor/json: duplicate object key %q", key)
+			}
+			value, err := decodeJSONValue(dec)
+			if err != nil {
+				return nil, fmt.Errorf("cbor/json: field %q: %w", key, err)
+			}
+			values[key] = value
+		}
+		end, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if end != json.Delim('}') {
+			return nil, fmt.Errorf("cbor/json: expected object end, got %v", end)
+		}
+		return values, nil
+	default:
+		return nil, fmt.Errorf("cbor/json: unexpected delimiter %q", delim)
 	}
 }
 
 func fromJSONValue(v any) (any, error) {
 	switch val := v.(type) {
-	case nil:
-		return nil, nil
-	case bool:
+	case nil, bool, string:
 		return val, nil
-	case float64:
-		// JSON numbers come as float64. If it's a whole number, convert to int64.
-		if val == float64(int64(val)) && val >= -9007199254740992 && val <= 9007199254740992 {
-			return int64(val), nil
+	case json.Number:
+		i, err := strconv.ParseInt(string(val), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("cbor/json: %q is not a signed 64-bit integer: %w", val, err)
 		}
-		return val, nil
-	case string:
-		return val, nil
+		return i, nil
 	case []any:
 		out := make([]any, len(val))
 		for i, item := range val {
-			var err error
-			out[i], err = fromJSONValue(item)
+			converted, err := fromJSONValue(item)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("cbor/json: array item %d: %w", i, err)
 			}
+			out[i] = converted
 		}
 		return out, nil
 	case map[string]any:
@@ -254,6 +330,9 @@ func fromJSONMap(m map[string]any) (any, error) {
 			return nil, errors.New("cbor/json: $bytes value must be a string")
 		}
 		decoded, err := base64.RawStdEncoding.DecodeString(s)
+		if err != nil {
+			decoded, err = base64.StdEncoding.DecodeString(s)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("cbor/json: invalid $bytes base64: %w", err)
 		}

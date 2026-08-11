@@ -51,13 +51,17 @@ func TestInterop_DataModelFixtures(t *testing.T) {
 			gotCID := ComputeCID(CodecDagCBOR, gotCBOR)
 			assert.Equal(t, f.CID, gotCID.String(), "CID mismatch")
 
-			// Round-trip: CBOR → data model → JSON → data model → CBOR.
+			// Round-trip through the JSON representation, not just the in-memory
+			// value tree: CBOR → data model → JSON → data model → CBOR.
 			decoded, err := Unmarshal(expectedCBOR)
 			require.NoError(t, err)
-
-			roundTripped, err := Marshal(decoded)
+			jsonBytes, err := ToJSON(decoded)
 			require.NoError(t, err)
-			assert.Equal(t, expectedCBOR, roundTripped, "CBOR round-trip mismatch")
+			fromJSON, err := FromJSON(jsonBytes)
+			require.NoError(t, err)
+			roundTripped, err := Marshal(fromJSON)
+			require.NoError(t, err)
+			assert.Equal(t, expectedCBOR, roundTripped, "JSON/CBOR round-trip mismatch")
 		})
 	}
 }

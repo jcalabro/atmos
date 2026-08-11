@@ -81,15 +81,31 @@ func TestJSON_RoundTrip_Complex(t *testing.T) {
 
 func TestFromJSON_IntegerConversion(t *testing.T) {
 	t.Parallel()
-	// JSON numbers that are whole should become int64.
-	v, err := FromJSON([]byte(`42`))
-	require.NoError(t, err)
-	require.Equal(t, int64(42), v)
+	for _, tc := range []struct {
+		json string
+		want int64
+	}{
+		{`0`, 0},
+		{`42`, 42},
+		{`9007199254740993`, 9007199254740993},
+		{`9223372036854775807`, 9223372036854775807},
+		{`-9223372036854775808`, -9223372036854775808},
+	} {
+		v, err := FromJSON([]byte(tc.json))
+		require.NoError(t, err)
+		require.Equal(t, tc.want, v)
+	}
+}
 
-	// JSON numbers with fractions stay float64.
-	v, err = FromJSON([]byte(`3.14`))
-	require.NoError(t, err)
-	require.Equal(t, 3.14, v)
+func TestFromJSON_RejectsInvalidAtprotoNumbers(t *testing.T) {
+	t.Parallel()
+	for _, input := range []string{
+		`3.14`, `1e3`,
+		`9223372036854775808`, `-9223372036854775809`,
+	} {
+		_, err := FromJSON([]byte(input))
+		require.Error(t, err, input)
+	}
 }
 
 func TestFromJSON_Null(t *testing.T) {
@@ -104,6 +120,104 @@ func TestFromJSON_Bool(t *testing.T) {
 	v, err := FromJSON([]byte(`true`))
 	require.NoError(t, err)
 	require.Equal(t, true, v)
+}
+
+func TestJSONCanonicalCBORRoundTrip(t *testing.T) {
+	t.Parallel()
+	link := ComputeCID(CodecDagCBOR, []byte("linked record"))
+	original := map[string]any{
+		"z":     []byte{0x00, 0x01, 0xfe, 0xff},
+		"link":  link,
+		"max":   int64(9223372036854775807),
+		"min":   int64(-9223372036854775808),
+		"wide":  int64(9007199254740993),
+		"items": []any{int64(-1), true, nil, map[string]any{"nested": "value"}},
+	}
+
+	canonical, err := Marshal(original)
+	require.NoError(t, err)
+	jsonBytes, err := ToJSON(original)
+	require.NoError(t, err)
+	decoded, err := FromJSON(jsonBytes)
+	require.NoError(t, err)
+	roundTripped, err := Marshal(decoded)
+	require.NoError(t, err)
+
+	require.Equal(t, canonical, roundTripped)
+	require.Equal(t,
+		ComputeCID(CodecDagCBOR, canonical),
+		ComputeCID(CodecDagCBOR, roundTripped),
+	)
+}
+
+func TestCanonicalCBORToJSONToCBORPreservesBytesAndCID(t *testing.T) {
+	t.Parallel()
+	link := ComputeCID(CodecRaw, []byte("blob"))
+	canonical, err := Marshal(map[string]any{
+		"bytes": []byte{1, 2, 3},
+		"link":  link,
+		"max":   int64(9223372036854775807),
+		"min":   int64(-9223372036854775808),
+		"nested": map[string]any{
+			"wide": int64(9007199254740993),
+		},
+	})
+	require.NoError(t, err)
+
+	value, err := Unmarshal(canonical)
+	require.NoError(t, err)
+	jsonBytes, err := ToJSON(value)
+	require.NoError(t, err)
+	fromJSON, err := FromJSON(jsonBytes)
+	require.NoError(t, err)
+	roundTripped, err := Marshal(fromJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, canonical, roundTripped)
+	require.Equal(t, ComputeCID(CodecDagCBOR, canonical), ComputeCID(CodecDagCBOR, roundTripped))
+}
+
+func TestFromJSONCanonicalizesMapOrderAndBase64Padding(t *testing.T) {
+	t.Parallel()
+	for _, input := range []string{
+		`{"z":{"$bytes":"AQI"},"a":1}`,
+		`{"a":1,"z":{"$bytes":"AQI="}}`,
+	} {
+		value, err := FromJSON([]byte(input))
+		require.NoError(t, err)
+		got, err := Marshal(value)
+		require.NoError(t, err)
+		want, err := Marshal(map[string]any{"a": int64(1), "z": []byte{1, 2}})
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
+}
+
+func TestFromJSONRejectsAmbiguousOrMalformedValues(t *testing.T) {
+	t.Parallel()
+	for _, input := range []string{
+		`{"a":1,"a":2}`,
+		`{} {}`,
+		`{"$bytes":"!!"}`,
+		`{"$bytes":1}`,
+		`{"$link":"not-a-cid"}`,
+		`{"$link":1}`,
+	} {
+		_, err := FromJSON([]byte(input))
+		require.Error(t, err, input)
+	}
+}
+
+func TestToJSONRejectsValuesOutsideAtprotoDataModel(t *testing.T) {
+	t.Parallel()
+	for _, value := range []any{
+		1.5,
+		map[string]any{"nested": 1.5},
+		struct{}{},
+	} {
+		_, err := ToJSON(value)
+		require.Error(t, err)
+	}
 }
 
 func TestPeekJSONType(t *testing.T) {
