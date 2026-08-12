@@ -751,3 +751,13 @@ func TestOptions_ParallelismRejectsNonPositive(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "parallelism")
 }
+
+func TestOptions_QueueOverflowPolicyRejectsUnknownValue(t *testing.T) {
+	t.Parallel()
+	_, err := NewClient(Options{
+		URL:                 "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+		Verifier:            gt.Some[*sync.Verifier](nil),
+		QueueOverflowPolicy: gt.Some(QueueOverflowPolicy(255)),
+	})
+	require.ErrorContains(t, err, "invalid queue overflow policy")
+}

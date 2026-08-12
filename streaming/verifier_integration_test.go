@@ -723,6 +723,67 @@ func TestVerifiedStream_DropErrorOnQueueOverflow(t *testing.T) {
 	require.Equal(t, 4, firstDrop.QueueLen, "QueueLen should match parallelism * 2")
 }
 
+func TestVerifiedStream_BackpressureOnQueueOverflowIsLossless(t *testing.T) {
+	t.Parallel()
+
+	did := atmos.DID("did:plc:backpressure")
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	const n = 100
+	frames := buildVerifiedChainFrames(t, did, key, n)
+	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
+		writeFrames(conn, frames...)
+	})
+
+	resolver := testutil.NewTrackingResolver()
+	resolver.Docs[did] = testutil.BuildDIDDoc(did, key.PublicKey())
+	v, err := sync.NewVerifier(sync.VerifierOptions{
+		Directory: &identity.Directory{Resolver: resolver},
+		StateStore: &blockingStateStore{
+			inner:     sync.NewMemStateStore(),
+			saveDelay: 5 * time.Millisecond,
+		},
+		Policy: gt.Some(sync.PolicyError),
+	})
+	require.NoError(t, err)
+	defer func() { _ = v.Close() }()
+
+	client := mustNewClient(t, Options{
+		URL:                 wsURL(srv),
+		Verifier:            gt.Some(v),
+		Parallelism:         gt.Some(2),
+		QueueOverflowPolicy: gt.Some(QueueOverflowBackpressure),
+	})
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	var drops, creates int
+	for batch, iterErr := range client.Events(ctx) {
+		if iterErr != nil {
+			var de *DropError
+			if stderrors.As(iterErr, &de) {
+				drops += int(de.AdditionalDropsSuppressed + 1)
+			}
+			continue
+		}
+		for _, evt := range batch {
+			for op, opErr := range evt.Operations() {
+				require.NoError(t, opErr)
+				if op.Action == ActionCreate {
+					creates++
+				}
+			}
+		}
+		if creates == n {
+			cancel()
+		}
+	}
+
+	require.Zero(t, drops)
+	require.Equal(t, n, creates)
+}
+
 // TestVerifiedStream_ParallelGapDetectionAcrossReconnect asserts that
 // the parallel readLoop seeds lastSeenSeq from the persisted cursor on
 // startup, so a relay that resumes outside our cursor window surfaces a
