@@ -17,11 +17,12 @@ import (
 //
 // Zero value is not usable; callers must use NewScheduler.
 type Scheduler[Work any] struct {
-	workers     int
-	keyQueueCap int
-	do          func(context.Context, Work) error
-	onDrop      func(Work)
-	onError     func(error) // set by NewSchedulerWithErrorHook; nil = ignore
+	workers      int
+	keyQueueCap  int
+	backpressure bool
+	do           func(context.Context, Work) error
+	onDrop       func(Work)
+	onError      func(error) // set by NewSchedulerWithErrorHook; nil = ignore
 
 	// workCtx is passed to every do() invocation. Defaults to
 	// context.Background() unless NewSchedulerWithContext was used.
@@ -30,7 +31,8 @@ type Scheduler[Work any] struct {
 	// callers should pair cancel() with Shutdown() for full teardown.
 	workCtx context.Context
 
-	feeder chan task[Work]
+	feeder         chan task[Work]
+	spaceAvailable chan struct{}
 
 	mu     sync.Mutex
 	active map[string][]Work
@@ -79,7 +81,7 @@ func NewSchedulerWithErrorHook[Work any](
 	onDrop func(Work),
 	onError func(error),
 ) *Scheduler[Work] {
-	return newScheduler(context.Background(), workers, keyQueueCap, do, onDrop, onError)
+	return newScheduler(context.Background(), workers, keyQueueCap, false, do, onDrop, onError)
 }
 
 // NewSchedulerWithContext is NewScheduler with a scheduler-lifetime
@@ -96,7 +98,19 @@ func NewSchedulerWithContext[Work any](
 	do func(context.Context, Work) error,
 	onDrop func(Work),
 ) *Scheduler[Work] {
-	return newScheduler(workCtx, workers, keyQueueCap, do, onDrop, nil)
+	return newScheduler(workCtx, workers, keyQueueCap, false, do, onDrop, nil)
+}
+
+// NewBackpressuredSchedulerWithContext returns a bounded scheduler that blocks
+// AddWork when one key's queue is full instead of dropping work. Work for
+// other keys remains parallel once admitted. The caller's context and
+// Shutdown both interrupt a blocked AddWork call.
+func NewBackpressuredSchedulerWithContext[Work any](
+	workCtx context.Context,
+	workers, keyQueueCap int,
+	do func(context.Context, Work) error,
+) *Scheduler[Work] {
+	return newScheduler(workCtx, workers, keyQueueCap, true, do, nil, nil)
 }
 
 // NewSchedulerWithContextAndErrorHook is the most general constructor:
@@ -109,12 +123,13 @@ func NewSchedulerWithContextAndErrorHook[Work any](
 	onDrop func(Work),
 	onError func(error),
 ) *Scheduler[Work] {
-	return newScheduler(workCtx, workers, keyQueueCap, do, onDrop, onError)
+	return newScheduler(workCtx, workers, keyQueueCap, false, do, onDrop, onError)
 }
 
 func newScheduler[Work any](
 	workCtx context.Context,
 	workers, keyQueueCap int,
+	backpressure bool,
 	do func(context.Context, Work) error,
 	onDrop func(Work),
 	onError func(error),
@@ -125,16 +140,22 @@ func newScheduler[Work any](
 	if workers < 1 {
 		workers = 1
 	}
+	var spaceAvailable chan struct{}
+	if backpressure && keyQueueCap > 0 {
+		spaceAvailable = make(chan struct{}, 1)
+	}
 	s := &Scheduler[Work]{
-		workers:     workers,
-		keyQueueCap: keyQueueCap,
-		do:          do,
-		onDrop:      onDrop,
-		onError:     onError,
-		workCtx:     workCtx,
-		feeder:      make(chan task[Work]),
-		active:      make(map[string][]Work),
-		stopped:     make(chan struct{}),
+		workers:        workers,
+		keyQueueCap:    keyQueueCap,
+		backpressure:   backpressure,
+		do:             do,
+		onDrop:         onDrop,
+		onError:        onError,
+		workCtx:        workCtx,
+		feeder:         make(chan task[Work]),
+		spaceAvailable: spaceAvailable,
+		active:         make(map[string][]Work),
+		stopped:        make(chan struct{}),
 	}
 	for range workers {
 		s.wg.Add(1)
@@ -192,6 +213,12 @@ func (s *Scheduler[Work]) runChain(key string, work Work) {
 		work = queue[0]
 		s.active[key] = queue[1:]
 		s.mu.Unlock()
+		if s.spaceAvailable != nil {
+			select {
+			case s.spaceAvailable <- struct{}{}:
+			default:
+			}
+		}
 	}
 }
 
@@ -211,49 +238,62 @@ func (s *Scheduler[Work]) runOne(work Work) {
 
 // AddWork enqueues a unit of work for the given key.
 func (s *Scheduler[Work]) AddWork(ctx context.Context, key string, work Work) error {
-	select {
-	case <-s.stopped:
-		return context.Canceled
-	default:
-	}
+	for {
+		select {
+		case <-s.stopped:
+			return context.Canceled
+		default:
+		}
 
-	s.mu.Lock()
-	if _, exists := s.active[key]; exists {
-		// A worker is already draining this key's queue. Append.
-		queue := s.active[key]
-		if s.keyQueueCap > 0 && len(queue) >= s.keyQueueCap {
-			// Drop the oldest; the new work goes at the tail.
-			dropped := queue[0]
-			queue = append(queue[1:], work)
-			s.active[key] = queue
-			s.mu.Unlock()
-			if s.onDrop != nil {
-				s.onDrop(dropped)
+		s.mu.Lock()
+		if _, exists := s.active[key]; exists {
+			// A worker is already draining this key's queue. Append.
+			queue := s.active[key]
+			if s.keyQueueCap > 0 && len(queue) >= s.keyQueueCap {
+				if s.backpressure {
+					s.mu.Unlock()
+					select {
+					case <-s.spaceAvailable:
+						continue
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-s.stopped:
+						return context.Canceled
+					}
+				}
+				// Drop the oldest; the new work goes at the tail.
+				dropped := queue[0]
+				queue = append(queue[1:], work)
+				s.active[key] = queue
+				s.mu.Unlock()
+				if s.onDrop != nil {
+					s.onDrop(dropped)
+				}
+				return nil
 			}
+			s.active[key] = append(queue, work)
+			s.mu.Unlock()
 			return nil
 		}
-		s.active[key] = append(queue, work)
+		// Mark key as active and dispatch to a free worker.
+		s.active[key] = nil
 		s.mu.Unlock()
-		return nil
-	}
-	// Mark key as active and dispatch to a free worker.
-	s.active[key] = nil
-	s.mu.Unlock()
 
-	select {
-	case s.feeder <- task[Work]{key: key, work: work}:
-		return nil
-	case <-ctx.Done():
-		// Roll back the key claim so a future AddWork for this key
-		// dispatches normally.
-		s.mu.Lock()
-		delete(s.active, key)
-		s.mu.Unlock()
-		return ctx.Err()
-	case <-s.stopped:
-		s.mu.Lock()
-		delete(s.active, key)
-		s.mu.Unlock()
-		return context.Canceled
+		select {
+		case s.feeder <- task[Work]{key: key, work: work}:
+			return nil
+		case <-ctx.Done():
+			// Roll back the key claim so a future AddWork for this key
+			// dispatches normally.
+			s.mu.Lock()
+			delete(s.active, key)
+			s.mu.Unlock()
+			return ctx.Err()
+		case <-s.stopped:
+			s.mu.Lock()
+			delete(s.active, key)
+			s.mu.Unlock()
+			return context.Canceled
+		}
 	}
 }
