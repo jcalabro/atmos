@@ -24,23 +24,6 @@ import (
 
 const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
 
-// QueueOverflowPolicy controls what the parallel per-DID scheduler does when
-// one DID fills its bounded pending-work queue.
-type QueueOverflowPolicy uint8
-
-const (
-	// QueueOverflowDropOldest preserves the historical behavior: discard the
-	// oldest pending event and surface a DropError.
-	QueueOverflowDropOldest QueueOverflowPolicy = iota
-	// QueueOverflowBackpressure blocks stream dispatch until the hot DID's
-	// worker makes room. The queue remains bounded and no event is discarded.
-	QueueOverflowBackpressure
-)
-
-func (p QueueOverflowPolicy) valid() bool {
-	return p == QueueOverflowDropOldest || p == QueueOverflowBackpressure
-}
-
 // Conn is the WebSocket surface the client consumes. *websocket.Conn
 // satisfies it; tests inject an in-memory implementation via Options.Dial.
 type Conn interface {
@@ -182,11 +165,10 @@ type Options struct {
 	//   - Global GapError detection still fires (the dispatch goroutine
 	//     reads frames single-threaded, so the relay's monotonic seq is
 	//     observable before scheduler dispatch).
-	//   - By default, per-DID queue overflow surfaces as *DropError; under
-	//     sustained loss faster than the consumer drains, additional drops
-	//     are coalesced via DropError.AdditionalDropsSuppressed. Set
-	//     QueueOverflowPolicy to QueueOverflowBackpressure for bounded,
-	//     lossless flow control instead.
+	//   - Per-DID queue overflow surfaces as *DropError; under sustained
+	//     loss faster than the consumer drains, additional drops are
+	//     coalesced via DropError.AdditionalDropsSuppressed rather than
+	//     blocking the dispatch goroutine.
 	//
 	// With Parallelism = 1:
 	//   - Strict cross-DID seq ordering: events yield in the order the
@@ -196,14 +178,6 @@ type Options struct {
 	//     websocket OS buffer rather than shedding events.
 	//   - All other guarantees from Parallelism > 1 still hold.
 	Parallelism gt.Option[int]
-
-	// QueueOverflowPolicy controls a full per-DID queue when Parallelism is
-	// greater than one. None defaults to QueueOverflowDropOldest for backward
-	// compatibility. QueueOverflowBackpressure keeps the queue bounded but
-	// pauses dispatch (and ultimately websocket reads) until the hot DID drains;
-	// use it when lossless delivery matters more than isolating a noisy DID.
-	// At Parallelism=1 the queue is unbounded and this option has no effect.
-	QueueOverflowPolicy gt.Option[QueueOverflowPolicy]
 
 	// Subprotocols is the list of XRPC event-stream subprotocols to
 	// offer via the Sec-WebSocket-Protocol header, in preference order
@@ -290,9 +264,6 @@ func NewClient(opts Options) (*Client, error) {
 	parallelism := opts.Parallelism.ValOr(32)
 	if parallelism < 1 {
 		return nil, errors.New("parallelism must be >= 1")
-	}
-	if policy := opts.QueueOverflowPolicy.ValOr(QueueOverflowDropOldest); !policy.valid() {
-		return nil, fmt.Errorf("invalid queue overflow policy: %d", policy)
 	}
 
 	lk := DistributedLocker(NoopLock{})
@@ -823,9 +794,8 @@ type readResult struct {
 // dispatch goroutine grows the per-key queue rather than displacing
 // work, and the bounded msgCh + websocket buffer eventually push back
 // on the relay. As a corollary, *DropError is unreachable at
-// parallelism = 1. At parallelism > 1, keyQueueCap = parallelism * 2;
-// overflow either surfaces as *DropError or blocks dispatch according to
-// Options.QueueOverflowPolicy.
+// parallelism = 1. At parallelism > 1, keyQueueCap = parallelism * 2
+// and per-DID queue overflow surfaces as *DropError.
 //
 // Returns true when the caller's yield function asked to stop
 // iterating; false on connection errors or context cancellation
@@ -851,8 +821,8 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, codec connCodec, yield
 	// the websocket reader fills its OS buffer until the relay pushes
 	// back. DropError is therefore never emitted at parallelism = 1.
 	// At parallelism > 1, we cap the per-key queue at parallelism * 2;
-	// further arrivals either surface as DropError via onDrop or block
-	// dispatch according to QueueOverflowPolicy.
+	// further arrivals for a key with a full queue surface as DropError
+	// via onDrop.
 	queueCap := 0
 	if c.parallelism > 1 {
 		queueCap = c.parallelism * 2
@@ -914,76 +884,74 @@ func (c *Client) readLoop(ctx context.Context, conn Conn, codec connCodec, yield
 	// network I/O. cancelWork on every readLoop exit prevents a worker leak.
 	workCtx, cancelWork := context.WithCancel(context.WithoutCancel(ctx))
 
-	doWork := func(jctx context.Context, j schedJob) error {
-		// jctx is workCtx; it is cancelled when readLoop returns (or when
-		// the bounded post-cancel drain elapses), which propagates into
-		// VerifyCommit/VerifySync, OnAccountEvent, and the PLC/CAR network
-		// calls they make, so shutdown still unblocks blocking verifier I/O.
-		res := c.verifyOne(jctx, j.evt)
-		select {
-		case resultCh <- res:
-		case <-workCtx.Done():
-		}
-		return nil
-	}
-	onDrop := func(j schedJob) {
-		seq := j.evt.seqOf()
-		did := j.evt.repoOf()
-		// Release the dropped seq from the watermark cursor's
-		// inflight set: no worker will ever produce a verifyResult
-		// for this work, so without this the watermark stays pinned
-		// to seq forever (cursor freezes; drainResults hangs on
-		// connection close because inflight.Len() never reaches
-		// zero).
-		//
-		// Safe to mutate inflight here without locking: AddWork
-		// invokes onDrop synchronously on the caller's goroutine,
-		// and the only caller of AddWork is the dispatch goroutine
-		// — the same goroutine that owns inflight.
-		if seq > 0 {
-			inflight.Remove(seq)
-		}
-		if did != "" {
-			if n := inflightByDID[did] - 1; n > 0 {
-				inflightByDID[did] = n
-			} else {
-				delete(inflightByDID, did)
+	sched := parallel.NewSchedulerWithContext(
+		workCtx,
+		c.parallelism,
+		queueCap,
+		func(jctx context.Context, j schedJob) error {
+			// jctx is workCtx; it is cancelled when readLoop returns (or when
+			// the bounded post-cancel drain elapses), which propagates into
+			// VerifyCommit/VerifySync, OnAccountEvent, and the PLC/CAR network
+			// calls they make, so shutdown still unblocks blocking verifier I/O.
+			res := c.verifyOne(jctx, j.evt)
+			select {
+			case resultCh <- res:
+			case <-workCtx.Done():
 			}
-		}
-		pendingResults--
-		// suppressedDrops accumulates drop notifications that
-		// couldn't fit into the asyncErr buffer. When the next
-		// notification *does* land, it carries the suppressed count
-		// so consumers can reconcile total loss without us blocking
-		// the dispatch goroutine on a slow consumer. Owned by the
-		// dispatch goroutine (onDrop runs synchronously inside
-		// AddWork, on the dispatch goroutine).
-		err := &DropError{
-			DID:                       did,
-			Seq:                       seq,
-			QueueLen:                  queueCap,
-			AdditionalDropsSuppressed: suppressedDrops,
-		}
-		select {
-		case asyncErr <- err:
-			// Successfully sent — reset the suppressed counter
-			// since we've now accounted for everything up to this
-			// drop.
-			suppressedDrops = 0
-		default:
-			// asyncErr full: track the loss instead of blocking the
-			// dispatch goroutine. The next successful send will
-			// surface the accumulated count.
-			suppressedDrops++
-		}
-	}
-
-	var sched *parallel.Scheduler[schedJob]
-	if c.opts.QueueOverflowPolicy.ValOr(QueueOverflowDropOldest) == QueueOverflowBackpressure {
-		sched = parallel.NewBackpressuredSchedulerWithContext(workCtx, c.parallelism, queueCap, doWork)
-	} else {
-		sched = parallel.NewSchedulerWithContext(workCtx, c.parallelism, queueCap, doWork, onDrop)
-	}
+			return nil
+		},
+		func(j schedJob) {
+			seq := j.evt.seqOf()
+			did := j.evt.repoOf()
+			// Release the dropped seq from the watermark cursor's
+			// inflight set: no worker will ever produce a verifyResult
+			// for this work, so without this the watermark stays pinned
+			// to seq forever (cursor freezes; drainResults hangs on
+			// connection close because inflight.Len() never reaches
+			// zero).
+			//
+			// Safe to mutate inflight here without locking: AddWork
+			// invokes onDrop synchronously on the caller's goroutine,
+			// and the only caller of AddWork is the dispatch goroutine
+			// — the same goroutine that owns inflight.
+			if seq > 0 {
+				inflight.Remove(seq)
+			}
+			if did != "" {
+				if n := inflightByDID[did] - 1; n > 0 {
+					inflightByDID[did] = n
+				} else {
+					delete(inflightByDID, did)
+				}
+			}
+			pendingResults--
+			// suppressedDrops accumulates drop notifications that
+			// couldn't fit into the asyncErr buffer. When the next
+			// notification *does* land, it carries the suppressed count
+			// so consumers can reconcile total loss without us blocking
+			// the dispatch goroutine on a slow consumer. Owned by the
+			// dispatch goroutine (onDrop runs synchronously inside
+			// AddWork, on the dispatch goroutine).
+			err := &DropError{
+				DID:                       did,
+				Seq:                       seq,
+				QueueLen:                  queueCap,
+				AdditionalDropsSuppressed: suppressedDrops,
+			}
+			select {
+			case asyncErr <- err:
+				// Successfully sent — reset the suppressed counter
+				// since we've now accounted for everything up to this
+				// drop.
+				suppressedDrops = 0
+			default:
+				// asyncErr full: track the loss instead of blocking the
+				// dispatch goroutine. The next successful send will
+				// surface the accumulated count.
+				suppressedDrops++
+			}
+		},
+	)
 	// cancelWork BEFORE sched.Shutdown: Shutdown's wg.Wait() blocks until every
 	// worker returns, and a worker wedged in verifier I/O only unblocks when
 	// workCtx is cancelled. Deferring them separately would run Shutdown first
