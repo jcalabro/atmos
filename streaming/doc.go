@@ -131,17 +131,13 @@
 //     monotonic counter. The dispatch goroutine reads frames
 //     single-threaded, so global ordering is visible even though
 //     verification runs concurrently.
-//   - By default, per-DID queue overflow surfaces as [*DropError] on
-//     the consumer's iter (alongside [GapError], [DecodeError], and
+//   - Per-DID queue overflow surfaces as [*DropError] on the
+//     consumer's iter (alongside [GapError], [DecodeError], and
 //     verifier errors). Under sustained loss faster than the consumer
 //     drains, drops are coalesced via
 //     [DropError.AdditionalDropsSuppressed] rather than blocking the
 //     dispatch goroutine; consumers that need exact loss accounting
 //     should sum that field plus one across all DropErrors.
-//   - [QueueOverflowBackpressure] retains parallel verification and a
-//     bounded per-DID queue while making overflow lossless. A hot DID
-//     temporarily pauses stream dispatch until its worker makes room,
-//     propagating backpressure through the websocket reader.
 //
 // To preserve the strict global-seq behavior of pre-1.2 atmos, set
 // Parallelism to 1. At Parallelism = 1 the per-DID queue is unbounded
