@@ -43,6 +43,7 @@ func testConfig() *Config {
 			{Prefix: "com.atproto", Package: "comatproto", OutDir: "api/comatproto", Import: "github.com/jcalabro/atmos/api/comatproto"},
 			{Prefix: "chat.bsky", Package: "chatbsky", OutDir: "api/chatbsky", Import: "github.com/jcalabro/atmos/api/chatbsky"},
 			{Prefix: "tools.ozone", Package: "ozone", OutDir: "api/ozone", Import: "github.com/jcalabro/atmos/api/ozone"},
+			{Prefix: "xyz.statusphere", Package: "statusphere", OutDir: "api/statusphere", Import: "github.com/jcalabro/atmos/api/statusphere"},
 		},
 		SharedTypesDir:    "api/lextypes",
 		SharedTypesPkg:    "lextypes",
@@ -102,6 +103,18 @@ func TestSchemaFileName(t *testing.T) {
 	assert.Equal(t, "feeddefs.go", schemaFileName("app.bsky.feed.defs"))
 	assert.Equal(t, "actorgetprofile.go", schemaFileName("app.bsky.actor.getProfile"))
 	assert.Equal(t, "repocreaterecord.go", schemaFileName("com.atproto.repo.createRecord"))
+}
+
+func TestGenerate_StatusphereVendoredLexicon(t *testing.T) {
+	t.Parallel()
+	files, err := generateAllVendored()
+	require.NoError(t, err)
+
+	code, ok := files["api/statusphere/statuspherestatus.go"]
+	require.True(t, ok, "statusphere record was not generated")
+	assert.Contains(t, string(code), `type StatusphereStatus struct`)
+	assert.Regexp(t, `(?m)^\s*Status\s+string\s+`, string(code))
+	assert.Regexp(t, `(?m)^\s*CreatedAt\s+string\s+`, string(code))
 }
 
 func TestExportFieldName(t *testing.T) {
