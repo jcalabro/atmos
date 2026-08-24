@@ -24,7 +24,11 @@ type Resolver interface {
 
 // DefaultResolver resolves DIDs and handles via network requests.
 type DefaultResolver struct {
-	HTTPClient            gt.Option[*http.Client]
+	// HTTPClient fetches attacker-controlled did:web and handle URLs. For
+	// compatibility, it also fetches PLC documents when PLCHTTPClient is unset.
+	HTTPClient gt.Option[*http.Client]
+	// PLCHTTPClient fetches documents from the operator-configured PLC service.
+	PLCHTTPClient         gt.Option[*http.Client]
 	PLCURL                gt.Option[string]
 	SkipDNSDomainSuffixes []string // e.g. [".bsky.social"] — HTTP-only for these
 
@@ -32,8 +36,25 @@ type DefaultResolver struct {
 	// Overridable in tests.
 	lookupTXT func(ctx context.Context, name string) ([]string, error)
 
-	clientOnce sync.Once
-	httpClient *http.Client
+	clientOnce    sync.Once
+	httpClient    *http.Client
+	plcClientOnce sync.Once
+	plcHTTPClient *http.Client
+}
+
+func (r *DefaultResolver) plcClient() *http.Client {
+	if r.PLCHTTPClient.HasVal() {
+		return r.PLCHTTPClient.Val()
+	}
+	// Preserve the historical contract for callers that injected the resolver's
+	// sole HTTPClient before PLCHTTPClient existed.
+	if r.HTTPClient.HasVal() {
+		return r.HTTPClient.Val()
+	}
+	r.plcClientOnce.Do(func() {
+		r.plcHTTPClient = newDefaultPLCHTTPClient()
+	})
+	return r.plcHTTPClient
 }
 
 func (r *DefaultResolver) client() *http.Client {
@@ -64,7 +85,7 @@ func (r *DefaultResolver) ResolveDID(ctx context.Context, did atmos.DID) (*DIDDo
 
 func (r *DefaultResolver) resolvePLC(ctx context.Context, did atmos.DID) (*DIDDocument, error) {
 	url := r.plcURL() + "/" + string(did)
-	body, err := r.httpGet(ctx, url)
+	body, err := r.httpGetAcceptWithClient(ctx, r.plcClient(), url, "application/json")
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDIDNotFound, err)
 	}
@@ -217,12 +238,16 @@ func (r *DefaultResolver) httpGet(ctx context.Context, url string) ([]byte, erro
 }
 
 func (r *DefaultResolver) httpGetAccept(ctx context.Context, url, accept string) ([]byte, error) {
+	return r.httpGetAcceptWithClient(ctx, r.client(), url, accept)
+}
+
+func (r *DefaultResolver) httpGetAcceptWithClient(ctx context.Context, client *http.Client, url, accept string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", accept)
-	resp, err := r.client().Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
