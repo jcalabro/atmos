@@ -6,8 +6,8 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jcalabro/gt v0.0.12
-	github.com/jcalabro/jttp v0.0.4
-	github.com/klauspost/compress v1.18.4
+	github.com/jcalabro/jttp v0.0.7
+	github.com/klauspost/compress v1.18.6
 	github.com/mr-tron/base58 v1.2.0
 	github.com/puzpuzpuz/xsync/v4 v4.5.0
 	github.com/rivo/uniseg v0.4.7
@@ -29,6 +29,6 @@ require (
 )
 
 retract (
-	v0.10.0 // Published by accident (typo; meant v0.1.10).
 	v0.10.1 // Contains retractions only.
+	v0.10.0 // Published by accident (typo; meant v0.1.10).
 )
