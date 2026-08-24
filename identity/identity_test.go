@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -601,6 +602,63 @@ func TestDefaultResolver_ResolveDID_PLC(t *testing.T) {
 	assert.Equal(t, "did:plc:test123", doc.ID)
 }
 
+func TestDefaultResolver_ResolveDID_PLCUsesDedicatedClient(t *testing.T) {
+	t.Parallel()
+
+	docJSON := `{"id":"did:plc:test123","alsoKnownAs":[],"verificationMethod":[],"service":[]}`
+	plcClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(docJSON)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+	webClient := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("web client used for PLC request")
+	})}
+	resolver := &DefaultResolver{
+		HTTPClient:    gt.Some(webClient),
+		PLCHTTPClient: gt.Some(plcClient),
+	}
+
+	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	require.NoError(t, err)
+	assert.Equal(t, "did:plc:test123", doc.ID)
+}
+
+func TestDefaultResolver_ResolveDID_DefaultPLCClientAllowsTrustedLoopback(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"id":"did:plc:test123","alsoKnownAs":[],"verificationMethod":[],"service":[]}`)
+	}))
+	defer srv.Close()
+
+	resolver := &DefaultResolver{PLCURL: gt.Some(srv.URL)}
+	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	require.NoError(t, err)
+	assert.Equal(t, "did:plc:test123", doc.ID)
+}
+
+func TestDefaultResolver_ResolveDID_DefaultPLCClientRejectsRedirect(t *testing.T) {
+	t.Parallel()
+
+	var redirectTargetRequests atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		redirectTargetRequests.Add(1)
+		_, _ = fmt.Fprint(w, `{"id":"did:plc:test123","alsoKnownAs":[],"verificationMethod":[],"service":[]}`)
+	}))
+	defer target.Close()
+	source := httptest.NewServer(http.RedirectHandler(target.URL, http.StatusFound))
+	defer source.Close()
+
+	resolver := &DefaultResolver{PLCURL: gt.Some(source.URL)}
+	_, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	assert.ErrorIs(t, err, ErrDIDNotFound)
+	assert.Zero(t, redirectTargetRequests.Load())
+}
+
 func TestDefaultResolver_ResolveDID_Web(t *testing.T) {
 	t.Parallel()
 
@@ -625,6 +683,50 @@ func TestDefaultResolver_ResolveDID_Web(t *testing.T) {
 	doc, err := resolver.ResolveDID(context.Background(), "did:web:alice.test")
 	require.NoError(t, err)
 	assert.Equal(t, "did:web:alice.test", doc.ID)
+}
+
+func TestDefaultResolver_ResolveDID_WebUsesUntrustedClient(t *testing.T) {
+	t.Parallel()
+
+	webClient := &http.Client{Transport: &captureTransport{
+		body: `{"id":"did:web:alice.test","alsoKnownAs":[],"verificationMethod":[],"service":[]}`,
+	}}
+	plcClient := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("PLC client used for did:web request")
+	})}
+	resolver := &DefaultResolver{
+		HTTPClient:    gt.Some(webClient),
+		PLCHTTPClient: gt.Some(plcClient),
+	}
+
+	doc, err := resolver.ResolveDID(context.Background(), "did:web:alice.test")
+	require.NoError(t, err)
+	assert.Equal(t, "did:web:alice.test", doc.ID)
+}
+
+func TestDefaultResolver_ResolveHandle_UsesUntrustedClient(t *testing.T) {
+	t.Parallel()
+
+	webClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("did:plc:alice")),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+	plcClient := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("PLC client used for handle request")
+	})}
+	resolver := &DefaultResolver{
+		HTTPClient:            gt.Some(webClient),
+		PLCHTTPClient:         gt.Some(plcClient),
+		SkipDNSDomainSuffixes: []string{".test"},
+	}
+
+	did, err := resolver.ResolveHandle(context.Background(), "alice.test")
+	require.NoError(t, err)
+	assert.Equal(t, atmos.DID("did:plc:alice"), did)
 }
 
 func TestDefaultResolver_ResolveDID_WebIDMismatch(t *testing.T) {
@@ -652,6 +754,12 @@ func TestDefaultResolver_ResolveDID_UnsupportedMethod(t *testing.T) {
 	resolver := &DefaultResolver{}
 	_, err := resolver.ResolveDID(context.Background(), "did:unsupported:xyz")
 	assert.ErrorIs(t, err, ErrUnsupportedDIDMethod)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 // captureTransport records the request URL it sees, then serves a fixed body.
