@@ -148,8 +148,11 @@ func (s *LabelDefs_Label) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *LabelDefs_Label) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelDefs_Label) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -158,11 +161,20 @@ func (s *LabelDefs_Label) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -628,8 +640,11 @@ func (s *LabelDefs_LabelValueDefinition) AppendCBOR(buf []byte) ([]byte, error) 
 }
 
 func (s *LabelDefs_LabelValueDefinition) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -638,11 +653,20 @@ func (s *LabelDefs_LabelValueDefinition) UnmarshalCBORAt(data []byte, pos int) (
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1039,8 +1063,11 @@ func (s *LabelDefs_LabelValueDefinitionStrings) AppendCBOR(buf []byte) ([]byte, 
 }
 
 func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1049,11 +1076,20 @@ func (s *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBORAt(data []byte, pos
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -1278,8 +1314,11 @@ func (s *LabelDefs_SelfLabel) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *LabelDefs_SelfLabel) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelDefs_SelfLabel) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1288,11 +1327,20 @@ func (s *LabelDefs_SelfLabel) UnmarshalCBORAt(data []byte, pos int) (int, error)
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1488,8 +1536,11 @@ func (s *LabelDefs_SelfLabels) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *LabelDefs_SelfLabels) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1498,11 +1549,20 @@ func (s *LabelDefs_SelfLabels) UnmarshalCBORAt(data []byte, pos int) (int, error
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:

@@ -141,8 +141,11 @@ func (s *UnspeccedDefs_AgeAssuranceEvent) AppendCBOR(buf []byte) ([]byte, error)
 }
 
 func (s *UnspeccedDefs_AgeAssuranceEvent) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_AgeAssuranceEvent) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -151,11 +154,20 @@ func (s *UnspeccedDefs_AgeAssuranceEvent) UnmarshalCBORAt(data []byte, pos int) 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -573,8 +585,11 @@ func (s *UnspeccedDefs_AgeAssuranceState) AppendCBOR(buf []byte) ([]byte, error)
 }
 
 func (s *UnspeccedDefs_AgeAssuranceState) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_AgeAssuranceState) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -583,11 +598,20 @@ func (s *UnspeccedDefs_AgeAssuranceState) UnmarshalCBORAt(data []byte, pos int) 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -810,8 +834,11 @@ func (s *UnspeccedDefs_SkeletonSearchActor) AppendCBOR(buf []byte) ([]byte, erro
 }
 
 func (s *UnspeccedDefs_SkeletonSearchActor) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_SkeletonSearchActor) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -820,11 +847,20 @@ func (s *UnspeccedDefs_SkeletonSearchActor) UnmarshalCBORAt(data []byte, pos int
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1004,8 +1040,11 @@ func (s *UnspeccedDefs_SkeletonSearchPost) AppendCBOR(buf []byte) ([]byte, error
 }
 
 func (s *UnspeccedDefs_SkeletonSearchPost) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_SkeletonSearchPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1014,11 +1053,20 @@ func (s *UnspeccedDefs_SkeletonSearchPost) UnmarshalCBORAt(data []byte, pos int)
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1198,8 +1246,11 @@ func (s *UnspeccedDefs_SkeletonSearchStarterPack) AppendCBOR(buf []byte) ([]byte
 }
 
 func (s *UnspeccedDefs_SkeletonSearchStarterPack) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_SkeletonSearchStarterPack) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1208,11 +1259,20 @@ func (s *UnspeccedDefs_SkeletonSearchStarterPack) UnmarshalCBORAt(data []byte, p
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1461,8 +1521,11 @@ func (s *UnspeccedDefs_SkeletonTrend) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *UnspeccedDefs_SkeletonTrend) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_SkeletonTrend) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1471,11 +1534,20 @@ func (s *UnspeccedDefs_SkeletonTrend) UnmarshalCBORAt(data []byte, pos int) (int
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -1898,8 +1970,11 @@ func (s *UnspeccedDefs_ThreadItemBlocked) AppendCBOR(buf []byte) ([]byte, error)
 }
 
 func (s *UnspeccedDefs_ThreadItemBlocked) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_ThreadItemBlocked) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1908,11 +1983,20 @@ func (s *UnspeccedDefs_ThreadItemBlocked) UnmarshalCBORAt(data []byte, pos int) 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -2091,8 +2175,11 @@ func (s *UnspeccedDefs_ThreadItemNoUnauthenticated) AppendCBOR(buf []byte) ([]by
 }
 
 func (s *UnspeccedDefs_ThreadItemNoUnauthenticated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_ThreadItemNoUnauthenticated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2101,11 +2188,20 @@ func (s *UnspeccedDefs_ThreadItemNoUnauthenticated) UnmarshalCBORAt(data []byte,
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -2252,8 +2348,11 @@ func (s *UnspeccedDefs_ThreadItemNotFound) AppendCBOR(buf []byte) ([]byte, error
 }
 
 func (s *UnspeccedDefs_ThreadItemNotFound) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_ThreadItemNotFound) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2262,11 +2361,20 @@ func (s *UnspeccedDefs_ThreadItemNotFound) UnmarshalCBORAt(data []byte, pos int)
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -2467,8 +2575,11 @@ func (s *UnspeccedDefs_ThreadItemPost) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *UnspeccedDefs_ThreadItemPost) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_ThreadItemPost) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2477,11 +2588,20 @@ func (s *UnspeccedDefs_ThreadItemPost) UnmarshalCBORAt(data []byte, pos int) (in
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -2865,8 +2985,11 @@ func (s *UnspeccedDefs_TrendView) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *UnspeccedDefs_TrendView) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_TrendView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2875,11 +2998,20 @@ func (s *UnspeccedDefs_TrendView) UnmarshalCBORAt(data []byte, pos int) (int, er
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -3329,8 +3461,11 @@ func (s *UnspeccedDefs_TrendingTopic) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *UnspeccedDefs_TrendingTopic) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedDefs_TrendingTopic) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -3339,11 +3474,20 @@ func (s *UnspeccedDefs_TrendingTopic) UnmarshalCBORAt(data []byte, pos int) (int
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:

@@ -79,12 +79,12 @@ func TestDecodeFrame_CommitWithNullCID(t *testing.T) {
 	body = cbor.AppendText(body, "did:plc:test")
 	body = cbor.AppendTextKey(body, "time")
 	body = cbor.AppendText(body, "2024-01-01T00:00:00Z")
+	body = cbor.AppendTextKey(body, "$type")
+	body = cbor.AppendText(body, "com.atproto.sync.subscribeRepos#commit")
 	body = cbor.AppendTextKey(body, "blobs")
 	body = append(body, cbor.AppendArrayHeader(nil, 0)...)
 	body = cbor.AppendTextKey(body, "blocks")
 	body = cbor.AppendBytes(body, nil)
-	body = cbor.AppendTextKey(body, "$type")
-	body = cbor.AppendText(body, "com.atproto.sync.subscribeRepos#commit")
 
 	// Build the frame: header + body.
 	hdr := cbor.AppendMapHeader(nil, 2)

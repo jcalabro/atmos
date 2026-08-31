@@ -58,8 +58,11 @@ func (s *FeedThreadgate_FollowerRule) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedThreadgate_FollowerRule) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedThreadgate_FollowerRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -68,11 +71,20 @@ func (s *FeedThreadgate_FollowerRule) UnmarshalCBORAt(data []byte, pos int) (int
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -221,8 +233,11 @@ func (s *FeedThreadgate_FollowingRule) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedThreadgate_FollowingRule) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedThreadgate_FollowingRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -231,11 +246,20 @@ func (s *FeedThreadgate_FollowingRule) UnmarshalCBORAt(data []byte, pos int) (in
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -391,8 +415,11 @@ func (s *FeedThreadgate_ListRule) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedThreadgate_ListRule) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedThreadgate_ListRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -401,11 +428,20 @@ func (s *FeedThreadgate_ListRule) UnmarshalCBORAt(data []byte, pos int) (int, er
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -676,8 +712,11 @@ func (u FeedThreadgate_Allow) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (u *FeedThreadgate_Allow) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *FeedThreadgate_Allow) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -815,8 +854,11 @@ func (s *FeedThreadgate) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedThreadgate) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedThreadgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -825,11 +867,20 @@ func (s *FeedThreadgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -1163,8 +1214,11 @@ func (s *FeedThreadgate_MentionRule) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedThreadgate_MentionRule) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedThreadgate_MentionRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1173,11 +1227,20 @@ func (s *FeedThreadgate_MentionRule) UnmarshalCBORAt(data []byte, pos int) (int,
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:

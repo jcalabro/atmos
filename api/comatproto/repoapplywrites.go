@@ -82,8 +82,11 @@ func (s *RepoApplyWrites_Create) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Create) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -92,11 +95,20 @@ func (s *RepoApplyWrites_Create) UnmarshalCBORAt(data []byte, pos int) (int, err
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -361,8 +373,11 @@ func (s *RepoApplyWrites_CreateResult) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_CreateResult) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -371,11 +386,20 @@ func (s *RepoApplyWrites_CreateResult) UnmarshalCBORAt(data []byte, pos int) (in
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -624,8 +648,11 @@ func (s *RepoApplyWrites_Delete) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Delete) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -634,11 +661,20 @@ func (s *RepoApplyWrites_Delete) UnmarshalCBORAt(data []byte, pos int) (int, err
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -837,8 +873,11 @@ func (s *RepoApplyWrites_DeleteResult) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_DeleteResult) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_DeleteResult) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -847,11 +886,20 @@ func (s *RepoApplyWrites_DeleteResult) UnmarshalCBORAt(data []byte, pos int) (in
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1209,8 +1257,11 @@ func (s *RepoApplyWrites_Output) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1219,11 +1270,20 @@ func (s *RepoApplyWrites_Output) UnmarshalCBORAt(data []byte, pos int) (int, err
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1397,8 +1457,11 @@ func (u RepoApplyWrites_Output_Results) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (u *RepoApplyWrites_Output_Results) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *RepoApplyWrites_Output_Results) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1710,8 +1773,11 @@ func (s *RepoApplyWrites_Input) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Input) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1720,11 +1786,20 @@ func (s *RepoApplyWrites_Input) UnmarshalCBORAt(data []byte, pos int) (int, erro
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -1932,8 +2007,11 @@ func (u RepoApplyWrites_Input_Writes) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (u *RepoApplyWrites_Input_Writes) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *RepoApplyWrites_Input_Writes) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2054,8 +2132,11 @@ func (s *RepoApplyWrites_Update) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_Update) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2064,11 +2145,20 @@ func (s *RepoApplyWrites_Update) UnmarshalCBORAt(data []byte, pos int) (int, err
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -2316,8 +2406,11 @@ func (s *RepoApplyWrites_UpdateResult) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *RepoApplyWrites_UpdateResult) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2326,11 +2419,20 @@ func (s *RepoApplyWrites_UpdateResult) UnmarshalCBORAt(data []byte, pos int) (in
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:

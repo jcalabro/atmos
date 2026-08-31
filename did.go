@@ -99,6 +99,32 @@ func (d DID) Validate() error {
 	return err
 }
 
+// ValidatePLC reports whether d is a syntactically valid did:plc DID:
+// method "plc" with an identifier of exactly 24 lowercase base32
+// characters ([a-z2-7]), per the did:plc specification. This is stricter
+// than the generic DID grammar, which permits characters (notably '%')
+// that change URL path boundaries when a DID is interpolated into an
+// HTTP request path — validate with this before building PLC URLs.
+func (d DID) ValidatePLC() error {
+	if _, err := ParseDID(string(d)); err != nil {
+		return err
+	}
+	if d.Method() != "plc" {
+		return syntaxErr("DID", string(d), "unsupported DID method \""+d.Method()+"\"")
+	}
+	id := d.Identifier()
+	if len(id) != 24 {
+		return syntaxErr("DID", string(d), "did:plc identifier must be exactly 24 characters")
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if !isLowerAlpha(c) && (c < '2' || c > '7') {
+			return syntaxErr("DID", string(d), "did:plc identifier must be lowercase base32 ([a-z2-7])")
+		}
+	}
+	return nil
+}
+
 func (d DID) String() string {
 	return string(d)
 }

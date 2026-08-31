@@ -90,8 +90,11 @@ func (s *LabelerDefs_LabelerPolicies) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *LabelerDefs_LabelerPolicies) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelerDefs_LabelerPolicies) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -100,11 +103,20 @@ func (s *LabelerDefs_LabelerPolicies) UnmarshalCBORAt(data []byte, pos int) (int
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -507,8 +519,11 @@ func (s *LabelerDefs_LabelerView) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *LabelerDefs_LabelerView) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelerDefs_LabelerView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -517,11 +532,20 @@ func (s *LabelerDefs_LabelerView) UnmarshalCBORAt(data []byte, pos int) (int, er
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1113,8 +1137,11 @@ func (s *LabelerDefs_LabelerViewDetailed) AppendCBOR(buf []byte) ([]byte, error)
 }
 
 func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1123,11 +1150,20 @@ func (s *LabelerDefs_LabelerViewDetailed) UnmarshalCBORAt(data []byte, pos int) 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1782,8 +1818,11 @@ func (s *LabelerDefs_LabelerViewerState) AppendCBOR(buf []byte) ([]byte, error) 
 }
 
 func (s *LabelerDefs_LabelerViewerState) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelerDefs_LabelerViewerState) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1792,11 +1831,20 @@ func (s *LabelerDefs_LabelerViewerState) UnmarshalCBORAt(data []byte, pos int) (
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:

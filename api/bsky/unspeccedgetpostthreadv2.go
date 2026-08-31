@@ -268,8 +268,11 @@ func (s *UnspeccedGetPostThreadV2_Output) AppendCBOR(buf []byte) ([]byte, error)
 }
 
 func (s *UnspeccedGetPostThreadV2_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedGetPostThreadV2_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -278,11 +281,20 @@ func (s *UnspeccedGetPostThreadV2_Output) UnmarshalCBORAt(data []byte, pos int) 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -540,8 +552,11 @@ func (u UnspeccedGetPostThreadV2_ThreadItem_Value) AppendCBOR(buf []byte) ([]byt
 }
 
 func (u *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -658,8 +673,11 @@ func (s *UnspeccedGetPostThreadV2_ThreadItem) AppendCBOR(buf []byte) ([]byte, er
 }
 
 func (s *UnspeccedGetPostThreadV2_ThreadItem) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedGetPostThreadV2_ThreadItem) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -668,11 +686,20 @@ func (s *UnspeccedGetPostThreadV2_ThreadItem) UnmarshalCBORAt(data []byte, pos i
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:

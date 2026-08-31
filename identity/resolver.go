@@ -73,6 +73,9 @@ func (r *DefaultResolver) plcURL() string {
 
 // ResolveDID fetches the DID document for the given DID.
 func (r *DefaultResolver) ResolveDID(ctx context.Context, did atmos.DID) (*DIDDocument, error) {
+	if _, err := atmos.ParseDID(string(did)); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDIDNotFound, err)
+	}
 	switch did.Method() {
 	case "plc":
 		return r.resolvePLC(ctx, did)
@@ -84,6 +87,11 @@ func (r *DefaultResolver) ResolveDID(ctx context.Context, did atmos.DID) (*DIDDo
 }
 
 func (r *DefaultResolver) resolvePLC(ctx context.Context, did atmos.DID) (*DIDDocument, error) {
+	// Generic DID syntax permits '%', which changes URL path boundaries;
+	// enforce the strict did:plc grammar before path concatenation.
+	if err := did.ValidatePLC(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDIDNotFound, err)
+	}
 	url := r.plcURL() + "/" + string(did)
 	body, err := r.httpGetAcceptWithClient(ctx, r.plcClient(), url, "application/json")
 	if err != nil {
@@ -117,11 +125,23 @@ func (r *DefaultResolver) resolveWeb(ctx context.Context, did atmos.DID) (*DIDDo
 	}
 
 	scheme := "https"
-	if authority == "localhost" || strings.HasPrefix(authority, "localhost:") {
-		scheme = "http"
-	}
 	docURL := scheme + "://" + authority + "/.well-known/did.json"
-	body, err := r.httpGet(ctx, docURL)
+	parsedURL, err := url.Parse(docURL)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid did:web URL %q: %w", ErrDIDNotFound, docURL, err)
+	}
+	if parsedURL.User != nil || parsedURL.RawQuery != "" || parsedURL.Fragment != "" || parsedURL.RawFragment != "" ||
+		parsedURL.Path != "/.well-known/did.json" || parsedURL.Opaque != "" {
+		return nil, fmt.Errorf("%w: did:web identifier %q changes URL boundaries", ErrDIDNotFound, id)
+	}
+	if parsedURL.Host == "" {
+		return nil, fmt.Errorf("%w: did:web identifier %q has no host", ErrDIDNotFound, id)
+	}
+	if parsedURL.Hostname() == "localhost" {
+		scheme = "http"
+		parsedURL.Scheme = scheme
+	}
+	body, err := r.httpGet(ctx, parsedURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDIDNotFound, err)
 	}

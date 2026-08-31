@@ -511,10 +511,10 @@ func TestUnknownFrame_SurfacesErrorAndSuppressesGap(t *testing.T) {
 	t.Parallel()
 
 	unknownBody := cbor.AppendMapHeader(nil, 2)
-	unknownBody = cbor.AppendTextKey(unknownBody, "seq")
-	unknownBody = cbor.AppendInt(unknownBody, 2)
 	unknownBody = cbor.AppendTextKey(unknownBody, "did")
 	unknownBody = cbor.AppendText(unknownBody, "did:plc:future")
+	unknownBody = cbor.AppendTextKey(unknownBody, "seq")
+	unknownBody = cbor.AppendInt(unknownBody, 2)
 
 	srv := startMockRelay(t, func(conn *websocket.Conn, _ *http.Request) {
 		writeFrames(conn,

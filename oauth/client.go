@@ -19,6 +19,7 @@ import (
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
+	"github.com/jcalabro/jttp"
 )
 
 // Client is an ATProto OAuth 2.0 client that handles the complete
@@ -301,15 +302,32 @@ func (c *Client) AuthenticatedClient(ctx context.Context, did string) (*xrpc.Cli
 		session: session,
 	}
 
+	// The PDS host is attacker-influenced (session audience / DID document),
+	// so authenticated XRPC traffic must ride the same SSRF-protected
+	// transport as OAuth discovery and token requests — not a bare transport.
+	protected := c.httpClient()
+	base := protected.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
 	transport := &Transport{
-		Base:   xrpc.NewTransport(),
+		Base:   base,
 		Source: source,
 		Nonces: c.getNonces(),
 	}
 
+	timeout := protected.Timeout
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
 	return &xrpc.Client{
-		Host:       pds,
-		HTTPClient: gt.Some(&http.Client{Transport: transport, Timeout: 30 * time.Second}),
+		Host: pds,
+		HTTPClient: gt.Some(&http.Client{
+			Transport:     transport,
+			CheckRedirect: protected.CheckRedirect,
+			Jar:           protected.Jar,
+			Timeout:       timeout,
+		}),
 	}, nil
 }
 
@@ -378,7 +396,11 @@ func (c *Client) httpClient() *http.Client {
 		return c.HTTPClient.Val()
 	}
 	c.httpOnce.Do(func() {
-		c.httpCached = xrpc.NewHTTPClient(30 * time.Second)
+		opts := append(xrpc.ATProtoOpts(30*time.Second),
+			jttp.WithStrictSSRFProtection(),
+			jttp.WithNoProxy(),
+		)
+		c.httpCached = jttp.New(opts...)
 	})
 	return c.httpCached
 }

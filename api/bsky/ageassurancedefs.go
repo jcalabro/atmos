@@ -83,8 +83,11 @@ func (s *AgeassuranceDefs_Config) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_Config) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_Config) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -93,11 +96,20 @@ func (s *AgeassuranceDefs_Config) UnmarshalCBORAt(data []byte, pos int) (int, er
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -471,8 +483,11 @@ func (u AgeassuranceDefs_ConfigRegion_Rules) AppendCBOR(buf []byte) ([]byte, err
 }
 
 func (u *AgeassuranceDefs_ConfigRegion_Rules) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *AgeassuranceDefs_ConfigRegion_Rules) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -628,8 +643,11 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -638,11 +656,20 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -956,8 +983,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) AppendCBOR(buf []byte) ([]byt
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -966,11 +996,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleDefault) UnmarshalCBORAt(data []byte, 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1159,8 +1198,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) AppendCBOR(buf []b
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1169,11 +1211,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountNewerThan) UnmarshalCBORAt(da
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -1388,8 +1439,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) AppendCBOR(buf []b
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1398,11 +1452,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAccountOlderThan) UnmarshalCBORAt(da
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:
@@ -1617,8 +1680,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) AppendCBOR(buf []byt
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1627,11 +1693,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredOverAge) UnmarshalCBORAt(data
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1846,8 +1921,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) AppendCBOR(buf []by
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1856,11 +1934,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfAssuredUnderAge) UnmarshalCBORAt(dat
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -2075,8 +2162,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) AppendCBOR(buf []by
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2085,11 +2175,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredOverAge) UnmarshalCBORAt(dat
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -2304,8 +2403,11 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) AppendCBOR(buf []b
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2314,11 +2416,20 @@ func (s *AgeassuranceDefs_ConfigRegionRuleIfDeclaredUnderAge) UnmarshalCBORAt(da
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -2638,8 +2749,11 @@ func (s *AgeassuranceDefs_Event) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_Event) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2648,11 +2762,20 @@ func (s *AgeassuranceDefs_Event) UnmarshalCBORAt(data []byte, pos int) (int, err
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -3154,8 +3277,11 @@ func (s *AgeassuranceDefs_State) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *AgeassuranceDefs_State) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_State) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -3164,11 +3290,20 @@ func (s *AgeassuranceDefs_State) UnmarshalCBORAt(data []byte, pos int) (int, err
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -3417,8 +3552,11 @@ func (s *AgeassuranceDefs_StateMetadata) AppendCBOR(buf []byte) ([]byte, error) 
 }
 
 func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -3427,11 +3565,20 @@ func (s *AgeassuranceDefs_StateMetadata) UnmarshalCBORAt(data []byte, pos int) (
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:

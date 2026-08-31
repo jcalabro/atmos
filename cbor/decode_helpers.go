@@ -1,6 +1,7 @@
 package cbor
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"unicode/utf8"
@@ -203,6 +204,9 @@ func readTextSlow(data []byte, pos int) (string, int, error) {
 	if major != 3 {
 		return "", 0, fmt.Errorf("cbor: expected text (major 3), got major %d", major)
 	}
+	if val > MaxSize {
+		return "", 0, fmt.Errorf("cbor: text string length %d exceeds max size %d", val, MaxSize)
+	}
 	if val > uint64(len(data)-newPos) {
 		return "", 0, fmt.Errorf("cbor: text data truncated")
 	}
@@ -219,10 +223,8 @@ func readTextSlow(data []byte, pos int) (string, int, error) {
 }
 
 // ReadTextKey reads a CBOR text string header at position pos, returning the
-// key's byte range and new position WITHOUT creating a string or validating UTF-8.
-// This is designed for generated unmarshal code where keys are compared against
-// known constants using string(data[start:end]) == "literal" (which Go optimizes
-// to avoid allocation). Unknown keys are validated separately.
+// key's byte range and new position WITHOUT creating a string. UTF-8 is still
+// validated because both known and unknown map keys must be valid DAG-CBOR.
 func ReadTextKey(data []byte, pos int) (keyStart, keyEnd, newPos int, err error) {
 	if pos < len(data) {
 		b := data[pos]
@@ -232,6 +234,9 @@ func ReadTextKey(data []byte, pos int) (keyStart, keyEnd, newPos int, err error)
 			end := start + n
 			if end > len(data) {
 				return 0, 0, 0, fmt.Errorf("cbor: text data truncated")
+			}
+			if !utf8.Valid(data[start:end]) {
+				return 0, 0, 0, fmt.Errorf("cbor: text key contains invalid UTF-8")
 			}
 			return start, end, end, nil
 		}
@@ -247,11 +252,39 @@ func readTextKeySlow(data []byte, pos int) (keyStart, keyEnd, newPos int, err er
 	if major != 3 {
 		return 0, 0, 0, fmt.Errorf("cbor: expected text (major 3), got major %d", major)
 	}
+	if val > MaxSize {
+		return 0, 0, 0, fmt.Errorf("cbor: map key length %d exceeds max size %d", val, MaxSize)
+	}
 	if val > uint64(len(data)-hdrEnd) {
 		return 0, 0, 0, fmt.Errorf("cbor: text data truncated")
 	}
 	end := hdrEnd + int(val)
+	if !utf8.Valid(data[hdrEnd:end]) {
+		return 0, 0, 0, fmt.Errorf("cbor: text key contains invalid UTF-8")
+	}
 	return hdrEnd, end, end, nil
+}
+
+// CheckMapKeyOrder verifies that two consecutive DAG-CBOR text map keys are
+// unique and in canonical order. The positions are byte ranges returned by
+// ReadTextKey.
+func CheckMapKeyOrder(data []byte, prevStart, prevEnd, keyStart, keyEnd int) error {
+	prevLen := prevEnd - prevStart
+	keyLen := keyEnd - keyStart
+	if prevLen != keyLen {
+		if prevLen > keyLen {
+			return fmt.Errorf("cbor: map keys not sorted (DAG-CBOR requires sorted keys)")
+		}
+		return nil
+	}
+	switch bytes.Compare(data[prevStart:prevEnd], data[keyStart:keyEnd]) {
+	case 0:
+		return fmt.Errorf("cbor: duplicate map key")
+	case 1:
+		return fmt.Errorf("cbor: map keys not sorted (DAG-CBOR requires sorted keys)")
+	default:
+		return nil
+	}
 }
 
 // ReadBytes reads a CBOR byte string at position pos, returning a copy of the bytes.
@@ -262,6 +295,9 @@ func ReadBytes(data []byte, pos int) ([]byte, int, error) {
 	}
 	if major != 2 {
 		return nil, 0, fmt.Errorf("cbor: expected bytes (major 2), got major %d", major)
+	}
+	if val > MaxSize {
+		return nil, 0, fmt.Errorf("cbor: byte string length %d exceeds max size %d", val, MaxSize)
 	}
 	if val > uint64(len(data)-newPos) {
 		return nil, 0, fmt.Errorf("cbor: bytes data truncated")
@@ -281,6 +317,9 @@ func ReadBytesNoCopy(data []byte, pos int) ([]byte, int, error) {
 	}
 	if major != 2 {
 		return nil, 0, fmt.Errorf("cbor: expected bytes (major 2), got major %d", major)
+	}
+	if val > MaxSize {
+		return nil, 0, fmt.Errorf("cbor: byte string length %d exceeds max size %d", val, MaxSize)
 	}
 	if val > uint64(len(data)-newPos) {
 		return nil, 0, fmt.Errorf("cbor: bytes data truncated")
@@ -447,100 +486,162 @@ func IsNull(data []byte, pos int) bool {
 // Uses an iterative approach with a stack-allocated counter array to avoid
 // recursive function call overhead for nested containers.
 func SkipValue(data []byte, pos int) (int, error) {
-	// Stack of remaining items to skip at each nesting level.
-	// 32 levels is more than enough for any real ATProto data (MaxDepth=128).
-	var stack [32]uint64
+	type skipFrame struct {
+		remaining uint64
+		isMap     bool
+		prevStart int
+		prevEnd   int
+	}
+
+	// MaxDepth is mutable, so validate it and use a bounded parent stack.
+	stackLen := MaxDepth
+	if stackLen < 1 || stackLen > 1024 {
+		return 0, fmt.Errorf("cbor: invalid MaxDepth %d", MaxDepth)
+	}
+	var stack []skipFrame
+	if stackLen <= 128 {
+		var fixed [128]skipFrame
+		stack = fixed[:stackLen]
+	} else {
+		stack = make([]skipFrame, stackLen)
+	}
 	depth := 0
-	remaining := uint64(1)
+	current := skipFrame{remaining: 1}
 
 	for {
-		for remaining == 0 {
+		for current.remaining == 0 {
 			if depth == 0 {
 				return pos, nil
 			}
 			depth--
-			remaining = stack[depth]
+			current = stack[depth]
 		}
-		remaining--
+		current.remaining--
 
 		if pos >= len(data) {
 			return 0, fmt.Errorf("cbor: unexpected end of data")
 		}
 
-		// Fast path: decode the initial byte inline for the most common cases,
-		// avoiding the non-inlinable ReadHeader function call.
-		b := data[pos]
-		if b&0x1f < 24 && b>>5 != 7 {
-			major := b >> 5
-			val := uint64(b & 0x1f)
-			switch major {
-			case 0, 1: // uint, negint — single byte header
-				pos++
-			case 2, 3: // bytes, text — single byte header + val bytes payload
-				end := pos + 1 + int(val)
-				if end > len(data) {
-					return 0, fmt.Errorf("cbor: data truncated")
-				}
-				pos = end
-			case 4: // array
-				if depth >= len(stack) {
-					return 0, fmt.Errorf("cbor: nesting too deep for skip")
-				}
-				stack[depth] = remaining
-				depth++
-				remaining = val
-				pos++
-			case 5: // map
-				if depth >= len(stack) {
-					return 0, fmt.Errorf("cbor: nesting too deep for skip")
-				}
-				stack[depth] = remaining
-				depth++
-				remaining = val * 2
-				pos++
-			case 6: // tag
-				remaining++
-				pos++
-			}
-			continue
-		}
-
-		// Slow path: multi-byte headers, major type 7.
+		// ReadHeader validates minimal encoding and rejects indefinite lengths,
+		// float16/32, and unsupported simple-value encodings.
 		major, val, newPos, err := ReadHeader(data, pos)
 		if err != nil {
 			return 0, err
 		}
 
+		if current.isMap && current.remaining%2 == 1 {
+			if major != 3 {
+				return 0, fmt.Errorf("cbor: map key must be text string, got major type %d", major)
+			}
+			if val > MaxSize {
+				return 0, fmt.Errorf("cbor: map key length %d exceeds max size %d", val, MaxSize)
+			}
+			if val > uint64(len(data)-newPos) {
+				return 0, fmt.Errorf("cbor: map key truncated")
+			}
+			end := newPos + int(val)
+			if !utf8.Valid(data[newPos:end]) {
+				return 0, fmt.Errorf("cbor: map key contains invalid UTF-8")
+			}
+			// prevStart == 0 means "no previous key": a key payload always
+			// sits after its map header, so a real key never starts at 0.
+			// (prevEnd > prevStart would misread an empty previous key as
+			// absent, letting duplicate "" keys through.)
+			if current.prevStart != 0 {
+				if err := CheckMapKeyOrder(data, current.prevStart, current.prevEnd, newPos, end); err != nil {
+					return 0, err
+				}
+			}
+			current.prevStart, current.prevEnd = newPos, end
+			pos = end
+			continue
+		}
+
 		switch major {
-		case 0, 1, 7: // uint, negint, simple/float
+		case 0:
+			if val > math.MaxInt64 {
+				return 0, fmt.Errorf("cbor: unsigned integer exceeds int64 range")
+			}
+			pos = newPos
+		case 1:
+			if val > math.MaxInt64 {
+				return 0, fmt.Errorf("cbor: negative integer overflow")
+			}
 			pos = newPos
 		case 2, 3: // bytes, text
+			if val > MaxSize {
+				return 0, fmt.Errorf("cbor: %s length %d exceeds max size %d", cborTypeName(major), val, MaxSize)
+			}
 			if val > uint64(len(data)-newPos) {
-				return 0, fmt.Errorf("cbor: data truncated")
+				return 0, fmt.Errorf("cbor: %s truncated", cborTypeName(major))
 			}
-			pos = newPos + int(val)
+			end := newPos + int(val)
+			if major == 3 && !utf8.Valid(data[newPos:end]) {
+				return 0, fmt.Errorf("cbor: text string contains invalid UTF-8")
+			}
+			pos = end
 		case 4: // array
-			if depth >= len(stack) {
-				return 0, fmt.Errorf("cbor: nesting too deep for skip")
+			if val > MaxSize {
+				return 0, fmt.Errorf("cbor: array length %d exceeds max size %d", val, MaxSize)
 			}
-			stack[depth] = remaining
+			if val > uint64(len(data)-newPos) {
+				return 0, fmt.Errorf("cbor: array length exceeds remaining input")
+			}
+			if depth >= len(stack) {
+				return 0, fmt.Errorf("cbor: exceeded max nesting depth of %d", MaxDepth)
+			}
+			stack[depth] = current
 			depth++
-			remaining = val
+			current = skipFrame{remaining: val}
 			pos = newPos
 		case 5: // map
-			if depth >= len(stack) {
-				return 0, fmt.Errorf("cbor: nesting too deep for skip")
+			if val > MaxSize {
+				return 0, fmt.Errorf("cbor: map length %d exceeds max size %d", val, MaxSize)
 			}
-			stack[depth] = remaining
+			if val > uint64(len(data)-newPos)/2 {
+				return 0, fmt.Errorf("cbor: map length exceeds remaining input")
+			}
+			if depth >= len(stack) {
+				return 0, fmt.Errorf("cbor: exceeded max nesting depth of %d", MaxDepth)
+			}
+			stack[depth] = current
 			depth++
-			remaining = val * 2
+			current = skipFrame{remaining: val * 2, isMap: true}
 			pos = newPos
 		case 6: // tag
-			remaining++
-			pos = newPos
+			if val != tagCIDLink {
+				return 0, fmt.Errorf("cbor: unsupported tag %d, only tag 42 allowed in DAG-CBOR", val)
+			}
+			_, pos, err = ReadCIDLink(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case 7:
+			switch data[pos] & 0x1f {
+			case 20, 21, 22:
+				pos = newPos
+			case 27:
+				_, pos, err = ReadFloat64(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			default:
+				return 0, fmt.Errorf("cbor: unsupported simple value info %d", data[pos]&0x1f)
+			}
 		default:
 			return 0, fmt.Errorf("cbor: unknown major type %d", major)
 		}
+	}
+}
+
+func cborTypeName(major byte) string {
+	switch major {
+	case 2:
+		return "byte string"
+	case 3:
+		return "text string"
+	default:
+		return "value"
 	}
 }
 

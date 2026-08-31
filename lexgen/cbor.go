@@ -182,8 +182,9 @@ func (g *fileGen) genMarshalCBOR(buf *strings.Builder, typeName string, fields [
 func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields []fieldInfo) {
 	// UnmarshalCBOR is a thin wrapper around UnmarshalCBORAt.
 	fmt.Fprintf(buf, "func (s *%s) UnmarshalCBOR(data []byte) error {\n", typeName)
-	buf.WriteString("\t_, err := s.UnmarshalCBORAt(data, 0)\n")
-	buf.WriteString("\treturn err\n")
+	buf.WriteString("\tpos, err := s.UnmarshalCBORAt(data, 0)\n")
+	buf.WriteString("\tif err != nil { return err }\n")
+	buf.WriteString("\treturn cbor.CheckTrailingData(pos, len(data))\n")
 	buf.WriteString("}\n\n")
 
 	// UnmarshalCBORAt decodes from data starting at pos, returns new position.
@@ -195,9 +196,16 @@ func (g *fileGen) genUnmarshalCBOR(buf *strings.Builder, typeName string, fields
 	buf.WriteString("\ts.extra = clearExtra(s.extra, extraEncodingCBOR)\n")
 	buf.WriteString("\tcount, pos, err := cbor.ReadMapHeader(data, pos)\n")
 	buf.WriteString("\tif err != nil { return 0, err }\n")
+	buf.WriteString("\tvar prevKeyStart, prevKeyEnd int\n")
+	buf.WriteString("\tkeyOrderValid := false\n")
 	buf.WriteString("\tfor i := uint64(0); i < count; i++ {\n")
 	buf.WriteString("\t\tkeyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)\n")
 	buf.WriteString("\t\tif err != nil { return 0, err }\n")
+	buf.WriteString("\t\tif keyOrderValid {\n")
+	buf.WriteString("\t\t\tif err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil { return 0, err }\n")
+	buf.WriteString("\t\t}\n")
+	buf.WriteString("\t\tprevKeyStart, prevKeyEnd = keyStart, keyEnd\n")
+	buf.WriteString("\t\tkeyOrderValid = true\n")
 	buf.WriteString("\t\tpos = newPos\n")
 
 	// Group fields by key length for efficient dispatch.
@@ -628,8 +636,9 @@ func (g *fileGen) genCBORUnion(typeName string, resolved []unionRefInfo, closed 
 
 	// UnmarshalCBOR — thin wrapper.
 	fmt.Fprintf(&buf, "func (u *%s) UnmarshalCBOR(data []byte) error {\n", typeName)
-	buf.WriteString("\t_, err := u.UnmarshalCBORAt(data, 0)\n")
-	buf.WriteString("\treturn err\n")
+	buf.WriteString("\tpos, err := u.UnmarshalCBORAt(data, 0)\n")
+	buf.WriteString("\tif err != nil { return err }\n")
+	buf.WriteString("\treturn cbor.CheckTrailingData(pos, len(data))\n")
 	buf.WriteString("}\n\n")
 
 	// UnmarshalCBORAt

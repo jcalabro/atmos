@@ -81,6 +81,67 @@ func TestPublicJWK(t *testing.T) {
 	assert.Equal(t, uncompressed[33:65], y)
 }
 
+func TestClientHTTPClient_RejectsInitialPrivateURLByDefault(t *testing.T) {
+	t.Parallel()
+
+	// A live loopback listener, not a closed port: connection-refused from a
+	// closed port would satisfy a bare error assertion even with no SSRF
+	// protection at all. The handler must be provably unreachable.
+	var reached atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		reached.Store(true)
+	}))
+	defer srv.Close()
+
+	client := &Client{}
+
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/.well-known/oauth-authorization-server", nil)
+	require.NoError(t, err)
+	resp, err := client.httpClient().Do(request)
+	if err == nil {
+		require.NoError(t, resp.Body.Close())
+	}
+	require.Error(t, err, "default OAuth client must block an initially private PDS URL")
+	require.False(t, reached.Load(), "request to a private address must never reach the server")
+}
+
+func TestAuthenticatedClient_UsesSSRFProtectedTransport(t *testing.T) {
+	t.Parallel()
+
+	var reached atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		reached.Store(true)
+	}))
+	defer srv.Close()
+
+	dpopKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	sessions := NewMemorySessionStore()
+	require.NoError(t, sessions.SetSession(context.Background(), "did:plc:alice", &Session{
+		DPoPKey: dpopKey,
+		TokenSet: TokenSet{
+			Aud:             srv.URL, // attacker-influenced PDS on a private address
+			AccessToken:     "test-access-token",
+			ExpiresAt:       time.Now().Add(time.Hour),
+			RefreshDeadline: time.Now().Add(time.Hour),
+		},
+	}))
+
+	client := &Client{SessionStore: sessions}
+	xc, err := client.AuthenticatedClient(context.Background(), "did:plc:alice")
+	require.NoError(t, err)
+
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/xrpc/com.atproto.server.getSession", nil)
+	require.NoError(t, err)
+	resp, err := xc.HTTPClient.Val().Do(request)
+	if err == nil {
+		require.NoError(t, resp.Body.Close())
+	}
+	require.Error(t, err, "authenticated XRPC client must block a private PDS address")
+	require.False(t, reached.Load(), "authenticated request must never reach a private address")
+}
+
 func TestPublicJWK_Deterministic(t *testing.T) {
 	t.Parallel()
 

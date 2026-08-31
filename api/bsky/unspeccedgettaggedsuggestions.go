@@ -183,8 +183,11 @@ func (s *UnspeccedGetTaggedSuggestions_Output) AppendCBOR(buf []byte) ([]byte, e
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -193,11 +196,20 @@ func (s *UnspeccedGetTaggedSuggestions_Output) UnmarshalCBORAt(data []byte, pos 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -331,8 +343,11 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) AppendCBOR(buf []byte) ([]byt
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -341,11 +356,20 @@ func (s *UnspeccedGetTaggedSuggestions_Suggestion) UnmarshalCBORAt(data []byte, 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:

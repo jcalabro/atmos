@@ -28,14 +28,14 @@ func TestClientResolve(t *testing.T) {
 	t.Parallel()
 
 	doc := `{
-		"id": "did:plc:testdid123",
+		"id": "did:plc:testdid234testdid234test",
 		"alsoKnownAs": ["at://alice.bsky.social"],
 		"verificationMethod": [],
 		"service": []
 	}`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/did:plc:testdid123", r.URL.Path)
+		assert.Equal(t, "/did:plc:testdid234testdid234test", r.URL.Path)
 		assert.Equal(t, "application/json", r.Header.Get("Accept"))
 		assert.Equal(t, "atmos/v0.1", r.Header.Get("User-Agent"))
 		w.Header().Set("Content-Type", "application/json")
@@ -44,10 +44,56 @@ func TestClientResolve(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	result, err := c.Resolve(context.Background(), "did:plc:testdid123")
+	result, err := c.Resolve(context.Background(), "did:plc:testdid234testdid234test")
 	require.NoError(t, err)
-	assert.Equal(t, "did:plc:testdid123", result.ID)
+	assert.Equal(t, "did:plc:testdid234testdid234test", result.ID)
 	assert.Equal(t, []string{"at://alice.bsky.social"}, result.AlsoKnownAs)
+}
+
+func TestClientResolve_VerifiesDocumentID(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"did:plc:other","alsoKnownAs":[],"verificationMethod":[],"service":[]}`))
+	}))
+	defer srv.Close()
+
+	_, err := testClient(t, srv).Resolve(context.Background(), "did:plc:testdid234testdid234test")
+	require.ErrorContains(t, err, "does not match")
+}
+
+func TestClientMethods_RejectInvalidDIDs(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("invalid DID unexpectedly reached PLC directory")
+	}))
+	defer srv.Close()
+
+	c := testClient(t, srv)
+	ctx := context.Background()
+	_, err := c.Resolve(ctx, "did:web:example.com")
+	require.ErrorContains(t, err, "DID")
+	_, err = c.OpLog(ctx, "/../../etc")
+	require.ErrorContains(t, err, "DID")
+	_, err = c.AuditLog(ctx, "did:plc:")
+	require.ErrorContains(t, err, "DID")
+	err = c.Submit(ctx, "/../../etc", nil)
+	require.ErrorContains(t, err, "DID")
+
+	// Valid generic DID syntax, invalid did:plc grammar. The percent-encoded
+	// cases would otherwise change URL path boundaries when decoded by the
+	// server or an intermediary.
+	_, err = c.Resolve(ctx, "did:plc:test234test23%2f..%2fx")
+	require.ErrorContains(t, err, "DID")
+	_, err = c.OpLog(ctx, "did:plc:test234test234%2e%2e42")
+	require.ErrorContains(t, err, "DID")
+	_, err = c.AuditLog(ctx, "did:plc:tooshort234")
+	require.ErrorContains(t, err, "DID")
+	err = c.Submit(ctx, "did:plc:abcdefghijklmnopqrstuvw1", nil) // '1' not in base32
+	require.ErrorContains(t, err, "DID")
+	_, err = c.Resolve(ctx, "did:plc:ABCDEFGHIJKLMNOPQRSTUVWX")
+	require.ErrorContains(t, err, "DID")
 }
 
 func TestClientOpLog(t *testing.T) {
@@ -56,7 +102,7 @@ func TestClientOpLog(t *testing.T) {
 	ops := `[{"type":"plc_operation"},{"type":"plc_operation"}]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/did:plc:test123/log", r.URL.Path)
+		assert.Equal(t, "/did:plc:test234test234test234tes/log", r.URL.Path)
 		assert.Equal(t, "atmos/v0.1", r.Header.Get("User-Agent"))
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(ops))
@@ -64,7 +110,7 @@ func TestClientOpLog(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	result, err := c.OpLog(context.Background(), "did:plc:test123")
+	result, err := c.OpLog(context.Background(), "did:plc:test234test234test234tes")
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
@@ -72,20 +118,20 @@ func TestClientOpLog(t *testing.T) {
 func TestClientAuditLog(t *testing.T) {
 	t.Parallel()
 
-	entries := `[{"did":"did:plc:test123","operation":{},"cid":"bafytest","nullified":false,"createdAt":"2024-01-01T00:00:00Z"}]`
+	entries := `[{"did":"did:plc:test234test234test234tes","operation":{},"cid":"bafytest","nullified":false,"createdAt":"2024-01-01T00:00:00Z"}]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/did:plc:test123/log/audit", r.URL.Path)
+		assert.Equal(t, "/did:plc:test234test234test234tes/log/audit", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(entries))
 	}))
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	result, err := c.AuditLog(context.Background(), "did:plc:test123")
+	result, err := c.AuditLog(context.Background(), "did:plc:test234test234test234tes")
 	require.NoError(t, err)
 	require.Len(t, result, 1)
-	assert.Equal(t, "did:plc:test123", result[0].DID)
+	assert.Equal(t, "did:plc:test234test234test234tes", result[0].DID)
 	assert.False(t, result[0].Nullified)
 }
 
@@ -94,7 +140,7 @@ func TestClientSubmit(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/did:plc:test123", r.URL.Path)
+		assert.Equal(t, "/did:plc:test234test234test234tes", r.URL.Path)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Equal(t, "atmos/v0.1", r.Header.Get("User-Agent"))
 
@@ -108,7 +154,7 @@ func TestClientSubmit(t *testing.T) {
 
 	c := testClient(t, srv)
 	op := &Operation{Type: "plc_operation"}
-	err := c.Submit(context.Background(), "did:plc:test123", op)
+	err := c.Submit(context.Background(), "did:plc:test234test234test234tes", op)
 	require.NoError(t, err)
 }
 
@@ -126,7 +172,7 @@ func TestClientSubmitTombstone(t *testing.T) {
 
 	c := testClient(t, srv)
 	ts := NewTombstoneOp("bafyreiabc123")
-	err := c.Submit(context.Background(), "did:plc:test123", ts)
+	err := c.Submit(context.Background(), "did:plc:test234test234test234tes", ts)
 	require.NoError(t, err)
 }
 
@@ -139,7 +185,7 @@ func TestClientResolveNotFound(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	_, err := c.Resolve(context.Background(), "did:plc:nonexistent")
+	_, err := c.Resolve(context.Background(), "did:plc:nonexistent2345672345672")
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -153,7 +199,7 @@ func TestClientSubmitError(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	err := c.Submit(context.Background(), "did:plc:test123", &Operation{})
+	err := c.Submit(context.Background(), "did:plc:test234test234test234tes", &Operation{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "400")
 }
@@ -173,7 +219,7 @@ func TestNewClientCustomUserAgent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "custom-agent/1.0", r.Header.Get("User-Agent"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"did:plc:test","alsoKnownAs":[],"verificationMethod":[],"service":[]}`))
+		_, _ = w.Write([]byte(`{"id":"did:plc:test234test234test234tes","alsoKnownAs":[],"verificationMethod":[],"service":[]}`))
 	}))
 	defer srv.Close()
 
@@ -182,7 +228,7 @@ func TestNewClientCustomUserAgent(t *testing.T) {
 		UserAgent:    gt.Some("custom-agent/1.0"),
 		HTTPClient:   gt.Some(srv.Client()),
 	})
-	_, err := c.Resolve(context.Background(), "did:plc:test")
+	_, err := c.Resolve(context.Background(), "did:plc:test234test234test234tes")
 	require.NoError(t, err)
 }
 
@@ -195,9 +241,9 @@ func TestClientNotFoundSentinel(t *testing.T) {
 	defer srv.Close()
 
 	c := testClient(t, srv)
-	_, err := c.OpLog(context.Background(), "did:plc:nonexistent")
+	_, err := c.OpLog(context.Background(), "did:plc:nonexistent2345672345672")
 	assert.True(t, errors.Is(err, ErrNotFound))
 
-	_, err = c.AuditLog(context.Background(), "did:plc:nonexistent")
+	_, err = c.AuditLog(context.Background(), "did:plc:nonexistent2345672345672")
 	assert.True(t, errors.Is(err, ErrNotFound))
 }

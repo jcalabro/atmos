@@ -188,8 +188,11 @@ func (s *ModerationGetAccountTimeline_Output) AppendCBOR(buf []byte) ([]byte, er
 }
 
 func (s *ModerationGetAccountTimeline_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationGetAccountTimeline_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -198,11 +201,20 @@ func (s *ModerationGetAccountTimeline_Output) UnmarshalCBORAt(data []byte, pos i
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -345,8 +357,11 @@ func (s *ModerationGetAccountTimeline_TimelineItem) AppendCBOR(buf []byte) ([]by
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -355,11 +370,20 @@ func (s *ModerationGetAccountTimeline_TimelineItem) UnmarshalCBORAt(data []byte,
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -625,8 +649,11 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) AppendCBOR(buf []byte
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -635,11 +662,20 @@ func (s *ModerationGetAccountTimeline_TimelineItemSummary) UnmarshalCBORAt(data 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:

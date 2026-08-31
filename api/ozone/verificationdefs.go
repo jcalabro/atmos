@@ -82,8 +82,11 @@ func (u VerificationDefs_VerificationView_IssuerProfile) AppendCBOR(buf []byte) 
 }
 
 func (u *VerificationDefs_VerificationView_IssuerProfile) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *VerificationDefs_VerificationView_IssuerProfile) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -192,8 +195,11 @@ func (u VerificationDefs_VerificationView_IssuerRepo) AppendCBOR(buf []byte) ([]
 }
 
 func (u *VerificationDefs_VerificationView_IssuerRepo) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *VerificationDefs_VerificationView_IssuerRepo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -280,8 +286,11 @@ func (u VerificationDefs_VerificationView_SubjectProfile) AppendCBOR(buf []byte)
 }
 
 func (u *VerificationDefs_VerificationView_SubjectProfile) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *VerificationDefs_VerificationView_SubjectProfile) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -390,8 +399,11 @@ func (u VerificationDefs_VerificationView_SubjectRepo) AppendCBOR(buf []byte) ([
 }
 
 func (u *VerificationDefs_VerificationView_SubjectRepo) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *VerificationDefs_VerificationView_SubjectRepo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -661,8 +673,11 @@ func (s *VerificationDefs_VerificationView) AppendCBOR(buf []byte) ([]byte, erro
 }
 
 func (s *VerificationDefs_VerificationView) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -671,11 +686,20 @@ func (s *VerificationDefs_VerificationView) UnmarshalCBORAt(data []byte, pos int
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:

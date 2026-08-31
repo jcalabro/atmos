@@ -29,10 +29,13 @@ import (
 // fragment selects which key in the DID document signed the token. Returns the
 // bare DID and the fragment (without '#', empty when none was present).
 func splitIssuer(iss string) (atmos.DID, string, error) {
-	bare, fragment, _ := strings.Cut(iss, "#")
+	bare, fragment, hasFragment := strings.Cut(iss, "#")
 	did, err := atmos.ParseDID(bare)
 	if err != nil {
 		return "", "", err
+	}
+	if hasFragment && (fragment == "" || strings.Contains(fragment, "#")) {
+		return "", "", errors.New("invalid verification-method fragment")
 	}
 	return did, fragment, nil
 }
@@ -83,6 +86,11 @@ type VerifyOptions struct {
 	// LexMethod, if set, must match the token's lxm claim.
 	LexMethod atmos.NSID
 
+	// UniqueJTI, when set, checks whether a token's jti is being replayed.
+	// Implementations must atomically record the jti and retain it for at
+	// least MaxAge+Leeway after token expiry.
+	UniqueJTI func(jti string) bool
+
 	retried bool // internal: prevents infinite retry on key rotation
 }
 
@@ -126,6 +134,28 @@ func init() {
 
 // CreateToken signs a service auth JWT with the given private key.
 func CreateToken(params TokenParams, key crypto.PrivateKey) (string, error) {
+	if _, _, err := splitIssuer(string(params.Issuer)); err != nil {
+		return "", fmt.Errorf("serviceauth: invalid issuer: %w", err)
+	}
+	if params.Audience == "" {
+		return "", errors.New("serviceauth: audience is required")
+	}
+	audience, fragment, hasFragment := strings.Cut(params.Audience, "#")
+	if hasFragment && (fragment == "" || strings.Contains(fragment, "#")) {
+		return "", errors.New("serviceauth: invalid audience fragment")
+	}
+	if _, err := atmos.ParseDID(audience); err != nil {
+		return "", fmt.Errorf("serviceauth: invalid audience: %w", err)
+	}
+	if params.Exp.IsZero() {
+		return "", errors.New("serviceauth: expiration is required")
+	}
+	if params.LexMethod != "" {
+		if _, err := atmos.ParseNSID(string(params.LexMethod)); err != nil {
+			return "", fmt.Errorf("serviceauth: invalid lexicon method: %w", err)
+		}
+	}
+
 	// Generate random nonce for jti.
 	var nonce [16]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
@@ -167,9 +197,36 @@ func CreateToken(params TokenParams, key crypto.PrivateKey) (string, error) {
 func VerifyToken(ctx context.Context, tokenString string, opts VerifyOptions) (*TokenClaims, error) {
 	maxAge := opts.MaxAge.ValOr(5 * time.Minute)
 	leeway := opts.Leeway.ValOr(5 * time.Second)
+	if opts.Audience == "" {
+		return nil, errors.New("serviceauth: audience is required")
+	}
+	if opts.Identity == nil {
+		return nil, errors.New("serviceauth: identity resolver is required")
+	}
+	if maxAge <= 0 {
+		return nil, errors.New("serviceauth: max age must be positive")
+	}
+	if leeway < 0 {
+		return nil, errors.New("serviceauth: leeway cannot be negative")
+	}
 
 	var c claims
 	_, err := jwt.ParseWithClaims(tokenString, &c, func(token *jwt.Token) (any, error) {
+		if typ, present := token.Header["typ"]; present {
+			typString, ok := typ.(string)
+			if !ok {
+				return nil, errors.New("serviceauth: JWT typ must be a string")
+			}
+			// Allowlist rather than denylist: a denylist of known-unsafe
+			// profiles (at+jwt, dpop+jwt, ...) is bypassed by case variants
+			// and media-type prefixes. RFC 7515 §4.1.9 makes typ comparison
+			// case-insensitive and treats a value without '/' as having
+			// "application/" prepended; service auth tokens are always the
+			// JWT media type.
+			if !strings.EqualFold(typString, "JWT") && !strings.EqualFold(typString, "application/JWT") {
+				return nil, fmt.Errorf("serviceauth: unsupported JWT typ %q", typString)
+			}
+		}
 		// Extract issuer to resolve public key.
 		iss, err := c.GetIssuer()
 		if err != nil || iss == "" {
@@ -245,6 +302,18 @@ func VerifyToken(ctx context.Context, tokenString string, opts VerifyOptions) (*
 	if err != nil {
 		return nil, fmt.Errorf("serviceauth: get expiration: %w", err)
 	}
+	if exp == nil {
+		return nil, errors.New("serviceauth: missing exp claim")
+	}
+	if time.Until(exp.Time) > maxAge+leeway {
+		return nil, errors.New("serviceauth: token expiration too far in the future")
+	}
+	if c.ID == "" {
+		return nil, errors.New("serviceauth: missing jti claim")
+	}
+	if opts.UniqueJTI != nil && !opts.UniqueJTI(c.ID) {
+		return nil, errors.New("serviceauth: jti replay detected")
+	}
 
 	result := &TokenClaims{
 		Issuer:   atmos.DID(iss),
@@ -254,9 +323,7 @@ func VerifyToken(ctx context.Context, tokenString string, opts VerifyOptions) (*
 	if len(aud) > 0 {
 		result.Audience = aud[0]
 	}
-	if exp != nil {
-		result.ExpiresAt = exp.Time
-	}
+	result.ExpiresAt = exp.Time
 	if c.LexMethod != "" {
 		result.LexMethod = atmos.NSID(c.LexMethod)
 	}

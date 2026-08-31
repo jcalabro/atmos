@@ -137,8 +137,11 @@ func (s *ModerationSubscribeModEvents_EventChatAccepted) AppendCBOR(buf []byte) 
 }
 
 func (s *ModerationSubscribeModEvents_EventChatAccepted) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventChatAccepted) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -147,11 +150,20 @@ func (s *ModerationSubscribeModEvents_EventChatAccepted) UnmarshalCBORAt(data []
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -622,8 +634,11 @@ func (s *ModerationSubscribeModEvents_EventConvoFirstMessage) AppendCBOR(buf []b
 }
 
 func (s *ModerationSubscribeModEvents_EventConvoFirstMessage) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventConvoFirstMessage) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -632,11 +647,20 @@ func (s *ModerationSubscribeModEvents_EventConvoFirstMessage) UnmarshalCBORAt(da
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1060,8 +1084,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatCreated) AppendCBOR(buf []by
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatCreated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatCreated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1070,11 +1097,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatCreated) UnmarshalCBORAt(dat
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -1551,8 +1587,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequest) AppendCBOR(buf 
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequest) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequest) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1561,11 +1600,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequest) UnmarshalCBORAt
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -2019,8 +2067,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestApproved) AppendC
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestApproved) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestApproved) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2029,11 +2080,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestApproved) Unmarsh
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -2461,8 +2521,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestRejected) AppendC
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestRejected) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestRejected) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2471,11 +2534,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatJoinRequestRejected) Unmarsh
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -2917,8 +2989,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatMemberAdded) AppendCBOR(buf 
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatMemberAdded) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatMemberAdded) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -2927,11 +3002,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatMemberAdded) UnmarshalCBORAt
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -3409,8 +3493,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatMemberJoined) AppendCBOR(buf
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatMemberJoined) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatMemberJoined) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -3419,11 +3506,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatMemberJoined) UnmarshalCBORA
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -3884,8 +3980,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatMemberLeft) AppendCBOR(buf [
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatMemberLeft) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatMemberLeft) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -3894,11 +3993,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatMemberLeft) UnmarshalCBORAt(
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -4436,8 +4544,11 @@ func (s *ModerationSubscribeModEvents_EventGroupChatUpdated) AppendCBOR(buf []by
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatUpdated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventGroupChatUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -4446,11 +4557,20 @@ func (s *ModerationSubscribeModEvents_EventGroupChatUpdated) UnmarshalCBORAt(dat
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -5074,8 +5194,11 @@ func (s *ModerationSubscribeModEvents_EventRateLimitExceeded) AppendCBOR(buf []b
 }
 
 func (s *ModerationSubscribeModEvents_EventRateLimitExceeded) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *ModerationSubscribeModEvents_EventRateLimitExceeded) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -5084,11 +5207,20 @@ func (s *ModerationSubscribeModEvents_EventRateLimitExceeded) UnmarshalCBORAt(da
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 3:
@@ -5547,8 +5679,11 @@ func (u ModerationSubscribeModEvents_Message) AppendCBOR(buf []byte) ([]byte, er
 }
 
 func (u *ModerationSubscribeModEvents_Message) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *ModerationSubscribeModEvents_Message) UnmarshalCBORAt(data []byte, pos int) (int, error) {

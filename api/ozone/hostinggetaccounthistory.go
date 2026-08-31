@@ -81,8 +81,11 @@ func (s *HostingGetAccountHistory_AccountCreated) AppendCBOR(buf []byte) ([]byte
 }
 
 func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -91,11 +94,20 @@ func (s *HostingGetAccountHistory_AccountCreated) UnmarshalCBORAt(data []byte, p
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -326,8 +338,11 @@ func (s *HostingGetAccountHistory_EmailConfirmed) AppendCBOR(buf []byte) ([]byte
 }
 
 func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -336,11 +351,20 @@ func (s *HostingGetAccountHistory_EmailConfirmed) UnmarshalCBORAt(data []byte, p
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -511,8 +535,11 @@ func (s *HostingGetAccountHistory_EmailUpdated) AppendCBOR(buf []byte) ([]byte, 
 }
 
 func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -521,11 +548,20 @@ func (s *HostingGetAccountHistory_EmailUpdated) UnmarshalCBORAt(data []byte, pos
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -803,8 +839,11 @@ func (u HostingGetAccountHistory_Event_Details) AppendCBOR(buf []byte) ([]byte, 
 }
 
 func (u *HostingGetAccountHistory_Event_Details) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *HostingGetAccountHistory_Event_Details) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -929,8 +968,11 @@ func (s *HostingGetAccountHistory_Event) AppendCBOR(buf []byte) ([]byte, error) 
 }
 
 func (s *HostingGetAccountHistory_Event) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_Event) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -939,11 +981,20 @@ func (s *HostingGetAccountHistory_Event) UnmarshalCBORAt(data []byte, pos int) (
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1172,8 +1223,11 @@ func (s *HostingGetAccountHistory_HandleUpdated) AppendCBOR(buf []byte) ([]byte,
 }
 
 func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1182,11 +1236,20 @@ func (s *HostingGetAccountHistory_HandleUpdated) UnmarshalCBORAt(data []byte, po
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1529,8 +1592,11 @@ func (s *HostingGetAccountHistory_Output) AppendCBOR(buf []byte) ([]byte, error)
 }
 
 func (s *HostingGetAccountHistory_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1539,11 +1605,20 @@ func (s *HostingGetAccountHistory_Output) UnmarshalCBORAt(data []byte, pos int) 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -1679,8 +1754,11 @@ func (s *HostingGetAccountHistory_PasswordUpdated) AppendCBOR(buf []byte) ([]byt
 }
 
 func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -1689,11 +1767,20 @@ func (s *HostingGetAccountHistory_PasswordUpdated) UnmarshalCBORAt(data []byte, 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:

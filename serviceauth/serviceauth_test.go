@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
@@ -132,6 +133,220 @@ func TestCreateAndVerify_P256(t *testing.T) {
 	assert.Equal(t, "did:web:api.example.com", claims.Audience)
 	assert.NotEmpty(t, claims.JTI)
 	assert.Equal(t, atmos.NSID(""), claims.LexMethod)
+}
+
+func TestVerifyToken_RejectsUnsafeHeadersAndLifetimes(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	dir := testDirectory("did:plc:alice", priv.PublicKey())
+	now := time.Now()
+
+	sign := func(typ string, exp *jwt.NumericDate) string {
+		c := claims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Issuer:    "did:plc:alice",
+				Audience:  jwt.ClaimStrings{"did:web:api.example.com"},
+				IssuedAt:  jwt.NewNumericDate(now),
+				ExpiresAt: exp,
+				ID:        "test-jti",
+			},
+		}
+		token := jwt.NewWithClaims(sigES256, c)
+		if typ != "" {
+			token.Header["typ"] = typ
+		}
+		signed, err := token.SignedString(priv)
+		require.NoError(t, err)
+		return signed
+	}
+
+	tests := []struct {
+		name  string
+		token string
+		exp   *jwt.NumericDate
+	}{
+		{"missing exp", sign("", nil), nil},
+		{"far future exp", sign("", jwt.NewNumericDate(now.Add(10*time.Minute))), nil},
+		{"oauth access token typ", sign("at+jwt", jwt.NewNumericDate(now.Add(time.Minute))), nil},
+		{"oauth refresh token typ", sign("refresh+jwt", jwt.NewNumericDate(now.Add(time.Minute))), nil},
+		{"dpop proof typ", sign("dpop+jwt", jwt.NewNumericDate(now.Add(time.Minute))), nil},
+		{"case-varied oauth typ", sign("AT+JWT", jwt.NewNumericDate(now.Add(time.Minute))), nil},
+		{"media-type-prefixed typ", sign("application/at+jwt", jwt.NewNumericDate(now.Add(time.Minute))), nil},
+		{"unknown typ", sign("secevent+jwt", jwt.NewNumericDate(now.Add(time.Minute))), nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := VerifyToken(context.Background(), tt.token, VerifyOptions{
+				Audience: "did:web:api.example.com",
+				Identity: dir,
+			})
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestVerifyToken_AcceptsCaseVariantJWTTyp(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	dir := testDirectory("did:plc:alice", priv.PublicKey())
+	now := time.Now()
+
+	// RFC 7515 §4.1.9: typ comparison is case-insensitive, and a value
+	// without '/' is equivalent to the same value with "application/"
+	// prepended — compliant senders may emit any of these.
+	for _, typ := range []string{"jwt", "JWT", "application/jwt", "application/JWT"} {
+		c := claims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Issuer:    "did:plc:alice",
+				Audience:  jwt.ClaimStrings{"did:web:api.example.com"},
+				IssuedAt:  jwt.NewNumericDate(now),
+				ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)),
+				ID:        "test-jti-" + typ,
+			},
+		}
+		token := jwt.NewWithClaims(sigES256, c)
+		token.Header["typ"] = typ
+		signed, err := token.SignedString(priv)
+		require.NoError(t, err)
+
+		_, err = VerifyToken(context.Background(), signed, VerifyOptions{
+			Audience: "did:web:api.example.com",
+			Identity: dir,
+		})
+		require.NoError(t, err, "typ %q must be accepted", typ)
+	}
+}
+
+func TestVerifyToken_RejectsMalformedHeadersAndClaims(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	now := time.Now()
+	dir := testDirectory("did:plc:alice", priv.PublicKey())
+
+	makeToken := func(header func(*jwt.Token), tokenClaims claims) string {
+		token := jwt.NewWithClaims(sigES256, tokenClaims)
+		if header != nil {
+			header(token)
+		}
+		signed, err := token.SignedString(priv)
+		require.NoError(t, err)
+		return signed
+	}
+
+	validClaims := claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "did:plc:alice",
+			Audience:  jwt.ClaimStrings{"did:web:api.example.com"},
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)),
+			ID:        "test-jti",
+		},
+	}
+	noJTI := validClaims
+	noJTI.ID = ""
+	multipleFragments := validClaims
+	multipleFragments.Issuer = "did:plc:alice#atproto#other"
+
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{"non-string typ", makeToken(func(token *jwt.Token) { token.Header["typ"] = []string{"JWT"} }, validClaims)},
+		{"missing jti", makeToken(nil, noJTI)},
+		{"multiple issuer fragments", makeToken(nil, multipleFragments)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := VerifyToken(context.Background(), tt.token, VerifyOptions{
+				Audience: "did:web:api.example.com",
+				Identity: dir,
+			})
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestVerifyToken_RejectsInvalidConfiguration(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	token, err := CreateToken(TokenParams{
+		Issuer:   "did:plc:alice",
+		Audience: "did:web:api.example.com",
+		Exp:      time.Now().Add(time.Minute),
+	}, priv)
+	require.NoError(t, err)
+
+	_, err = VerifyToken(context.Background(), token, VerifyOptions{
+		Audience: "did:web:api.example.com",
+	})
+	require.ErrorContains(t, err, "identity")
+
+	_, err = VerifyToken(context.Background(), token, VerifyOptions{
+		Audience: "",
+		Identity: testDirectory("did:plc:alice", priv.PublicKey()),
+	})
+	require.ErrorContains(t, err, "audience")
+}
+
+func TestVerifyToken_RejectsReplayedJTI(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	token, err := CreateToken(TokenParams{
+		Issuer:   "did:plc:alice",
+		Audience: "did:web:api.example.com",
+		Exp:      time.Now().Add(time.Minute),
+	}, priv)
+	require.NoError(t, err)
+
+	seen := false
+	opts := VerifyOptions{
+		Audience: "did:web:api.example.com",
+		Identity: testDirectory("did:plc:alice", priv.PublicKey()),
+		UniqueJTI: func(string) bool {
+			unique := !seen
+			seen = true
+			return unique
+		},
+	}
+
+	_, err = VerifyToken(context.Background(), token, opts)
+	require.NoError(t, err)
+	_, err = VerifyToken(context.Background(), token, opts)
+	require.ErrorContains(t, err, "replay")
+}
+
+func TestCreateToken_RejectsInvalidParameters(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	tests := []TokenParams{
+		{Issuer: "not-a-did", Audience: "did:web:api.example.com", Exp: time.Now().Add(time.Minute)},
+		{Issuer: "did:plc:alice", Audience: "", Exp: time.Now().Add(time.Minute)},
+		{Issuer: "did:plc:alice", Audience: "did:web:api.example.com#"},
+		{Issuer: "did:plc:alice", Audience: "did:web:api.example.com", Exp: time.Time{}},
+		{Issuer: "did:plc:alice", Audience: "did:web:api.example.com", Exp: time.Now().Add(time.Minute), LexMethod: "invalid NSID"},
+	}
+
+	for _, params := range tests {
+		_, err := CreateToken(params, priv)
+		require.Error(t, err)
+	}
 }
 
 func TestCreateAndVerify_K256(t *testing.T) {

@@ -181,8 +181,11 @@ func (s *TempCheckHandleAvailability_Output) AppendCBOR(buf []byte) ([]byte, err
 }
 
 func (s *TempCheckHandleAvailability_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *TempCheckHandleAvailability_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -191,11 +194,20 @@ func (s *TempCheckHandleAvailability_Output) UnmarshalCBORAt(data []byte, pos in
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -330,8 +342,11 @@ func (u TempCheckHandleAvailability_Output_Result) AppendCBOR(buf []byte) ([]byt
 }
 
 func (u *TempCheckHandleAvailability_Output_Result) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *TempCheckHandleAvailability_Output_Result) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -437,8 +452,11 @@ func (s *TempCheckHandleAvailability_ResultAvailable) AppendCBOR(buf []byte) ([]
 }
 
 func (s *TempCheckHandleAvailability_ResultAvailable) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *TempCheckHandleAvailability_ResultAvailable) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -447,11 +465,20 @@ func (s *TempCheckHandleAvailability_ResultAvailable) UnmarshalCBORAt(data []byt
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -621,8 +648,11 @@ func (s *TempCheckHandleAvailability_ResultUnavailable) AppendCBOR(buf []byte) (
 }
 
 func (s *TempCheckHandleAvailability_ResultUnavailable) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *TempCheckHandleAvailability_ResultUnavailable) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -631,11 +661,20 @@ func (s *TempCheckHandleAvailability_ResultUnavailable) UnmarshalCBORAt(data []b
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -868,8 +907,11 @@ func (s *TempCheckHandleAvailability_Suggestion) AppendCBOR(buf []byte) ([]byte,
 }
 
 func (s *TempCheckHandleAvailability_Suggestion) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *TempCheckHandleAvailability_Suggestion) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -878,11 +920,20 @@ func (s *TempCheckHandleAvailability_Suggestion) UnmarshalCBORAt(data []byte, po
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:

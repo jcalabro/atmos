@@ -58,8 +58,11 @@ func (s *FeedPostgate_DisableRule) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedPostgate_DisableRule) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedPostgate_DisableRule) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -68,11 +71,20 @@ func (s *FeedPostgate_DisableRule) UnmarshalCBORAt(data []byte, pos int) (int, e
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -260,8 +272,11 @@ func (u FeedPostgate_EmbeddingRules) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (u *FeedPostgate_EmbeddingRules) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *FeedPostgate_EmbeddingRules) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -375,8 +390,11 @@ func (s *FeedPostgate) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *FeedPostgate) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -385,11 +403,20 @@ func (s *FeedPostgate) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 4:

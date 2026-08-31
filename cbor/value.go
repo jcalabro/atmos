@@ -10,6 +10,15 @@ import (
 	"unsafe"
 )
 
+// CheckTrailingData returns an error when a complete CBOR value is followed
+// by more bytes.
+func CheckTrailingData(pos, dataLen int) error {
+	if pos != dataLen {
+		return errors.New("cbor: trailing data after value")
+	}
+	return nil
+}
+
 // Marshal encodes a Go value to DAG-CBOR bytes.
 // Supported types: nil, bool, int64, int, float64, string, []byte, CID, []any, map[string]any.
 func Marshal(v any) ([]byte, error) {

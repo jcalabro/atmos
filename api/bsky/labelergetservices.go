@@ -187,8 +187,11 @@ func (s *LabelerGetServices_Output) AppendCBOR(buf []byte) ([]byte, error) {
 }
 
 func (s *LabelerGetServices_Output) UnmarshalCBOR(data []byte) error {
-	_, err := s.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (s *LabelerGetServices_Output) UnmarshalCBORAt(data []byte, pos int) (int, error) {
@@ -197,11 +200,20 @@ func (s *LabelerGetServices_Output) UnmarshalCBORAt(data []byte, pos int) (int, 
 	if err != nil {
 		return 0, err
 	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
 	for i := uint64(0); i < count; i++ {
 		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
 		if err != nil {
 			return 0, err
 		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
 		pos = newPos
 		switch keyEnd - keyStart {
 		case 5:
@@ -335,8 +347,11 @@ func (u LabelerGetServices_Output_Views) AppendCBOR(buf []byte) ([]byte, error) 
 }
 
 func (u *LabelerGetServices_Output_Views) UnmarshalCBOR(data []byte) error {
-	_, err := u.UnmarshalCBORAt(data, 0)
-	return err
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
 }
 
 func (u *LabelerGetServices_Output_Views) UnmarshalCBORAt(data []byte, pos int) (int, error) {

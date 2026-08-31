@@ -46,15 +46,28 @@ func NewClient(cfg ClientConfig) *Client {
 
 // Resolve fetches the current DID document.
 func (c *Client) Resolve(ctx context.Context, did atmos.DID) (*identity.DIDDocument, error) {
+	if err := validateDID(did); err != nil {
+		return nil, err
+	}
 	body, err := c.get(ctx, "/"+string(did))
 	if err != nil {
 		return nil, err
 	}
-	return identity.ParseDIDDocument(body)
+	doc, err := identity.ParseDIDDocument(body)
+	if err != nil {
+		return nil, err
+	}
+	if doc.ID != string(did) {
+		return nil, fmt.Errorf("plc: document ID %q does not match %q", doc.ID, did)
+	}
+	return doc, nil
 }
 
 // OpLog returns active (non-nullified) operations as raw JSON.
 func (c *Client) OpLog(ctx context.Context, did atmos.DID) ([]json.RawMessage, error) {
+	if err := validateDID(did); err != nil {
+		return nil, err
+	}
 	body, err := c.get(ctx, "/"+string(did)+"/log")
 	if err != nil {
 		return nil, err
@@ -68,6 +81,9 @@ func (c *Client) OpLog(ctx context.Context, did atmos.DID) ([]json.RawMessage, e
 
 // AuditLog returns all operations including nullified, with metadata.
 func (c *Client) AuditLog(ctx context.Context, did atmos.DID) ([]LogEntry, error) {
+	if err := validateDID(did); err != nil {
+		return nil, err
+	}
 	body, err := c.get(ctx, "/"+string(did)+"/log/audit")
 	if err != nil {
 		return nil, err
@@ -81,6 +97,9 @@ func (c *Client) AuditLog(ctx context.Context, did atmos.DID) ([]LogEntry, error
 
 // Submit sends a signed operation (Operation or TombstoneOp) to the directory.
 func (c *Client) Submit(ctx context.Context, did atmos.DID, op any) error {
+	if err := validateDID(did); err != nil {
+		return err
+	}
 	data, err := json.Marshal(op)
 	if err != nil {
 		return fmt.Errorf("plc: marshal operation: %w", err)
@@ -102,6 +121,13 @@ func (c *Client) Submit(ctx context.Context, did atmos.DID, op any) error {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 		return fmt.Errorf("plc: submit: HTTP %d: %s", resp.StatusCode, body)
+	}
+	return nil
+}
+
+func validateDID(did atmos.DID) error {
+	if err := did.ValidatePLC(); err != nil {
+		return fmt.Errorf("plc: invalid DID: %w", err)
 	}
 	return nil
 }

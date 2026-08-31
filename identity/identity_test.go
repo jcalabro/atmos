@@ -581,9 +581,9 @@ func TestIdentityFromDocument_SkipsBadHandle(t *testing.T) {
 func TestDefaultResolver_ResolveDID_PLC(t *testing.T) {
 	t.Parallel()
 
-	docJSON := `{"id":"did:plc:test123","alsoKnownAs":["at://alice.test"],"verificationMethod":[],"service":[]}`
+	docJSON := `{"id":"did:plc:test234test234test234tes","alsoKnownAs":["at://alice.test"],"verificationMethod":[],"service":[]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/did:plc:test123" {
+		if r.URL.Path == "/did:plc:test234test234test234tes" {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = fmt.Fprint(w, docJSON)
 			return
@@ -597,15 +597,42 @@ func TestDefaultResolver_ResolveDID_PLC(t *testing.T) {
 		PLCURL:     gt.Some(srv.URL),
 	}
 
-	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test234test234test234tes")
 	require.NoError(t, err)
-	assert.Equal(t, "did:plc:test123", doc.ID)
+	assert.Equal(t, "did:plc:test234test234test234tes", doc.ID)
+}
+
+func TestDefaultResolver_ResolveDID_PLCRejectsNonCanonicalIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("invalid did:plc unexpectedly reached PLC directory: %s", r.URL.Path)
+	}))
+	defer srv.Close()
+
+	resolver := &DefaultResolver{
+		HTTPClient: gt.Some(srv.Client()),
+		PLCURL:     gt.Some(srv.URL),
+	}
+
+	// Valid generic DID syntax, invalid did:plc grammar. Percent-encoded
+	// separators would change URL path boundaries when decoded downstream.
+	for _, did := range []atmos.DID{
+		"did:plc:test234test23%2f..%2fx",
+		"did:plc:test234test234%2e%2e42",
+		"did:plc:tooshort234",
+		"did:plc:abcdefghijklmnopqrstuvw1", // '1' not in base32
+		"did:plc:ABCDEFGHIJKLMNOPQRSTUVWX",
+	} {
+		_, err := resolver.ResolveDID(context.Background(), did)
+		require.ErrorIs(t, err, ErrDIDNotFound)
+	}
 }
 
 func TestDefaultResolver_ResolveDID_PLCUsesDedicatedClient(t *testing.T) {
 	t.Parallel()
 
-	docJSON := `{"id":"did:plc:test123","alsoKnownAs":[],"verificationMethod":[],"service":[]}`
+	docJSON := `{"id":"did:plc:test234test234test234tes","alsoKnownAs":[],"verificationMethod":[],"service":[]}`
 	plcClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -622,23 +649,23 @@ func TestDefaultResolver_ResolveDID_PLCUsesDedicatedClient(t *testing.T) {
 		PLCHTTPClient: gt.Some(plcClient),
 	}
 
-	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test234test234test234tes")
 	require.NoError(t, err)
-	assert.Equal(t, "did:plc:test123", doc.ID)
+	assert.Equal(t, "did:plc:test234test234test234tes", doc.ID)
 }
 
 func TestDefaultResolver_ResolveDID_DefaultPLCClientAllowsTrustedLoopback(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprint(w, `{"id":"did:plc:test123","alsoKnownAs":[],"verificationMethod":[],"service":[]}`)
+		_, _ = fmt.Fprint(w, `{"id":"did:plc:test234test234test234tes","alsoKnownAs":[],"verificationMethod":[],"service":[]}`)
 	}))
 	defer srv.Close()
 
 	resolver := &DefaultResolver{PLCURL: gt.Some(srv.URL)}
-	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	doc, err := resolver.ResolveDID(context.Background(), "did:plc:test234test234test234tes")
 	require.NoError(t, err)
-	assert.Equal(t, "did:plc:test123", doc.ID)
+	assert.Equal(t, "did:plc:test234test234test234tes", doc.ID)
 }
 
 func TestDefaultResolver_ResolveDID_DefaultPLCClientRejectsRedirect(t *testing.T) {
@@ -647,14 +674,14 @@ func TestDefaultResolver_ResolveDID_DefaultPLCClientRejectsRedirect(t *testing.T
 	var redirectTargetRequests atomic.Int32
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		redirectTargetRequests.Add(1)
-		_, _ = fmt.Fprint(w, `{"id":"did:plc:test123","alsoKnownAs":[],"verificationMethod":[],"service":[]}`)
+		_, _ = fmt.Fprint(w, `{"id":"did:plc:test234test234test234tes","alsoKnownAs":[],"verificationMethod":[],"service":[]}`)
 	}))
 	defer target.Close()
 	source := httptest.NewServer(http.RedirectHandler(target.URL, http.StatusFound))
 	defer source.Close()
 
 	resolver := &DefaultResolver{PLCURL: gt.Some(source.URL)}
-	_, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	_, err := resolver.ResolveDID(context.Background(), "did:plc:test234test234test234tes")
 	assert.ErrorIs(t, err, ErrDIDNotFound)
 	assert.Zero(t, redirectTargetRequests.Load())
 }
@@ -683,6 +710,29 @@ func TestDefaultResolver_ResolveDID_Web(t *testing.T) {
 	doc, err := resolver.ResolveDID(context.Background(), "did:web:alice.test")
 	require.NoError(t, err)
 	assert.Equal(t, "did:web:alice.test", doc.ID)
+}
+
+func TestDefaultResolver_ResolveDID_WebRejectsEncodedURLDelimiters(t *testing.T) {
+	t.Parallel()
+
+	resolver := &DefaultResolver{
+		HTTPClient: gt.Some(&http.Client{
+			Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				t.Errorf("did:web URL delimiter unexpectedly reached transport")
+				return nil, errors.New("unreachable")
+			}),
+		}),
+	}
+
+	for _, did := range []atmos.DID{
+		"did:web:example.com%2Fevil",
+		"did:web:example.com%3Fevil",
+		"did:web:example.com%23evil",
+		"did:web:user%40example.com",
+	} {
+		_, err := resolver.ResolveDID(context.Background(), did)
+		require.ErrorContains(t, err, "URL boundaries", "DID %s", did)
+	}
 }
 
 func TestDefaultResolver_ResolveDID_WebUsesUntrustedClient(t *testing.T) {
@@ -873,7 +923,7 @@ func TestDefaultResolver_ResolveDID_PLCIDMismatch(t *testing.T) {
 		PLCURL:     gt.Some(srv.URL),
 	}
 
-	_, err := resolver.ResolveDID(context.Background(), "did:plc:test123")
+	_, err := resolver.ResolveDID(context.Background(), "did:plc:test234test234test234tes")
 	assert.ErrorIs(t, err, ErrDIDNotFound)
 }
 
@@ -888,7 +938,9 @@ func TestDefaultResolver_ResolveDID_NotFound(t *testing.T) {
 		PLCURL:     gt.Some(srv.URL),
 	}
 
-	_, err := resolver.ResolveDID(context.Background(), "did:plc:nonexistent")
+	// A grammatically valid did:plc, so the error comes from the HTTP 404
+	// path rather than being short-circuited by DID validation.
+	_, err := resolver.ResolveDID(context.Background(), "did:plc:nonexistent2345672345672")
 	assert.ErrorIs(t, err, ErrDIDNotFound)
 }
 
