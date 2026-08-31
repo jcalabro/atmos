@@ -6,8 +6,8 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jcalabro/gt v0.0.12
-	github.com/jcalabro/jttp v0.0.7
-	github.com/klauspost/compress v1.18.6
+	github.com/jcalabro/jttp v0.0.8
+	github.com/klauspost/compress v1.19.2
 	github.com/mr-tron/base58 v1.2.0
 	github.com/puzpuzpuz/xsync/v4 v4.5.0
 	github.com/rivo/uniseg v0.4.7
@@ -20,11 +20,11 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
