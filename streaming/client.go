@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bluesky-social/gttp"
 	"github.com/coder/websocket"
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/identity"
@@ -19,7 +20,6 @@ import (
 	"github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
-	"github.com/jcalabro/jttp"
 )
 
 const defaultMaxMessageSize = 2 * 1024 * 1024 // 2 MiB
@@ -342,7 +342,7 @@ func NewClient(opts Options) (*Client, error) {
 		sc = sync.NewClient(sync.Options{
 			Client: &xrpc.Client{
 				Host:       httpURL,
-				HTTPClient: gt.Some(jttp.New(xrpc.BulkDownloadOpts()...)),
+				HTTPClient: gt.Some(gttp.New(xrpc.BulkDownloadOpts()...)),
 			},
 		})
 

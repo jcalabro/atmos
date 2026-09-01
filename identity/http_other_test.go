@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/bluesky-social/gttp"
 	"github.com/jcalabro/atmos"
-	"github.com/jcalabro/jttp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,6 +27,6 @@ func TestDefaultResolver_ResolveDID_DefaultWebClientBlocksLoopback(t *testing.T)
 	did := atmos.DID("did:web:" + strings.ReplaceAll(authority, ":", "%3A"))
 
 	_, err := (&DefaultResolver{}).ResolveDID(context.Background(), did)
-	assert.ErrorIs(t, err, jttp.ErrBlockedByIPPolicy)
+	assert.ErrorIs(t, err, gttp.ErrBlockedByIPPolicy)
 	assert.Zero(t, requests.Load())
 }

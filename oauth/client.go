@@ -14,12 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/gttp"
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
-	"github.com/jcalabro/jttp"
 )
 
 // Client is an ATProto OAuth 2.0 client that handles the complete
@@ -397,10 +397,10 @@ func (c *Client) httpClient() *http.Client {
 	}
 	c.httpOnce.Do(func() {
 		opts := append(xrpc.ATProtoOpts(30*time.Second),
-			jttp.WithStrictSSRFProtection(),
-			jttp.WithNoProxy(),
+			gttp.WithStrictSSRFProtection(),
+			gttp.WithNoProxy(),
 		)
-		c.httpCached = jttp.New(opts...)
+		c.httpCached = gttp.New(opts...)
 	})
 	return c.httpCached
 }

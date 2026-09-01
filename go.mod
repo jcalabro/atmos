@@ -5,10 +5,10 @@ go 1.26
 toolchain go1.26.6
 
 require (
+	github.com/bluesky-social/gttp v0.1.0
 	github.com/coder/websocket v1.8.14
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jcalabro/gt v0.0.12
-	github.com/jcalabro/jttp v0.0.8
 	github.com/klauspost/compress v1.19.2
 	github.com/mr-tron/base58 v1.2.0
 	github.com/puzpuzpuz/xsync/v4 v4.5.0

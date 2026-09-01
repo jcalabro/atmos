@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jcalabro/jttp"
+	"github.com/bluesky-social/gttp"
 )
 
 // MaxResponseHeaderBytes caps the total size of response headers we'll read
@@ -45,7 +45,7 @@ func NewTransport() *http.Transport {
 	}
 }
 
-// NewHTTPClient returns an [*http.Client] backed by jttp with robust defaults
+// NewHTTPClient returns an [*http.Client] backed by gttp with robust defaults
 // including automatic retries with exponential backoff, connection pooling, HTTP/2,
 // TLS 1.2 minimum, and timeouts tuned for ATProto production workloads.
 //
@@ -53,15 +53,15 @@ func NewTransport() *http.Transport {
 // and connection-level errors (resets, refused, timeouts). POST and other methods
 // are not retried at this level to avoid non-idempotent side effects.
 //
-// Callers that implement their own retry loop (e.g. [Client]) should use jttp
-// directly with [jttp.WithNoRetries] to avoid compounding retries.
+// Callers that implement their own retry loop (e.g. [Client]) should use gttp
+// directly with [gttp.WithNoRetries] to avoid compounding retries.
 func NewHTTPClient(timeout time.Duration) *http.Client {
-	return jttp.New(ATProtoOpts(timeout)...)
+	return gttp.New(ATProtoOpts(timeout)...)
 }
 
-// ATProtoOpts returns the canonical jttp option set used across the
+// ATProtoOpts returns the canonical gttp option set used across the
 // codebase for ATProto production workloads. Callers wanting to layer
-// additional options (e.g. [jttp.WithStrictSSRFProtection] for code
+// additional options (e.g. [gttp.WithStrictSSRFProtection] for code
 // paths that follow attacker-controlled URLs) should pass these as
 // the prefix of their own option list.
 //
@@ -74,23 +74,23 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 // Use [BulkDownloadOpts] for streaming bulk endpoints (notably
 // com.atproto.sync.getRepo) where a wall-clock total-request timeout
 // would prematurely kill a slow-but-progressing transfer.
-func ATProtoOpts(timeout time.Duration) []jttp.Option {
-	return []jttp.Option{
-		jttp.WithTimeout(timeout),
-		jttp.WithDialTimeout(5 * time.Second),
-		jttp.WithTLSHandshakeTimeout(5 * time.Second),
-		jttp.WithResponseHeaderTimeout(15 * time.Second),
-		jttp.WithExpectContinueTimeout(1 * time.Second),
-		jttp.WithMaxIdleConns(100),
-		jttp.WithMaxIdleConnsPerHost(50),
-		jttp.WithMaxConnsPerHost(100),
-		jttp.WithIdleConnTimeout(90 * time.Second),
-		jttp.WithDialKeepAlive(30 * time.Second),
-		jttp.WithMaxResponseHeaderBytes(MaxResponseHeaderBytes),
-		jttp.WithRedirectPolicy(5),
-		jttp.WithUserAgent(defaultUserAgent),
-		jttp.WithAdditionalRetryableStatusCodes(http.StatusInternalServerError),
-		jttp.WithMaxRetryAfter(30 * time.Second),
+func ATProtoOpts(timeout time.Duration) []gttp.Option {
+	return []gttp.Option{
+		gttp.WithTimeout(timeout),
+		gttp.WithDialTimeout(5 * time.Second),
+		gttp.WithTLSHandshakeTimeout(5 * time.Second),
+		gttp.WithResponseHeaderTimeout(15 * time.Second),
+		gttp.WithExpectContinueTimeout(1 * time.Second),
+		gttp.WithMaxIdleConns(100),
+		gttp.WithMaxIdleConnsPerHost(50),
+		gttp.WithMaxConnsPerHost(100),
+		gttp.WithIdleConnTimeout(90 * time.Second),
+		gttp.WithDialKeepAlive(30 * time.Second),
+		gttp.WithMaxResponseHeaderBytes(MaxResponseHeaderBytes),
+		gttp.WithRedirectPolicy(5),
+		gttp.WithUserAgent(defaultUserAgent),
+		gttp.WithAdditionalRetryableStatusCodes(http.StatusInternalServerError),
+		gttp.WithMaxRetryAfter(30 * time.Second),
 	}
 }
 
@@ -143,7 +143,7 @@ const (
 	BulkMaxRequestTimeout = 30 * time.Minute
 )
 
-// BulkDownloadOpts returns a jttp option set tuned for streaming
+// BulkDownloadOpts returns a gttp option set tuned for streaming
 // bulk responses — specifically com.atproto.sync.getRepo, which can
 // take minutes for large repositories (the largest accounts on Bluesky
 // today carry ~2.5M records and ~1 GiB of CAR data).
@@ -167,30 +167,30 @@ const (
 //
 // Connection pool and SSRF settings match [ATProtoOpts] — same fan-out
 // posture against unknown PDSes.
-func BulkDownloadOpts() []jttp.Option {
-	return []jttp.Option{
-		// Absolute wall-clock backstop. jttp's default is 30s, far too
+func BulkDownloadOpts() []gttp.Option {
+	return []gttp.Option{
+		// Absolute wall-clock backstop. gttp's default is 30s, far too
 		// short for a multi-hundred-MiB CAR; the streaming guards below
 		// do the real work, but this bounds the pathological tail.
-		jttp.WithTimeout(BulkMaxRequestTimeout),
-		jttp.WithDialTimeout(5 * time.Second),
-		jttp.WithTLSHandshakeTimeout(5 * time.Second),
-		jttp.WithResponseHeaderTimeout(BulkResponseHeaderTimeout),
-		jttp.WithExpectContinueTimeout(1 * time.Second),
-		jttp.WithIdleTimeout(BulkIdleTimeout),
-		jttp.WithMinTransferRate(BulkMinTransferBytes, BulkMinTransferWindow),
-		jttp.WithMaxIdleConns(100),
-		jttp.WithMaxIdleConnsPerHost(50),
-		jttp.WithMaxConnsPerHost(100),
-		jttp.WithIdleConnTimeout(90 * time.Second),
-		jttp.WithDialKeepAlive(30 * time.Second),
-		jttp.WithMaxResponseHeaderBytes(MaxResponseHeaderBytes),
-		jttp.WithRedirectPolicy(5),
-		jttp.WithUserAgent(defaultUserAgent),
-		jttp.WithAdditionalRetryableStatusCodes(http.StatusInternalServerError),
-		jttp.WithMaxRetryAfter(30 * time.Second),
+		gttp.WithTimeout(BulkMaxRequestTimeout),
+		gttp.WithDialTimeout(5 * time.Second),
+		gttp.WithTLSHandshakeTimeout(5 * time.Second),
+		gttp.WithResponseHeaderTimeout(BulkResponseHeaderTimeout),
+		gttp.WithExpectContinueTimeout(1 * time.Second),
+		gttp.WithIdleTimeout(BulkIdleTimeout),
+		gttp.WithMinTransferRate(BulkMinTransferBytes, BulkMinTransferWindow),
+		gttp.WithMaxIdleConns(100),
+		gttp.WithMaxIdleConnsPerHost(50),
+		gttp.WithMaxConnsPerHost(100),
+		gttp.WithIdleConnTimeout(90 * time.Second),
+		gttp.WithDialKeepAlive(30 * time.Second),
+		gttp.WithMaxResponseHeaderBytes(MaxResponseHeaderBytes),
+		gttp.WithRedirectPolicy(5),
+		gttp.WithUserAgent(defaultUserAgent),
+		gttp.WithAdditionalRetryableStatusCodes(http.StatusInternalServerError),
+		gttp.WithMaxRetryAfter(30 * time.Second),
 		// Caller (the verifier worker) implements its own retry/resync
-		// strategy; jttp-level retries would compound that.
-		jttp.WithNoRetries(),
+		// strategy; gttp-level retries would compound that.
+		gttp.WithNoRetries(),
 	}
 }

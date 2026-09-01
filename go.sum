@@ -1,3 +1,5 @@
+github.com/bluesky-social/gttp v0.1.0 h1:jsG6ssqLYboxxdx+eBScIvKfMfBB6qvN8E4SW+NeoaM=
+github.com/bluesky-social/gttp v0.1.0/go.mod h1:TPtZ67MOhePifYaztEI42hUhluaE2GJ33+oFxPermuw=
 github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=
 github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
@@ -6,8 +8,6 @@ github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63Y
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/jcalabro/gt v0.0.12 h1:9BPGSkFWihlA/iHRdQdiwDTuQoIK5X77SMgpKTfY8VA=
 github.com/jcalabro/gt v0.0.12/go.mod h1:iBnF7jE8LG8mW0zjXVYTuXoT+L9UfwP7RNgMrmuuOTs=
-github.com/jcalabro/jttp v0.0.8 h1:vULWmcPWGmVAgWFxBOdI+ZqRnMqIec5FUTkXYBdtECg=
-github.com/jcalabro/jttp v0.0.8/go.mod h1:la0ParzfXnWxZCwzJ0VXT3Vr2SyDtEhB/yyG3zSVgME=
 github.com/klauspost/compress v1.19.2 h1:hMRETovs/pu/dVWN7zIT1PGG8t509MwT6bO7XSi26R8=
 github.com/klauspost/compress v1.19.2/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=

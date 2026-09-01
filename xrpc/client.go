@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/gttp"
 	"github.com/jcalabro/gt"
-	"github.com/jcalabro/jttp"
 )
 
 const (
@@ -38,14 +38,14 @@ type Client struct {
 }
 
 // client returns the HTTP client, initializing it once if needed.
-// Uses jttp with retries disabled because Client.doInternal implements its
+// Uses gttp with retries disabled because Client.doInternal implements its
 // own XRPC-aware retry loop with rate-limit tracking and session refresh.
 func (c *Client) client() *http.Client {
 	c.clientOnce.Do(func() {
 		if c.HTTPClient.HasVal() {
 			c.httpClient = c.HTTPClient.Val()
 		} else {
-			c.httpClient = jttp.New(append(ATProtoOpts(30*time.Second), jttp.WithNoRetries())...)
+			c.httpClient = gttp.New(append(ATProtoOpts(30*time.Second), gttp.WithNoRetries())...)
 		}
 	})
 	return c.httpClient

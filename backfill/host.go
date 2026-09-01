@@ -9,10 +9,10 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/bluesky-social/gttp"
 	atmossync "github.com/jcalabro/atmos/sync"
 	"github.com/jcalabro/atmos/xrpc"
 	"github.com/jcalabro/gt"
-	"github.com/jcalabro/jttp"
 )
 
 // ValidateHostname validates an untrusted listHosts hostname for use by the
@@ -54,7 +54,7 @@ func ValidateHostname(hostname string) error {
 	return nil
 }
 
-// blockedDialIP is the dial-path IP policy: jttp's redirect/initial-request
+// blockedDialIP is the dial-path IP policy: gttp's redirect/initial-request
 // blocklist (loopback, link-local incl. cloud metadata, private + ULA,
 // multicast, unspecified, 0.0.0.0/8, limited broadcast) plus two ranges that
 // are commonly routed inside provider networks but not covered by
@@ -147,18 +147,18 @@ func defaultHostClientBuilder() func(string) (*atmossync.Client, error) {
 	// listHosts names originate from arbitrary requestCrawl calls, so syntax
 	// validation alone is not enough (a public-looking name can resolve
 	// anywhere). Three layers: strict SSRF protection rejects hostnames whose
-	// policy-time resolution is blocked (and jttp applies the same policy to
+	// policy-time resolution is blocked (and gttp applies the same policy to
 	// redirect hops by default); the guarded dialer re-checks and pins the
 	// exact addresses it dials, closing the DNS-rebinding TOCTOU between the
 	// policy lookup and the dial; and no proxy, so nothing bypasses the
 	// dialer. The dialer's 5s/30s timeouts intentionally match
 	// BulkDownloadOpts' dial settings, which a custom DialContext replaces.
 	opts := append(xrpc.BulkDownloadOpts(),
-		jttp.WithStrictSSRFProtection(),
-		jttp.WithNoProxy(),
-		jttp.WithDialContext(guardedDialContext),
+		gttp.WithStrictSSRFProtection(),
+		gttp.WithNoProxy(),
+		gttp.WithDialContext(guardedDialContext),
 	)
-	httpClient := jttp.New(opts...)
+	httpClient := gttp.New(opts...)
 	return func(hostname string) (*atmossync.Client, error) {
 		if err := ValidateHostname(hostname); err != nil {
 			return nil, err

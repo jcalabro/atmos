@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bluesky-social/gttp"
 	"github.com/jcalabro/atmos/xrpc"
-	"github.com/jcalabro/jttp"
 )
 
 // newDefaultHTTPClient returns the HTTP client used by [DefaultResolver] for
 // attacker-controlled did:web and handle well-known fetches.
 //
 // Configuration:
-//   - jttp's strict SSRF protection rejects loopback / private /
+//   - gttp's strict SSRF protection rejects loopback / private /
 //     link-local / IMDS targets at dial time. Identity resolution
 //     follows attacker-controlled URLs (any handle's domain), so the
 //     guard MUST cover the initial request URL, not just redirects.
@@ -29,10 +29,10 @@ import (
 func newDefaultHTTPClient() *http.Client {
 	opts := append(
 		xrpc.ATProtoOpts(10*time.Second),
-		jttp.WithStrictSSRFProtection(),
-		jttp.WithNoProxy(),
+		gttp.WithStrictSSRFProtection(),
+		gttp.WithNoProxy(),
 	)
-	return jttp.New(opts...)
+	return gttp.New(opts...)
 }
 
 // newDefaultPLCHTTPClient returns a pooled client for the fixed,
@@ -42,7 +42,7 @@ func newDefaultHTTPClient() *http.Client {
 func newDefaultPLCHTTPClient() *http.Client {
 	opts := append(
 		xrpc.ATProtoOpts(10*time.Second),
-		jttp.WithNoRedirects(),
+		gttp.WithNoRedirects(),
 	)
-	return jttp.New(opts...)
+	return gttp.New(opts...)
 }
