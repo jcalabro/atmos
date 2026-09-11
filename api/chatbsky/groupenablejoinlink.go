@@ -446,7 +446,7 @@ type GroupEnableJoinLink_Input struct {
 
 // GroupEnableJoinLink calls the XRPC procedure "chat.bsky.group.enableJoinLink".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Re-enables a previously disabled join link for the group convo.
+// Re-enables a previously disabled join link for the group convo.
 func GroupEnableJoinLink(ctx context.Context, c *xrpc.Client, input *GroupEnableJoinLink_Input) (*GroupEnableJoinLink_Output, error) {
 	var out GroupEnableJoinLink_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.enableJoinLink", input, &out)

@@ -14,6 +14,7 @@ type VideoDefs_JobStatus struct {
 	Blob          gt.Option[lextypes.LexBlob] `json:"blob,omitzero"`
 	DID           string                      `json:"did"`
 	Error         gt.Option[string]           `json:"error,omitzero"`
+	FailureCode   gt.Option[string]           `json:"failureCode,omitzero"` // A machine-readable code for why the video processing job failed.
 	JobId         string                      `json:"jobId"`
 	Message       gt.Option[string]           `json:"message,omitzero"`
 	Progress      gt.Option[int64]            `json:"progress,omitzero"` // Progress within the current processing state.
@@ -33,6 +34,7 @@ var (
 	cborKey_VideoDefs_JobStatus_state       = cbor.AppendTextKey(nil, "state")
 	cborKey_VideoDefs_JobStatus_message     = cbor.AppendTextKey(nil, "message")
 	cborKey_VideoDefs_JobStatus_progress    = cbor.AppendTextKey(nil, "progress")
+	cborKey_VideoDefs_JobStatus_failureCode = cbor.AppendTextKey(nil, "failureCode")
 )
 
 func (s *VideoDefs_JobStatus) MarshalCBOR() ([]byte, error) {
@@ -54,6 +56,9 @@ func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Progress.HasVal() {
+		n++
+	}
+	if s.FailureCode.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -102,6 +107,11 @@ func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_VideoDefs_JobStatus_progress...)
 			buf = cbor.AppendInt(buf, s.Progress.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "failureCode", buf)
+		if s.FailureCode.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_failureCode...)
+			buf = cbor.AppendText(buf, s.FailureCode.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_VideoDefs_JobStatus_did...)
@@ -138,6 +148,10 @@ func (s *VideoDefs_JobStatus) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.Progress.HasVal() {
 			buf = append(buf, cborKey_VideoDefs_JobStatus_progress...)
 			buf = cbor.AppendInt(buf, s.Progress.Val())
+		}
+		if s.FailureCode.HasVal() {
+			buf = append(buf, cborKey_VideoDefs_JobStatus_failureCode...)
+			buf = cbor.AppendText(buf, s.FailureCode.Val())
 		}
 	}
 	return buf, nil
@@ -282,6 +296,26 @@ func (s *VideoDefs_JobStatus) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "failureCode" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.FailureCode = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -300,6 +334,7 @@ var (
 	jsonKey_VideoDefs_JobStatus_blob        = []byte("\"blob\":")
 	jsonKey_VideoDefs_JobStatus_did         = []byte("\"did\":")
 	jsonKey_VideoDefs_JobStatus_error       = []byte("\"error\":")
+	jsonKey_VideoDefs_JobStatus_failureCode = []byte("\"failureCode\":")
 	jsonKey_VideoDefs_JobStatus_jobId       = []byte("\"jobId\":")
 	jsonKey_VideoDefs_JobStatus_message     = []byte("\"message\":")
 	jsonKey_VideoDefs_JobStatus_progress    = []byte("\"progress\":")
@@ -350,6 +385,14 @@ func (s *VideoDefs_JobStatus) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_VideoDefs_JobStatus_error...)
 		buf = cbor.AppendJSONString(buf, s.Error.Val())
+		first = false
+	}
+	if s.FailureCode.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_VideoDefs_JobStatus_failureCode...)
+		buf = cbor.AppendJSONString(buf, s.FailureCode.Val())
 		first = false
 	}
 	if !first {
@@ -457,6 +500,20 @@ func (s *VideoDefs_JobStatus) UnmarshalJSONAt(data []byte, pos int) (int, error)
 					return 0, err
 				}
 				s.Error = gt.Some(v)
+			}
+		case "failureCode":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.FailureCode = gt.Some(v)
 			}
 		case "jobId":
 			s.JobId, pos, err = cbor.ReadJSONString(data, pos)

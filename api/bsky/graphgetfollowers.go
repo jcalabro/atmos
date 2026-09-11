@@ -385,7 +385,7 @@ type GraphGetFollowers_Output struct {
 // GraphGetFollowers calls the XRPC query "app.bsky.graph.getFollowers".
 //
 // Enumerates accounts which follow a specified account (actor).
-func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetFollowers_Output, error) {
+func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64, sort string) (*GraphGetFollowers_Output, error) {
 	params := map[string]any{}
 	params["actor"] = actor
 	if cursor != "" {
@@ -393,6 +393,9 @@ func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
+	}
+	if sort != "" {
+		params["sort"] = sort
 	}
 	var out GraphGetFollowers_Output
 	return &out, c.Query(ctx, "app.bsky.graph.getFollowers", params, &out)

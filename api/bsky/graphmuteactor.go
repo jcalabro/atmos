@@ -6,12 +6,15 @@ import (
 	"context"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for GraphMuteActor_Input.
 var (
-	jsonKey_GraphMuteActor_Input_dollar_type = []byte("\"$type\":")
-	jsonKey_GraphMuteActor_Input_actor       = []byte("\"actor\":")
+	jsonKey_GraphMuteActor_Input_dollar_type    = []byte("\"$type\":")
+	jsonKey_GraphMuteActor_Input_actor          = []byte("\"actor\":")
+	jsonKey_GraphMuteActor_Input_onlyQuoteposts = []byte("\"onlyQuoteposts\":")
+	jsonKey_GraphMuteActor_Input_onlyReposts    = []byte("\"onlyReposts\":")
 )
 
 func (s *GraphMuteActor_Input) MarshalJSON() ([]byte, error) {
@@ -35,6 +38,22 @@ func (s *GraphMuteActor_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_GraphMuteActor_Input_actor...)
 	buf = cbor.AppendJSONString(buf, s.Actor)
 	first = false
+	if s.OnlyQuoteposts.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_GraphMuteActor_Input_onlyQuoteposts...)
+		buf = cbor.AppendJSONBool(buf, s.OnlyQuoteposts.Val())
+		first = false
+	}
+	if s.OnlyReposts.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_GraphMuteActor_Input_onlyReposts...)
+		buf = cbor.AppendJSONBool(buf, s.OnlyReposts.Val())
+		first = false
+	}
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
 			continue
@@ -85,6 +104,34 @@ func (s *GraphMuteActor_Input) UnmarshalJSONAt(data []byte, pos int) (int, error
 			if err != nil {
 				return 0, err
 			}
+		case "onlyQuoteposts":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.OnlyQuoteposts = gt.Some(v)
+			}
+		case "onlyReposts":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.OnlyReposts = gt.Some(v)
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
@@ -99,8 +146,10 @@ func (s *GraphMuteActor_Input) UnmarshalJSONAt(data []byte, pos int) (int, error
 
 // Precomputed CBOR key tokens for GraphMuteActor_Input.
 var (
-	cborKey_GraphMuteActor_Input_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_GraphMuteActor_Input_actor       = cbor.AppendTextKey(nil, "actor")
+	cborKey_GraphMuteActor_Input_dollar_type    = cbor.AppendTextKey(nil, "$type")
+	cborKey_GraphMuteActor_Input_actor          = cbor.AppendTextKey(nil, "actor")
+	cborKey_GraphMuteActor_Input_onlyReposts    = cbor.AppendTextKey(nil, "onlyReposts")
+	cborKey_GraphMuteActor_Input_onlyQuoteposts = cbor.AppendTextKey(nil, "onlyQuoteposts")
 )
 
 func (s *GraphMuteActor_Input) MarshalCBOR() ([]byte, error) {
@@ -110,6 +159,12 @@ func (s *GraphMuteActor_Input) MarshalCBOR() ([]byte, error) {
 func (s *GraphMuteActor_Input) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.OnlyReposts.HasVal() {
+		n++
+	}
+	if s.OnlyQuoteposts.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -123,6 +178,16 @@ func (s *GraphMuteActor_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actor", buf)
 		buf = append(buf, cborKey_GraphMuteActor_Input_actor...)
 		buf = cbor.AppendText(buf, s.Actor)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "onlyReposts", buf)
+		if s.OnlyReposts.HasVal() {
+			buf = append(buf, cborKey_GraphMuteActor_Input_onlyReposts...)
+			buf = cbor.AppendBool(buf, s.OnlyReposts.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "onlyQuoteposts", buf)
+		if s.OnlyQuoteposts.HasVal() {
+			buf = append(buf, cborKey_GraphMuteActor_Input_onlyQuoteposts...)
+			buf = cbor.AppendBool(buf, s.OnlyQuoteposts.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
@@ -131,6 +196,14 @@ func (s *GraphMuteActor_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, cborKey_GraphMuteActor_Input_actor...)
 		buf = cbor.AppendText(buf, s.Actor)
+		if s.OnlyReposts.HasVal() {
+			buf = append(buf, cborKey_GraphMuteActor_Input_onlyReposts...)
+			buf = cbor.AppendBool(buf, s.OnlyReposts.Val())
+		}
+		if s.OnlyQuoteposts.HasVal() {
+			buf = append(buf, cborKey_GraphMuteActor_Input_onlyQuoteposts...)
+			buf = cbor.AppendBool(buf, s.OnlyQuoteposts.Val())
+		}
 	}
 	return buf, nil
 }
@@ -184,6 +257,46 @@ func (s *GraphMuteActor_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "onlyReposts" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.OnlyReposts = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 14:
+			if string(data[keyStart:keyEnd]) == "onlyQuoteposts" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.OnlyQuoteposts = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -197,8 +310,10 @@ func (s *GraphMuteActor_Input) UnmarshalCBORAt(data []byte, pos int) (int, error
 }
 
 type GraphMuteActor_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Actor         string `json:"actor"`
+	LexiconTypeID  string          `json:"$type,omitempty"`
+	Actor          string          `json:"actor"`
+	OnlyQuoteposts gt.Option[bool] `json:"onlyQuoteposts,omitzero"` // Restrict the mute to the account's quote posts. See onlyReposts.
+	OnlyReposts    gt.Option[bool] `json:"onlyReposts,omitzero"`    // Restrict the mute to the account's reposts. When any 'only' scope is set, just the scoped content...
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -206,7 +321,7 @@ type GraphMuteActor_Input struct {
 
 // GraphMuteActor calls the XRPC procedure "app.bsky.graph.muteActor".
 //
-// Creates a mute relationship for the specified account. Mutes are private in Bluesky. Requires auth.
+// Creates a mute relationship for the specified account. If a mute already exists for the account, it is updated in place: the stored scope is replaced with the scope in this request. Mutes are private in Bluesky. Requires auth.
 func GraphMuteActor(ctx context.Context, c *xrpc.Client, input *GraphMuteActor_Input) error {
 	return c.Procedure(ctx, "app.bsky.graph.muteActor", input, nil)
 }

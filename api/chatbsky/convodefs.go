@@ -1669,8 +1669,6 @@ func (s *ConvoDefs_DeletedMessageView) UnmarshalJSONAt(data []byte, pos int) (in
 }
 
 // ConvoDefs_DirectConvo is a "directConvo" in the chat.bsky.convo.defs schema.
-//
-// [NOTE: This is under active development and should be considered unstable while this note is here].
 type ConvoDefs_DirectConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
@@ -1844,18 +1842,17 @@ func (s *ConvoDefs_DirectConvo) UnmarshalJSONAt(data []byte, pos int) (int, erro
 }
 
 // ConvoDefs_GroupConvo is a "groupConvo" in the chat.bsky.convo.defs schema.
-//
-// [NOTE: This is under active development and should be considered unstable while this note is here].
 type ConvoDefs_GroupConvo struct {
-	LexiconTypeID          string                            `json:"$type,omitempty"`
-	CreatedAt              string                            `json:"createdAt"`
-	JoinLink               gt.Option[GroupDefs_JoinLinkView] `json:"joinLink,omitzero"`
-	JoinRequestCount       gt.Option[int64]                  `json:"joinRequestCount,omitzero"`       // The total number of pending join requests for the group conversation. Only present for the owner....
-	LockStatus             ConvoDefs_ConvoLockStatus         `json:"lockStatus"`                      // The lock status of the conversation.
-	MemberCount            int64                             `json:"memberCount"`                     // The total number of members in the group conversation.
-	MemberLimit            int64                             `json:"memberLimit"`                     // The maximum number of members allowed in the group conversation.
-	Name                   string                            `json:"name"`                            // The display name of the group conversation.
-	UnreadJoinRequestCount gt.Option[int64]                  `json:"unreadJoinRequestCount,omitzero"` // The number of unread join requests for the group conversation. Only present for the owner.
+	LexiconTypeID                string                            `json:"$type,omitempty"`
+	CreatedAt                    string                            `json:"createdAt"`
+	JoinLink                     gt.Option[GroupDefs_JoinLinkView] `json:"joinLink,omitzero"`
+	JoinRequestCount             gt.Option[int64]                  `json:"joinRequestCount,omitzero"`       // The total number of pending join requests for the group conversation. Only present for the owner....
+	LockStatus                   ConvoDefs_ConvoLockStatus         `json:"lockStatus"`                      // The lock status of the conversation.
+	LockStatusModerationOverride bool                              `json:"lockStatusModerationOverride"`    // Whether the lock status is being forced by a moderation override (account inactivation or convo t...
+	MemberCount                  int64                             `json:"memberCount"`                     // The total number of members in the group conversation.
+	MemberLimit                  int64                             `json:"memberLimit"`                     // The maximum number of members allowed in the group conversation.
+	Name                         string                            `json:"name"`                            // The display name of the group conversation.
+	UnreadJoinRequestCount       gt.Option[int64]                  `json:"unreadJoinRequestCount,omitzero"` // The number of unread join requests for the group conversation. Only present for the owner.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -1863,15 +1860,16 @@ type ConvoDefs_GroupConvo struct {
 
 // Precomputed CBOR key tokens for ConvoDefs_GroupConvo.
 var (
-	cborKey_ConvoDefs_GroupConvo_name                   = cbor.AppendTextKey(nil, "name")
-	cborKey_ConvoDefs_GroupConvo_dollar_type            = cbor.AppendTextKey(nil, "$type")
-	cborKey_ConvoDefs_GroupConvo_joinLink               = cbor.AppendTextKey(nil, "joinLink")
-	cborKey_ConvoDefs_GroupConvo_createdAt              = cbor.AppendTextKey(nil, "createdAt")
-	cborKey_ConvoDefs_GroupConvo_lockStatus             = cbor.AppendTextKey(nil, "lockStatus")
-	cborKey_ConvoDefs_GroupConvo_memberCount            = cbor.AppendTextKey(nil, "memberCount")
-	cborKey_ConvoDefs_GroupConvo_memberLimit            = cbor.AppendTextKey(nil, "memberLimit")
-	cborKey_ConvoDefs_GroupConvo_joinRequestCount       = cbor.AppendTextKey(nil, "joinRequestCount")
-	cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount = cbor.AppendTextKey(nil, "unreadJoinRequestCount")
+	cborKey_ConvoDefs_GroupConvo_name                         = cbor.AppendTextKey(nil, "name")
+	cborKey_ConvoDefs_GroupConvo_dollar_type                  = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_GroupConvo_joinLink                     = cbor.AppendTextKey(nil, "joinLink")
+	cborKey_ConvoDefs_GroupConvo_createdAt                    = cbor.AppendTextKey(nil, "createdAt")
+	cborKey_ConvoDefs_GroupConvo_lockStatus                   = cbor.AppendTextKey(nil, "lockStatus")
+	cborKey_ConvoDefs_GroupConvo_memberCount                  = cbor.AppendTextKey(nil, "memberCount")
+	cborKey_ConvoDefs_GroupConvo_memberLimit                  = cbor.AppendTextKey(nil, "memberLimit")
+	cborKey_ConvoDefs_GroupConvo_joinRequestCount             = cbor.AppendTextKey(nil, "joinRequestCount")
+	cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount       = cbor.AppendTextKey(nil, "unreadJoinRequestCount")
+	cborKey_ConvoDefs_GroupConvo_lockStatusModerationOverride = cbor.AppendTextKey(nil, "lockStatusModerationOverride")
 )
 
 func (s *ConvoDefs_GroupConvo) MarshalCBOR() ([]byte, error) {
@@ -1879,7 +1877,7 @@ func (s *ConvoDefs_GroupConvo) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ConvoDefs_GroupConvo) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 5 + countExtra(s.extra, extraEncodingCBOR)
+	n := 6 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -1939,6 +1937,9 @@ func (s *ConvoDefs_GroupConvo) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount...)
 			buf = cbor.AppendInt(buf, s.UnreadJoinRequestCount.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "lockStatusModerationOverride", buf)
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_lockStatusModerationOverride...)
+		buf = cbor.AppendBool(buf, s.LockStatusModerationOverride)
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ConvoDefs_GroupConvo_name...)
@@ -1976,6 +1977,8 @@ func (s *ConvoDefs_GroupConvo) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ConvoDefs_GroupConvo_unreadJoinRequestCount...)
 			buf = cbor.AppendInt(buf, s.UnreadJoinRequestCount.Val())
 		}
+		buf = append(buf, cborKey_ConvoDefs_GroupConvo_lockStatusModerationOverride...)
+		buf = cbor.AppendBool(buf, s.LockStatusModerationOverride)
 	}
 	return buf, nil
 }
@@ -2145,6 +2148,20 @@ func (s *ConvoDefs_GroupConvo) UnmarshalCBORAt(data []byte, pos int) (int, error
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 28:
+			if string(data[keyStart:keyEnd]) == "lockStatusModerationOverride" {
+				s.LockStatusModerationOverride, pos, err = cbor.ReadBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -2159,15 +2176,16 @@ func (s *ConvoDefs_GroupConvo) UnmarshalCBORAt(data []byte, pos int) (int, error
 
 // Precomputed JSON key tokens for ConvoDefs_GroupConvo.
 var (
-	jsonKey_ConvoDefs_GroupConvo_dollar_type            = []byte("\"$type\":")
-	jsonKey_ConvoDefs_GroupConvo_createdAt              = []byte("\"createdAt\":")
-	jsonKey_ConvoDefs_GroupConvo_joinLink               = []byte("\"joinLink\":")
-	jsonKey_ConvoDefs_GroupConvo_joinRequestCount       = []byte("\"joinRequestCount\":")
-	jsonKey_ConvoDefs_GroupConvo_lockStatus             = []byte("\"lockStatus\":")
-	jsonKey_ConvoDefs_GroupConvo_memberCount            = []byte("\"memberCount\":")
-	jsonKey_ConvoDefs_GroupConvo_memberLimit            = []byte("\"memberLimit\":")
-	jsonKey_ConvoDefs_GroupConvo_name                   = []byte("\"name\":")
-	jsonKey_ConvoDefs_GroupConvo_unreadJoinRequestCount = []byte("\"unreadJoinRequestCount\":")
+	jsonKey_ConvoDefs_GroupConvo_dollar_type                  = []byte("\"$type\":")
+	jsonKey_ConvoDefs_GroupConvo_createdAt                    = []byte("\"createdAt\":")
+	jsonKey_ConvoDefs_GroupConvo_joinLink                     = []byte("\"joinLink\":")
+	jsonKey_ConvoDefs_GroupConvo_joinRequestCount             = []byte("\"joinRequestCount\":")
+	jsonKey_ConvoDefs_GroupConvo_lockStatus                   = []byte("\"lockStatus\":")
+	jsonKey_ConvoDefs_GroupConvo_lockStatusModerationOverride = []byte("\"lockStatusModerationOverride\":")
+	jsonKey_ConvoDefs_GroupConvo_memberCount                  = []byte("\"memberCount\":")
+	jsonKey_ConvoDefs_GroupConvo_memberLimit                  = []byte("\"memberLimit\":")
+	jsonKey_ConvoDefs_GroupConvo_name                         = []byte("\"name\":")
+	jsonKey_ConvoDefs_GroupConvo_unreadJoinRequestCount       = []byte("\"unreadJoinRequestCount\":")
 )
 
 func (s *ConvoDefs_GroupConvo) MarshalJSON() ([]byte, error) {
@@ -2221,6 +2239,12 @@ func (s *ConvoDefs_GroupConvo) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_lockStatus...)
 	buf = cbor.AppendJSONString(buf, s.LockStatus)
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_GroupConvo_lockStatusModerationOverride...)
+	buf = cbor.AppendJSONBool(buf, s.LockStatusModerationOverride)
 	first = false
 	if !first {
 		buf = append(buf, ',')
@@ -2328,6 +2352,11 @@ func (s *ConvoDefs_GroupConvo) UnmarshalJSONAt(data []byte, pos int) (int, error
 			}
 		case "lockStatus":
 			s.LockStatus, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "lockStatusModerationOverride":
+			s.LockStatusModerationOverride, pos, err = cbor.ReadJSONBool(data, pos)
 			if err != nil {
 				return 0, err
 			}
@@ -2615,7 +2644,7 @@ func (s *ConvoDefs_LogAcceptConvo) UnmarshalJSONAt(data []byte, pos int) (int, e
 
 // ConvoDefs_LogAddMember is a "logAddMember" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member was added to a group convo. The member who was added gets a logBeginConvo (to create the convo) but also a logAddMember (to show the system message as the first message the user sees).
+// Event indicating a member was added to a group convo. The member who was added gets a logBeginConvo (to create the convo) but also a logAddMember (to show the system message as the first message the user sees).
 type ConvoDefs_LogAddMember struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -3556,7 +3585,7 @@ func (s *ConvoDefs_LogAddReaction) UnmarshalJSONAt(data []byte, pos int) (int, e
 
 // ConvoDefs_LogApproveJoinRequest is a "logApproveJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was approved by the viewer. Only the owner gets this. The approved member gets a logBeginConvo.
+// Event indicating a join request was approved by the viewer. Only the owner gets this. The approved member gets a logBeginConvo.
 type ConvoDefs_LogApproveJoinRequest struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
 	ConvoId       string                     `json:"convoId"`
@@ -4089,7 +4118,7 @@ func (s *ConvoDefs_LogBeginConvo) UnmarshalJSONAt(data []byte, pos int) (int, er
 
 // ConvoDefs_LogCreateJoinLink is a "logCreateJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was created for a group convo.
+// Event indicating a join link was created for a group convo.
 type ConvoDefs_LogCreateJoinLink struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
 	ConvoId       string                      `json:"convoId"`
@@ -5298,7 +5327,7 @@ func (s *ConvoDefs_LogDeleteMessage) UnmarshalJSONAt(data []byte, pos int) (int,
 
 // ConvoDefs_LogDisableJoinLink is a "logDisableJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was disabled for a group convo.
+// Event indicating a join link was disabled for a group convo.
 type ConvoDefs_LogDisableJoinLink struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
 	ConvoId       string                      `json:"convoId"`
@@ -5581,7 +5610,7 @@ func (s *ConvoDefs_LogDisableJoinLink) UnmarshalJSONAt(data []byte, pos int) (in
 
 // ConvoDefs_LogEditGroup is a "logEditGroup" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating info about group convo was edited.
+// Event indicating info about group convo was edited.
 type ConvoDefs_LogEditGroup struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
 	ConvoId       string                      `json:"convoId"`
@@ -5864,7 +5893,7 @@ func (s *ConvoDefs_LogEditGroup) UnmarshalJSONAt(data []byte, pos int) (int, err
 
 // ConvoDefs_LogEditJoinLink is a "logEditJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a settings about a join link for a group convo were edited.
+// Event indicating a settings about a join link for a group convo were edited.
 type ConvoDefs_LogEditJoinLink struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
 	ConvoId       string                      `json:"convoId"`
@@ -6147,7 +6176,7 @@ func (s *ConvoDefs_LogEditJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, 
 
 // ConvoDefs_LogEnableJoinLink is a "logEnableJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was enabled for a group convo.
+// Event indicating a join link was enabled for a group convo.
 type ConvoDefs_LogEnableJoinLink struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
 	ConvoId       string                      `json:"convoId"`
@@ -6430,7 +6459,7 @@ func (s *ConvoDefs_LogEnableJoinLink) UnmarshalJSONAt(data []byte, pos int) (int
 
 // ConvoDefs_LogIncomingJoinRequest is a "logIncomingJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made to a group the viewer owns. Only the owner gets this.
+// Event indicating a join request was made to a group the viewer owns. Only the owner gets this.
 type ConvoDefs_LogIncomingJoinRequest struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
 	ConvoId       string                     `json:"convoId"`
@@ -6963,7 +6992,7 @@ func (s *ConvoDefs_LogLeaveConvo) UnmarshalJSONAt(data []byte, pos int) (int, er
 
 // ConvoDefs_LogLockConvo is a "logLockConvo" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was locked.
+// Event indicating a group convo was locked.
 type ConvoDefs_LogLockConvo struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -7339,7 +7368,7 @@ func (s *ConvoDefs_LogLockConvo) UnmarshalJSONAt(data []byte, pos int) (int, err
 
 // ConvoDefs_LogLockConvoPermanently is a "logLockConvoPermanently" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was locked permanently.
+// Event indicating a group convo was locked permanently.
 type ConvoDefs_LogLockConvoPermanently struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -7715,7 +7744,7 @@ func (s *ConvoDefs_LogLockConvoPermanently) UnmarshalJSONAt(data []byte, pos int
 
 // ConvoDefs_LogMemberJoin is a "logMemberJoin" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member joined a group convo via join link. The member who was added gets a logBeginConvo (to create the convo) but also a logMemberJoin (to show the system message as the first message the user sees).
+// Event indicating a member joined a group convo via join link. The member who was added gets a logBeginConvo (to create the convo) but also a logMemberJoin (to show the system message as the first message the user sees).
 type ConvoDefs_LogMemberJoin struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -8091,7 +8120,7 @@ func (s *ConvoDefs_LogMemberJoin) UnmarshalJSONAt(data []byte, pos int) (int, er
 
 // ConvoDefs_LogMemberLeave is a "logMemberLeave" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member voluntarily left a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logMemberLeave (because they already left, so can't see the system message).
+// Event indicating a member voluntarily left a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logMemberLeave (because they already left, so can't see the system message).
 type ConvoDefs_LogMemberLeave struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -8708,7 +8737,7 @@ func (s *ConvoDefs_LogMuteConvo) UnmarshalJSONAt(data []byte, pos int) (int, err
 
 // ConvoDefs_LogOutgoingJoinRequest is a "logOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made by the requester. Only requester actor gets this.
+// Event indicating a join request was made by the requester. Only requester actor gets this.
 type ConvoDefs_LogOutgoingJoinRequest struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -8949,7 +8978,7 @@ func (s *ConvoDefs_LogOutgoingJoinRequest) UnmarshalJSONAt(data []byte, pos int)
 
 // ConvoDefs_LogReadConvo is a "logReadConvo" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a convo was read up to a certain message.
+// Event indicating a convo was read up to a certain message.
 type ConvoDefs_LogReadConvo struct {
 	LexiconTypeID string                         `json:"$type,omitempty"`
 	ConvoId       string                         `json:"convoId"`
@@ -9388,7 +9417,7 @@ func (s *ConvoDefs_LogReadConvo) UnmarshalJSONAt(data []byte, pos int) (int, err
 
 // ConvoDefs_LogReadJoinRequests is a "logReadJoinRequests" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating the group owner marked join requests as read. Only the owner gets this.
+// Event indicating the group owner marked join requests as read. Only the owner gets this.
 type ConvoDefs_LogReadJoinRequests struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -10068,7 +10097,7 @@ func (s *ConvoDefs_LogReadMessage) UnmarshalJSONAt(data []byte, pos int) (int, e
 
 // ConvoDefs_LogRejectJoinRequest is a "logRejectJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was rejected by the viewer. Only the owner gets this.
+// Event indicating a join request was rejected by the viewer. Only the owner gets this.
 type ConvoDefs_LogRejectJoinRequest struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
 	ConvoId       string                     `json:"convoId"`
@@ -10360,7 +10389,7 @@ func (s *ConvoDefs_LogRejectJoinRequest) UnmarshalJSONAt(data []byte, pos int) (
 
 // ConvoDefs_LogRemoveMember is a "logRemoveMember" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member was removed from a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logRemoveMember (because they already left, so can't see the system message).
+// Event indicating a member was removed from a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logRemoveMember (because they already left, so can't see the system message).
 type ConvoDefs_LogRemoveMember struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -11301,7 +11330,7 @@ func (s *ConvoDefs_LogRemoveReaction) UnmarshalJSONAt(data []byte, pos int) (int
 
 // ConvoDefs_LogUnlockConvo is a "logUnlockConvo" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was unlocked.
+// Event indicating a group convo was unlocked.
 type ConvoDefs_LogUnlockConvo struct {
 	LexiconTypeID   string                       `json:"$type,omitempty"`
 	ConvoId         string                       `json:"convoId"`
@@ -11918,7 +11947,7 @@ func (s *ConvoDefs_LogUnmuteConvo) UnmarshalJSONAt(data []byte, pos int) (int, e
 
 // ConvoDefs_LogWithdrawIncomingJoinRequest is a "logWithdrawIncomingJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a prospective member withdrew their join request. Only the owner gets this.
+// Event indicating a prospective member withdrew their join request. Only the owner gets this.
 type ConvoDefs_LogWithdrawIncomingJoinRequest struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
 	ConvoId       string                     `json:"convoId"`
@@ -12210,7 +12239,7 @@ func (s *ConvoDefs_LogWithdrawIncomingJoinRequest) UnmarshalJSONAt(data []byte, 
 
 // ConvoDefs_LogWithdrawOutgoingJoinRequest is a "logWithdrawOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating the viewer withdrew their own join request. Only requester actor gets this.
+// Event indicating the viewer withdrew their own join request. Only requester actor gets this.
 type ConvoDefs_LogWithdrawOutgoingJoinRequest struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	ConvoId       string `json:"convoId"`
@@ -12724,11 +12753,187 @@ func (s *ConvoDefs_MessageAndReactionView) UnmarshalJSONAt(data []byte, pos int)
 	}
 }
 
+// ConvoDefs_MessageBeforeUserJoinedGroupView is a "messageBeforeUserJoinedGroupView" in the chat.bsky.convo.defs schema.
+//
+// Placeholder embedded in place of a reply's parent message when that parent was sent before the viewer joined the group convo. The viewer has no access to that history, so no message data is carried.
+type ConvoDefs_MessageBeforeUserJoinedGroupView struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_MessageBeforeUserJoinedGroupView.
+var (
+	cborKey_ConvoDefs_MessageBeforeUserJoinedGroupView_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 0 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageBeforeUserJoinedGroupView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_MessageBeforeUserJoinedGroupView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) UnmarshalCBOR(data []byte) error {
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_MessageBeforeUserJoinedGroupView.
+var (
+	jsonKey_ConvoDefs_MessageBeforeUserJoinedGroupView_dollar_type = []byte("\"$type\":")
+)
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_MessageBeforeUserJoinedGroupView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_MessageBeforeUserJoinedGroupView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_MessageInput is a "messageInput" in the chat.bsky.convo.defs schema.
 type ConvoDefs_MessageInput struct {
 	LexiconTypeID string                                  `json:"$type,omitempty"`
 	Embed         gt.Option[ConvoDefs_MessageInput_Embed] `json:"embed,omitzero"`
 	Facets        []bsky.RichtextFacet                    `json:"facets,omitempty"` // Annotations of text (mentions, URLs, hashtags, etc)
+	ReplyTo       gt.Option[ConvoDefs_ReplyRef]           `json:"replyTo,omitzero"` // If set, the message this message is replying to. The referenced message must be in the same convo.
 	Text          string                                  `json:"text"`
 
 	// extra preserves unknown fields for same-format round-trips.
@@ -12870,6 +13075,7 @@ var (
 	cborKey_ConvoDefs_MessageInput_dollar_type = cbor.AppendTextKey(nil, "$type")
 	cborKey_ConvoDefs_MessageInput_embed       = cbor.AppendTextKey(nil, "embed")
 	cborKey_ConvoDefs_MessageInput_facets      = cbor.AppendTextKey(nil, "facets")
+	cborKey_ConvoDefs_MessageInput_replyTo     = cbor.AppendTextKey(nil, "replyTo")
 )
 
 func (s *ConvoDefs_MessageInput) MarshalCBOR() ([]byte, error) {
@@ -12885,6 +13091,9 @@ func (s *ConvoDefs_MessageInput) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if len(s.Facets) > 0 {
+		n++
+	}
+	if s.ReplyTo.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -12924,6 +13133,20 @@ func (s *ConvoDefs_MessageInput) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "replyTo", buf)
+		if s.ReplyTo.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_replyTo...)
+			{
+				v := s.ReplyTo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ConvoDefs_MessageInput_text...)
@@ -12953,6 +13176,19 @@ func (s *ConvoDefs_MessageInput) AppendCBOR(buf []byte) ([]byte, error) {
 				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
+				}
+			}
+		}
+		if s.ReplyTo.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageInput_replyTo...)
+			{
+				v := s.ReplyTo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -13056,6 +13292,26 @@ func (s *ConvoDefs_MessageInput) UnmarshalCBORAt(data []byte, pos int) (int, err
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "replyTo" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ConvoDefs_ReplyRef
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReplyTo = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -13073,6 +13329,7 @@ var (
 	jsonKey_ConvoDefs_MessageInput_dollar_type = []byte("\"$type\":")
 	jsonKey_ConvoDefs_MessageInput_embed       = []byte("\"embed\":")
 	jsonKey_ConvoDefs_MessageInput_facets      = []byte("\"facets\":")
+	jsonKey_ConvoDefs_MessageInput_replyTo     = []byte("\"replyTo\":")
 	jsonKey_ConvoDefs_MessageInput_text        = []byte("\"text\":")
 )
 
@@ -13125,6 +13382,23 @@ func (s *ConvoDefs_MessageInput) AppendJSON(buf []byte) ([]byte, error) {
 			}
 		}
 		buf = append(buf, ']')
+		first = false
+	}
+	if s.ReplyTo.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_MessageInput_replyTo...)
+		{
+			v := s.ReplyTo.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		first = false
 	}
 	if !first {
@@ -13218,6 +13492,20 @@ func (s *ConvoDefs_MessageInput) UnmarshalJSONAt(data []byte, pos int) (int, err
 				if err != nil {
 					return 0, err
 				}
+			}
+		case "replyTo":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ConvoDefs_ReplyRef
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ReplyTo = gt.Some(v)
 			}
 		case "text":
 			s.Text, pos, err = cbor.ReadJSONString(data, pos)
@@ -13510,15 +13798,16 @@ func (s *ConvoDefs_MessageRef) UnmarshalJSONAt(data []byte, pos int) (int, error
 
 // ConvoDefs_MessageView is a "messageView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_MessageView struct {
-	LexiconTypeID string                                 `json:"$type,omitempty"`
-	Embed         gt.Option[ConvoDefs_MessageView_Embed] `json:"embed,omitzero"`
-	Facets        []bsky.RichtextFacet                   `json:"facets,omitempty"` // Annotations of text (mentions, URLs, hashtags, etc)
-	Id            string                                 `json:"id"`
-	Reactions     []ConvoDefs_ReactionView               `json:"reactions,omitempty"` // Reactions to this message, in ascending order of creation time.
-	Rev           string                                 `json:"rev"`
-	Sender        ConvoDefs_MessageViewSender            `json:"sender"`
-	SentAt        string                                 `json:"sentAt"`
-	Text          string                                 `json:"text"`
+	LexiconTypeID string                                   `json:"$type,omitempty"`
+	Embed         gt.Option[ConvoDefs_MessageView_Embed]   `json:"embed,omitzero"`
+	Facets        []bsky.RichtextFacet                     `json:"facets,omitempty"` // Annotations of text (mentions, URLs, hashtags, etc)
+	Id            string                                   `json:"id"`
+	Reactions     []ConvoDefs_ReactionView                 `json:"reactions,omitempty"` // Reactions to this message, in ascending order of creation time.
+	ReplyTo       gt.Option[ConvoDefs_MessageView_ReplyTo] `json:"replyTo,omitzero"`    // If set, the message this message is replying to. The full view of the referenced message is embed...
+	Rev           string                                   `json:"rev"`
+	Sender        ConvoDefs_MessageViewSender              `json:"sender"`
+	SentAt        string                                   `json:"sentAt"`
+	Text          string                                   `json:"text"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -13653,6 +13942,162 @@ func (u *ConvoDefs_MessageView_Embed) UnmarshalCBORAt(data []byte, pos int) (int
 	}
 }
 
+// ConvoDefs_MessageView_ReplyTo is a union type.
+type ConvoDefs_MessageView_ReplyTo struct {
+	ConvoDefs_MessageView                      gt.Ref[ConvoDefs_MessageView]
+	ConvoDefs_DeletedMessageView               gt.Ref[ConvoDefs_DeletedMessageView]
+	ConvoDefs_MessageBeforeUserJoinedGroupView gt.Ref[ConvoDefs_MessageBeforeUserJoinedGroupView]
+	Unknown                                    gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u ConvoDefs_MessageView_ReplyTo) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_MessageView_ReplyTo) AppendJSON(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_MessageView.HasVal() {
+		v := *u.ConvoDefs_MessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_DeletedMessageView.HasVal() {
+		v := *u.ConvoDefs_DeletedMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendJSON(buf)
+	}
+	if u.ConvoDefs_MessageBeforeUserJoinedGroupView.HasVal() {
+		v := *u.ConvoDefs_MessageBeforeUserJoinedGroupView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#messageBeforeUserJoinedGroupView"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_MessageView_ReplyTo")
+}
+
+func (u *ConvoDefs_MessageView_ReplyTo) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *ConvoDefs_MessageView_ReplyTo) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		var v ConvoDefs_MessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_MessageView = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#deletedMessageView":
+		var v ConvoDefs_DeletedMessageView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.convo.defs#messageBeforeUserJoinedGroupView":
+		var v ConvoDefs_MessageBeforeUserJoinedGroupView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_MessageBeforeUserJoinedGroupView = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u ConvoDefs_MessageView_ReplyTo) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u ConvoDefs_MessageView_ReplyTo) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.ConvoDefs_MessageView.HasVal() {
+		v := *u.ConvoDefs_MessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_DeletedMessageView.HasVal() {
+		v := *u.ConvoDefs_DeletedMessageView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return v.AppendCBOR(buf)
+	}
+	if u.ConvoDefs_MessageBeforeUserJoinedGroupView.HasVal() {
+		v := *u.ConvoDefs_MessageBeforeUserJoinedGroupView.Val()
+		v.LexiconTypeID = "chat.bsky.convo.defs#messageBeforeUserJoinedGroupView"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ConvoDefs_MessageView_ReplyTo")
+}
+
+func (u *ConvoDefs_MessageView_ReplyTo) UnmarshalCBOR(data []byte) error {
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (u *ConvoDefs_MessageView_ReplyTo) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		var v ConvoDefs_MessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_MessageView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#deletedMessageView":
+		var v ConvoDefs_DeletedMessageView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_DeletedMessageView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.convo.defs#messageBeforeUserJoinedGroupView":
+		var v ConvoDefs_MessageBeforeUserJoinedGroupView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.ConvoDefs_MessageBeforeUserJoinedGroupView = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
 // Precomputed CBOR key tokens for ConvoDefs_MessageView.
 var (
 	cborKey_ConvoDefs_MessageView_id          = cbor.AppendTextKey(nil, "id")
@@ -13663,6 +14108,7 @@ var (
 	cborKey_ConvoDefs_MessageView_facets      = cbor.AppendTextKey(nil, "facets")
 	cborKey_ConvoDefs_MessageView_sender      = cbor.AppendTextKey(nil, "sender")
 	cborKey_ConvoDefs_MessageView_sentAt      = cbor.AppendTextKey(nil, "sentAt")
+	cborKey_ConvoDefs_MessageView_replyTo     = cbor.AppendTextKey(nil, "replyTo")
 	cborKey_ConvoDefs_MessageView_reactions   = cbor.AppendTextKey(nil, "reactions")
 )
 
@@ -13679,6 +14125,9 @@ func (s *ConvoDefs_MessageView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if len(s.Facets) > 0 {
+		n++
+	}
+	if s.ReplyTo.HasVal() {
 		n++
 	}
 	if len(s.Reactions) > 0 {
@@ -13739,6 +14188,20 @@ func (s *ConvoDefs_MessageView) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "sentAt", buf)
 		buf = append(buf, cborKey_ConvoDefs_MessageView_sentAt...)
 		buf = cbor.AppendText(buf, s.SentAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "replyTo", buf)
+		if s.ReplyTo.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_replyTo...)
+			{
+				v := s.ReplyTo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reactions", buf)
 		if len(s.Reactions) > 0 {
 			buf = append(buf, cborKey_ConvoDefs_MessageView_reactions...)
@@ -13797,6 +14260,19 @@ func (s *ConvoDefs_MessageView) AppendCBOR(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, cborKey_ConvoDefs_MessageView_sentAt...)
 		buf = cbor.AppendText(buf, s.SentAt)
+		if s.ReplyTo.HasVal() {
+			buf = append(buf, cborKey_ConvoDefs_MessageView_replyTo...)
+			{
+				v := s.ReplyTo.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		if len(s.Reactions) > 0 {
 			buf = append(buf, cborKey_ConvoDefs_MessageView_reactions...)
 			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Reactions)))
@@ -13946,6 +14422,26 @@ func (s *ConvoDefs_MessageView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "replyTo" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ConvoDefs_MessageView_ReplyTo
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReplyTo = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 9:
 			if string(data[keyStart:keyEnd]) == "reactions" {
 				{
@@ -13992,6 +14488,7 @@ var (
 	jsonKey_ConvoDefs_MessageView_facets      = []byte("\"facets\":")
 	jsonKey_ConvoDefs_MessageView_id          = []byte("\"id\":")
 	jsonKey_ConvoDefs_MessageView_reactions   = []byte("\"reactions\":")
+	jsonKey_ConvoDefs_MessageView_replyTo     = []byte("\"replyTo\":")
 	jsonKey_ConvoDefs_MessageView_rev         = []byte("\"rev\":")
 	jsonKey_ConvoDefs_MessageView_sender      = []byte("\"sender\":")
 	jsonKey_ConvoDefs_MessageView_sentAt      = []byte("\"sentAt\":")
@@ -14072,6 +14569,23 @@ func (s *ConvoDefs_MessageView) AppendJSON(buf []byte) ([]byte, error) {
 			}
 		}
 		buf = append(buf, ']')
+		first = false
+	}
+	if s.ReplyTo.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_MessageView_replyTo...)
+		{
+			v := s.ReplyTo.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		first = false
 	}
 	if !first {
@@ -14221,6 +14735,20 @@ func (s *ConvoDefs_MessageView) UnmarshalJSONAt(data []byte, pos int) (int, erro
 				if err != nil {
 					return 0, err
 				}
+			}
+		case "replyTo":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ConvoDefs_MessageView_ReplyTo
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ReplyTo = gt.Some(v)
 			}
 		case "rev":
 			s.Rev, pos, err = cbor.ReadJSONString(data, pos)
@@ -14947,9 +15475,217 @@ func (s *ConvoDefs_ReactionViewSender) UnmarshalJSONAt(data []byte, pos int) (in
 	}
 }
 
+// ConvoDefs_ReplyRef is a "replyRef" in the chat.bsky.convo.defs schema.
+//
+// A reference to another message within the same convo, used to indicate that a message is a reply to it.
+type ConvoDefs_ReplyRef struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	MessageId     string `json:"messageId"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for ConvoDefs_ReplyRef.
+var (
+	cborKey_ConvoDefs_ReplyRef_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ConvoDefs_ReplyRef_messageId   = cbor.AppendTextKey(nil, "messageId")
+)
+
+func (s *ConvoDefs_ReplyRef) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_ReplyRef) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ReplyRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "messageId", buf)
+		buf = append(buf, cborKey_ConvoDefs_ReplyRef_messageId...)
+		buf = cbor.AppendText(buf, s.MessageId)
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_ConvoDefs_ReplyRef_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_ConvoDefs_ReplyRef_messageId...)
+		buf = cbor.AppendText(buf, s.MessageId)
+	}
+	return buf, nil
+}
+
+func (s *ConvoDefs_ReplyRef) UnmarshalCBOR(data []byte) error {
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (s *ConvoDefs_ReplyRef) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "messageId" {
+				s.MessageId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for ConvoDefs_ReplyRef.
+var (
+	jsonKey_ConvoDefs_ReplyRef_dollar_type = []byte("\"$type\":")
+	jsonKey_ConvoDefs_ReplyRef_messageId   = []byte("\"messageId\":")
+)
+
+func (s *ConvoDefs_ReplyRef) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *ConvoDefs_ReplyRef) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ConvoDefs_ReplyRef_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_ConvoDefs_ReplyRef_messageId...)
+	buf = cbor.AppendJSONString(buf, s.MessageId)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *ConvoDefs_ReplyRef) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *ConvoDefs_ReplyRef) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "messageId":
+			s.MessageId, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // ConvoDefs_SystemMessageDataAddMember is a "systemMessageDataAddMember" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user was added to the group convo.
+// System message indicating a user was added to the group convo.
 type ConvoDefs_SystemMessageDataAddMember struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	AddedBy       ConvoDefs_SystemMessageReferredUser `json:"addedBy"`
@@ -15259,7 +15995,7 @@ func (s *ConvoDefs_SystemMessageDataAddMember) UnmarshalJSONAt(data []byte, pos 
 
 // ConvoDefs_SystemMessageDataCreateJoinLink is a "systemMessageDataCreateJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was created.
+// System message indicating the group join link was created.
 type ConvoDefs_SystemMessageDataCreateJoinLink struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
@@ -15434,7 +16170,7 @@ func (s *ConvoDefs_SystemMessageDataCreateJoinLink) UnmarshalJSONAt(data []byte,
 
 // ConvoDefs_SystemMessageDataDisableJoinLink is a "systemMessageDataDisableJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was disabled.
+// System message indicating the group join link was disabled.
 type ConvoDefs_SystemMessageDataDisableJoinLink struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
@@ -15609,7 +16345,7 @@ func (s *ConvoDefs_SystemMessageDataDisableJoinLink) UnmarshalJSONAt(data []byte
 
 // ConvoDefs_SystemMessageDataEditGroup is a "systemMessageDataEditGroup" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group info was edited.
+// System message indicating the group info was edited.
 type ConvoDefs_SystemMessageDataEditGroup struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	NewName       gt.Option[string] `json:"newName,omitzero"` // Group name that replaced the old.
@@ -15889,7 +16625,7 @@ func (s *ConvoDefs_SystemMessageDataEditGroup) UnmarshalJSONAt(data []byte, pos 
 
 // ConvoDefs_SystemMessageDataEditJoinLink is a "systemMessageDataEditJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was edited.
+// System message indicating the group join link was edited.
 type ConvoDefs_SystemMessageDataEditJoinLink struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
@@ -16064,7 +16800,7 @@ func (s *ConvoDefs_SystemMessageDataEditJoinLink) UnmarshalJSONAt(data []byte, p
 
 // ConvoDefs_SystemMessageDataEnableJoinLink is a "systemMessageDataEnableJoinLink" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was enabled.
+// System message indicating the group join link was enabled.
 type ConvoDefs_SystemMessageDataEnableJoinLink struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
@@ -16239,7 +16975,7 @@ func (s *ConvoDefs_SystemMessageDataEnableJoinLink) UnmarshalJSONAt(data []byte,
 
 // ConvoDefs_SystemMessageDataLockConvo is a "systemMessageDataLockConvo" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was locked.
+// System message indicating the group convo was locked.
 type ConvoDefs_SystemMessageDataLockConvo struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	LockedBy      ConvoDefs_SystemMessageReferredUser `json:"lockedBy"` // Current view of the member who locked the group.
@@ -16465,7 +17201,7 @@ func (s *ConvoDefs_SystemMessageDataLockConvo) UnmarshalJSONAt(data []byte, pos 
 
 // ConvoDefs_SystemMessageDataLockConvoPermanently is a "systemMessageDataLockConvoPermanently" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was locked permanently.
+// System message indicating the group convo was locked permanently.
 type ConvoDefs_SystemMessageDataLockConvoPermanently struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	LockedBy      ConvoDefs_SystemMessageReferredUser `json:"lockedBy"` // Current view of the member who locked the group.
@@ -16691,7 +17427,7 @@ func (s *ConvoDefs_SystemMessageDataLockConvoPermanently) UnmarshalJSONAt(data [
 
 // ConvoDefs_SystemMessageDataMemberJoin is a "systemMessageDataMemberJoin" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user joined the group convo via join link.
+// System message indicating a user joined the group convo via join link.
 type ConvoDefs_SystemMessageDataMemberJoin struct {
 	LexiconTypeID string                                         `json:"$type,omitempty"`
 	ApprovedBy    gt.Option[ConvoDefs_SystemMessageReferredUser] `json:"approvedBy,omitzero"` // If join link was configured to require approval, this will be set to who approved the request. Un...
@@ -17034,7 +17770,7 @@ func (s *ConvoDefs_SystemMessageDataMemberJoin) UnmarshalJSONAt(data []byte, pos
 
 // ConvoDefs_SystemMessageDataMemberLeave is a "systemMessageDataMemberLeave" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user voluntarily left the group convo.
+// System message indicating a user voluntarily left the group convo.
 type ConvoDefs_SystemMessageDataMemberLeave struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	Member        ConvoDefs_SystemMessageReferredUser `json:"member"` // Current view of the member who left the group.
@@ -17260,7 +17996,7 @@ func (s *ConvoDefs_SystemMessageDataMemberLeave) UnmarshalJSONAt(data []byte, po
 
 // ConvoDefs_SystemMessageDataRemoveMember is a "systemMessageDataRemoveMember" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user was removed from the group convo.
+// System message indicating a user was removed from the group convo.
 type ConvoDefs_SystemMessageDataRemoveMember struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	Member        ConvoDefs_SystemMessageReferredUser `json:"member"` // Current view of the member who was removed.
@@ -17537,7 +18273,7 @@ func (s *ConvoDefs_SystemMessageDataRemoveMember) UnmarshalJSONAt(data []byte, p
 
 // ConvoDefs_SystemMessageDataUnlockConvo is a "systemMessageDataUnlockConvo" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was unlocked.
+// System message indicating the group convo was unlocked.
 type ConvoDefs_SystemMessageDataUnlockConvo struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	UnlockedBy    ConvoDefs_SystemMessageReferredUser `json:"unlockedBy"` // Current view of the member who unlocked the group.
@@ -17968,8 +18704,6 @@ func (s *ConvoDefs_SystemMessageReferredUser) UnmarshalJSONAt(data []byte, pos i
 }
 
 // ConvoDefs_SystemMessageView is a "systemMessageView" in the chat.bsky.convo.defs schema.
-//
-// [NOTE: This is under active development and should be considered unstable while this note is here].
 type ConvoDefs_SystemMessageView struct {
 	LexiconTypeID string                           `json:"$type,omitempty"`
 	Data          ConvoDefs_SystemMessageView_Data `json:"data"`

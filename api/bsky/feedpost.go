@@ -313,6 +313,7 @@ type FeedPost struct {
 type FeedPost_Embed struct {
 	EmbedImages          gt.Ref[EmbedImages]
 	EmbedVideo           gt.Ref[EmbedVideo]
+	EmbedGallery         gt.Ref[EmbedGallery]
 	EmbedExternal        gt.Ref[EmbedExternal]
 	EmbedRecord          gt.Ref[EmbedRecord]
 	EmbedRecordWithMedia gt.Ref[EmbedRecordWithMedia]
@@ -332,6 +333,11 @@ func (u FeedPost_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedVideo.HasVal() {
 		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedGallery.HasVal() {
+		v := *u.EmbedGallery.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal.HasVal() {
@@ -386,6 +392,14 @@ func (u *FeedPost_Embed) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 		}
 		u.EmbedVideo = gt.SomeRef(v)
 		return endPos, nil
+	case "app.bsky.embed.gallery":
+		var v EmbedGallery
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery = gt.SomeRef(v)
+		return endPos, nil
 	case "app.bsky.embed.external":
 		var v EmbedExternal
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -429,6 +443,11 @@ func (u FeedPost_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedVideo.HasVal() {
 		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedGallery.HasVal() {
+		v := *u.EmbedGallery.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal.HasVal() {
@@ -481,6 +500,14 @@ func (u *FeedPost_Embed) UnmarshalCBORAt(data []byte, pos int) (int, error) {
 			return 0, err
 		}
 		u.EmbedVideo = gt.SomeRef(v)
+		return pos, nil
+	case "app.bsky.embed.gallery":
+		var v EmbedGallery
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery = gt.SomeRef(v)
 		return pos, nil
 	case "app.bsky.embed.external":
 		var v EmbedExternal

@@ -536,7 +536,7 @@ type GroupCreateJoinLink_Input struct {
 
 // GroupCreateJoinLink calls the XRPC procedure "chat.bsky.group.createJoinLink".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Creates a join link for the group convo.
+// Creates a join link for the group convo.
 func GroupCreateJoinLink(ctx context.Context, c *xrpc.Client, input *GroupCreateJoinLink_Input) (*GroupCreateJoinLink_Output, error) {
 	var out GroupCreateJoinLink_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.createJoinLink", input, &out)

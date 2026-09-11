@@ -3,7 +3,11 @@
 package chatbsky
 
 import (
+	"encoding/json"
+	"fmt"
+	lextypes "github.com/jcalabro/atmos/api/lextypes"
 	"github.com/jcalabro/atmos/cbor"
+	"github.com/jcalabro/gt"
 )
 
 // EmbedJoinLink is a "main" in the chat.bsky.embed.joinLink schema.
@@ -214,11 +218,167 @@ func (s *EmbedJoinLink) UnmarshalJSONAt(data []byte, pos int) (int, error) {
 
 // EmbedJoinLink_View is a "view" in the chat.bsky.embed.joinLink schema.
 type EmbedJoinLink_View struct {
-	LexiconTypeID   string                        `json:"$type,omitempty"`
-	JoinLinkPreview GroupDefs_JoinLinkPreviewView `json:"joinLinkPreview"`
+	LexiconTypeID   string                             `json:"$type,omitempty"`
+	JoinLinkPreview EmbedJoinLink_View_JoinLinkPreview `json:"joinLinkPreview"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
+}
+
+// EmbedJoinLink_View_JoinLinkPreview is a union type.
+type EmbedJoinLink_View_JoinLinkPreview struct {
+	GroupDefs_JoinLinkPreviewView         gt.Ref[GroupDefs_JoinLinkPreviewView]
+	GroupDefs_DisabledJoinLinkPreviewView gt.Ref[GroupDefs_DisabledJoinLinkPreviewView]
+	GroupDefs_InvalidJoinLinkPreviewView  gt.Ref[GroupDefs_InvalidJoinLinkPreviewView]
+	Unknown                               gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u EmbedJoinLink_View_JoinLinkPreview) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u EmbedJoinLink_View_JoinLinkPreview) AppendJSON(buf []byte) ([]byte, error) {
+	if u.GroupDefs_JoinLinkPreviewView.HasVal() {
+		v := *u.GroupDefs_JoinLinkPreviewView.Val()
+		v.LexiconTypeID = "chat.bsky.group.defs#joinLinkPreviewView"
+		return v.AppendJSON(buf)
+	}
+	if u.GroupDefs_DisabledJoinLinkPreviewView.HasVal() {
+		v := *u.GroupDefs_DisabledJoinLinkPreviewView.Val()
+		v.LexiconTypeID = "chat.bsky.group.defs#disabledJoinLinkPreviewView"
+		return v.AppendJSON(buf)
+	}
+	if u.GroupDefs_InvalidJoinLinkPreviewView.HasVal() {
+		v := *u.GroupDefs_InvalidJoinLinkPreviewView.Val()
+		v.LexiconTypeID = "chat.bsky.group.defs#invalidJoinLinkPreviewView"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedJoinLink_View_JoinLinkPreview")
+}
+
+func (u *EmbedJoinLink_View_JoinLinkPreview) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *EmbedJoinLink_View_JoinLinkPreview) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.group.defs#joinLinkPreviewView":
+		var v GroupDefs_JoinLinkPreviewView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.GroupDefs_JoinLinkPreviewView = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.group.defs#disabledJoinLinkPreviewView":
+		var v GroupDefs_DisabledJoinLinkPreviewView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.GroupDefs_DisabledJoinLinkPreviewView = gt.SomeRef(v)
+		return endPos, nil
+	case "chat.bsky.group.defs#invalidJoinLinkPreviewView":
+		var v GroupDefs_InvalidJoinLinkPreviewView
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.GroupDefs_InvalidJoinLinkPreviewView = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u EmbedJoinLink_View_JoinLinkPreview) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u EmbedJoinLink_View_JoinLinkPreview) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.GroupDefs_JoinLinkPreviewView.HasVal() {
+		v := *u.GroupDefs_JoinLinkPreviewView.Val()
+		v.LexiconTypeID = "chat.bsky.group.defs#joinLinkPreviewView"
+		return v.AppendCBOR(buf)
+	}
+	if u.GroupDefs_DisabledJoinLinkPreviewView.HasVal() {
+		v := *u.GroupDefs_DisabledJoinLinkPreviewView.Val()
+		v.LexiconTypeID = "chat.bsky.group.defs#disabledJoinLinkPreviewView"
+		return v.AppendCBOR(buf)
+	}
+	if u.GroupDefs_InvalidJoinLinkPreviewView.HasVal() {
+		v := *u.GroupDefs_InvalidJoinLinkPreviewView.Val()
+		v.LexiconTypeID = "chat.bsky.group.defs#invalidJoinLinkPreviewView"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedJoinLink_View_JoinLinkPreview")
+}
+
+func (u *EmbedJoinLink_View_JoinLinkPreview) UnmarshalCBOR(data []byte) error {
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (u *EmbedJoinLink_View_JoinLinkPreview) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "chat.bsky.group.defs#joinLinkPreviewView":
+		var v GroupDefs_JoinLinkPreviewView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.GroupDefs_JoinLinkPreviewView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.group.defs#disabledJoinLinkPreviewView":
+		var v GroupDefs_DisabledJoinLinkPreviewView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.GroupDefs_DisabledJoinLinkPreviewView = gt.SomeRef(v)
+		return pos, nil
+	case "chat.bsky.group.defs#invalidJoinLinkPreviewView":
+		var v GroupDefs_InvalidJoinLinkPreviewView
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.GroupDefs_InvalidJoinLinkPreviewView = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
 }
 
 // Precomputed CBOR key tokens for EmbedJoinLink_View.

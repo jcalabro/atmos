@@ -229,7 +229,7 @@ type ModerationGetConvo_Output struct {
 
 // ModerationGetConvo calls the XRPC query "chat.bsky.moderation.getConvo".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Gets an existing conversation by its ID, for moderation purposes. Does not require the requester to be a member of the conversation.
+// Gets an existing conversation by its ID, for moderation purposes. Does not require the requester to be a member of the conversation.
 func ModerationGetConvo(ctx context.Context, c *xrpc.Client, convoId string) (*ModerationGetConvo_Output, error) {
 	params := map[string]any{}
 	params["convoId"] = convoId

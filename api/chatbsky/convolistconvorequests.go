@@ -465,7 +465,7 @@ type ConvoListConvoRequests_Output struct {
 
 // ConvoListConvoRequests calls the XRPC query "chat.bsky.convo.listConvoRequests".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Returns a page of incoming conversation requests for the user. Direct convo requests are returned as convoView; group join requests made by the user are returned as joinRequestConvoView.
+// Returns a page of incoming conversation requests for the user. Direct convo requests are returned as convoView; group join requests made by the user are returned as joinRequestConvoView.
 func ConvoListConvoRequests(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ConvoListConvoRequests_Output, error) {
 	params := map[string]any{}
 	if cursor != "" {

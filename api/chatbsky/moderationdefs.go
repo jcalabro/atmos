@@ -12,7 +12,7 @@ import (
 
 // ModerationDefs_ConvoView is a "convoView" in the chat.bsky.moderation.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. A view of a conversation for moderation purposes. Unlike chat.bsky.convo.defs#convoView, it does not include viewer-specific data (such as muted, unreadCount, status, lastMessage, lastReaction), since the requester is a moderator and not a member of the conversation. The member list is not included; use chat.bsky.moderation.getConvoMembers to list members.
+// A view of a conversation for moderation purposes. Unlike chat.bsky.convo.defs#convoView, it does not include viewer-specific data (such as muted, unreadCount, status, lastMessage, lastReaction), since the requester is a moderator and not a member of the conversation. The member list is not included; use chat.bsky.moderation.getConvoMembers to list members.
 type ModerationDefs_ConvoView struct {
 	LexiconTypeID string                                   `json:"$type,omitempty"`
 	Id            string                                   `json:"id"`
@@ -466,7 +466,7 @@ func (s *ModerationDefs_ConvoView) UnmarshalJSONAt(data []byte, pos int) (int, e
 
 // ModerationDefs_DirectConvo is a "directConvo" in the chat.bsky.moderation.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Data specific to a direct conversation, for moderation purposes.
+// Data specific to a direct conversation, for moderation purposes.
 type ModerationDefs_DirectConvo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 
@@ -641,7 +641,7 @@ func (s *ModerationDefs_DirectConvo) UnmarshalJSONAt(data []byte, pos int) (int,
 
 // ModerationDefs_GroupConvo is a "groupConvo" in the chat.bsky.moderation.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Data specific to a group conversation, for moderation purposes. Unlike chat.bsky.convo.defs#groupConvo, it does not include viewer-specific data (such as unreadJoinRequestCount), since the requester is a moderator and not a member of the conversation.
+// Data specific to a group conversation, for moderation purposes. Unlike chat.bsky.convo.defs#groupConvo, it does not include viewer-specific data (such as unreadJoinRequestCount), since the requester is a moderator and not a member of the conversation.
 type ModerationDefs_GroupConvo struct {
 	LexiconTypeID    string                            `json:"$type,omitempty"`
 	CreatedAt        string                            `json:"createdAt"`

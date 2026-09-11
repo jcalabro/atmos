@@ -338,7 +338,7 @@ type ModerationGetConvoMembers_Output struct {
 
 // ModerationGetConvoMembers calls the XRPC query "chat.bsky.moderation.getConvoMembers".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Returns a paginated list of members from a conversation, for moderation purposes. Does not require the requester to be a member of the conversation.
+// Returns a paginated list of members from a conversation, for moderation purposes. Does not require the requester to be a member of the conversation.
 func ModerationGetConvoMembers(ctx context.Context, c *xrpc.Client, convoId string, cursor string, limit int64) (*ModerationGetConvoMembers_Output, error) {
 	params := map[string]any{}
 	params["convoId"] = convoId

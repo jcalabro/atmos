@@ -445,7 +445,7 @@ type GroupDisableJoinLink_Input struct {
 
 // GroupDisableJoinLink calls the XRPC procedure "chat.bsky.group.disableJoinLink".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Disables the active join link for the group convo.
+// Disables the active join link for the group convo.
 func GroupDisableJoinLink(ctx context.Context, c *xrpc.Client, input *GroupDisableJoinLink_Input) (*GroupDisableJoinLink_Output, error) {
 	var out GroupDisableJoinLink_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.disableJoinLink", input, &out)

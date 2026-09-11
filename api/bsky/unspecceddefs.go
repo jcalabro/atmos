@@ -1408,6 +1408,7 @@ func (s *UnspeccedDefs_SkeletonSearchStarterPack) UnmarshalJSONAt(data []byte, p
 type UnspeccedDefs_SkeletonTrend struct {
 	LexiconTypeID string            `json:"$type,omitempty"`
 	Category      gt.Option[string] `json:"category,omitzero"`
+	Description   gt.Option[string] `json:"description,omitzero"`
 	Dids          []string          `json:"dids"`
 	DisplayName   string            `json:"displayName"`
 	Link          string            `json:"link"`
@@ -1430,6 +1431,7 @@ var (
 	cborKey_UnspeccedDefs_SkeletonTrend_category    = cbor.AppendTextKey(nil, "category")
 	cborKey_UnspeccedDefs_SkeletonTrend_postCount   = cbor.AppendTextKey(nil, "postCount")
 	cborKey_UnspeccedDefs_SkeletonTrend_startedAt   = cbor.AppendTextKey(nil, "startedAt")
+	cborKey_UnspeccedDefs_SkeletonTrend_description = cbor.AppendTextKey(nil, "description")
 	cborKey_UnspeccedDefs_SkeletonTrend_displayName = cbor.AppendTextKey(nil, "displayName")
 )
 
@@ -1446,6 +1448,9 @@ func (s *UnspeccedDefs_SkeletonTrend) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Category.HasVal() {
+		n++
+	}
+	if s.Description.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -1484,6 +1489,11 @@ func (s *UnspeccedDefs_SkeletonTrend) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "startedAt", buf)
 		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_startedAt...)
 		buf = cbor.AppendText(buf, s.StartedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "displayName", buf)
 		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName)
@@ -1514,6 +1524,10 @@ func (s *UnspeccedDefs_SkeletonTrend) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendInt(buf, s.PostCount)
 		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_startedAt...)
 		buf = cbor.AppendText(buf, s.StartedAt)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
 		buf = append(buf, cborKey_UnspeccedDefs_SkeletonTrend_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName)
 	}
@@ -1661,7 +1675,18 @@ func (s *UnspeccedDefs_SkeletonTrend) UnmarshalCBORAt(data []byte, pos int) (int
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
-			if string(data[keyStart:keyEnd]) == "displayName" {
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "displayName" {
 				s.DisplayName, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
@@ -1690,6 +1715,7 @@ func (s *UnspeccedDefs_SkeletonTrend) UnmarshalCBORAt(data []byte, pos int) (int
 var (
 	jsonKey_UnspeccedDefs_SkeletonTrend_dollar_type = []byte("\"$type\":")
 	jsonKey_UnspeccedDefs_SkeletonTrend_category    = []byte("\"category\":")
+	jsonKey_UnspeccedDefs_SkeletonTrend_description = []byte("\"description\":")
 	jsonKey_UnspeccedDefs_SkeletonTrend_dids        = []byte("\"dids\":")
 	jsonKey_UnspeccedDefs_SkeletonTrend_displayName = []byte("\"displayName\":")
 	jsonKey_UnspeccedDefs_SkeletonTrend_link        = []byte("\"link\":")
@@ -1720,6 +1746,14 @@ func (s *UnspeccedDefs_SkeletonTrend) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_UnspeccedDefs_SkeletonTrend_category...)
 		buf = cbor.AppendJSONString(buf, s.Category.Val())
+		first = false
+	}
+	if s.Description.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_UnspeccedDefs_SkeletonTrend_description...)
+		buf = cbor.AppendJSONString(buf, s.Description.Val())
 		first = false
 	}
 	if !first {
@@ -1831,6 +1865,20 @@ func (s *UnspeccedDefs_SkeletonTrend) UnmarshalJSONAt(data []byte, pos int) (int
 					return 0, err
 				}
 				s.Category = gt.Some(v)
+			}
+		case "description":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Description = gt.Some(v)
 			}
 		case "dids":
 			if !cbor.IsJSONNull(data, pos) {
@@ -2483,11 +2531,13 @@ func (s *UnspeccedDefs_ThreadItemNotFound) UnmarshalJSONAt(data []byte, pos int)
 // UnspeccedDefs_ThreadItemPost is a "threadItemPost" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_ThreadItemPost struct {
 	LexiconTypeID      string            `json:"$type,omitempty"`
-	HiddenByThreadgate bool              `json:"hiddenByThreadgate"` // The threadgate created by the author indicates this post as a reply to be hidden for everyone con...
-	MoreParents        bool              `json:"moreParents"`        // This post has more parents that were not present in the response. This is just a boolean, without...
-	MoreReplies        int64             `json:"moreReplies"`        // This post has more replies that were not present in the response. This is a numeric value, which ...
-	MutedByViewer      bool              `json:"mutedByViewer"`      // This is by an account muted by the viewer requesting it.
-	OpThread           bool              `json:"opThread"`           // This post is part of a contiguous thread by the OP from the thread root. Many different OP thread...
+	HiddenByThreadgate bool              `json:"hiddenByThreadgate"`         // The threadgate created by the author indicates this post as a reply to be hidden for everyone con...
+	MoreParents        bool              `json:"moreParents"`                // This post has more parents that were not present in the response. This is just a boolean, without...
+	MoreReplies        int64             `json:"moreReplies"`                // This post has more replies that were not present in the response. This is a numeric value, which ...
+	MutedByViewer      bool              `json:"mutedByViewer"`              // This is by an account muted by the viewer requesting it.
+	OpThread           bool              `json:"opThread"`                   // This post is part of a contiguous thread by the OP from the thread root. Sub-threads by OP deeper...
+	OpThreadPostCount  gt.Option[int64]  `json:"opThreadPostCount,omitzero"` // The total number of posts in the contiguous OP thread that this post belongs to. Only present whe...
+	OpThreadPostIndex  gt.Option[int64]  `json:"opThreadPostIndex,omitzero"` // The 1-indexed position of this post within the contiguous OP thread. Only present when this post ...
 	Post               FeedDefs_PostView `json:"post"`
 
 	// extra preserves unknown fields for same-format round-trips.
@@ -2502,6 +2552,8 @@ var (
 	cborKey_UnspeccedDefs_ThreadItemPost_moreParents        = cbor.AppendTextKey(nil, "moreParents")
 	cborKey_UnspeccedDefs_ThreadItemPost_moreReplies        = cbor.AppendTextKey(nil, "moreReplies")
 	cborKey_UnspeccedDefs_ThreadItemPost_mutedByViewer      = cbor.AppendTextKey(nil, "mutedByViewer")
+	cborKey_UnspeccedDefs_ThreadItemPost_opThreadPostCount  = cbor.AppendTextKey(nil, "opThreadPostCount")
+	cborKey_UnspeccedDefs_ThreadItemPost_opThreadPostIndex  = cbor.AppendTextKey(nil, "opThreadPostIndex")
 	cborKey_UnspeccedDefs_ThreadItemPost_hiddenByThreadgate = cbor.AppendTextKey(nil, "hiddenByThreadgate")
 )
 
@@ -2512,6 +2564,12 @@ func (s *UnspeccedDefs_ThreadItemPost) MarshalCBOR() ([]byte, error) {
 func (s *UnspeccedDefs_ThreadItemPost) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 6 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.OpThreadPostCount.HasVal() {
+		n++
+	}
+	if s.OpThreadPostIndex.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -2543,6 +2601,16 @@ func (s *UnspeccedDefs_ThreadItemPost) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "mutedByViewer", buf)
 		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_mutedByViewer...)
 		buf = cbor.AppendBool(buf, s.MutedByViewer)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "opThreadPostCount", buf)
+		if s.OpThreadPostCount.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThreadPostCount...)
+			buf = cbor.AppendInt(buf, s.OpThreadPostCount.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "opThreadPostIndex", buf)
+		if s.OpThreadPostIndex.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThreadPostIndex...)
+			buf = cbor.AppendInt(buf, s.OpThreadPostIndex.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "hiddenByThreadgate", buf)
 		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_hiddenByThreadgate...)
 		buf = cbor.AppendBool(buf, s.HiddenByThreadgate)
@@ -2568,6 +2636,14 @@ func (s *UnspeccedDefs_ThreadItemPost) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendInt(buf, s.MoreReplies)
 		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_mutedByViewer...)
 		buf = cbor.AppendBool(buf, s.MutedByViewer)
+		if s.OpThreadPostCount.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThreadPostCount...)
+			buf = cbor.AppendInt(buf, s.OpThreadPostCount.Val())
+		}
+		if s.OpThreadPostIndex.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_opThreadPostIndex...)
+			buf = cbor.AppendInt(buf, s.OpThreadPostIndex.Val())
+		}
 		buf = append(buf, cborKey_UnspeccedDefs_ThreadItemPost_hiddenByThreadgate...)
 		buf = cbor.AppendBool(buf, s.HiddenByThreadgate)
 	}
@@ -2679,6 +2755,37 @@ func (s *UnspeccedDefs_ThreadItemPost) UnmarshalCBORAt(data []byte, pos int) (in
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 17:
+			if string(data[keyStart:keyEnd]) == "opThreadPostCount" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.OpThreadPostCount = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "opThreadPostIndex" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.OpThreadPostIndex = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 18:
 			if string(data[keyStart:keyEnd]) == "hiddenByThreadgate" {
 				s.HiddenByThreadgate, pos, err = cbor.ReadBool(data, pos)
@@ -2713,6 +2820,8 @@ var (
 	jsonKey_UnspeccedDefs_ThreadItemPost_moreReplies        = []byte("\"moreReplies\":")
 	jsonKey_UnspeccedDefs_ThreadItemPost_mutedByViewer      = []byte("\"mutedByViewer\":")
 	jsonKey_UnspeccedDefs_ThreadItemPost_opThread           = []byte("\"opThread\":")
+	jsonKey_UnspeccedDefs_ThreadItemPost_opThreadPostCount  = []byte("\"opThreadPostCount\":")
+	jsonKey_UnspeccedDefs_ThreadItemPost_opThreadPostIndex  = []byte("\"opThreadPostIndex\":")
 	jsonKey_UnspeccedDefs_ThreadItemPost_post               = []byte("\"post\":")
 )
 
@@ -2761,6 +2870,22 @@ func (s *UnspeccedDefs_ThreadItemPost) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_UnspeccedDefs_ThreadItemPost_opThread...)
 	buf = cbor.AppendJSONBool(buf, s.OpThread)
 	first = false
+	if s.OpThreadPostCount.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_UnspeccedDefs_ThreadItemPost_opThreadPostCount...)
+		buf = cbor.AppendJSONInt(buf, s.OpThreadPostCount.Val())
+		first = false
+	}
+	if s.OpThreadPostIndex.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_UnspeccedDefs_ThreadItemPost_opThreadPostIndex...)
+		buf = cbor.AppendJSONInt(buf, s.OpThreadPostIndex.Val())
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -2843,6 +2968,34 @@ func (s *UnspeccedDefs_ThreadItemPost) UnmarshalJSONAt(data []byte, pos int) (in
 			if err != nil {
 				return 0, err
 			}
+		case "opThreadPostCount":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.OpThreadPostCount = gt.Some(v)
+			}
+		case "opThreadPostIndex":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.OpThreadPostIndex = gt.Some(v)
+			}
 		case "post":
 			pos, err = s.Post.UnmarshalJSONAt(data, pos)
 			if err != nil {
@@ -2865,6 +3018,7 @@ type UnspeccedDefs_TrendView struct {
 	LexiconTypeID string                       `json:"$type,omitempty"`
 	Actors        []ActorDefs_ProfileViewBasic `json:"actors"`
 	Category      gt.Option[string]            `json:"category,omitzero"`
+	Description   gt.Option[string]            `json:"description,omitzero"`
 	DisplayName   string                       `json:"displayName"`
 	Link          string                       `json:"link"`
 	PostCount     int64                        `json:"postCount"`
@@ -2886,6 +3040,7 @@ var (
 	cborKey_UnspeccedDefs_TrendView_category    = cbor.AppendTextKey(nil, "category")
 	cborKey_UnspeccedDefs_TrendView_postCount   = cbor.AppendTextKey(nil, "postCount")
 	cborKey_UnspeccedDefs_TrendView_startedAt   = cbor.AppendTextKey(nil, "startedAt")
+	cborKey_UnspeccedDefs_TrendView_description = cbor.AppendTextKey(nil, "description")
 	cborKey_UnspeccedDefs_TrendView_displayName = cbor.AppendTextKey(nil, "displayName")
 )
 
@@ -2902,6 +3057,9 @@ func (s *UnspeccedDefs_TrendView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Category.HasVal() {
+		n++
+	}
+	if s.Description.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -2944,6 +3102,11 @@ func (s *UnspeccedDefs_TrendView) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "startedAt", buf)
 		buf = append(buf, cborKey_UnspeccedDefs_TrendView_startedAt...)
 		buf = cbor.AppendText(buf, s.StartedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "description", buf)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "displayName", buf)
 		buf = append(buf, cborKey_UnspeccedDefs_TrendView_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName)
@@ -2978,6 +3141,10 @@ func (s *UnspeccedDefs_TrendView) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendInt(buf, s.PostCount)
 		buf = append(buf, cborKey_UnspeccedDefs_TrendView_startedAt...)
 		buf = cbor.AppendText(buf, s.StartedAt)
+		if s.Description.HasVal() {
+			buf = append(buf, cborKey_UnspeccedDefs_TrendView_description...)
+			buf = cbor.AppendText(buf, s.Description.Val())
+		}
 		buf = append(buf, cborKey_UnspeccedDefs_TrendView_displayName...)
 		buf = cbor.AppendText(buf, s.DisplayName)
 	}
@@ -3125,7 +3292,18 @@ func (s *UnspeccedDefs_TrendView) UnmarshalCBORAt(data []byte, pos int) (int, er
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
-			if string(data[keyStart:keyEnd]) == "displayName" {
+			if string(data[keyStart:keyEnd]) == "description" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Description = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "displayName" {
 				s.DisplayName, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
@@ -3155,6 +3333,7 @@ var (
 	jsonKey_UnspeccedDefs_TrendView_dollar_type = []byte("\"$type\":")
 	jsonKey_UnspeccedDefs_TrendView_actors      = []byte("\"actors\":")
 	jsonKey_UnspeccedDefs_TrendView_category    = []byte("\"category\":")
+	jsonKey_UnspeccedDefs_TrendView_description = []byte("\"description\":")
 	jsonKey_UnspeccedDefs_TrendView_displayName = []byte("\"displayName\":")
 	jsonKey_UnspeccedDefs_TrendView_link        = []byte("\"link\":")
 	jsonKey_UnspeccedDefs_TrendView_postCount   = []byte("\"postCount\":")
@@ -3201,6 +3380,14 @@ func (s *UnspeccedDefs_TrendView) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_UnspeccedDefs_TrendView_category...)
 		buf = cbor.AppendJSONString(buf, s.Category.Val())
+		first = false
+	}
+	if s.Description.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_UnspeccedDefs_TrendView_description...)
+		buf = cbor.AppendJSONString(buf, s.Description.Val())
 		first = false
 	}
 	if !first {
@@ -3326,6 +3513,20 @@ func (s *UnspeccedDefs_TrendView) UnmarshalJSONAt(data []byte, pos int) (int, er
 					return 0, err
 				}
 				s.Category = gt.Some(v)
+			}
+		case "description":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Description = gt.Some(v)
 			}
 		case "displayName":
 			s.DisplayName, pos, err = cbor.ReadJSONString(data, pos)

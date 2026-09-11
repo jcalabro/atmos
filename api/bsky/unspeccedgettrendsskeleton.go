@@ -6,11 +6,13 @@ import (
 	"context"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"github.com/jcalabro/gt"
 )
 
 // Precomputed JSON key tokens for UnspeccedGetTrendsSkeleton_Output.
 var (
 	jsonKey_UnspeccedGetTrendsSkeleton_Output_dollar_type = []byte("\"$type\":")
+	jsonKey_UnspeccedGetTrendsSkeleton_Output_recIdStr    = []byte("\"recIdStr\":")
 	jsonKey_UnspeccedGetTrendsSkeleton_Output_trends      = []byte("\"trends\":")
 )
 
@@ -27,6 +29,14 @@ func (s *UnspeccedGetTrendsSkeleton_Output) AppendJSON(buf []byte) ([]byte, erro
 		}
 		buf = append(buf, jsonKey_UnspeccedGetTrendsSkeleton_Output_dollar_type...)
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if s.RecIdStr.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_UnspeccedGetTrendsSkeleton_Output_recIdStr...)
+		buf = cbor.AppendJSONString(buf, s.RecIdStr.Val())
 		first = false
 	}
 	if !first {
@@ -91,6 +101,20 @@ func (s *UnspeccedGetTrendsSkeleton_Output) UnmarshalJSONAt(data []byte, pos int
 			if err != nil {
 				return 0, err
 			}
+		case "recIdStr":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RecIdStr = gt.Some(v)
+			}
 		case "trends":
 			if !cbor.IsJSONNull(data, pos) {
 				pos, err = cbor.ReadJSONArrayStart(data, pos)
@@ -134,6 +158,7 @@ func (s *UnspeccedGetTrendsSkeleton_Output) UnmarshalJSONAt(data []byte, pos int
 var (
 	cborKey_UnspeccedGetTrendsSkeleton_Output_dollar_type = cbor.AppendTextKey(nil, "$type")
 	cborKey_UnspeccedGetTrendsSkeleton_Output_trends      = cbor.AppendTextKey(nil, "trends")
+	cborKey_UnspeccedGetTrendsSkeleton_Output_recIdStr    = cbor.AppendTextKey(nil, "recIdStr")
 )
 
 func (s *UnspeccedGetTrendsSkeleton_Output) MarshalCBOR() ([]byte, error) {
@@ -143,6 +168,9 @@ func (s *UnspeccedGetTrendsSkeleton_Output) MarshalCBOR() ([]byte, error) {
 func (s *UnspeccedGetTrendsSkeleton_Output) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.RecIdStr.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -163,6 +191,11 @@ func (s *UnspeccedGetTrendsSkeleton_Output) AppendCBOR(buf []byte) ([]byte, erro
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "recIdStr", buf)
+		if s.RecIdStr.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetTrendsSkeleton_Output_recIdStr...)
+			buf = cbor.AppendText(buf, s.RecIdStr.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
@@ -177,6 +210,10 @@ func (s *UnspeccedGetTrendsSkeleton_Output) AppendCBOR(buf []byte) ([]byte, erro
 			if err != nil {
 				return nil, err
 			}
+		}
+		if s.RecIdStr.HasVal() {
+			buf = append(buf, cborKey_UnspeccedGetTrendsSkeleton_Output_recIdStr...)
+			buf = cbor.AppendText(buf, s.RecIdStr.Val())
 		}
 	}
 	return buf, nil
@@ -253,6 +290,26 @@ func (s *UnspeccedGetTrendsSkeleton_Output) UnmarshalCBORAt(data []byte, pos int
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 8:
+			if string(data[keyStart:keyEnd]) == "recIdStr" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RecIdStr = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -267,6 +324,7 @@ func (s *UnspeccedGetTrendsSkeleton_Output) UnmarshalCBORAt(data []byte, pos int
 
 type UnspeccedGetTrendsSkeleton_Output struct {
 	LexiconTypeID string                        `json:"$type,omitempty"`
+	RecIdStr      gt.Option[string]             `json:"recIdStr,omitzero"` // Snowflake for this recommendation, use when submitting recommendation events.
 	Trends        []UnspeccedDefs_SkeletonTrend `json:"trends"`
 
 	// extra preserves unknown fields for same-format round-trips.

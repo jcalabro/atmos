@@ -512,7 +512,7 @@ func (s *GroupCreateGroup_Input) UnmarshalCBORAt(data []byte, pos int) (int, err
 
 type GroupCreateGroup_Input struct {
 	LexiconTypeID string   `json:"$type,omitempty"`
-	Members       []string `json:"members"`
+	Members       []string `json:"members"` // The members to add to the group. The owner is automatically added. Implementations may enforce a ...
 	Name          string   `json:"name"`
 
 	// extra preserves unknown fields for same-format round-trips.
@@ -521,7 +521,7 @@ type GroupCreateGroup_Input struct {
 
 // GroupCreateGroup calls the XRPC procedure "chat.bsky.group.createGroup".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Creates a group convo, specifying the members to be added to it. Unlike getConvoForMembers, this isn't idempotent. It will create new groups even if the membership is identical to pre-existing groups. Will create 'pending' membership for all members, except the owner who is 'accepted'.
+// Creates a group convo, specifying the members to be added to it. Unlike getConvoForMembers, this isn't idempotent. It will create new groups even if the membership is identical to pre-existing groups. Will create 'request' membership for all members, except the owner who is 'accepted'.
 func GroupCreateGroup(ctx context.Context, c *xrpc.Client, input *GroupCreateGroup_Input) (*GroupCreateGroup_Output, error) {
 	var out GroupCreateGroup_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.createGroup", input, &out)

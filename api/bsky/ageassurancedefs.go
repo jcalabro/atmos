@@ -291,11 +291,13 @@ func (s *AgeassuranceDefs_Config) UnmarshalJSONAt(data []byte, pos int) (int, er
 //
 // The Age Assurance configuration for a specific region.
 type AgeassuranceDefs_ConfigRegion struct {
-	LexiconTypeID string                                `json:"$type,omitempty"`
-	CountryCode   string                                `json:"countryCode"`         // The ISO 3166-1 alpha-2 country code this configuration applies to.
-	MinAccessAge  int64                                 `json:"minAccessAge"`        // The minimum age (as a whole integer) required to use Bluesky in this region.
-	RegionCode    gt.Option[string]                     `json:"regionCode,omitzero"` // The ISO 3166-2 region code this configuration applies to. If omitted, the configuration applies t...
-	Rules         []AgeassuranceDefs_ConfigRegion_Rules `json:"rules"`               // The ordered list of Age Assurance rules that apply to this region. Rules should be applied in ord...
+	LexiconTypeID                 string                                `json:"$type,omitempty"`
+	AdditionalVerificationMethods []string                              `json:"additionalVerificationMethods,omitempty"` // Verification methods permitted in this region in addition to the third-party (KWS) flow, which is...
+	CountryCode                   string                                `json:"countryCode"`                             // The ISO 3166-1 alpha-2 country code this configuration applies to.
+	MinAccessAge                  int64                                 `json:"minAccessAge"`                            // The minimum age (as a whole integer) required to use Bluesky in this region.
+	Platforms                     []string                              `json:"platforms,omitempty"`                     // The platforms this configuration applies to. If omitted, the configuration applies to all platforms.
+	RegionCode                    gt.Option[string]                     `json:"regionCode,omitzero"`                     // The ISO 3166-2 region code this configuration applies to. If omitted, the configuration applies t...
+	Rules                         []AgeassuranceDefs_ConfigRegion_Rules `json:"rules"`                                   // The ordered list of Age Assurance rules that apply to this region. Rules should be applied in ord...
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -567,11 +569,13 @@ func (u *AgeassuranceDefs_ConfigRegion_Rules) UnmarshalCBORAt(data []byte, pos i
 
 // Precomputed CBOR key tokens for AgeassuranceDefs_ConfigRegion.
 var (
-	cborKey_AgeassuranceDefs_ConfigRegion_dollar_type  = cbor.AppendTextKey(nil, "$type")
-	cborKey_AgeassuranceDefs_ConfigRegion_rules        = cbor.AppendTextKey(nil, "rules")
-	cborKey_AgeassuranceDefs_ConfigRegion_regionCode   = cbor.AppendTextKey(nil, "regionCode")
-	cborKey_AgeassuranceDefs_ConfigRegion_countryCode  = cbor.AppendTextKey(nil, "countryCode")
-	cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge = cbor.AppendTextKey(nil, "minAccessAge")
+	cborKey_AgeassuranceDefs_ConfigRegion_dollar_type                   = cbor.AppendTextKey(nil, "$type")
+	cborKey_AgeassuranceDefs_ConfigRegion_rules                         = cbor.AppendTextKey(nil, "rules")
+	cborKey_AgeassuranceDefs_ConfigRegion_platforms                     = cbor.AppendTextKey(nil, "platforms")
+	cborKey_AgeassuranceDefs_ConfigRegion_regionCode                    = cbor.AppendTextKey(nil, "regionCode")
+	cborKey_AgeassuranceDefs_ConfigRegion_countryCode                   = cbor.AppendTextKey(nil, "countryCode")
+	cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge                  = cbor.AppendTextKey(nil, "minAccessAge")
+	cborKey_AgeassuranceDefs_ConfigRegion_additionalVerificationMethods = cbor.AppendTextKey(nil, "additionalVerificationMethods")
 )
 
 func (s *AgeassuranceDefs_ConfigRegion) MarshalCBOR() ([]byte, error) {
@@ -583,7 +587,13 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 	if s.LexiconTypeID != "" {
 		n++
 	}
+	if len(s.Platforms) > 0 {
+		n++
+	}
 	if s.RegionCode.HasVal() {
+		n++
+	}
+	if len(s.AdditionalVerificationMethods) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -604,6 +614,14 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "platforms", buf)
+		if len(s.Platforms) > 0 {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_platforms...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Platforms)))
+			for _, item := range s.Platforms {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "regionCode", buf)
 		if s.RegionCode.HasVal() {
 			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_regionCode...)
@@ -615,6 +633,14 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "minAccessAge", buf)
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
 		buf = cbor.AppendInt(buf, s.MinAccessAge)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "additionalVerificationMethods", buf)
+		if len(s.AdditionalVerificationMethods) > 0 {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_additionalVerificationMethods...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AdditionalVerificationMethods)))
+			for _, item := range s.AdditionalVerificationMethods {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
@@ -630,6 +656,13 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		if len(s.Platforms) > 0 {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_platforms...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.Platforms)))
+			for _, item := range s.Platforms {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
 		if s.RegionCode.HasVal() {
 			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_regionCode...)
 			buf = cbor.AppendText(buf, s.RegionCode.Val())
@@ -638,6 +671,13 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.CountryCode)
 		buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
 		buf = cbor.AppendInt(buf, s.MinAccessAge)
+		if len(s.AdditionalVerificationMethods) > 0 {
+			buf = append(buf, cborKey_AgeassuranceDefs_ConfigRegion_additionalVerificationMethods...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.AdditionalVerificationMethods)))
+			for _, item := range s.AdditionalVerificationMethods {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
 	}
 	return buf, nil
 }
@@ -704,6 +744,33 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "platforms" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Platforms = make([]string, arrLen)
+					for idx := range arrLen {
+						s.Platforms[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 10:
 			if string(data[keyStart:keyEnd]) == "regionCode" {
 				if cbor.IsNull(data, pos) {
@@ -752,6 +819,33 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 29:
+			if string(data[keyStart:keyEnd]) == "additionalVerificationMethods" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.AdditionalVerificationMethods = make([]string, arrLen)
+					for idx := range arrLen {
+						s.AdditionalVerificationMethods[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -766,11 +860,13 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalCBORAt(data []byte, pos int) (i
 
 // Precomputed JSON key tokens for AgeassuranceDefs_ConfigRegion.
 var (
-	jsonKey_AgeassuranceDefs_ConfigRegion_dollar_type  = []byte("\"$type\":")
-	jsonKey_AgeassuranceDefs_ConfigRegion_countryCode  = []byte("\"countryCode\":")
-	jsonKey_AgeassuranceDefs_ConfigRegion_minAccessAge = []byte("\"minAccessAge\":")
-	jsonKey_AgeassuranceDefs_ConfigRegion_regionCode   = []byte("\"regionCode\":")
-	jsonKey_AgeassuranceDefs_ConfigRegion_rules        = []byte("\"rules\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_dollar_type                   = []byte("\"$type\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_additionalVerificationMethods = []byte("\"additionalVerificationMethods\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_countryCode                   = []byte("\"countryCode\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_minAccessAge                  = []byte("\"minAccessAge\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_platforms                     = []byte("\"platforms\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_regionCode                    = []byte("\"regionCode\":")
+	jsonKey_AgeassuranceDefs_ConfigRegion_rules                         = []byte("\"rules\":")
 )
 
 func (s *AgeassuranceDefs_ConfigRegion) MarshalJSON() ([]byte, error) {
@@ -788,6 +884,21 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
 		first = false
 	}
+	if len(s.AdditionalVerificationMethods) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegion_additionalVerificationMethods...)
+		buf = append(buf, '[')
+		for i, item := range s.AdditionalVerificationMethods {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -800,6 +911,21 @@ func (s *AgeassuranceDefs_ConfigRegion) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegion_minAccessAge...)
 	buf = cbor.AppendJSONInt(buf, s.MinAccessAge)
 	first = false
+	if len(s.Platforms) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_AgeassuranceDefs_ConfigRegion_platforms...)
+		buf = append(buf, '[')
+		for i, item := range s.Platforms {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	if s.RegionCode.HasVal() {
 		if !first {
 			buf = append(buf, ',')
@@ -870,6 +996,33 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalJSONAt(data []byte, pos int) (i
 			if err != nil {
 				return 0, err
 			}
+		case "additionalVerificationMethods":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.AdditionalVerificationMethods = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem string
+					elem, pos, err = cbor.ReadJSONString(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.AdditionalVerificationMethods = append(s.AdditionalVerificationMethods, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
 		case "countryCode":
 			s.CountryCode, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
@@ -879,6 +1032,33 @@ func (s *AgeassuranceDefs_ConfigRegion) UnmarshalJSONAt(data []byte, pos int) (i
 			s.MinAccessAge, pos, err = cbor.ReadJSONInt(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "platforms":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Platforms = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem string
+					elem, pos, err = cbor.ReadJSONString(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Platforms = append(s.Platforms, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
 			}
 		case "regionCode":
 			if cbor.IsJSONNull(data, pos) {

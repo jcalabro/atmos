@@ -469,7 +469,7 @@ type GroupApproveJoinRequest_Input struct {
 
 // GroupApproveJoinRequest calls the XRPC procedure "chat.bsky.group.approveJoinRequest".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Approves a request to join a group (via join link) the user owns. Action taken by the group owner.
+// Approves a request to join a group (via join link) the user owns. Action taken by the group owner.
 func GroupApproveJoinRequest(ctx context.Context, c *xrpc.Client, input *GroupApproveJoinRequest_Input) (*GroupApproveJoinRequest_Output, error) {
 	var out GroupApproveJoinRequest_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.approveJoinRequest", input, &out)

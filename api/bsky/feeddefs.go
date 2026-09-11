@@ -2738,6 +2738,298 @@ func (s *FeedDefs_Interaction) UnmarshalJSONAt(data []byte, pos int) (int, error
 	}
 }
 
+// FeedDefs_KnownLikers is a "knownLikers" in the app.bsky.feed.defs schema.
+//
+// The post's likers whom you also follow
+type FeedDefs_KnownLikers struct {
+	LexiconTypeID string                       `json:"$type,omitempty"`
+	Actors        []ActorDefs_ProfileViewBasic `json:"actors"`
+	Count         int64                        `json:"count"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for FeedDefs_KnownLikers.
+var (
+	cborKey_FeedDefs_KnownLikers_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_FeedDefs_KnownLikers_count       = cbor.AppendTextKey(nil, "count")
+	cborKey_FeedDefs_KnownLikers_actors      = cbor.AppendTextKey(nil, "actors")
+)
+
+func (s *FeedDefs_KnownLikers) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *FeedDefs_KnownLikers) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDefs_KnownLikers_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "count", buf)
+		buf = append(buf, cborKey_FeedDefs_KnownLikers_count...)
+		buf = cbor.AppendInt(buf, s.Count)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "actors", buf)
+		buf = append(buf, cborKey_FeedDefs_KnownLikers_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_FeedDefs_KnownLikers_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_FeedDefs_KnownLikers_count...)
+		buf = cbor.AppendInt(buf, s.Count)
+		buf = append(buf, cborKey_FeedDefs_KnownLikers_actors...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Actors)))
+		for _, item := range s.Actors {
+			var err error
+			buf, err = item.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *FeedDefs_KnownLikers) UnmarshalCBOR(data []byte) error {
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (s *FeedDefs_KnownLikers) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "count" {
+				s.Count, pos, err = cbor.ReadInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "actors" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Actors = make([]ActorDefs_ProfileViewBasic, arrLen)
+					for idx := range arrLen {
+						pos, err = s.Actors[idx].UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for FeedDefs_KnownLikers.
+var (
+	jsonKey_FeedDefs_KnownLikers_dollar_type = []byte("\"$type\":")
+	jsonKey_FeedDefs_KnownLikers_actors      = []byte("\"actors\":")
+	jsonKey_FeedDefs_KnownLikers_count       = []byte("\"count\":")
+)
+
+func (s *FeedDefs_KnownLikers) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *FeedDefs_KnownLikers) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_FeedDefs_KnownLikers_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_FeedDefs_KnownLikers_actors...)
+	buf = append(buf, '[')
+	for i, item := range s.Actors {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = item.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_FeedDefs_KnownLikers_count...)
+	buf = cbor.AppendJSONInt(buf, s.Count)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *FeedDefs_KnownLikers) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *FeedDefs_KnownLikers) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "actors":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Actors = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem ActorDefs_ProfileViewBasic
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Actors = append(s.Actors, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case "count":
+			s.Count, pos, err = cbor.ReadJSONInt(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
 type FeedDefs_NotFoundPost struct {
 	LexiconTypeID string `json:"$type,omitempty"`
@@ -3004,6 +3296,7 @@ type FeedDefs_PostView struct {
 type FeedDefs_PostView_Embed struct {
 	EmbedImages_View          gt.Ref[EmbedImages_View]
 	EmbedVideo_View           gt.Ref[EmbedVideo_View]
+	EmbedGallery_View         gt.Ref[EmbedGallery_View]
 	EmbedExternal_View        gt.Ref[EmbedExternal_View]
 	EmbedRecord_View          gt.Ref[EmbedRecord_View]
 	EmbedRecordWithMedia_View gt.Ref[EmbedRecordWithMedia_View]
@@ -3023,6 +3316,11 @@ func (u FeedDefs_PostView_Embed) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedVideo_View.HasVal() {
 		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedGallery_View.HasVal() {
+		v := *u.EmbedGallery_View.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
@@ -3077,6 +3375,14 @@ func (u *FeedDefs_PostView_Embed) UnmarshalJSONAt(data []byte, pos int) (int, er
 		}
 		u.EmbedVideo_View = gt.SomeRef(v)
 		return endPos, nil
+	case "app.bsky.embed.gallery#view":
+		var v EmbedGallery_View
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery_View = gt.SomeRef(v)
+		return endPos, nil
 	case "app.bsky.embed.external#view":
 		var v EmbedExternal_View
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -3120,6 +3426,11 @@ func (u FeedDefs_PostView_Embed) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedVideo_View.HasVal() {
 		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedGallery_View.HasVal() {
+		v := *u.EmbedGallery_View.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
@@ -3172,6 +3483,14 @@ func (u *FeedDefs_PostView_Embed) UnmarshalCBORAt(data []byte, pos int) (int, er
 			return 0, err
 		}
 		u.EmbedVideo_View = gt.SomeRef(v)
+		return pos, nil
+	case "app.bsky.embed.gallery#view":
+		var v EmbedGallery_View
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery_View = gt.SomeRef(v)
 		return pos, nil
 	case "app.bsky.embed.external#view":
 		var v EmbedExternal_View
@@ -7671,14 +7990,15 @@ func (s *FeedDefs_ThreadgateView) UnmarshalJSONAt(data []byte, pos int) (int, er
 //
 // Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
-	LexiconTypeID     string            `json:"$type,omitempty"`
-	Bookmarked        gt.Option[bool]   `json:"bookmarked,omitzero"`
-	EmbeddingDisabled gt.Option[bool]   `json:"embeddingDisabled,omitzero"`
-	Like              gt.Option[string] `json:"like,omitzero"`
-	Pinned            gt.Option[bool]   `json:"pinned,omitzero"`
-	ReplyDisabled     gt.Option[bool]   `json:"replyDisabled,omitzero"`
-	Repost            gt.Option[string] `json:"repost,omitzero"`
-	ThreadMuted       gt.Option[bool]   `json:"threadMuted,omitzero"`
+	LexiconTypeID     string                          `json:"$type,omitempty"`
+	Bookmarked        gt.Option[bool]                 `json:"bookmarked,omitzero"`
+	EmbeddingDisabled gt.Option[bool]                 `json:"embeddingDisabled,omitzero"`
+	KnownLikers       gt.Option[FeedDefs_KnownLikers] `json:"knownLikers,omitzero"` // This property is present only in selected cases, as an optimization.
+	Like              gt.Option[string]               `json:"like,omitzero"`
+	Pinned            gt.Option[bool]                 `json:"pinned,omitzero"`
+	ReplyDisabled     gt.Option[bool]                 `json:"replyDisabled,omitzero"`
+	Repost            gt.Option[string]               `json:"repost,omitzero"`
+	ThreadMuted       gt.Option[bool]                 `json:"threadMuted,omitzero"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -7691,6 +8011,7 @@ var (
 	cborKey_FeedDefs_ViewerState_pinned            = cbor.AppendTextKey(nil, "pinned")
 	cborKey_FeedDefs_ViewerState_repost            = cbor.AppendTextKey(nil, "repost")
 	cborKey_FeedDefs_ViewerState_bookmarked        = cbor.AppendTextKey(nil, "bookmarked")
+	cborKey_FeedDefs_ViewerState_knownLikers       = cbor.AppendTextKey(nil, "knownLikers")
 	cborKey_FeedDefs_ViewerState_threadMuted       = cbor.AppendTextKey(nil, "threadMuted")
 	cborKey_FeedDefs_ViewerState_replyDisabled     = cbor.AppendTextKey(nil, "replyDisabled")
 	cborKey_FeedDefs_ViewerState_embeddingDisabled = cbor.AppendTextKey(nil, "embeddingDisabled")
@@ -7715,6 +8036,9 @@ func (s *FeedDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Bookmarked.HasVal() {
+		n++
+	}
+	if s.KnownLikers.HasVal() {
 		n++
 	}
 	if s.ThreadMuted.HasVal() {
@@ -7754,6 +8078,20 @@ func (s *FeedDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_FeedDefs_ViewerState_bookmarked...)
 			buf = cbor.AppendBool(buf, s.Bookmarked.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "knownLikers", buf)
+		if s.KnownLikers.HasVal() {
+			buf = append(buf, cborKey_FeedDefs_ViewerState_knownLikers...)
+			{
+				v := s.KnownLikers.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "threadMuted", buf)
 		if s.ThreadMuted.HasVal() {
 			buf = append(buf, cborKey_FeedDefs_ViewerState_threadMuted...)
@@ -7790,6 +8128,19 @@ func (s *FeedDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.Bookmarked.HasVal() {
 			buf = append(buf, cborKey_FeedDefs_ViewerState_bookmarked...)
 			buf = cbor.AppendBool(buf, s.Bookmarked.Val())
+		}
+		if s.KnownLikers.HasVal() {
+			buf = append(buf, cborKey_FeedDefs_ViewerState_knownLikers...)
+			{
+				v := s.KnownLikers.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 		if s.ThreadMuted.HasVal() {
 			buf = append(buf, cborKey_FeedDefs_ViewerState_threadMuted...)
@@ -7923,7 +8274,18 @@ func (s *FeedDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, error
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 11:
-			if string(data[keyStart:keyEnd]) == "threadMuted" {
+			if string(data[keyStart:keyEnd]) == "knownLikers" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v FeedDefs_KnownLikers
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.KnownLikers = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "threadMuted" {
 				if cbor.IsNull(data, pos) {
 					pos++
 				} else {
@@ -7999,6 +8361,7 @@ var (
 	jsonKey_FeedDefs_ViewerState_dollar_type       = []byte("\"$type\":")
 	jsonKey_FeedDefs_ViewerState_bookmarked        = []byte("\"bookmarked\":")
 	jsonKey_FeedDefs_ViewerState_embeddingDisabled = []byte("\"embeddingDisabled\":")
+	jsonKey_FeedDefs_ViewerState_knownLikers       = []byte("\"knownLikers\":")
 	jsonKey_FeedDefs_ViewerState_like              = []byte("\"like\":")
 	jsonKey_FeedDefs_ViewerState_pinned            = []byte("\"pinned\":")
 	jsonKey_FeedDefs_ViewerState_replyDisabled     = []byte("\"replyDisabled\":")
@@ -8035,6 +8398,23 @@ func (s *FeedDefs_ViewerState) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_FeedDefs_ViewerState_embeddingDisabled...)
 		buf = cbor.AppendJSONBool(buf, s.EmbeddingDisabled.Val())
+		first = false
+	}
+	if s.KnownLikers.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_FeedDefs_ViewerState_knownLikers...)
+		{
+			v := s.KnownLikers.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		first = false
 	}
 	if s.Like.HasVal() {
@@ -8149,6 +8529,20 @@ func (s *FeedDefs_ViewerState) UnmarshalJSONAt(data []byte, pos int) (int, error
 					return 0, err
 				}
 				s.EmbeddingDisabled = gt.Some(v)
+			}
+		case "knownLikers":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v FeedDefs_KnownLikers
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.KnownLikers = gt.Some(v)
 			}
 		case "like":
 			if cbor.IsJSONNull(data, pos) {

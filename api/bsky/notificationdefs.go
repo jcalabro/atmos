@@ -237,6 +237,8 @@ func (s *NotificationDefs_ActivitySubscription) UnmarshalJSONAt(data []byte, pos
 }
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
+//
+// Deprecated: use chat.bsky.notification preferences instead. This will only return a default value.
 type NotificationDefs_ChatPreference struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Include       string `json:"include"`
@@ -971,7 +973,7 @@ func (s *NotificationDefs_Preference) UnmarshalJSONAt(data []byte, pos int) (int
 // NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preferences struct {
 	LexiconTypeID     string                                `json:"$type,omitempty"`
-	Chat              NotificationDefs_ChatPreference       `json:"chat"`
+	Chat              NotificationDefs_ChatPreference       `json:"chat"` // Deprecated: use chat.bsky.notification preferences instead. This will only return a default value.
 	Follow            NotificationDefs_FilterablePreference `json:"follow"`
 	Like              NotificationDefs_FilterablePreference `json:"like"`
 	LikeViaRepost     NotificationDefs_FilterablePreference `json:"likeViaRepost"`

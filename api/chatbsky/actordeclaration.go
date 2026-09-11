@@ -17,7 +17,7 @@ const (
 // A declaration of a Bluesky chat account.
 type ActorDeclaration struct {
 	LexiconTypeID     string            `json:"$type,omitempty" cborgen:"$type,const=chat.bsky.actor.declaration"`
-	AllowGroupInvites gt.Option[string] `json:"allowGroupInvites,omitzero"` // [NOTE: This is under active development and should be considered unstable while this note is here...
+	AllowGroupInvites gt.Option[string] `json:"allowGroupInvites,omitzero"` // Declaration about group chat invitation preferences for the record owner.
 	AllowIncoming     string            `json:"allowIncoming"`
 
 	// extra preserves unknown fields for same-format round-trips.

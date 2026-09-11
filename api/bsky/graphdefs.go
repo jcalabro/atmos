@@ -18,9 +18,10 @@ const (
 
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListItemView struct {
-	LexiconTypeID string                `json:"$type,omitempty"`
-	Subject       ActorDefs_ProfileView `json:"subject"`
-	URI           string                `json:"uri"`
+	LexiconTypeID   string                `json:"$type,omitempty"`
+	Subject         ActorDefs_ProfileView `json:"subject"`
+	SubjectOptedOut gt.Option[bool]       `json:"subjectOptedOut,omitzero"` // Set to true when the subject has opted out of appearing in the reference list. Only set when the ...
+	URI             string                `json:"uri"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -28,9 +29,10 @@ type GraphDefs_ListItemView struct {
 
 // Precomputed CBOR key tokens for GraphDefs_ListItemView.
 var (
-	cborKey_GraphDefs_ListItemView_uri         = cbor.AppendTextKey(nil, "uri")
-	cborKey_GraphDefs_ListItemView_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_GraphDefs_ListItemView_subject     = cbor.AppendTextKey(nil, "subject")
+	cborKey_GraphDefs_ListItemView_uri             = cbor.AppendTextKey(nil, "uri")
+	cborKey_GraphDefs_ListItemView_dollar_type     = cbor.AppendTextKey(nil, "$type")
+	cborKey_GraphDefs_ListItemView_subject         = cbor.AppendTextKey(nil, "subject")
+	cborKey_GraphDefs_ListItemView_subjectOptedOut = cbor.AppendTextKey(nil, "subjectOptedOut")
 )
 
 func (s *GraphDefs_ListItemView) MarshalCBOR() ([]byte, error) {
@@ -40,6 +42,9 @@ func (s *GraphDefs_ListItemView) MarshalCBOR() ([]byte, error) {
 func (s *GraphDefs_ListItemView) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 2 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.SubjectOptedOut.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -62,6 +67,11 @@ func (s *GraphDefs_ListItemView) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectOptedOut", buf)
+		if s.SubjectOptedOut.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListItemView_subjectOptedOut...)
+			buf = cbor.AppendBool(buf, s.SubjectOptedOut.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_GraphDefs_ListItemView_uri...)
@@ -77,6 +87,10 @@ func (s *GraphDefs_ListItemView) AppendCBOR(buf []byte) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
+		}
+		if s.SubjectOptedOut.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListItemView_subjectOptedOut...)
+			buf = cbor.AppendBool(buf, s.SubjectOptedOut.Val())
 		}
 	}
 	return buf, nil
@@ -154,6 +168,26 @@ func (s *GraphDefs_ListItemView) UnmarshalCBORAt(data []byte, pos int) (int, err
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "subjectOptedOut" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.SubjectOptedOut = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -168,9 +202,10 @@ func (s *GraphDefs_ListItemView) UnmarshalCBORAt(data []byte, pos int) (int, err
 
 // Precomputed JSON key tokens for GraphDefs_ListItemView.
 var (
-	jsonKey_GraphDefs_ListItemView_dollar_type = []byte("\"$type\":")
-	jsonKey_GraphDefs_ListItemView_subject     = []byte("\"subject\":")
-	jsonKey_GraphDefs_ListItemView_uri         = []byte("\"uri\":")
+	jsonKey_GraphDefs_ListItemView_dollar_type     = []byte("\"$type\":")
+	jsonKey_GraphDefs_ListItemView_subject         = []byte("\"subject\":")
+	jsonKey_GraphDefs_ListItemView_subjectOptedOut = []byte("\"subjectOptedOut\":")
+	jsonKey_GraphDefs_ListItemView_uri             = []byte("\"uri\":")
 )
 
 func (s *GraphDefs_ListItemView) MarshalJSON() ([]byte, error) {
@@ -200,6 +235,14 @@ func (s *GraphDefs_ListItemView) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	if s.SubjectOptedOut.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_GraphDefs_ListItemView_subjectOptedOut...)
+		buf = cbor.AppendJSONBool(buf, s.SubjectOptedOut.Val())
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -255,6 +298,20 @@ func (s *GraphDefs_ListItemView) UnmarshalJSONAt(data []byte, pos int) (int, err
 			pos, err = s.Subject.UnmarshalJSONAt(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "subjectOptedOut":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.SubjectOptedOut = gt.Some(v)
 			}
 		case "uri":
 			s.URI, pos, err = cbor.ReadJSONString(data, pos)
@@ -1732,9 +1789,10 @@ func (s *GraphDefs_ListViewBasic) UnmarshalJSONAt(data []byte, pos int) (int, er
 
 // GraphDefs_ListViewerState is a "listViewerState" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewerState struct {
-	LexiconTypeID string            `json:"$type,omitempty"`
-	Blocked       gt.Option[string] `json:"blocked,omitzero"`
-	Muted         gt.Option[bool]   `json:"muted,omitzero"`
+	LexiconTypeID       string            `json:"$type,omitempty"`
+	Blocked             gt.Option[string] `json:"blocked,omitzero"`
+	Muted               gt.Option[bool]   `json:"muted,omitzero"`
+	ReferenceListOptOut gt.Option[string] `json:"referenceListOptOut,omitzero"` // The authenticated viewer's app.bsky.graph.referencelistoptout record URI for this reference list....
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -1742,9 +1800,10 @@ type GraphDefs_ListViewerState struct {
 
 // Precomputed CBOR key tokens for GraphDefs_ListViewerState.
 var (
-	cborKey_GraphDefs_ListViewerState_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_GraphDefs_ListViewerState_muted       = cbor.AppendTextKey(nil, "muted")
-	cborKey_GraphDefs_ListViewerState_blocked     = cbor.AppendTextKey(nil, "blocked")
+	cborKey_GraphDefs_ListViewerState_dollar_type         = cbor.AppendTextKey(nil, "$type")
+	cborKey_GraphDefs_ListViewerState_muted               = cbor.AppendTextKey(nil, "muted")
+	cborKey_GraphDefs_ListViewerState_blocked             = cbor.AppendTextKey(nil, "blocked")
+	cborKey_GraphDefs_ListViewerState_referenceListOptOut = cbor.AppendTextKey(nil, "referenceListOptOut")
 )
 
 func (s *GraphDefs_ListViewerState) MarshalCBOR() ([]byte, error) {
@@ -1760,6 +1819,9 @@ func (s *GraphDefs_ListViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Blocked.HasVal() {
+		n++
+	}
+	if s.ReferenceListOptOut.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -1780,6 +1842,11 @@ func (s *GraphDefs_ListViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_GraphDefs_ListViewerState_blocked...)
 			buf = cbor.AppendText(buf, s.Blocked.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "referenceListOptOut", buf)
+		if s.ReferenceListOptOut.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_referenceListOptOut...)
+			buf = cbor.AppendText(buf, s.ReferenceListOptOut.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.LexiconTypeID != "" {
@@ -1793,6 +1860,10 @@ func (s *GraphDefs_ListViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.Blocked.HasVal() {
 			buf = append(buf, cborKey_GraphDefs_ListViewerState_blocked...)
 			buf = cbor.AppendText(buf, s.Blocked.Val())
+		}
+		if s.ReferenceListOptOut.HasVal() {
+			buf = append(buf, cborKey_GraphDefs_ListViewerState_referenceListOptOut...)
+			buf = cbor.AppendText(buf, s.ReferenceListOptOut.Val())
 		}
 	}
 	return buf, nil
@@ -1873,6 +1944,26 @@ func (s *GraphDefs_ListViewerState) UnmarshalCBORAt(data []byte, pos int) (int, 
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 19:
+			if string(data[keyStart:keyEnd]) == "referenceListOptOut" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReferenceListOptOut = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -1887,9 +1978,10 @@ func (s *GraphDefs_ListViewerState) UnmarshalCBORAt(data []byte, pos int) (int, 
 
 // Precomputed JSON key tokens for GraphDefs_ListViewerState.
 var (
-	jsonKey_GraphDefs_ListViewerState_dollar_type = []byte("\"$type\":")
-	jsonKey_GraphDefs_ListViewerState_blocked     = []byte("\"blocked\":")
-	jsonKey_GraphDefs_ListViewerState_muted       = []byte("\"muted\":")
+	jsonKey_GraphDefs_ListViewerState_dollar_type         = []byte("\"$type\":")
+	jsonKey_GraphDefs_ListViewerState_blocked             = []byte("\"blocked\":")
+	jsonKey_GraphDefs_ListViewerState_muted               = []byte("\"muted\":")
+	jsonKey_GraphDefs_ListViewerState_referenceListOptOut = []byte("\"referenceListOptOut\":")
 )
 
 func (s *GraphDefs_ListViewerState) MarshalJSON() ([]byte, error) {
@@ -1921,6 +2013,14 @@ func (s *GraphDefs_ListViewerState) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_GraphDefs_ListViewerState_muted...)
 		buf = cbor.AppendJSONBool(buf, s.Muted.Val())
+		first = false
+	}
+	if s.ReferenceListOptOut.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_GraphDefs_ListViewerState_referenceListOptOut...)
+		buf = cbor.AppendJSONString(buf, s.ReferenceListOptOut.Val())
 		first = false
 	}
 	for _, ef := range s.extra {
@@ -1995,6 +2095,20 @@ func (s *GraphDefs_ListViewerState) UnmarshalJSONAt(data []byte, pos int) (int, 
 					return 0, err
 				}
 				s.Muted = gt.Some(v)
+			}
+		case "referenceListOptOut":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ReferenceListOptOut = gt.Some(v)
 			}
 		default:
 			valueStart := pos

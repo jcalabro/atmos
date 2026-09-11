@@ -393,7 +393,7 @@ type GroupUpdateJoinRequestsRead_Input struct {
 
 // GroupUpdateJoinRequestsRead calls the XRPC procedure "chat.bsky.group.updateJoinRequestsRead".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Marks all join requests as read for the group owner.
+// Marks all join requests as read for the group owner.
 func GroupUpdateJoinRequestsRead(ctx context.Context, c *xrpc.Client, input *GroupUpdateJoinRequestsRead_Input) (*GroupUpdateJoinRequestsRead_Output, error) {
 	var out GroupUpdateJoinRequestsRead_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.updateJoinRequestsRead", input, &out)

@@ -507,7 +507,7 @@ type GroupRemoveMembers_Input struct {
 
 // GroupRemoveMembers calls the XRPC procedure "chat.bsky.group.removeMembers".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Removes members from a group. This deletes convo memberships, doesn't just set a status.
+// Removes members from a group. This deletes convo memberships, doesn't just set a status.
 func GroupRemoveMembers(ctx context.Context, c *xrpc.Client, input *GroupRemoveMembers_Input) (*GroupRemoveMembers_Output, error) {
 	var out GroupRemoveMembers_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.removeMembers", input, &out)

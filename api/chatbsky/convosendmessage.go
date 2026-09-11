@@ -10,8 +10,9 @@ import (
 
 // Error name constants for ConvoSendMessage.
 const (
-	ErrConvoSendMessage_ConvoLocked  = "ConvoLocked"
-	ErrConvoSendMessage_InvalidConvo = "InvalidConvo"
+	ErrConvoSendMessage_ConvoLocked         = "ConvoLocked"
+	ErrConvoSendMessage_InvalidConvo        = "InvalidConvo"
+	ErrConvoSendMessage_ReplyTargetNotFound = "ReplyTargetNotFound"
 )
 
 // ConvoSendMessage_Output is an alias for ConvoDefs_MessageView.

@@ -11,7 +11,8 @@ import (
 
 // Error name constants for QueueCreateQueue.
 const (
-	ErrQueueCreateQueue_ConflictingQueue = "ConflictingQueue" // The queue configuration conflicts with an existing queue
+	ErrQueueCreateQueue_InvalidRecommendedPolicies = "InvalidRecommendedPolicies" // One or more recommended policy keys do not exist in the configured policy list
+	ErrQueueCreateQueue_ConflictingQueue           = "ConflictingQueue"           // The queue configuration conflicts with an existing queue
 )
 
 // Precomputed JSON key tokens for QueueCreateQueue_Output.
@@ -230,12 +231,13 @@ type QueueCreateQueue_Output struct {
 
 // Precomputed JSON key tokens for QueueCreateQueue_Input.
 var (
-	jsonKey_QueueCreateQueue_Input_dollar_type  = []byte("\"$type\":")
-	jsonKey_QueueCreateQueue_Input_collection   = []byte("\"collection\":")
-	jsonKey_QueueCreateQueue_Input_description  = []byte("\"description\":")
-	jsonKey_QueueCreateQueue_Input_name         = []byte("\"name\":")
-	jsonKey_QueueCreateQueue_Input_reportTypes  = []byte("\"reportTypes\":")
-	jsonKey_QueueCreateQueue_Input_subjectTypes = []byte("\"subjectTypes\":")
+	jsonKey_QueueCreateQueue_Input_dollar_type         = []byte("\"$type\":")
+	jsonKey_QueueCreateQueue_Input_collection          = []byte("\"collection\":")
+	jsonKey_QueueCreateQueue_Input_description         = []byte("\"description\":")
+	jsonKey_QueueCreateQueue_Input_name                = []byte("\"name\":")
+	jsonKey_QueueCreateQueue_Input_recommendedPolicies = []byte("\"recommendedPolicies\":")
+	jsonKey_QueueCreateQueue_Input_reportTypes         = []byte("\"reportTypes\":")
+	jsonKey_QueueCreateQueue_Input_subjectTypes        = []byte("\"subjectTypes\":")
 )
 
 func (s *QueueCreateQueue_Input) MarshalJSON() ([]byte, error) {
@@ -275,32 +277,51 @@ func (s *QueueCreateQueue_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_QueueCreateQueue_Input_name...)
 	buf = cbor.AppendJSONString(buf, s.Name)
 	first = false
-	if !first {
-		buf = append(buf, ',')
-	}
-	buf = append(buf, jsonKey_QueueCreateQueue_Input_reportTypes...)
-	buf = append(buf, '[')
-	for i, item := range s.ReportTypes {
-		if i > 0 {
+	if len(s.RecommendedPolicies) > 0 {
+		if !first {
 			buf = append(buf, ',')
 		}
-		buf = cbor.AppendJSONString(buf, item)
+		buf = append(buf, jsonKey_QueueCreateQueue_Input_recommendedPolicies...)
+		buf = append(buf, '[')
+		for i, item := range s.RecommendedPolicies {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
 	}
-	buf = append(buf, ']')
-	first = false
-	if !first {
-		buf = append(buf, ',')
-	}
-	buf = append(buf, jsonKey_QueueCreateQueue_Input_subjectTypes...)
-	buf = append(buf, '[')
-	for i, item := range s.SubjectTypes {
-		if i > 0 {
+	if len(s.ReportTypes) > 0 {
+		if !first {
 			buf = append(buf, ',')
 		}
-		buf = cbor.AppendJSONString(buf, item)
+		buf = append(buf, jsonKey_QueueCreateQueue_Input_reportTypes...)
+		buf = append(buf, '[')
+		for i, item := range s.ReportTypes {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
 	}
-	buf = append(buf, ']')
-	first = false
+	if len(s.SubjectTypes) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_QueueCreateQueue_Input_subjectTypes...)
+		buf = append(buf, '[')
+		for i, item := range s.SubjectTypes {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
 			continue
@@ -379,6 +400,33 @@ func (s *QueueCreateQueue_Input) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
+		case "recommendedPolicies":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RecommendedPolicies = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem string
+					elem, pos, err = cbor.ReadJSONString(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RecommendedPolicies = append(s.RecommendedPolicies, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
 		case "reportTypes":
 			if !cbor.IsJSONNull(data, pos) {
 				pos, err = cbor.ReadJSONArrayStart(data, pos)
@@ -447,12 +495,13 @@ func (s *QueueCreateQueue_Input) UnmarshalJSONAt(data []byte, pos int) (int, err
 
 // Precomputed CBOR key tokens for QueueCreateQueue_Input.
 var (
-	cborKey_QueueCreateQueue_Input_name         = cbor.AppendTextKey(nil, "name")
-	cborKey_QueueCreateQueue_Input_dollar_type  = cbor.AppendTextKey(nil, "$type")
-	cborKey_QueueCreateQueue_Input_collection   = cbor.AppendTextKey(nil, "collection")
-	cborKey_QueueCreateQueue_Input_description  = cbor.AppendTextKey(nil, "description")
-	cborKey_QueueCreateQueue_Input_reportTypes  = cbor.AppendTextKey(nil, "reportTypes")
-	cborKey_QueueCreateQueue_Input_subjectTypes = cbor.AppendTextKey(nil, "subjectTypes")
+	cborKey_QueueCreateQueue_Input_name                = cbor.AppendTextKey(nil, "name")
+	cborKey_QueueCreateQueue_Input_dollar_type         = cbor.AppendTextKey(nil, "$type")
+	cborKey_QueueCreateQueue_Input_collection          = cbor.AppendTextKey(nil, "collection")
+	cborKey_QueueCreateQueue_Input_description         = cbor.AppendTextKey(nil, "description")
+	cborKey_QueueCreateQueue_Input_reportTypes         = cbor.AppendTextKey(nil, "reportTypes")
+	cborKey_QueueCreateQueue_Input_subjectTypes        = cbor.AppendTextKey(nil, "subjectTypes")
+	cborKey_QueueCreateQueue_Input_recommendedPolicies = cbor.AppendTextKey(nil, "recommendedPolicies")
 )
 
 func (s *QueueCreateQueue_Input) MarshalCBOR() ([]byte, error) {
@@ -460,7 +509,7 @@ func (s *QueueCreateQueue_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *QueueCreateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 3 + countExtra(s.extra, extraEncodingCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
 		n++
 	}
@@ -468,6 +517,15 @@ func (s *QueueCreateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Description.HasVal() {
+		n++
+	}
+	if len(s.ReportTypes) > 0 {
+		n++
+	}
+	if len(s.SubjectTypes) > 0 {
+		n++
+	}
+	if len(s.RecommendedPolicies) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -492,16 +550,28 @@ func (s *QueueCreateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = cbor.AppendText(buf, s.Description.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportTypes", buf)
-		buf = append(buf, cborKey_QueueCreateQueue_Input_reportTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReportTypes)))
-		for _, item := range s.ReportTypes {
-			buf = cbor.AppendText(buf, item)
+		if len(s.ReportTypes) > 0 {
+			buf = append(buf, cborKey_QueueCreateQueue_Input_reportTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReportTypes)))
+			for _, item := range s.ReportTypes {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectTypes", buf)
-		buf = append(buf, cborKey_QueueCreateQueue_Input_subjectTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
-		for _, item := range s.SubjectTypes {
-			buf = cbor.AppendText(buf, item)
+		if len(s.SubjectTypes) > 0 {
+			buf = append(buf, cborKey_QueueCreateQueue_Input_subjectTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
+			for _, item := range s.SubjectTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "recommendedPolicies", buf)
+		if len(s.RecommendedPolicies) > 0 {
+			buf = append(buf, cborKey_QueueCreateQueue_Input_recommendedPolicies...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RecommendedPolicies)))
+			for _, item := range s.RecommendedPolicies {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
@@ -519,15 +589,26 @@ func (s *QueueCreateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_QueueCreateQueue_Input_description...)
 			buf = cbor.AppendText(buf, s.Description.Val())
 		}
-		buf = append(buf, cborKey_QueueCreateQueue_Input_reportTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReportTypes)))
-		for _, item := range s.ReportTypes {
-			buf = cbor.AppendText(buf, item)
+		if len(s.ReportTypes) > 0 {
+			buf = append(buf, cborKey_QueueCreateQueue_Input_reportTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.ReportTypes)))
+			for _, item := range s.ReportTypes {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
-		buf = append(buf, cborKey_QueueCreateQueue_Input_subjectTypes...)
-		buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
-		for _, item := range s.SubjectTypes {
-			buf = cbor.AppendText(buf, item)
+		if len(s.SubjectTypes) > 0 {
+			buf = append(buf, cborKey_QueueCreateQueue_Input_subjectTypes...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.SubjectTypes)))
+			for _, item := range s.SubjectTypes {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
+		if len(s.RecommendedPolicies) > 0 {
+			buf = append(buf, cborKey_QueueCreateQueue_Input_recommendedPolicies...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RecommendedPolicies)))
+			for _, item := range s.RecommendedPolicies {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
 	return buf, nil
@@ -676,6 +757,33 @@ func (s *QueueCreateQueue_Input) UnmarshalCBORAt(data []byte, pos int) (int, err
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 19:
+			if string(data[keyStart:keyEnd]) == "recommendedPolicies" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RecommendedPolicies = make([]string, arrLen)
+					for idx := range arrLen {
+						s.RecommendedPolicies[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -689,12 +797,13 @@ func (s *QueueCreateQueue_Input) UnmarshalCBORAt(data []byte, pos int) (int, err
 }
 
 type QueueCreateQueue_Input struct {
-	LexiconTypeID string            `json:"$type,omitempty"`
-	Collection    gt.Option[string] `json:"collection,omitzero"`  // Collection name for record subjects. Required if subjectTypes includes 'record'.
-	Description   gt.Option[string] `json:"description,omitzero"` // Optional description of the queue
-	Name          string            `json:"name"`                 // Display name for the queue (must be unique)
-	ReportTypes   []string          `json:"reportTypes"`          // Report reason types (fully qualified NSIDs)
-	SubjectTypes  []string          `json:"subjectTypes"`         // Subject types this queue accepts
+	LexiconTypeID       string            `json:"$type,omitempty"`
+	Collection          gt.Option[string] `json:"collection,omitzero"`           // Collection name for record subjects. Required if subjectTypes includes 'record'.
+	Description         gt.Option[string] `json:"description,omitzero"`          // Optional description of the queue
+	Name                string            `json:"name"`                          // Display name for the queue (must be unique)
+	RecommendedPolicies []string          `json:"recommendedPolicies,omitempty"` // Policy keys to recommend when actioning reports in this queue
+	ReportTypes         []string          `json:"reportTypes,omitempty"`         // Report reason types (fully qualified NSIDs)
+	SubjectTypes        []string          `json:"subjectTypes,omitempty"`        // Subject types this queue accepts
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -702,7 +811,7 @@ type QueueCreateQueue_Input struct {
 
 // QueueCreateQueue calls the XRPC procedure "tools.ozone.queue.createQueue".
 //
-// Create a new moderation queue. Will fail if the queue configuration conflicts with an existing queue.
+// Create a new moderation queue. A queue can have optional matching criteria that ozone's queue router will use to match reports. A queue with no criteria must have reports assigned to it manually via (1) `modTool.meta.queueId` in `tools.ozone.moderation.emitEvent` or (2) `tools.ozone.report.reassignQueue`.
 func QueueCreateQueue(ctx context.Context, c *xrpc.Client, input *QueueCreateQueue_Input) (*QueueCreateQueue_Output, error) {
 	var out QueueCreateQueue_Output
 	return &out, c.Procedure(ctx, "tools.ozone.queue.createQueue", input, &out)

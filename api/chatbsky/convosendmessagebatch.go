@@ -258,8 +258,9 @@ func (s *ConvoSendMessageBatch_BatchItem) UnmarshalJSONAt(data []byte, pos int) 
 
 // Error name constants for ConvoSendMessageBatch.
 const (
-	ErrConvoSendMessageBatch_ConvoLocked  = "ConvoLocked"
-	ErrConvoSendMessageBatch_InvalidConvo = "InvalidConvo"
+	ErrConvoSendMessageBatch_ConvoLocked         = "ConvoLocked"
+	ErrConvoSendMessageBatch_InvalidConvo        = "InvalidConvo"
+	ErrConvoSendMessageBatch_ReplyTargetNotFound = "ReplyTargetNotFound"
 )
 
 // Precomputed JSON key tokens for ConvoSendMessageBatch_Output.

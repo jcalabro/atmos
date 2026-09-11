@@ -469,7 +469,7 @@ type GroupEditGroup_Input struct {
 
 // GroupEditGroup calls the XRPC procedure "chat.bsky.group.editGroup".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Edits group settings.
+// Edits group settings.
 func GroupEditGroup(ctx context.Context, c *xrpc.Client, input *GroupEditGroup_Input) (*GroupEditGroup_Output, error) {
 	var out GroupEditGroup_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.editGroup", input, &out)

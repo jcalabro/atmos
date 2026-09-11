@@ -1541,6 +1541,7 @@ type EmbedRecord_ViewRecord struct {
 type EmbedRecord_ViewRecord_Embeds struct {
 	EmbedImages_View          gt.Ref[EmbedImages_View]
 	EmbedVideo_View           gt.Ref[EmbedVideo_View]
+	EmbedGallery_View         gt.Ref[EmbedGallery_View]
 	EmbedExternal_View        gt.Ref[EmbedExternal_View]
 	EmbedRecord_View          gt.Ref[EmbedRecord_View]
 	EmbedRecordWithMedia_View gt.Ref[EmbedRecordWithMedia_View]
@@ -1560,6 +1561,11 @@ func (u EmbedRecord_ViewRecord_Embeds) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedVideo_View.HasVal() {
 		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedGallery_View.HasVal() {
+		v := *u.EmbedGallery_View.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
@@ -1614,6 +1620,14 @@ func (u *EmbedRecord_ViewRecord_Embeds) UnmarshalJSONAt(data []byte, pos int) (i
 		}
 		u.EmbedVideo_View = gt.SomeRef(v)
 		return endPos, nil
+	case "app.bsky.embed.gallery#view":
+		var v EmbedGallery_View
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery_View = gt.SomeRef(v)
+		return endPos, nil
 	case "app.bsky.embed.external#view":
 		var v EmbedExternal_View
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -1657,6 +1671,11 @@ func (u EmbedRecord_ViewRecord_Embeds) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedVideo_View.HasVal() {
 		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedGallery_View.HasVal() {
+		v := *u.EmbedGallery_View.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
@@ -1709,6 +1728,14 @@ func (u *EmbedRecord_ViewRecord_Embeds) UnmarshalCBORAt(data []byte, pos int) (i
 			return 0, err
 		}
 		u.EmbedVideo_View = gt.SomeRef(v)
+		return pos, nil
+	case "app.bsky.embed.gallery#view":
+		var v EmbedGallery_View
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery_View = gt.SomeRef(v)
 		return pos, nil
 	case "app.bsky.embed.external#view":
 		var v EmbedExternal_View
