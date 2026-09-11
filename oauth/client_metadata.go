@@ -13,6 +13,7 @@ type ClientMetadata struct {
 	TokenEndpointAuthMethod     string   `json:"token_endpoint_auth_method"`
 	TokenEndpointAuthSigningAlg string   `json:"token_endpoint_auth_signing_alg,omitempty"`
 	JWKS                        *JWKSet  `json:"jwks,omitempty"`
+	JWKSURI                     string   `json:"jwks_uri,omitempty"`
 	ClientName                  string   `json:"client_name,omitempty"`
 	ClientURI                   string   `json:"client_uri,omitempty"`
 	LogoURI                     string   `json:"logo_uri,omitempty"`

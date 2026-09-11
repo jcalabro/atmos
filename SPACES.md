@@ -3,8 +3,8 @@
 Design and implementation tracker for [AT Protocol spaces][proposal], on
 `jc/spaces`.
 
-Status: Phases 0 and 1 implemented and verified on `jc/spaces`, 2026-09-11.
-Phases 2–5 have not started. The checkboxes below track implementation; the
+Status: Phases 0–2 implemented and verified on `jc/spaces`, 2026-09-11.
+Phases 3–5 have not started. The checkboxes below track implementation; the
 earlier review experiments remain separate evidence. Settled and deferred
 decisions are recorded at the end.
 
@@ -818,19 +818,50 @@ Phase 1 implementation notes:
 
 ### Phase 2: auth, clients and identity integration
 
-- [ ] Add OAuth space scope helpers and explicit default expansion inputs.
-- [ ] Implement three JWT profiles, app metadata/JWKS validation, replay store,
+- [x] Add OAuth space scope helpers and explicit default expansion inputs.
+- [x] Implement three JWT profiles, app metadata/JWKS validation, replay store,
       strict key selection, DPoP verifier and RFC 7638 thumbprint.
-- [ ] Implement endpoint-bound typed account/reader clients and single-use
+- [x] Implement endpoint-bound typed account/reader clients and single-use
       credential exchange/refresh; use one retry owner and no redirects.
-- [ ] Implement authority/repo-host resolution and both notification-hop auth
+- [x] Implement authority/repo-host resolution and both notification-hop auth
       profiles. Dedicated-host routing is an explicit upstream interop gate.
-- [ ] Expose all pinned read APIs, streaming CAR/blob variants, and own-account
+- [x] Expose all pinned read APIs, streaming CAR/blob variants, and own-account
       writes with batch/result/validation semantics.
 
 Done when: real crypto works through an HTTP mock authority plus two repo hosts,
 wrong-space/host/role requests fail, and retry wire tests never reuse a proof or
 replay an ambiguous write/exchange.
+
+Phase 2 implementation notes:
+
+- OAuth space permissions parse and canonicalize strictly, preserve repeated
+  collection/action/manage parameters, fail closed on malformed scopes, and
+  require explicit issuer inputs to resolve `authority=self` and declaration
+  collection defaults.
+- `space/credential` separates parsed and verified values for all three JWT
+  profiles, reparses immutable wire bytes before verification, enforces exact
+  key/algorithm/time/binding rules, and supplies bounded refresh, metadata/JWKS
+  resolution, RFC 7638 thumbprints, DPoP and atomic replay interfaces. Metadata,
+  JWKS, token and replay inputs have independent limits and fail closed.
+- Account and exact-space reader clients validate every typed request and
+  response boundary, route authority, repo and callback operations through
+  strictly selected raw DID-document entries, stream CAR/blob bodies under
+  absolute/idle/rate/size limits, and keep own-account writes atomic rather than
+  splitting or retrying them. Account OAuth nonce and refresh policy remains a
+  caller-provided account-session responsibility, separate from space DPoP.
+- Native authenticated requests use an explicit hardened HTTP/1 transport with
+  redirects, proxies, connection reuse and HTTP/2 disabled. It replaces custom
+  dial hooks, checks resolved IPs at dial time, and enforces TLS verification
+  and protocol bounds. This is the reviewed correctness mode, not a pooling or
+  performance claim; a proof-per-wire-send pooled HTTP/2 transport remains the
+  Q3 release blocker.
+- Tests exercise real delegation and credential signatures through one mock
+  authority and two independently resolved repo hosts, fresh per-request proofs,
+  wrong-host/space/role rejection, ambiguous exchange/write behavior, dedicated
+  authority-host fallback, notification roles, malformed boundaries, races,
+  fuzzing and native/WASM builds. The pinned upstream's first-hop routing still
+  requires the dedicated-host interoperability repair and release gate described
+  above.
 
 ### Phase 3: durable sync and lifecycle
 
