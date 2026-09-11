@@ -241,24 +241,14 @@ type SpacePermissionExpansion struct {
 // ExpandDefaults resolves an authority of "self" and, only when the scope
 // omitted collections, freezes the selected declaration's collection list into
 // the returned permission. It never mutates p. Declaration defaults cannot be
-// applied to a wildcard-type permission or a different concrete type.
+// applied to a wildcard-type permission or a different concrete type. When the
+// scope carries explicit collections, the declaration inputs are ignored
+// entirely so an unrelated malformed declaration cannot reject a valid grant.
 func (p SpacePermission) ExpandDefaults(expansion SpacePermissionExpansion) (SpacePermission, error) {
 	if expansion.UserDID != "" {
 		if err := expansion.UserDID.Validate(); err != nil {
 			return SpacePermission{}, invalidSpacePermissionExpansion("user DID: %v", err)
 		}
-	}
-	if expansion.SpaceType != "" {
-		if err := expansion.SpaceType.Validate(); err != nil {
-			return SpacePermission{}, invalidSpacePermissionExpansion("space type: %v", err)
-		}
-	}
-	collections := make([]string, len(expansion.Collections))
-	for i, collection := range expansion.Collections {
-		if err := collection.Validate(); err != nil {
-			return SpacePermission{}, invalidSpacePermissionExpansion("collection %d: %v", i, err)
-		}
-		collections[i] = collection.String()
 	}
 
 	result := p.clone()
@@ -268,23 +258,34 @@ func (p SpacePermission) ExpandDefaults(expansion SpacePermissionExpansion) (Spa
 		}
 		result.authority = expansion.UserDID.String()
 	}
-
-	if len(result.collection) == 0 {
-		if result.spaceType == "*" {
-			return SpacePermission{}, invalidSpacePermissionExpansion("one declaration cannot expand a wildcard space type")
-		}
-		if expansion.SpaceType == "" {
-			return SpacePermission{}, invalidSpacePermissionExpansion("collection defaults require a declaration space type")
-		}
-		if result.spaceType != expansion.SpaceType.String() {
-			return SpacePermission{}, invalidSpacePermissionExpansion(
-				"declaration type %q does not match permission type %q",
-				expansion.SpaceType,
-				result.spaceType,
-			)
-		}
-		result.collection = canonicalStrings(collections)
+	if len(result.collection) != 0 {
+		return result, nil
 	}
+
+	if result.spaceType == "*" {
+		return SpacePermission{}, invalidSpacePermissionExpansion("one declaration cannot expand a wildcard space type")
+	}
+	if expansion.SpaceType == "" {
+		return SpacePermission{}, invalidSpacePermissionExpansion("collection defaults require a declaration space type")
+	}
+	if err := expansion.SpaceType.Validate(); err != nil {
+		return SpacePermission{}, invalidSpacePermissionExpansion("space type: %v", err)
+	}
+	if result.spaceType != expansion.SpaceType.String() {
+		return SpacePermission{}, invalidSpacePermissionExpansion(
+			"declaration type %q does not match permission type %q",
+			expansion.SpaceType,
+			result.spaceType,
+		)
+	}
+	collections := make([]string, len(expansion.Collections))
+	for i, collection := range expansion.Collections {
+		if err := collection.Validate(); err != nil {
+			return SpacePermission{}, invalidSpacePermissionExpansion("collection %d: %v", i, err)
+		}
+		collections[i] = collection.String()
+	}
+	result.collection = canonicalStrings(collections)
 
 	return result, nil
 }

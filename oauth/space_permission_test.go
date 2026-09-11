@@ -128,7 +128,6 @@ func TestParseSpacePermissionRejectsMalformed(t *testing.T) {
 	}
 
 	for _, raw := range tests {
-		raw := raw
 		t.Run(raw, func(t *testing.T) {
 			t.Parallel()
 
@@ -305,6 +304,33 @@ func TestSpacePermissionExpandDefaultsPreservesExplicitCollections(t *testing.T)
 	})
 	require.NoError(t, err)
 	assert.Equal(t, permission, expanded)
+}
+
+func TestSpacePermissionExpandDefaultsIgnoresDeclarationForExplicitCollections(t *testing.T) {
+	t.Parallel()
+
+	// An explicit-collection grant must not depend on declaration inputs, so a
+	// malformed declaration (e.g. from an unrelated corrupt record) cannot
+	// reject it.
+	permission, err := ParseSpacePermission("space:com.example.group?authority=did:plc:authority&collection=com.example.explicit")
+	require.NoError(t, err)
+	expanded, err := permission.ExpandDefaults(SpacePermissionExpansion{
+		SpaceType:   "not a valid nsid",
+		Collections: []atmos.NSID{"*", "also invalid"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, permission, expanded)
+
+	permission, err = ParseSpacePermission("space:com.example.group?collection=com.example.explicit")
+	require.NoError(t, err)
+	expanded, err = permission.ExpandDefaults(SpacePermissionExpansion{
+		UserDID:     "did:plc:alice",
+		SpaceType:   "not a valid nsid",
+		Collections: []atmos.NSID{"*"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "did:plc:alice", expanded.Authority(), "self authority must still resolve on the explicit path")
+	assert.Equal(t, []string{"com.example.explicit"}, expanded.Collections())
 }
 
 func TestSpacePermissionExpandDefaultsRejectsUnsafeInputs(t *testing.T) {
