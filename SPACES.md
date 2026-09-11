@@ -3,10 +3,10 @@
 Design and implementation tracker for [AT Protocol spaces][proposal], on
 `jc/spaces`.
 
-Status: Phases 0–3 implemented and verified on `jc/spaces`, 2026-09-11.
-Phases 4–5 have not started. The checkboxes below track implementation; the
-earlier review experiments remain separate evidence. Settled and deferred
-decisions are recorded at the end.
+Status: Phases 0–4 implemented and verified on `jc/spaces`, 2026-09-11.
+Phase 5 has not started. The checkboxes below track implementation; the earlier
+review experiments remain separate evidence. Settled and deferred decisions
+are recorded at the end.
 
 Spaces are an early alpha. [PR #5187][pr] was still open at review time and its
 head still matched `9d787ebff231ff8f4e01c63717e9f5bcd6e1bc33`. Implement against
@@ -142,8 +142,8 @@ simple-space management, and deletion/account-lifecycle integration hooks.
 A full permissioned **repo-host server** is a separate undertaking from an
 **authority host**: it needs authenticated account writes, record persistence,
 oplog retention, blobs, snapshot exports and migration. Whether to include that
-server in this effort is Q1. Until answered, the phases promise client-side
-writes and reusable repo primitives, not a drop-in PDS.
+server in this effort was settled by Q1: it is excluded. The phases promise
+client-side writes and reusable repo primitives, not a drop-in PDS.
 
 Out of scope: E2EE, per-record audiences, spaces record relays/firehoses,
 turnkey account migration, and merging to `main`. Lifecycle events from the
@@ -622,8 +622,8 @@ handlers unmounted. Building an OAuth authorization server is not implied.
 If management is mounted alongside repo hosting, deleting the authority's own
 repo needs an explicit coordinated storage/deletion adapter as well. An
 authority-only host cannot erase a repo on another PDS with the current space
-API. Track that role/deployment limitation under Q1 rather than reporting a
-remote cleanup as completed by local configuration deletion.
+API. The Q1 authority-only decision retains that role/deployment limitation;
+do not report remote cleanup as completed by local configuration deletion.
 
 Persist policy/member configuration, writer rows, registration leases,
 tombstones and notification work. Use transactions/CAS and policy generations:
@@ -650,9 +650,10 @@ older hints cannot overwrite newer ones; equal revision/hash is idempotent;
 equal revision/different hash is a conflict. Persist an accepted directory
 update and fanout outbox together. Fanout uses bounded concurrency, fresh service
 JWTs per retry, backoff, expiry, and cancellation. Preserve deletion deliveries
-when removing registrations. If repo hosting is selected in Q1, write commit +
-first-hop notification outbox must also be atomic; the authority host alone
-cannot repair an originating PDS that never notified it.
+when removing registrations. Repo hosting is excluded by Q1; any later
+repo-host milestone must make write commit + first-hop notification outbox
+atomic. The authority host alone cannot repair an originating PDS that never
+notified it.
 
 Registration is whole-space at the authority in this alpha; there is no
 implemented direct per-repo registration contract. The credential authorizes
@@ -661,8 +662,8 @@ that callback DID. This permits unsolicited delivery to another service and
 withdrawal of another subscriber's registration. DPoP does not prove callback
 ownership; SSRF checks and quotas do not repair that authorization gap. Require
 an explicit subscriber-admission/withdrawal policy from the embedding host;
-there is no implicit arbitrary-target delivery default. Q6 decides whether the
-initial host follows the alpha's open rule or restricts registrations. Document
+there is no implicit arbitrary-target delivery default. Under Q6 the embedding
+host must explicitly choose its registration and withdrawal policy. Document
 any stricter policy as a deployment restriction, and do not add an incompatible
 wire challenge. An allowlist establishes operator consent to delivery, not
 proof that a particular credential holder owns the callback.
@@ -725,7 +726,8 @@ do not deliver every account lifecycle event.
 Same-URI recreation has no protocol incarnation ID: old credentials, old member
 repos and delayed notifications can refer to the new space. A local generation
 prevents stale **local** work, but cannot distinguish those old remote artifacts.
-Q5 decides our host behavior; never claim local fencing solves the wire ambiguity.
+Under Q5 the atmos host permanently reserves tombstoned URIs; never claim local
+fencing solves the wire ambiguity for external authorities that permit reuse.
 
 ## Known alpha gaps and release blockers
 
@@ -735,9 +737,9 @@ Q5 decides our host behavior; never claim local fencing solves the wire ambiguit
 | First-hop notifications lack a durable outbox; directory upserts accept older revisions. | Retain the discovery limitation in SDK guarantees. Our host adds monotonic updates/outbox; it cannot fix remote discovery loss. |
 | Public `sync.getBlob` uses the shared blob reader without a public-reference check, while space writes make blobs permanent. | Source indicates a space-only blob may be fetched publicly by DID/CID. Reproduce on an isolated pinned PDS and establish the intended perimeter before describing blob support as private. Do not probe other users' blobs. |
 | Reference full exports read state then page records without an explicit consistent snapshot. | Detect and reject mismatches; test convergence under writes and bound recovery amplification. |
-| Same-URI recreation and no instantaneous credential revocation. | Q4/Q5 and explicit residual-access documentation; no claims of immediate erase or revocation. |
-| Registration/withdrawal authenticates a space reader, not ownership of the named subscriber. | Require explicit host policy under Q6; account for unsolicited notifications and third-party subscription removal. |
-| No space import API in the pinned Lexicons. | No complete migration promise. Repo-host migration needs its own design if included under Q1. |
+| Same-URI recreation and no instantaneous credential revocation. | Q4/Q5 require permanent local tombstones and explicit residual-access documentation; no claims of immediate erase or revocation. |
+| Registration/withdrawal authenticates a space reader, not ownership of the named subscriber. | Q6 requires explicit host policy; account for unsolicited notifications and third-party subscription removal. |
+| No space import API in the pinned Lexicons. | No complete migration promise. The Q1-excluded repo-host migration needs its own design if later added. |
 | Low-level token/commit helpers accept inputs looser than protocol intent. | Keep positive interoperability vectors and explicit stricter local rejection tests; do not reproduce unsafe acceptance just to match the alpha. |
 
 These are tracked dependencies, not issues filed or fixes landed upstream.
@@ -754,7 +756,7 @@ reused-connection failure as a mandatory regression case.
 
 The order follows dependencies. Every phase includes failing tests first and
 ends with its acceptance gate; checked boxes mean implemented and verified.
-Phases 0 and 1 are complete; later phases remain unchecked.
+Phases 0–4 are complete; Phase 5 remains unchecked.
 
 ### Phase 0: contracts, pins and prerequisite fixes
 
@@ -917,23 +919,68 @@ Phase 3 implementation notes:
 
 ### Phase 4: authority host and management
 
-- [ ] Implement policy/member/lease/tombstone storage and mountable XRPC handlers,
+- [x] Implement policy/member/lease/tombstone storage and mountable XRPC handlers,
       including the account authenticator and principal/scope/ownership checks
       for management; do not infer them from service authentication.
-- [ ] Implement credential issuance with metadata/JWKS and replay verification,
+- [x] Implement credential issuance with metadata/JWKS and replay verification,
       separate read/write/app policies and managing-app callbacks.
-- [ ] Implement monotonic writer admission and durable bounded notification
+- [x] Implement monotonic writer admission and durable bounded notification
       fanout, subscriber admission/withdrawal policy, registration quotas,
       deletion delivery and shutdown.
-- [ ] Implement simple-space client helpers and test required policies, replace
+- [x] Implement simple-space client helpers and test required policies, replace
       semantics, unknown policy denial and account-versus-reader access.
-- [ ] Integrate writes/blobs from two authors, authority notifications, sync
-      rebuild and deletion; implement repo-host server scope only if Q1 selects
-      it, with a separate persistence/export/migration milestone.
+- [x] Integrate writes/blobs from two authors, authority notifications, sync
+      rebuild and deletion; keep the repo-host server excluded by Q1 and reserve
+      its persistence/export/migration work for a separate milestone.
 
 Done when: two authors on separate hosts round-trip through the host library and
 syncer under failures, all role boundaries are tested, and every served copy has
 an application authorization/lifecycle contract.
+
+Phase 4 implementation notes:
+
+- `space/host` is a mountable authority library with no implicit dependencies:
+  the embedding service supplies durable authority/replay stores, exact account
+  authentication, strict DID resolution, separate credential/service signing
+  roles, metadata/JWKS attestation verification, policy decisions, subscriber
+  admission/withdrawal policy, notification transport, clock and event sink.
+  Construction rejects missing or typed-nil dependencies and unbounded limits.
+- Management derives or checks the authority account and maps each operation to
+  its exact expanded OAuth space permission: `read_self`, and management
+  `create`, `update` or `delete`. Account OAuth, reader credentials, writer
+  service auth, authority service auth, delegation tokens, client attestations
+  and DPoP proofs remain separate roles and are tested against substitution and
+  replay.
+- Authority storage uses policy generations to fence external authorization,
+  permanent tombstones to prevent unsafe same-URI recreation, monotonic TID
+  writer admission, and atomic directory-plus-fanout mutations. Equal
+  revision/hash updates are idempotent; older revisions and equal-revision
+  conflicts fail explicitly. The bounded memory implementation is for tests or
+  deliberate single-process use; `space/host/storetest` is the reusable durable
+  backend conformance harness.
+- Notification registrations are expiring whole-space leases with atomic
+  per-space, per-credential and per-service quotas. Both admission and
+  withdrawal require an explicit embedding policy. Delivery uses durable
+  leases, bounded workers, strict service resolution, fresh authority JWTs on
+  every attempt, jittered bounded retries, expiry and cancellation-safe
+  shutdown. The supplied HTTP transport is an explicit no-reuse HTTP/1
+  correctness baseline unless the caller provides a retry-safe transport.
+- `space/simplespace` supplies closed policy/config/member types and a typed
+  account management client. Unknown or ambiguous generated unions fail closed;
+  `putMember` always replaces both booleans. Account and reader `getSpace`
+  clients validate the complete returned policy rather than exposing an
+  unsupported variant as usable configuration.
+- Mounted integration tests exercise typed create/get/update/delete and member
+  lifecycle calls with one exact account grant at a time; real
+  delegation/DPoP credential exchange and reuse; two independently keyed author
+  checkpoints with blob-bearing records; authenticated authority admission;
+  registration, withdrawal, durable fanout and full-CAR sync rebuild from two
+  distinct resolved host provenances; and verified deletion propagation into
+  sync cleanup and credential purge. HTTP callback tests independently verify
+  service-JWT bindings, request bounds, redirect denial and fail-closed errors.
+  Blob upload is separately round-tripped through the account PDS operation and
+  referenced from a space record; the authority host does not become a repo or
+  blob host.
 
 ### Phase 5: pinned stack interoperability and release readiness
 
@@ -1039,9 +1086,11 @@ migration), or clients plus reusable repo primitives? Recommend authority host
 wanted. That keeps the advertised server scope concrete without pretending the
 host library is a PDS.
 
-Answer: **deferred to Phase 4 scope planning**. Phase 0 adds no repo-host
-server and does not imply one. The current plan remains authority host plus
-clients and reusable repo primitives unless Q1 is explicitly expanded.
+Answer: **settled for Phase 4**. This effort implements the authority host plus
+clients and reusable repo primitives, not a complete repo-host/PDS server.
+Account-authenticated writes and `com.atproto.repo.uploadBlob` continue to target
+the account's PDS. Adding a repo-host server requires a separately designed
+persistence, transaction, oplog, export and migration milestone.
 
 ### Q2: How far should generic Lexicon `at-uri` compatibility expand?
 
@@ -1115,8 +1164,12 @@ Clients must still recognize that external authorities can recreate. This is a
 host-policy departure from the alpha, especially relevant to `literal:self`
 space conventions. Is that restriction acceptable?
 
-Answer: **deferred to Phase 4**, before authority creation/deletion semantics
-are implemented. No Phase 0 API permits space creation or URI reuse.
+Answer: **settled for Phase 4**. The atmos authority host permanently reserves a
+tombstoned space URI and requires a new skey for recreation. This deliberate
+departure prevents old credentials, member repos and delayed notifications from
+being interpreted as a new local incarnation. Clients still treat external
+authority behavior according to the wire protocol and lifecycle evidence they
+receive.
 
 ### Q6: Should callback registration be open to any space credential holder?
 
@@ -1129,8 +1182,11 @@ with quotas and rely on periodic sync to tolerate third-party withdrawal, or
 require restricted subscriber admission? A stronger ownership protocol would
 need additional authentication and upstream design work.
 
-Answer: **deferred to Phase 4**, before callback registration is implemented.
-Phase 0 establishes no permissive callback-admission default.
+Answer: **settled for Phase 4**. Registration and withdrawal both require an
+explicit embedding `SubscriberPolicy`; the host has no permissive default. A
+deployment may deliberately implement an open or allowlisted policy, but quotas,
+strict service resolution and request bounds still apply. That policy expresses
+operator consent, not cryptographic ownership of the callback identifier.
 
 ## Changelog
 
@@ -1159,6 +1215,16 @@ Phase 0 establishes no permissive callback-admission default.
   cache corruption recovery, signal-interruption rollback tests and 30 focused
   fuzz campaigns passed. Focused adversarial reviews were iterated to no
   findings.
+- 2026-09-11: completed Phase 4. Added the mountable authority host, durable
+  store contract and conformance harness, bounded memory store, exact OAuth
+  permission adapter, credential/policy enforcement, monotonic writer directory,
+  durable notification leases and transports, operational events, closed
+  simple-space types and typed management calls. Settled Q1/Q5/Q6 as
+  authority-only hosting, permanent URI tombstones and mandatory subscriber
+  policy. Integration covers exact account scopes, delegation/DPoP, two signed
+  author snapshots with blob references, durable fanout, sync rebuild and
+  deletion cleanup; account-PDS blob upload/download and callback HTTP profiles
+  have direct boundary tests.
 
 [guide]: https://gist.github.com/jcalabro/41f1738d22647f8896db4cb178161f07
 [proposal]: https://github.com/bluesky-social/proposals/blob/119fa6b63476d30c2516846c714319046e0422f3/0016-permissioned-data/README.md

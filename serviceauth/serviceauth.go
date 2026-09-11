@@ -52,6 +52,11 @@ type TokenParams struct {
 	// Exp is the token expiration time. Typically now + 60s.
 	Exp time.Time
 
+	// IssuedAt is the token issuance time. The zero value uses the current wall
+	// clock for backward compatibility. Callers with an injected clock should
+	// set it so iat and Exp are derived from the same source.
+	IssuedAt time.Time
+
 	// LexMethod optionally binds the token to a specific XRPC method NSID.
 	// Zero value means no binding.
 	LexMethod atmos.NSID
@@ -162,7 +167,10 @@ func CreateToken(params TokenParams, key crypto.PrivateKey) (string, error) {
 		return "", fmt.Errorf("serviceauth: generate nonce: %w", err)
 	}
 
-	now := time.Now()
+	now := params.IssuedAt
+	if now.IsZero() {
+		now = time.Now()
+	}
 
 	c := claims{
 		RegisteredClaims: jwt.RegisteredClaims{

@@ -93,49 +93,69 @@ type Claims struct {
 
 // CreateWriterNotifyWriteToken creates a writer-to-authority notifyWrite JWT.
 func CreateWriterNotifyWriteToken(repo, authority atmos.DID, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
+	return CreateWriterNotifyWriteTokenAt(repo, authority, time.Now(), expiresAt, key)
+}
+
+// CreateWriterNotifyWriteTokenAt creates a writer-to-authority notifyWrite JWT
+// using the explicit issuance time.
+func CreateWriterNotifyWriteTokenAt(repo, authority atmos.DID, issuedAt, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
 	if err := validateBareDID("repo", repo); err != nil {
 		return "", err
 	}
 	if err := validateBareDID("authority", authority); err != nil {
 		return "", err
 	}
-	return createToken(repo, string(authority), NotifyWriteMethod, expiresAt, key)
+	return createToken(repo, string(authority), NotifyWriteMethod, issuedAt, expiresAt, key)
 }
 
 // CreateAuthorityNotifyWriteToken creates an authority-to-subscriber
 // notifyWrite JWT.
 func CreateAuthorityNotifyWriteToken(authority atmos.DID, subscriber string, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
+	return CreateAuthorityNotifyWriteTokenAt(authority, subscriber, time.Now(), expiresAt, key)
+}
+
+// CreateAuthorityNotifyWriteTokenAt creates an authority-to-subscriber
+// notifyWrite JWT using the explicit issuance time.
+func CreateAuthorityNotifyWriteTokenAt(authority atmos.DID, subscriber string, issuedAt, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
 	if err := validateBareDID("authority", authority); err != nil {
 		return "", err
 	}
 	if err := validateServiceIdentifier(subscriber); err != nil {
 		return "", fmt.Errorf("notificationauth: subscriber: %w", err)
 	}
-	return createToken(authority, subscriber, NotifyWriteMethod, expiresAt, key)
+	return createToken(authority, subscriber, NotifyWriteMethod, issuedAt, expiresAt, key)
 }
 
 // CreateAuthorityNotifySpaceDeletedToken creates an authority-to-subscriber
 // notifySpaceDeleted JWT.
 func CreateAuthorityNotifySpaceDeletedToken(authority atmos.DID, subscriber string, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
+	return CreateAuthorityNotifySpaceDeletedTokenAt(authority, subscriber, time.Now(), expiresAt, key)
+}
+
+// CreateAuthorityNotifySpaceDeletedTokenAt creates an authority-to-subscriber
+// notifySpaceDeleted JWT using the explicit issuance time.
+func CreateAuthorityNotifySpaceDeletedTokenAt(authority atmos.DID, subscriber string, issuedAt, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
 	if err := validateBareDID("authority", authority); err != nil {
 		return "", err
 	}
 	if err := validateServiceIdentifier(subscriber); err != nil {
 		return "", fmt.Errorf("notificationauth: subscriber: %w", err)
 	}
-	return createToken(authority, subscriber, NotifySpaceDeletedMethod, expiresAt, key)
+	return createToken(authority, subscriber, NotifySpaceDeletedMethod, issuedAt, expiresAt, key)
 }
 
-func createToken(issuer atmos.DID, audience string, method atmos.NSID, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
-	now := time.Now()
-	if !expiresAt.After(now) {
+func createToken(issuer atmos.DID, audience string, method atmos.NSID, issuedAt, expiresAt time.Time, key crypto.PrivateKey) (string, error) {
+	if issuedAt.IsZero() {
+		return "", errors.New("notificationauth: issuance time is required")
+	}
+	if !expiresAt.After(issuedAt) {
 		return "", errors.New("notificationauth: expiration must be in the future")
 	}
-	if expiresAt.After(now.Add(DefaultMaxAge)) {
+	if expiresAt.After(issuedAt.Add(DefaultMaxAge)) {
 		return "", fmt.Errorf("notificationauth: expiration exceeds maximum lifetime of %s", DefaultMaxAge)
 	}
 	return serviceauth.CreateToken(serviceauth.TokenParams{
-		Issuer: issuer, Audience: audience, Exp: expiresAt, LexMethod: method,
+		Issuer: issuer, Audience: audience, Exp: expiresAt, IssuedAt: issuedAt, LexMethod: method,
 	}, key)
 }
 

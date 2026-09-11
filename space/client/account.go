@@ -14,6 +14,7 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/identity"
 	spaces "github.com/jcalabro/atmos/space"
+	"github.com/jcalabro/atmos/space/simplespace"
 	"github.com/jcalabro/gt"
 )
 
@@ -171,6 +172,9 @@ func (c *AccountClient) GetSpace(ctx context.Context, space atmos.SpaceRef) (*co
 	if out.URI != space.String() {
 		return nil, fmt.Errorf("space client: getSpace response URI does not match request")
 	}
+	if _, err := simplespace.DecodeOutput(&out); err != nil {
+		return nil, fmt.Errorf("space client: invalid getSpace policy: %w", err)
+	}
 	return &out, nil
 }
 
@@ -195,6 +199,89 @@ func (c *AccountClient) ListMembers(ctx context.Context, space atmos.SpaceRef, l
 		}
 	}
 	return &out, nil
+}
+
+// CreateSimpleSpace performs the low-level generated management call. Prefer
+// simplespace.Client for closed policy validation.
+func (c *AccountClient) CreateSimpleSpace(ctx context.Context, input *comatproto.SimplespaceCreateSpace_Input) (*comatproto.SimplespaceCreateSpace_Output, error) {
+	if input == nil {
+		return nil, fmt.Errorf("space client: createSpace input is required")
+	}
+	var out comatproto.SimplespaceCreateSpace_Output
+	if err := c.engine.jsonOnce(ctx, http.MethodPost, c.query("com.atproto.simplespace.createSpace", nil), input, &out); err != nil {
+		return nil, err
+	}
+	space, err := atmos.ParseSpaceRef(out.URI)
+	if err != nil || space.Authority() != c.did {
+		return nil, fmt.Errorf("space client: invalid createSpace response URI")
+	}
+	return &out, nil
+}
+
+// UpdateSimpleSpace performs the low-level generated management call.
+func (c *AccountClient) UpdateSimpleSpace(ctx context.Context, input *comatproto.SimplespaceUpdateSpace_Input) error {
+	if input == nil {
+		return fmt.Errorf("space client: updateSpace input is required")
+	}
+	space, err := atmos.ParseSpaceRef(input.Space)
+	if err != nil {
+		return err
+	}
+	if err := c.requireOwnedSpace(space); err != nil {
+		return err
+	}
+	return c.engine.jsonOnce(ctx, http.MethodPost, c.query("com.atproto.simplespace.updateSpace", nil), input, nil)
+}
+
+// DeleteSimpleSpace performs the low-level generated management call.
+func (c *AccountClient) DeleteSimpleSpace(ctx context.Context, input *comatproto.SimplespaceDeleteSpace_Input) error {
+	if input == nil {
+		return fmt.Errorf("space client: deleteSpace input is required")
+	}
+	space, err := atmos.ParseSpaceRef(input.Space)
+	if err != nil {
+		return err
+	}
+	if err := c.requireOwnedSpace(space); err != nil {
+		return err
+	}
+	return c.engine.jsonOnce(ctx, http.MethodPost, c.query("com.atproto.simplespace.deleteSpace", nil), input, nil)
+}
+
+// PutSimpleSpaceMember performs the low-level generated management call.
+func (c *AccountClient) PutSimpleSpaceMember(ctx context.Context, input *comatproto.SimplespacePutMember_Input) error {
+	if input == nil {
+		return fmt.Errorf("space client: putMember input is required")
+	}
+	space, err := atmos.ParseSpaceRef(input.Space)
+	if err != nil {
+		return err
+	}
+	if err := c.requireOwnedSpace(space); err != nil {
+		return err
+	}
+	if err := atmos.DID(input.DID).Validate(); err != nil {
+		return err
+	}
+	return c.engine.jsonOnce(ctx, http.MethodPost, c.query("com.atproto.simplespace.putMember", nil), input, nil)
+}
+
+// RemoveSimpleSpaceMember performs the low-level generated management call.
+func (c *AccountClient) RemoveSimpleSpaceMember(ctx context.Context, input *comatproto.SimplespaceRemoveMember_Input) error {
+	if input == nil {
+		return fmt.Errorf("space client: removeMember input is required")
+	}
+	space, err := atmos.ParseSpaceRef(input.Space)
+	if err != nil {
+		return err
+	}
+	if err := c.requireOwnedSpace(space); err != nil {
+		return err
+	}
+	if err := atmos.DID(input.DID).Validate(); err != nil {
+		return err
+	}
+	return c.engine.jsonOnce(ctx, http.MethodPost, c.query("com.atproto.simplespace.removeMember", nil), input, nil)
 }
 
 // GetLatestCommit returns a structurally validated commit for this account's repo.

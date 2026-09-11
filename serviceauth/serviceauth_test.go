@@ -135,6 +135,25 @@ func TestCreateAndVerify_P256(t *testing.T) {
 	assert.Equal(t, atmos.NSID(""), claims.LexMethod)
 }
 
+func TestCreateToken_UsesExplicitIssuanceTime(t *testing.T) {
+	t.Parallel()
+
+	priv, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Second)
+	token, err := CreateToken(TokenParams{
+		Issuer: "did:plc:alice", Audience: "did:web:api.example.com",
+		IssuedAt: now, Exp: now.Add(time.Minute),
+	}, priv)
+	require.NoError(t, err)
+	claims, err := VerifyToken(t.Context(), token, VerifyOptions{
+		Audience: "did:web:api.example.com", Identity: testDirectory("did:plc:alice", priv.PublicKey()),
+	})
+	require.NoError(t, err)
+	assert.True(t, now.Equal(claims.IssuedAt))
+	assert.True(t, now.Add(time.Minute).Equal(claims.ExpiresAt))
+}
+
 func TestVerifyToken_RejectsUnsafeHeadersAndLifetimes(t *testing.T) {
 	t.Parallel()
 

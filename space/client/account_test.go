@@ -1,8 +1,10 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -177,6 +179,58 @@ func TestAccountClientNeverRetriesDelegationMint(t *testing.T) {
 	_, err = client.GetDelegationToken(context.Background(), spaceRef)
 	require.Error(t, err)
 	require.Equal(t, int64(1), requests.Load())
+}
+
+func TestAccountClientBlobUploadRecordAndPrivateDownload(t *testing.T) {
+	t.Parallel()
+
+	blobBytes := []byte("private blob bytes")
+	blobCID := cbor.ComputeCID(cbor.CodecRaw, blobBytes).String()
+	record := json.RawMessage(`{"$type":"com.example.post","blob":{"$type":"blob","ref":{"$link":"` + blobCID + `"},"mimeType":"text/plain","size":18}}`)
+	recordCID := mustRecordCID(t, string(record))
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requests.Add(1)
+		require.Equal(t, "account-token", req.Header.Get("Authorization"))
+		switch req.URL.Path {
+		case "/xrpc/com.atproto.repo.uploadBlob":
+			require.Equal(t, "text/plain", req.Header.Get("Content-Type"))
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Equal(t, blobBytes, body)
+			_, _ = fmt.Fprintf(w, `{"blob":{"$type":"blob","ref":{"$link":"%s"},"mimeType":"text/plain","size":%d}}`, blobCID, len(blobBytes))
+		case "/xrpc/com.atproto.space.createRecord":
+			var input comatproto.SpaceCreateRecord_Input
+			require.NoError(t, json.NewDecoder(req.Body).Decode(&input))
+			require.Equal(t, testAccount, input.Repo)
+			require.JSONEq(t, string(record), string(input.Record))
+			_, _ = fmt.Fprintf(w, `{"uri":"%s/%s/com.example.post/with-blob","cid":"%s","validationStatus":"valid"}`, testSpace, testAccount, recordCID)
+		case "/xrpc/com.atproto.space.getBlob":
+			require.Equal(t, testAccount, req.URL.Query().Get("repo"))
+			require.Equal(t, testSpace, req.URL.Query().Get("space"))
+			require.Equal(t, blobCID, req.URL.Query().Get("cid"))
+			_, _ = w.Write(blobBytes)
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	defer server.Close()
+	client := newTestAccountClient(t, server, &requests)
+	space, err := atmos.ParseSpaceRef(testSpace)
+	require.NoError(t, err)
+
+	uploaded, err := client.UploadBlob(t.Context(), "text/plain", bytes.NewReader(blobBytes))
+	require.NoError(t, err)
+	require.Equal(t, blobCID, uploaded.Blob.Ref.Link)
+	_, err = client.CreateRecord(t.Context(), space, "com.example.post", "with-blob", record, ValidateRequired)
+	require.NoError(t, err)
+	body, err := client.GetBlob(t.Context(), space, blobCID, int64(len(blobBytes)))
+	require.NoError(t, err)
+	downloaded, err := io.ReadAll(body)
+	require.NoError(t, err)
+	require.NoError(t, body.Close())
+	require.Equal(t, blobBytes, downloaded)
+	require.Equal(t, int64(3), requests.Load())
 }
 
 func TestAccountClientListSpacesEnforcesResponseFilters(t *testing.T) {

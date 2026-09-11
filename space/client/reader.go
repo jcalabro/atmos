@@ -15,6 +15,7 @@ import (
 	"github.com/jcalabro/atmos/identity"
 	spaces "github.com/jcalabro/atmos/space"
 	"github.com/jcalabro/atmos/space/credential"
+	"github.com/jcalabro/atmos/space/simplespace"
 )
 
 // CredentialPair is an atomically published reusable space credential and its
@@ -257,6 +258,9 @@ func (c *ReaderClient) GetSpace(ctx context.Context) (*comatproto.SimplespaceGet
 	}
 	if out.URI != c.space.String() {
 		return nil, fmt.Errorf("space client: getSpace response URI does not match bound space")
+	}
+	if _, err := simplespace.DecodeOutput(&out); err != nil {
+		return nil, fmt.Errorf("space client: invalid getSpace policy: %w", err)
 	}
 	return &out, nil
 }
