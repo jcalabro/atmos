@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/jcalabro/atmos"
@@ -81,12 +82,6 @@ func (h *Host) authenticateExchange(ctx context.Context, req *http.Request, spac
 	if err != nil {
 		return exchangePrincipal{}, errors.Join(ErrInvalidDelegation, fmt.Errorf("space host: invalid delegation issuer: %w", err))
 	}
-	if _, err := credential.VerifyDelegationToken(ctx, token, credential.VerifyDelegationOptions{
-		Resolver: h.resolver, Issuer: issuer, Subject: space,
-		Audience: credential.SpaceHostAudience(space.Authority()), Now: h.clock.Now(), Replay: h.replay,
-	}); err != nil {
-		return exchangePrincipal{}, errors.Join(ErrInvalidDelegation, fmt.Errorf("space host: verify delegation: %w", err))
-	}
 	proof, err := dpopHeader(req)
 	if err != nil {
 		return exchangePrincipal{}, errors.Join(ErrInvalidDelegation, err)
@@ -105,6 +100,15 @@ func (h *Host) authenticateExchange(ctx context.Context, req *http.Request, spac
 			return exchangePrincipal{}, errors.Join(ErrInvalidClientAttestation, fmt.Errorf("space host: verify client attestation: %w", err))
 		}
 	}
+	// Successful verification consumes the delegation's single-use JTI, so the
+	// user-issued delegation is checked only after every request-local proof:
+	// a rejected request must leave the delegation redeemable.
+	if _, err := credential.VerifyDelegationToken(ctx, token, credential.VerifyDelegationOptions{
+		Resolver: h.resolver, Issuer: issuer, Subject: space,
+		Audience: credential.SpaceHostAudience(space.Authority()), Now: h.clock.Now(), Replay: h.replay,
+	}); err != nil {
+		return exchangePrincipal{}, errors.Join(ErrInvalidDelegation, fmt.Errorf("space host: verify delegation: %w", err))
+	}
 	return exchangePrincipal{User: issuer, JKT: verifiedProof.JKT, ClientID: clientID}, nil
 }
 
@@ -116,14 +120,7 @@ func (h *Host) authorize(ctx context.Context, state SpaceState, user atmos.DID, 
 		switch state.Config.AppAccess.Kind {
 		case simplespace.AppAccessOpen:
 		case simplespace.AppAccessAllowList:
-			allowed := false
-			for _, value := range state.Config.AppAccess.Allowed {
-				if value == clientID {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
+			if !slices.Contains(state.Config.AppAccess.Allowed, clientID) {
 				return ErrAppDenied
 			}
 		default:

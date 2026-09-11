@@ -30,7 +30,15 @@ var blockedNetworkPrefixes = [...]netip.Prefix{
 // NetworkPolicy controls explicit local-test exceptions in the correctness
 // transport. Production callers should use the zero value.
 type NetworkPolicy struct {
+	// AllowPrivateNetworks permits every private or special-use dial result,
+	// including DNS answers for public hostnames, which removes the
+	// rebinding/SSRF guard entirely.
 	AllowPrivateNetworks bool
+	// AllowPrivateLiteralHosts permits a private or special-use address only
+	// when the request host is that exact IP literal; DNS answers for
+	// hostnames remain blocked. It is the transport counterpart of
+	// identity.EndpointPolicy.AllowPrivateLiteral.
+	AllowPrivateLiteralHosts bool
 }
 
 // NewCorrectnessHTTPClient returns the explicit HTTP/1, no-connection-reuse
@@ -69,9 +77,11 @@ func hardenTransportNetwork(transport *http.Transport, policy NetworkPolicy) {
 		if err != nil {
 			return nil, fmt.Errorf("space client: resolve dial host: %w", err)
 		}
+		_, literalErr := netip.ParseAddr(host)
+		allowPrivate := policy.AllowPrivateNetworks || (literalErr == nil && policy.AllowPrivateLiteralHosts)
 		var lastErr error
 		for _, ip := range ips {
-			if !policy.AllowPrivateNetworks && unsafeIP(ip) {
+			if !allowPrivate && unsafeIP(ip) {
 				lastErr = fmt.Errorf("space client: resolved address %s is not public", ip)
 				continue
 			}

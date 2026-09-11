@@ -170,8 +170,9 @@ func (h *Host) resolveService(ctx context.Context, identifier, serviceType strin
 
 // HTTPDeliveryTransport sends one bounded JSON POST without redirects using
 // the explicit no-reuse HTTP/1 correctness baseline. DNS results are checked at
-// dial time so a validated hostname cannot redirect delivery to a private
-// network unless the endpoint policy explicitly permits it.
+// dial time so a validated hostname can never redirect delivery to a private
+// network: EndpointPolicy.AllowPrivateLiteral only admits endpoints whose host
+// is itself a private IP literal, not private DNS answers.
 type HTTPDeliveryTransport struct {
 	client      *http.Client
 	maxResponse int64
@@ -182,7 +183,7 @@ func NewHTTPDeliveryTransport(policy identity.EndpointPolicy, timeout time.Durat
 	if timeout <= 0 || maxResponse <= 0 || maxResponse == math.MaxInt64 {
 		return nil, errors.New("space host: delivery timeout and response limit must be positive and response limit must be below MaxInt64")
 	}
-	client := spaceclient.NewCorrectnessHTTPClient(spaceclient.NetworkPolicy{AllowPrivateNetworks: policy.AllowPrivateLiteral})
+	client := spaceclient.NewCorrectnessHTTPClient(spaceclient.NetworkPolicy{AllowPrivateLiteralHosts: policy.AllowPrivateLiteral})
 	client.Timeout = timeout
 	return &HTTPDeliveryTransport{client: client, maxResponse: maxResponse}, nil
 }

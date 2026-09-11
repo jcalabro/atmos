@@ -37,7 +37,9 @@ var (
 type AccountAction uint8
 
 const (
-	// AccountReadSelf is required for owner getSpace/listMembers calls.
+	// AccountReadSelf is required for owner getSpace/listMembers calls. The
+	// management plane is authorized by the per-client OAuth grant alone;
+	// Config.AppAccess governs the credential exchange, not account OAuth.
 	AccountReadSelf AccountAction = iota + 1
 	// AccountCreate is required to create a space.
 	AccountCreate

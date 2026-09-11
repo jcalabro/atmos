@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -111,6 +112,44 @@ type opaqueRoundTripper struct{}
 
 func (opaqueRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 	return nil, io.ErrUnexpectedEOF
+}
+
+func TestCorrectnessTransportPrivateLiteralHostPolicy(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer server.Close()
+	serverURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	_, err = netip.ParseAddr(serverURL.Hostname())
+	require.NoError(t, err, "the test server must listen on an IP literal")
+
+	get := func(client *http.Client, target string) error {
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+		require.NoError(t, err)
+		response, err := client.Do(req)
+		if response != nil {
+			require.NoError(t, response.Body.Close())
+		}
+		return err
+	}
+
+	literal := NewCorrectnessHTTPClient(NetworkPolicy{AllowPrivateLiteralHosts: true})
+	require.NoError(t, get(literal, server.URL), "a private IP literal host must be dialable under AllowPrivateLiteralHosts")
+	require.Equal(t, int32(1), calls.Load())
+
+	hostname := *serverURL
+	hostname.Host = net.JoinHostPort("localhost", serverURL.Port())
+	err = get(literal, hostname.String())
+	require.ErrorContains(t, err, "not public", "a private DNS answer for a hostname must stay blocked under AllowPrivateLiteralHosts")
+
+	blocked := NewCorrectnessHTTPClient(NetworkPolicy{})
+	err = get(blocked, server.URL)
+	require.ErrorContains(t, err, "not public", "the zero policy must block private IP literals")
+	require.Equal(t, int32(1), calls.Load(), "blocked dials must never reach the server")
 }
 
 func TestCorrectnessTransportRejectsSpecialUseNetworks(t *testing.T) {

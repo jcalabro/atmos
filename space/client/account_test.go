@@ -15,6 +15,8 @@ import (
 	"github.com/jcalabro/atmos/api/comatproto"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/identity"
+	"github.com/jcalabro/atmos/space/simplespace"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/require"
 )
 
@@ -259,6 +261,92 @@ func TestAccountClientListSpacesRejectsDuplicates(t *testing.T) {
 
 	_, err := client.ListSpaces(context.Background(), "", "", 0, "")
 	require.ErrorContains(t, err, "duplicate space URI")
+}
+
+func TestAccountClientCreateSimpleSpaceBindsResponseToRequest(t *testing.T) {
+	t.Parallel()
+	var responseURI atomic.Value
+	responseURI.Store("")
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		uri, _ := responseURI.Load().(string)
+		_, _ = io.WriteString(w, `{"uri":"`+uri+`"}`)
+	}))
+	defer server.Close()
+	client := newTestAccountClient(t, server, &requests)
+	createInput := func(skey atmos.RecordKey) *comatproto.SimplespaceCreateSpace_Input {
+		input, err := simplespace.CreateInput("com.example.forum", skey,
+			simplespace.Policy{Kind: simplespace.PolicyPublic},
+			simplespace.Policy{Kind: simplespace.PolicyPublic},
+			simplespace.AppAccess{Kind: simplespace.AppAccessOpen})
+		require.NoError(t, err)
+		return input
+	}
+
+	_, err := client.CreateSimpleSpace(context.Background(), nil)
+	require.Error(t, err)
+	badType := createInput("self")
+	badType.Type = "not an nsid"
+	_, err = client.CreateSimpleSpace(context.Background(), badType)
+	require.ErrorContains(t, err, "invalid createSpace type")
+	badSkey := createInput("self")
+	badSkey.Skey = gt.Some("not a valid skey!")
+	_, err = client.CreateSimpleSpace(context.Background(), badSkey)
+	require.ErrorContains(t, err, "invalid createSpace skey")
+	require.Zero(t, requests.Load(), "invalid inputs must be rejected before any request")
+
+	tests := []struct {
+		name  string
+		input *comatproto.SimplespaceCreateSpace_Input
+		uri   string
+		match bool
+	}{
+		{
+			name:  "wrong authority",
+			input: createInput("self"),
+			uri:   "at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/space/com.example.forum/self",
+		},
+		{
+			name:  "wrong type",
+			input: createInput("self"),
+			uri:   "at://" + testAccount + "/space/com.example.other/self",
+		},
+		{
+			name:  "wrong skey",
+			input: createInput("self"),
+			uri:   "at://" + testAccount + "/space/com.example.forum/other",
+		},
+		{
+			name:  "invalid uri",
+			input: createInput(""),
+			uri:   "not a space uri",
+		},
+		{
+			name:  "matching with requested skey",
+			input: createInput("self"),
+			uri:   "at://" + testAccount + "/space/com.example.forum/self",
+			match: true,
+		},
+		{
+			name:  "matching with server-chosen skey",
+			input: createInput(""),
+			uri:   "at://" + testAccount + "/space/com.example.forum/generated",
+			match: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			responseURI.Store(test.uri)
+			out, err := client.CreateSimpleSpace(context.Background(), test.input)
+			if test.match {
+				require.NoError(t, err)
+				require.Equal(t, test.uri, out.URI)
+				return
+			}
+			require.ErrorContains(t, err, "does not match the requested space")
+		})
+	}
 }
 
 func newTestAccountClient(t *testing.T, server *httptest.Server, _ *atomic.Int64) *AccountClient {

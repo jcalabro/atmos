@@ -27,6 +27,7 @@ import (
 	"github.com/jcalabro/atmos/space/simplespace"
 	spacesync "github.com/jcalabro/atmos/space/sync"
 	"github.com/jcalabro/atmos/xrpcserver"
+	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -282,6 +283,128 @@ func TestHost_RejectsAccountReaderRoleConfusionAndReplays(t *testing.T) {
 
 	readerAsAccount := requestQuery(t, httpServer.URL, methodListMembers, url.Values{"space": {config.URI.String()}}, "Bearer not-an-account-token", "", nil)
 	assert.Equal(t, http.StatusUnauthorized, readerAsAccount)
+}
+
+func TestHost_FailedExchangeLeavesDelegationRedeemable(t *testing.T) {
+	// The delegation is the only user-issued single-use object in the exchange,
+	// so a request rejected for a request-local reason (bad DPoP proof, bad
+	// client attestation) must not consume it. A later well-formed request with
+	// the same delegation must still succeed exactly once.
+	t.Parallel()
+	store := newTestMemoryStore(t, 8)
+	config := testConfig(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	_, err := store.CreateSpace(t.Context(), config, now)
+	require.NoError(t, err)
+	key := mustP256(t)
+	resolver := &integrationResolver{docs: map[atmos.DID]*identity.DIDDocument{
+		config.URI.Authority(): didDoc(config.URI.Authority(), key, nil),
+		integrationAuthorOne:   didDoc(integrationAuthorOne, key, nil),
+	}}
+	replay, err := credential.NewMemoryReplayStore(32)
+	require.NoError(t, err)
+	origin, _ := url.Parse("http://authority.test")
+	h, err := New(Options{
+		Origin: origin, EndpointPolicy: identity.EndpointPolicy{AllowHTTP: true, AllowPrivateLiteral: true}, Store: store, Replay: replay,
+		AccountAuth: AccountAuthenticatorFunc(func(context.Context, *http.Request) (AccountPrincipal, error) {
+			return AccountPrincipal{}, ErrNoAccountCredential
+		}),
+		Resolver: resolver, Signer: &integrationSigner{authority: config.URI.Authority(), key: key},
+		Attestations: AttestationVerifierFunc(func(_ context.Context, raw, _ string, _ time.Time, _ credential.ReplayStore) (string, error) {
+			return "", fmt.Errorf("rejected attestation %q", raw)
+		}),
+		Policies: SimplePolicyEvaluator{}, Subscribers: SubscriberPolicyFunc(func(context.Context, SubscriberRequest) (SubscriberDecision, error) { return SubscriberDecision{}, nil }),
+		Delivery: DeliveryTransportFunc(func(context.Context, *url.URL, atmos.NSID, string, any) error { return nil }), Clock: ClockFunc(func() time.Time { return now }), Events: DiscardEvents, Limits: integrationLimits(),
+	})
+	require.NoError(t, err)
+	server := &xrpcserver.Server{}
+	require.NoError(t, h.Mount(server))
+	httpServer := httptest.NewServer(server)
+	defer httpServer.Close()
+
+	delegation, err := credential.CreateDelegationToken(credential.DelegationTokenParams{Issuer: integrationAuthorOne, Subject: config.URI, Audience: credential.SpaceHostAudience(config.URI.Authority()), Now: now}, key)
+	require.NoError(t, err)
+	dpopKey := mustP256(t)
+	input := &comatproto.SpaceGetSpaceCredential_Input{Space: config.URI.String()}
+
+	wrongTarget := mustDPoP(t, dpopKey, http.MethodPost, origin.String()+"/xrpc/com.example.wrong", "", now)
+	status := requestJSON(t, httpServer.URL, methodGetCredential, input, "Bearer "+delegation, wrongTarget, nil)
+	require.Equal(t, http.StatusBadRequest, status, "a DPoP proof for another target must be rejected")
+
+	attested := &comatproto.SpaceGetSpaceCredential_Input{Space: config.URI.String(), ClientAttestation: gt.Some("untrusted")}
+	status = requestJSON(t, httpServer.URL, methodGetCredential, attested, "Bearer "+delegation, mustDPoP(t, dpopKey, http.MethodPost, origin.String()+"/xrpc/"+methodGetCredential, "", now), nil)
+	require.Equal(t, http.StatusBadRequest, status, "a rejected client attestation must fail the exchange")
+
+	var out comatproto.SpaceGetSpaceCredential_Output
+	status = requestJSON(t, httpServer.URL, methodGetCredential, input, "Bearer "+delegation, mustDPoP(t, dpopKey, http.MethodPost, origin.String()+"/xrpc/"+methodGetCredential, "", now), &out)
+	require.Equal(t, http.StatusOK, status, "rejected requests must leave the delegation redeemable")
+	require.NotEmpty(t, out.Credential)
+
+	status = requestJSON(t, httpServer.URL, methodGetCredential, input, "Bearer "+delegation, mustDPoP(t, dpopKey, http.MethodPost, origin.String()+"/xrpc/"+methodGetCredential, "", now), nil)
+	require.Equal(t, http.StatusBadRequest, status, "a successful exchange must consume the delegation")
+}
+
+func TestHost_CredentialExchangeEnforcesAppAllowList(t *testing.T) {
+	t.Parallel()
+	store := newTestMemoryStore(t, 8)
+	config := testConfig(t)
+	config.AppAccess = simplespace.AppAccess{Kind: simplespace.AppAccessAllowList, Allowed: []string{"client-one"}}
+	now := time.Now().UTC().Truncate(time.Second)
+	_, err := store.CreateSpace(t.Context(), config, now)
+	require.NoError(t, err)
+	authorityKey := mustP256(t)
+	authorKey := mustP256(t)
+	resolver := &integrationResolver{docs: map[atmos.DID]*identity.DIDDocument{
+		config.URI.Authority(): didDoc(config.URI.Authority(), authorityKey, nil),
+		integrationAuthorOne:   didDoc(integrationAuthorOne, authorKey, nil),
+	}}
+	replay, err := credential.NewMemoryReplayStore(64)
+	require.NoError(t, err)
+	origin, _ := url.Parse("http://authority.test")
+	h, err := New(Options{
+		Origin: origin, EndpointPolicy: identity.EndpointPolicy{AllowHTTP: true, AllowPrivateLiteral: true}, Store: store, Replay: replay,
+		AccountAuth: AccountAuthenticatorFunc(func(context.Context, *http.Request) (AccountPrincipal, error) {
+			return AccountPrincipal{}, ErrNoAccountCredential
+		}),
+		Resolver: resolver, Signer: &integrationSigner{authority: config.URI.Authority(), key: authorityKey},
+		Attestations: AttestationVerifierFunc(func(_ context.Context, raw, _ string, _ time.Time, _ credential.ReplayStore) (string, error) {
+			return raw, nil
+		}),
+		Policies: SimplePolicyEvaluator{}, Subscribers: SubscriberPolicyFunc(func(context.Context, SubscriberRequest) (SubscriberDecision, error) { return SubscriberDecision{}, nil }),
+		Delivery: DeliveryTransportFunc(func(context.Context, *url.URL, atmos.NSID, string, any) error { return nil }), Clock: ClockFunc(func() time.Time { return now }), Events: DiscardEvents, Limits: integrationLimits(),
+	})
+	require.NoError(t, err)
+	server := &xrpcserver.Server{}
+	require.NoError(t, h.Mount(server))
+	httpServer := httptest.NewServer(server)
+	defer httpServer.Close()
+
+	dpopKey := mustP256(t)
+	exchange := func(issuer atmos.DID, issuerKey *crypto.P256PrivateKey, attestation string) (int, string) {
+		delegation, err := credential.CreateDelegationToken(credential.DelegationTokenParams{Issuer: issuer, Subject: config.URI, Audience: credential.SpaceHostAudience(config.URI.Authority()), Now: now}, issuerKey)
+		require.NoError(t, err)
+		input := &comatproto.SpaceGetSpaceCredential_Input{Space: config.URI.String()}
+		if attestation != "" {
+			input.ClientAttestation = gt.Some(attestation)
+		}
+		proof := mustDPoP(t, dpopKey, http.MethodPost, origin.String()+"/xrpc/"+methodGetCredential, "", now)
+		return requestJSONError(t, httpServer.URL, methodGetCredential, input, "Bearer "+delegation, proof)
+	}
+
+	status, _ := exchange(integrationAuthorOne, authorKey, "client-one")
+	require.Equal(t, http.StatusOK, status, "an allow-listed client must be able to exchange a delegation")
+
+	status, name := exchange(integrationAuthorOne, authorKey, "client-two")
+	require.Equal(t, http.StatusBadRequest, status)
+	require.Equal(t, "AppNotAuthorized", name, "a client outside the allow list must be denied")
+
+	status, name = exchange(integrationAuthorOne, authorKey, "")
+	require.Equal(t, http.StatusBadRequest, status)
+	require.Equal(t, "AppNotAuthorized", name, "an anonymous client must be denied by an allow list")
+
+	status, name = exchange(config.URI.Authority(), authorityKey, "client-two")
+	require.Equal(t, http.StatusBadRequest, status)
+	require.Equal(t, "AppNotAuthorized", name, "the authority-user policy bypass must not skip the app allow list")
 }
 
 func TestMountedHostInteroperatesWithTypedReaderClient(t *testing.T) {
@@ -562,6 +685,38 @@ func requestJSON(t *testing.T, baseURL, method string, input any, authorization,
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	return executeRequest(t, req, authorization, dpop, output)
+}
+
+// requestJSONError posts like requestJSON but also decodes the XRPC error name
+// from a non-2xx response body; it is empty for successful responses.
+func requestJSONError(t *testing.T, baseURL, method string, input any, authorization, dpop string) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(input)
+	require.NoError(t, err)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, baseURL+"/xrpc/"+method, bytes.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	if authorization != "" {
+		req.Header.Set("Authorization", authorization)
+	}
+	if dpop != "" {
+		req.Header.Set("DPoP", dpop)
+	}
+	response, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	name := ""
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		var xrpcError struct {
+			Error string `json:"error"`
+		}
+		require.NoError(t, json.NewDecoder(response.Body).Decode(&xrpcError))
+		name = xrpcError.Error
+	} else {
+		_, err = io.Copy(io.Discard, response.Body)
+		require.NoError(t, err)
+	}
+	require.NoError(t, response.Body.Close())
+	return response.StatusCode, name
 }
 
 func requestQuery(t *testing.T, baseURL, method string, query url.Values, authorization, dpop string, output any) int {

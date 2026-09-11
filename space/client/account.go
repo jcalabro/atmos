@@ -87,7 +87,7 @@ func NewAccountClient(ctx context.Context, opts AccountOptions) (*AccountClient,
 	eng, err := newEngine(engineOptions{
 		HTTPClient: opts.HTTPClient, Signer: opts.Signer, JSONLimit: opts.JSONLimit,
 		MaxReadAttempts: opts.MaxReadAttempts,
-		NetworkPolicy:   NetworkPolicy{AllowPrivateNetworks: opts.EndpointPolicy.AllowPrivateLiteral},
+		NetworkPolicy:   NetworkPolicy{AllowPrivateLiteralHosts: opts.EndpointPolicy.AllowPrivateLiteral},
 	})
 	if err != nil {
 		return nil, err
@@ -207,13 +207,24 @@ func (c *AccountClient) CreateSimpleSpace(ctx context.Context, input *comatproto
 	if input == nil {
 		return nil, fmt.Errorf("space client: createSpace input is required")
 	}
+	typ, err := atmos.ParseNSID(input.Type)
+	if err != nil {
+		return nil, fmt.Errorf("space client: invalid createSpace type: %w", err)
+	}
+	skey := atmos.RecordKey("")
+	if input.Skey.HasVal() {
+		skey, err = atmos.ParseRecordKey(input.Skey.Val())
+		if err != nil {
+			return nil, fmt.Errorf("space client: invalid createSpace skey: %w", err)
+		}
+	}
 	var out comatproto.SimplespaceCreateSpace_Output
 	if err := c.engine.jsonOnce(ctx, http.MethodPost, c.query("com.atproto.simplespace.createSpace", nil), input, &out); err != nil {
 		return nil, err
 	}
 	space, err := atmos.ParseSpaceRef(out.URI)
-	if err != nil || space.Authority() != c.did {
-		return nil, fmt.Errorf("space client: invalid createSpace response URI")
+	if err != nil || space.Authority() != c.did || space.Type() != typ || (skey != "" && space.Key() != skey) {
+		return nil, fmt.Errorf("space client: createSpace response does not match the requested space")
 	}
 	return &out, nil
 }

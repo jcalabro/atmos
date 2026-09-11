@@ -10,7 +10,8 @@ import (
 // NetworkPolicy is retained on WebAssembly, where the browser owns DNS and
 // socket policy. A successful WASM build does not imply native SSRF guarantees.
 type NetworkPolicy struct {
-	AllowPrivateNetworks bool
+	AllowPrivateNetworks     bool
+	AllowPrivateLiteralHosts bool
 }
 
 // NewCorrectnessHTTPClient returns a redirect-rejecting browser HTTP client.

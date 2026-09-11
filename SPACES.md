@@ -675,8 +675,13 @@ notifications independently and retain polling for lost/withdrawn subscriptions.
 Simple-space management must use required `readPolicy`, `writePolicy`,
 `appAccess`, and nested `managingApp` fields. Unknown policy/app-access variants
 are retained by generic decoders but rejected by a host that cannot implement
-them. `putMember` replaces **both** booleans. Authority user admission bypasses
-member/managing-app checks, but the app allowlist still applies. Write admission
+them. `putMember` replaces **both** booleans. Authority user admission through
+the credential exchange bypasses member/managing-app checks, but the app
+allowlist still applies to that exchange. Account-OAuth management operations,
+including owner `getSpace`/`listMembers` reads, are deliberately governed by
+the per-client expanded OAuth space permission grant rather than `appAccess`:
+the account names the consented client in the grant itself, and any client
+holding the update grant could rewrite the allowlist regardless. Write admission
 controls directory tracking/forwarding, not local record writes. Removing a
 member does not automatically remove old writer rows or application content.
 Managing-app failures deny the operation with a distinguishable error; they do
