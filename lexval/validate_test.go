@@ -2,6 +2,7 @@ package lexval
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -20,6 +21,9 @@ func lexiconsDir() string {
 
 func loadCatalog(t *testing.T) *lexicon.Catalog {
 	t.Helper()
+	if _, err := os.Stat(lexiconsDir()); os.IsNotExist(err) {
+		t.Skip("lexicon cache is absent; run just update-lexicons")
+	}
 	schemas, err := lexicon.ParseDir(lexiconsDir())
 	require.NoError(t, err)
 	cat := lexicon.NewCatalog()

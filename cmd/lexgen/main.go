@@ -10,6 +10,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jcalabro/atmos/lexgen"
 	"github.com/jcalabro/atmos/lexicon"
@@ -18,6 +20,7 @@ import (
 func main() {
 	lexDir := flag.String("lexdir", "", "directory containing lexicon JSON files (required)")
 	configFile := flag.String("config", "", "config JSON file (required)")
+	outputRoot := flag.String("output-root", "", "root directory for generated files (optional)")
 	flag.Parse()
 
 	if *lexDir == "" || *configFile == "" {
@@ -25,13 +28,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := run(*lexDir, *configFile); err != nil {
+	if err := run(*lexDir, *configFile, *outputRoot); err != nil {
 		fmt.Fprintf(os.Stderr, "lexgen: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(lexDir, configFile string) error {
+func run(lexDir, configFile, outputRoot string) error {
 	// Load config.
 	cfgData, err := os.ReadFile(configFile)
 	if err != nil {
@@ -40,6 +43,11 @@ func run(lexDir, configFile string) error {
 	var cfg lexgen.Config
 	if err := json.Unmarshal(cfgData, &cfg); err != nil {
 		return fmt.Errorf("parse config: %w", err)
+	}
+	if outputRoot != "" {
+		if err := rebaseOutputDirs(&cfg, outputRoot); err != nil {
+			return err
+		}
 	}
 
 	// Parse lexicons.
@@ -70,4 +78,31 @@ func run(lexDir, configFile string) error {
 	}
 	fmt.Fprintf(os.Stderr, "wrote %d files\n", len(files))
 	return nil
+}
+
+func rebaseOutputDirs(cfg *lexgen.Config, root string) error {
+	for i := range cfg.Packages {
+		outDir, err := outputPath(root, cfg.Packages[i].OutDir)
+		if err != nil {
+			return fmt.Errorf("package %s output directory: %w", cfg.Packages[i].Prefix, err)
+		}
+		cfg.Packages[i].OutDir = outDir
+	}
+	if cfg.SharedTypesDir == "" {
+		return nil
+	}
+	sharedTypesDir, err := outputPath(root, cfg.SharedTypesDir)
+	if err != nil {
+		return fmt.Errorf("shared types output directory: %w", err)
+	}
+	cfg.SharedTypesDir = sharedTypesDir
+	return nil
+}
+
+func outputPath(root, path string) (string, error) {
+	cleaned := filepath.Clean(path)
+	if filepath.IsAbs(path) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("must be a relative path within the output root: %q", path)
+	}
+	return filepath.Join(root, cleaned), nil
 }

@@ -1,26 +1,31 @@
 package lexval
 
 import (
+	"os"
 	"testing"
 
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/lexicon"
 )
 
-var fuzzCat *lexicon.Catalog
-
-func init() {
+func fuzzCatalog(f *testing.F) *lexicon.Catalog {
+	f.Helper()
 	schemas, err := lexicon.ParseDir(lexiconsDir())
 	if err != nil {
-		panic(err)
+		if os.IsNotExist(err) {
+			f.Skipf("lexicon cache is absent; run just update-lexicons: %v", err)
+		}
+		f.Fatalf("parse lexicon cache: %v", err)
 	}
-	fuzzCat = lexicon.NewCatalog()
-	if err := fuzzCat.AddAll(schemas); err != nil {
-		panic(err)
+	cat := lexicon.NewCatalog()
+	if err := cat.AddAll(schemas); err != nil {
+		f.Fatalf("build lexicon catalog: %v", err)
 	}
+	return cat
 }
 
 func FuzzValidateRecord(f *testing.F) {
+	cat := fuzzCatalog(f)
 	f.Add("Hello, world!", "2023-01-01T00:00:00Z")
 
 	f.Fuzz(func(t *testing.T, text, createdAt string) {
@@ -29,7 +34,7 @@ func FuzzValidateRecord(f *testing.F) {
 			"createdAt": createdAt,
 		}
 		// Must not panic.
-		_ = ValidateRecord(fuzzCat, "app.bsky.feed.post", data)
+		_ = ValidateRecord(cat, "app.bsky.feed.post", data)
 	})
 }
 
@@ -53,6 +58,7 @@ var fuzzCollections = []string{
 // nested objects, arrays, and diverse field types that the simpler
 // FuzzValidateRecord does not reach.
 func FuzzValidateRecordFromCBOR(f *testing.F) {
+	cat := fuzzCatalog(f)
 	// Seed with valid CBOR maps of varying shapes.
 	seeds := [][]byte{
 		// {"text":"hi","createdAt":"2024-01-01T00:00:00Z"}
@@ -78,7 +84,7 @@ func FuzzValidateRecordFromCBOR(f *testing.F) {
 		}
 		// Validate against each collection — must not panic.
 		for _, collection := range fuzzCollections {
-			_ = ValidateRecord(fuzzCat, collection, m)
+			_ = ValidateRecord(cat, collection, m)
 		}
 	})
 }

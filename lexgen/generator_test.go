@@ -1,6 +1,7 @@
 package lexgen
 
 import (
+	"os"
 	"sync"
 	"testing"
 
@@ -10,30 +11,34 @@ import (
 )
 
 var (
-	allVendoredOnce  sync.Once
-	allVendoredFiles map[string][]byte
-	allVendoredErr   error
+	allCachedOnce  sync.Once
+	allCachedFiles map[string][]byte
+	allCachedErr   error
 )
 
-func generateAllVendored() (map[string][]byte, error) {
-	allVendoredOnce.Do(func() {
+func generateAllCached(t *testing.T) (map[string][]byte, error) {
+	t.Helper()
+	if _, err := os.Stat("../lexicons"); os.IsNotExist(err) {
+		t.Skip("lexicon cache is absent; run just update-lexicons")
+	}
+	allCachedOnce.Do(func() {
 		schemas, err := lexicon.ParseDir("../lexicons")
 		if err != nil {
-			allVendoredErr = err
+			allCachedErr = err
 			return
 		}
 		cat := lexicon.NewCatalog()
 		if err := cat.AddAll(schemas); err != nil {
-			allVendoredErr = err
+			allCachedErr = err
 			return
 		}
 		if err := cat.Resolve(); err != nil {
-			allVendoredErr = err
+			allCachedErr = err
 			return
 		}
-		allVendoredFiles, allVendoredErr = Generate(testConfig(), cat)
+		allCachedFiles, allCachedErr = Generate(testConfig(), cat)
 	})
-	return allVendoredFiles, allVendoredErr
+	return allCachedFiles, allCachedErr
 }
 
 func testConfig() *Config {
@@ -105,9 +110,9 @@ func TestSchemaFileName(t *testing.T) {
 	assert.Equal(t, "repocreaterecord.go", schemaFileName("com.atproto.repo.createRecord"))
 }
 
-func TestGenerate_StatusphereVendoredLexicon(t *testing.T) {
+func TestGenerate_StatusphereCachedLexicon(t *testing.T) {
 	t.Parallel()
-	files, err := generateAllVendored()
+	files, err := generateAllCached(t)
 	require.NoError(t, err)
 
 	code, ok := files["api/statusphere/statuspherestatus.go"]
@@ -812,11 +817,11 @@ func TestGenerate_ArrayOfRefs(t *testing.T) {
 	assert.NotContains(t, code, "[]gt.Option[FeedDefs_ItemView]")
 }
 
-// --- All vendored lexicons test ---
+// --- All cached lexicons test ---
 
-func TestGenerate_AllVendoredLexicons(t *testing.T) {
+func TestGenerate_AllCachedLexicons(t *testing.T) {
 	t.Parallel()
-	files, err := generateAllVendored()
+	files, err := generateAllCached(t)
 	require.NoError(t, err)
 
 	assert.Greater(t, len(files), 100)

@@ -1,6 +1,7 @@
 package lexicon
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -485,8 +486,11 @@ func TestParse_NestedObject(t *testing.T) {
 	assert.Equal(t, []string{"#itemA", "#itemB"}, items.Items.Refs)
 }
 
-func TestParseDirVendoredLexicons(t *testing.T) {
+func TestParseDirCachedLexicons(t *testing.T) {
 	t.Parallel()
+	if _, err := os.Stat("../lexicons"); os.IsNotExist(err) {
+		t.Skip("lexicon cache is absent; run just update-lexicons")
+	}
 	schemas, err := ParseDir("../lexicons")
 	require.NoError(t, err)
 	assert.Greater(t, len(schemas), 300)
@@ -500,5 +504,5 @@ func TestParseDirVendoredLexicons(t *testing.T) {
 			break
 		}
 	}
-	assert.True(t, found, "expected app.bsky.feed.post in vendored lexicons")
+	assert.True(t, found, "expected app.bsky.feed.post in cached lexicons")
 }
