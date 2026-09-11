@@ -149,12 +149,15 @@ type VerifiedDPoPProof struct {
 	IssuedAt time.Time
 }
 
+// rawDPoPClaims tracks ath as a raw value because a *string cannot distinguish
+// an absent member from a present JSON null, and the no-credential exchange
+// profile requires ath to be absent.
 type rawDPoPClaims struct {
-	JTI      string      `json:"jti"`
-	HTM      string      `json:"htm"`
-	HTU      string      `json:"htu"`
-	ATH      *string     `json:"ath,omitempty"`
-	IssuedAt json.Number `json:"iat"`
+	JTI      string          `json:"jti"`
+	HTM      string          `json:"htm"`
+	HTU      string          `json:"htu"`
+	ATH      json.RawMessage `json:"ath,omitempty"`
+	IssuedAt json.Number     `json:"iat"`
 }
 
 // VerifyDPoPProof verifies the signature, method, URI, credential hash, key
@@ -206,11 +209,15 @@ func VerifyDPoPProof(ctx context.Context, proof string, opts VerifyDPoPOptions) 
 	if claims.HTM != method || claims.HTU != expectedHTU {
 		return nil, fmt.Errorf("%w: DPoP method or target", ErrTokenBinding)
 	}
+	ath, athPresent, err := decodeOptionalString(claims.ATH, "ath")
+	if err != nil {
+		return nil, err
+	}
 	if opts.Credential == "" {
-		if claims.ATH != nil {
+		if athPresent {
 			return nil, errors.New("credential: DPoP ath must be absent without a credential")
 		}
-	} else if claims.ATH == nil || *claims.ATH != credentialHash(opts.Credential) {
+	} else if !athPresent || ath != credentialHash(opts.Credential) {
 		return nil, fmt.Errorf("%w: DPoP credential hash", ErrTokenBinding)
 	}
 	jkt, err := JWKThumbprint(header.JWK)

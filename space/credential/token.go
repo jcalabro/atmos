@@ -280,14 +280,17 @@ func parseProfileToken(profile TokenProfile, raw string) (*UnverifiedToken, erro
 	return token, nil
 }
 
+// rawClaims tracks aud and cnf as raw values because a pointer or struct field
+// cannot distinguish an absent member from a present JSON null, and the
+// profiles require some of these members to be absent.
 type rawClaims struct {
-	Issuer       string            `json:"iss"`
-	Subject      string            `json:"sub"`
-	Audience     *string           `json:"aud,omitempty"`
-	IssuedAt     json.Number       `json:"iat"`
-	ExpiresAt    json.Number       `json:"exp"`
-	JTI          string            `json:"jti"`
-	Confirmation *wireConfirmation `json:"cnf,omitempty"`
+	Issuer       string          `json:"iss"`
+	Subject      string          `json:"sub"`
+	Audience     json.RawMessage `json:"aud,omitempty"`
+	IssuedAt     json.Number     `json:"iat"`
+	ExpiresAt    json.Number     `json:"exp"`
+	JTI          string          `json:"jti"`
+	Confirmation json.RawMessage `json:"cnf,omitempty"`
 }
 
 func parseToken(profile TokenProfile, raw string) (*UnverifiedToken, error) {
@@ -337,14 +340,19 @@ func parseToken(profile TokenProfile, raw string) (*UnverifiedToken, error) {
 		return nil, errors.New("credential: JWT jti exceeds the replay-store limit")
 	}
 	jkt := ""
-	if claims.Confirmation != nil {
-		jkt = claims.Confirmation.JKT
+	confirmationPresent := len(claims.Confirmation) != 0
+	if confirmationPresent {
+		var confirmation *wireConfirmation
+		if err := decodeJSONObject(claims.Confirmation, &confirmation, true); err != nil || confirmation == nil {
+			return nil, errors.New("credential: JWT cnf must be an object when present")
+		}
+		jkt = confirmation.JKT
 	}
-	audience := ""
-	if claims.Audience != nil {
-		audience = *claims.Audience
+	audience, audiencePresent, err := decodeOptionalString(claims.Audience, "aud")
+	if err != nil {
+		return nil, err
 	}
-	if err := validateProfileClaims(profile, claims.Issuer, claims.Subject, audience, claims.Audience != nil, jkt, claims.Confirmation != nil); err != nil {
+	if err := validateProfileClaims(profile, claims.Issuer, claims.Subject, audience, audiencePresent, jkt, confirmationPresent); err != nil {
 		return nil, err
 	}
 	return &UnverifiedToken{
@@ -454,6 +462,20 @@ func consumeJSONValue(decoder *json.Decoder) error {
 		return errors.New("unexpected JSON delimiter")
 	}
 	return nil
+}
+
+// decodeOptionalString distinguishes an absent member (len 0) from a present
+// value, which must be a non-null JSON string. A present null is rejected
+// because pointer decoding would silently conflate it with absence.
+func decodeOptionalString(raw json.RawMessage, name string) (string, bool, error) {
+	if len(raw) == 0 {
+		return "", false, nil
+	}
+	var value *string
+	if err := json.Unmarshal(raw, &value); err != nil || value == nil {
+		return "", false, fmt.Errorf("credential: JWT %s must be a string when present", name)
+	}
+	return *value, true, nil
 }
 
 func exactInteger(number json.Number, name string) (int64, error) {

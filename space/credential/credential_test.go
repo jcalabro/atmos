@@ -99,9 +99,10 @@ func TestTokenStrictParsingAndTimeHardening(t *testing.T) {
 		"critical header":   strings.Replace(valid, parts[0], b64(`{"alg":"ES256","typ":"atproto-space-delegation+jwt","kid":"#atproto","crit":["x"]}`), 1),
 		"overflow lifetime": replacePayload(parts, `{"iss":"`+testUser.String()+`","sub":"`+testSpace.String()+`","aud":"`+SpaceHostAudience(testSpace.Authority())+`","iat":-9223372036854775807,"exp":9223372036854775807,"jti":"x"}`),
 		"present empty cnf": replacePayload(parts, `{"iss":"`+testUser.String()+`","sub":"`+testSpace.String()+`","aud":"`+SpaceHostAudience(testSpace.Authority())+`","iat":2000000000,"exp":2000000060,"jti":"x","cnf":{}}`),
+		"present null cnf":  replacePayload(parts, `{"iss":"`+testUser.String()+`","sub":"`+testSpace.String()+`","aud":"`+SpaceHostAudience(testSpace.Authority())+`","iat":2000000000,"exp":2000000060,"jti":"x","cnf":null}`),
+		"present null aud":  replacePayload(parts, `{"iss":"`+testUser.String()+`","sub":"`+testSpace.String()+`","aud":null,"iat":2000000000,"exp":2000000060,"jti":"x"}`),
 	}
 	for name, raw := range tests {
-		name, raw := name, raw
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			_, err := ParseDelegationToken(raw)
@@ -123,6 +124,21 @@ func TestTokenStrictParsingAndTimeHardening(t *testing.T) {
 			require.Error(t, verifyErr)
 		})
 	}
+}
+
+func TestSpaceCredentialRejectsPresentNullAudience(t *testing.T) {
+	t.Parallel()
+	// A JSON null aud must be treated as present and rejected, not conflated
+	// with the absent aud the credential profile requires.
+	header := b64(`{"alg":"ES256","typ":"` + SpaceCredentialTokenType + `","kid":"#atproto"}`)
+	jkt := base64.RawURLEncoding.EncodeToString(make([]byte, 32))
+	signature := base64.RawURLEncoding.EncodeToString(make([]byte, 64))
+	withoutAud := `{"iss":"` + testSpace.Authority().String() + `","sub":"` + testSpace.String() + `","iat":2000000000,"exp":2000007200,"jti":"x","cnf":{"jkt":"` + jkt + `"}}`
+	_, err := ParseSpaceCredentialToken(header + "." + b64(withoutAud) + "." + signature)
+	require.NoError(t, err)
+	withNullAud := `{"iss":"` + testSpace.Authority().String() + `","sub":"` + testSpace.String() + `","aud":null,"iat":2000000000,"exp":2000007200,"jti":"x","cnf":{"jkt":"` + jkt + `"}}`
+	_, err = ParseSpaceCredentialToken(header + "." + b64(withNullAud) + "." + signature)
+	require.Error(t, err)
 }
 
 func TestVerifyBeforeReplayConsume(t *testing.T) {

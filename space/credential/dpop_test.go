@@ -76,6 +76,26 @@ func TestDPoPRejectsWrongBindingsAndReplay(t *testing.T) {
 	}
 }
 
+func TestDPoPRejectsPresentNullATH(t *testing.T) {
+	t.Parallel()
+	// A validly signed proof carrying "ath":null must be rejected in the
+	// no-credential exchange profile: null is present, not absent.
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	jwk, err := PublicJWK(key.PublicKey())
+	require.NoError(t, err)
+	now := time.Unix(2_000_000_000, 0)
+	proof, err := signCompact(dpopHeader{Algorithm: "ES256", Type: DPoPProofType, JWK: jwk}, map[string]any{
+		"jti": "null-ath", "htm": "POST", "htu": "https://authority.example/xrpc/exchange",
+		"ath": nil, "iat": now.Unix(),
+	}, key)
+	require.NoError(t, err)
+	_, err = VerifyDPoPProof(context.Background(), proof, VerifyDPoPOptions{
+		Method: "POST", TargetURL: "https://authority.example/xrpc/exchange", Now: now, Replay: mustReplay(t),
+	})
+	require.Error(t, err)
+}
+
 func TestDPoPVerifiesBeforeReplayConsume(t *testing.T) {
 	t.Parallel()
 	key, err := crypto.GenerateP256()
