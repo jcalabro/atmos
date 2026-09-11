@@ -40,6 +40,31 @@
 | [`atmos/xrpc`](https://pkg.go.dev/github.com/jcalabro/atmos/xrpc) | lexicon-agnostic XRPC HTTP client |
 | [`atmos/xrpcserver`](https://pkg.go.dev/github.com/jcalabro/atmos/xrpcserver) | XRPC HTTP server with `/xrpc/{nsid}` routing and standard error envelopes |
 
+## Development
+
+We use [just](https://github.com/casey/just) as our command runner. Ensure you have that installed as well as an appropriate version of go as described in the [go.mod](https://github.com/jcalabro/atmos/blob/main/go.mod) file.
+
+Run `just install-tools` if this is your very first time developing on atmos. This installs the other local dev tools we require.
+
+You can use the justfile to develop this library. Here are some common ones:
+
+```bash
+just --list # show all commands
+just # run the linter and tests
+just just test ./xrpcserver/... # run a specific package's tests recursively
+just test-long # run all tests
+just test-race # run all tests with the race detector enabled
+just fuzz # run the fuzz tests
+just wasm # run the web assembly tests
+```
+
+To update to the latest versions, run the following and commit the results:
+
+```bash
+just update-lexicons
+just lexgen
+```
+
 ## License
 
 Dual-licensed under MIT and Apache 2.0.
