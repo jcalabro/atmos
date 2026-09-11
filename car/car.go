@@ -13,8 +13,50 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 )
 
-// MaxBlockSize is the maximum block size allowed when reading CAR files.
-var MaxBlockSize uint64 = 1 << 20 // 1 MiB
+const (
+	// DefaultMaxHeaderSize is the default maximum encoded CAR header size.
+	DefaultMaxHeaderSize uint64 = 1 << 20 // 1 MiB
+	// DefaultMaxBlockSize is the default maximum encoded CAR block size,
+	// including its CID prefix.
+	DefaultMaxBlockSize uint64 = 1 << 20 // 1 MiB
+)
+
+// MaxBlockSize is the legacy default maximum header and block size used by
+// [NewReader]. New code that needs different limits should use
+// [NewReaderWithOptions], whose limits are immutable and reader-local.
+//
+// Deprecated: use DefaultReaderOptions and NewReaderWithOptions. Mutating this
+// package variable concurrently with NewReader is unsafe.
+var MaxBlockSize uint64 = DefaultMaxBlockSize
+
+// ErrInvalidReaderOptions classifies invalid reader limit configuration.
+var ErrInvalidReaderOptions = errors.New("car: invalid reader options")
+
+// ReaderOptions configures immutable limits for one Reader. Both fields must
+// be nonzero. Use [DefaultReaderOptions] when the public-repo defaults apply.
+type ReaderOptions struct {
+	MaxHeaderSize uint64
+	MaxBlockSize  uint64
+}
+
+// DefaultReaderOptions returns the public-repo CAR reader defaults.
+func DefaultReaderOptions() ReaderOptions {
+	return ReaderOptions{
+		MaxHeaderSize: DefaultMaxHeaderSize,
+		MaxBlockSize:  DefaultMaxBlockSize,
+	}
+}
+
+// LimitError reports that a framed CAR item exceeded its configured limit.
+type LimitError struct {
+	Kind   string
+	Actual uint64
+	Limit  uint64
+}
+
+func (e *LimitError) Error() string {
+	return fmt.Sprintf("car: %s length %d exceeds max size %d", e.Kind, e.Actual, e.Limit)
+}
 
 // Header is the CAR v1 header.
 type Header struct {
@@ -30,21 +72,42 @@ type Block struct {
 
 // Reader reads blocks from a CAR v1 file.
 type Reader struct {
-	r      io.Reader
-	header Header
-	buf    []byte // reusable read buffer for NextInto
+	r            io.Reader
+	header       Header
+	maxBlockSize uint64
+	buf          []byte // reusable read buffer for NextInto
 }
 
 // NewReader creates a Reader by reading and validating the CAR v1 header.
 func NewReader(r io.Reader) (*Reader, error) {
+	legacyLimit := MaxBlockSize
+	return NewReaderWithOptions(r, ReaderOptions{
+		MaxHeaderSize: legacyLimit,
+		MaxBlockSize:  legacyLimit,
+	})
+}
+
+// NewReaderWithOptions creates a Reader with immutable, reader-local limits
+// and reads and validates its CAR v1 header.
+func NewReaderWithOptions(r io.Reader, opts ReaderOptions) (*Reader, error) {
+	if opts.MaxHeaderSize == 0 {
+		return nil, fmt.Errorf("%w: MaxHeaderSize must be nonzero", ErrInvalidReaderOptions)
+	}
+	if opts.MaxBlockSize == 0 {
+		return nil, fmt.Errorf("%w: MaxBlockSize must be nonzero", ErrInvalidReaderOptions)
+	}
+	maxInt := uint64(^uint(0) >> 1)
+	if opts.MaxHeaderSize > maxInt || opts.MaxBlockSize > maxInt {
+		return nil, fmt.Errorf("%w: limits exceed platform allocation range", ErrInvalidReaderOptions)
+	}
 	// Read header length varint.
 	headerLen, err := readUvarintFromReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("car: reading header length: %w", err)
 	}
 
-	if headerLen > MaxBlockSize {
-		return nil, fmt.Errorf("car: header length %d exceeds max size", headerLen)
+	if headerLen > opts.MaxHeaderSize {
+		return nil, &LimitError{Kind: "header", Actual: headerLen, Limit: opts.MaxHeaderSize}
 	}
 
 	// Read header bytes.
@@ -138,7 +201,8 @@ func NewReader(r io.Reader) (*Reader, error) {
 	}
 
 	return &Reader{
-		r: r,
+		r:            r,
+		maxBlockSize: opts.MaxBlockSize,
 		header: Header{
 			Version: int(ver),
 			Roots:   roots,
@@ -148,11 +212,26 @@ func NewReader(r io.Reader) (*Reader, error) {
 
 // Header returns the CAR header.
 func (r *Reader) Header() Header {
-	return r.header
+	header := r.header
+	header.Roots = append([]cbor.CID(nil), r.header.Roots...)
+	return header
 }
 
 // Next reads the next block. Returns io.EOF when there are no more blocks.
 func (r *Reader) Next() (Block, error) {
+	return r.next(r.maxBlockSize, false)
+}
+
+// NextWithLimit reads the next block with a role-specific limit. limit must be
+// nonzero and no larger than the Reader's configured MaxBlockSize.
+func (r *Reader) NextWithLimit(limit uint64) (Block, error) {
+	return r.next(limit, false)
+}
+
+func (r *Reader) next(limit uint64, reuse bool) (Block, error) {
+	if limit == 0 || limit > r.maxBlockSize {
+		return Block{}, fmt.Errorf("%w: per-block limit must be in [1, %d], got %d", ErrInvalidReaderOptions, r.maxBlockSize, limit)
+	}
 	// Read block length varint.
 	blockLen, err := readUvarintFromReader(r.r)
 	if err != nil {
@@ -165,12 +244,23 @@ func (r *Reader) Next() (Block, error) {
 	if blockLen == 0 {
 		return Block{}, errors.New("car: zero-length block")
 	}
-	if blockLen > MaxBlockSize {
-		return Block{}, fmt.Errorf("car: block length %d exceeds max size", blockLen)
+	if blockLen > limit {
+		return Block{}, &LimitError{Kind: "block", Actual: blockLen, Limit: limit}
 	}
 
 	// Read block bytes (CID + data).
-	buf := make([]byte, blockLen)
+	n := int(blockLen)
+	var buf []byte
+	if reuse {
+		if cap(r.buf) < n {
+			r.buf = make([]byte, n)
+		} else {
+			r.buf = r.buf[:n]
+		}
+		buf = r.buf
+	} else {
+		buf = make([]byte, n)
+	}
 	if _, err := io.ReadFull(r.r, buf); err != nil {
 		// The block length was fully read, so any EOF here (including a clean
 		// io.EOF when zero body bytes follow) is a stream truncated mid-block,
@@ -208,57 +298,13 @@ func (r *Reader) Next() (Block, error) {
 // Block.Data is valid only until the next call to NextInto — callers must
 // copy it if they need to retain it.
 func (r *Reader) NextInto() (Block, error) {
-	// Read block length varint.
-	blockLen, err := readUvarintFromReader(r.r)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return Block{}, io.EOF
-		}
-		return Block{}, fmt.Errorf("car: reading block length: %w", err)
-	}
+	return r.next(r.maxBlockSize, true)
+}
 
-	if blockLen == 0 {
-		return Block{}, errors.New("car: zero-length block")
-	}
-	if blockLen > MaxBlockSize {
-		return Block{}, fmt.Errorf("car: block length %d exceeds max size", blockLen)
-	}
-
-	// Grow the reusable buffer if needed, reusing the backing array.
-	n := int(blockLen)
-	if cap(r.buf) < n {
-		r.buf = make([]byte, n)
-	} else {
-		r.buf = r.buf[:n]
-	}
-
-	if _, err := io.ReadFull(r.r, r.buf); err != nil {
-		// See Next: a fully-read block length followed by an EOF mid-body is a
-		// truncated stream, not a clean end-of-blocks.
-		if errors.Is(err, io.EOF) {
-			return Block{}, errVarintTruncated
-		}
-		return Block{}, fmt.Errorf("car: reading block: %w", err)
-	}
-
-	// Parse CID from front of buffer.
-	cid, cidLen, err := cbor.ParseCIDPrefix(r.buf)
-	if err != nil {
-		return Block{}, fmt.Errorf("car: parsing block CID: %w", err)
-	}
-
-	data := r.buf[cidLen:]
-
-	// Verify the block data matches the claimed CID.
-	expected := cbor.ComputeCID(cid.Codec(), data)
-	if !expected.Equal(cid) {
-		return Block{}, fmt.Errorf("car: block CID mismatch: claimed %s, computed %s", cid.String(), expected.String())
-	}
-
-	return Block{
-		CID:  cid,
-		Data: data,
-	}, nil
+// NextIntoWithLimit is like [Reader.NextWithLimit] but reuses the Reader's
+// internal buffer. The returned data remains valid only until the next read.
+func (r *Reader) NextIntoWithLimit(limit uint64) (Block, error) {
+	return r.next(limit, true)
 }
 
 // Writer writes a CAR v1 file.
@@ -267,8 +313,29 @@ type Writer struct {
 	buf [46]byte // scratch: varint(≤10) + CID(36)
 }
 
+// ErrInvalidWriterOptions classifies invalid writer limit configuration.
+var ErrInvalidWriterOptions = errors.New("car: invalid writer options")
+
+// WriterOptions configures immutable limits for one Writer.
+type WriterOptions struct {
+	MaxHeaderSize uint64
+}
+
 // NewWriter creates a Writer and writes the CAR v1 header.
 func NewWriter(w io.Writer, roots []cbor.CID) (*Writer, error) {
+	return newWriter(w, roots, 0)
+}
+
+// NewWriterWithOptions creates a Writer, enforces its reader-symmetric header
+// limit before emitting bytes, and writes the CAR v1 header.
+func NewWriterWithOptions(w io.Writer, roots []cbor.CID, opts WriterOptions) (*Writer, error) {
+	if opts.MaxHeaderSize == 0 {
+		return nil, fmt.Errorf("%w: MaxHeaderSize must be nonzero", ErrInvalidWriterOptions)
+	}
+	return newWriter(w, roots, opts.MaxHeaderSize)
+}
+
+func newWriter(w io.Writer, roots []cbor.CID, maxHeaderSize uint64) (*Writer, error) {
 	if len(roots) == 0 {
 		return nil, errors.New("car: roots must be non-empty")
 	}
@@ -286,13 +353,16 @@ func NewWriter(w io.Writer, roots []cbor.CID) (*Writer, error) {
 
 	headerBytes = cbor.AppendText(headerBytes, "version")
 	headerBytes = cbor.AppendUint(headerBytes, 1)
+	if maxHeaderSize > 0 && uint64(len(headerBytes)) > maxHeaderSize {
+		return nil, &LimitError{Kind: "header", Actual: uint64(len(headerBytes)), Limit: maxHeaderSize}
+	}
 
 	// Write header length varint + header in one write.
 	out := make([]byte, 0, 10+len(headerBytes))
 	out = cbor.AppendUvarint(out, uint64(len(headerBytes)))
 	out = append(out, headerBytes...)
 
-	if _, err := w.Write(out); err != nil {
+	if err := writeFull(w, out); err != nil {
 		return nil, fmt.Errorf("car: writing header: %w", err)
 	}
 
@@ -309,12 +379,27 @@ func (w *Writer) WriteBlock(cid cbor.CID, data []byte) error {
 	buf = cbor.AppendUvarint(buf, blockLen)
 	buf = cid.AppendBytes(buf)
 
-	if _, err := w.w.Write(buf); err != nil {
+	if err := writeFull(w.w, buf); err != nil {
 		return err
 	}
 
-	_, err := w.w.Write(data)
-	return err
+	return writeFull(w.w, data)
+}
+
+func writeFull(w io.Writer, data []byte) error {
+	for len(data) > 0 {
+		n, err := w.Write(data)
+		if n > 0 {
+			data = data[n:]
+		}
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return io.ErrShortWrite
+		}
+	}
+	return nil
 }
 
 // maxVarintLen is the maximum number of bytes a length varint may occupy.

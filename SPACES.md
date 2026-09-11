@@ -3,10 +3,10 @@
 Design and implementation tracker for [AT Protocol spaces][proposal], on
 `jc/spaces`.
 
-Status: Phase 0 implemented and verified on `jc/spaces`, 2026-09-11. Phases
-1–5 have not started. The checkboxes below track implementation; the earlier
-review experiments remain separate evidence. Settled and deferred decisions
-are recorded at the end.
+Status: Phases 0 and 1 implemented and verified on `jc/spaces`, 2026-09-11.
+Phases 2–5 have not started. The checkboxes below track implementation; the
+earlier review experiments remain separate evidence. Settled and deferred
+decisions are recorded at the end.
 
 Spaces are an early alpha. [PR #5187][pr] was still open at review time and its
 head still matched `9d787ebff231ff8f4e01c63717e9f5bcd6e1bc33`. Implement against
@@ -50,7 +50,7 @@ Experiments on Linux/amd64, Go 1.26.6 and Node 24.14.0:
 
 | Experiment | Result and design consequence |
 |---|---|
-| `zeebo/blake3` v0.2.4 `Hasher.Digest()` versus the pinned TS `LtHash`, using its locked `@noble/hashes` 1.7.0 | Read 2048 XOF bytes and matched three digests after add/add/remove. The library supplies the required primitive; full crypto/CAR vectors remain implementation work. |
+| `zeebo/blake3` v0.2.4 `Hasher.Digest()` versus the pinned TS `LtHash`, using its locked `@noble/hashes` 1.7.0 | Read 2048 XOF bytes and matched three digests after add/add/remove. The library supplies the required primitive; Phase 1 now retains the complete states, commit bytes and CARs as pinned fixtures. |
 | Canonical index with 20,000 `com.example.post/00000`-shaped paths and DAG-CBOR CID links | Index is 1,280,003 bytes; the existing CAR reader rejects its 1,280,039-byte framed block against the 1 MiB cap. Spaces need bounded, per-reader index limits. |
 | `oauth.Transport` outside a default gttp transport, receiving 503 then 200 | Two HTTP requests carried the identical DPoP proof. Disable retries beneath the signer. |
 | Two logical GETs with gttp retries disabled; on the second, an HTTP/1 server consumes the request then closes the reused connection without a response | Go's transport made a third request with the second request's proof. `WithNoRetries()` alone is insufficient. Disabling keep-alives and HTTP/2 avoided the hidden replay in this HTTP/1 experiment, returning EOF to the caller instead. |
@@ -754,7 +754,7 @@ reused-connection failure as a mandatory regression case.
 
 The order follows dependencies. Every phase includes failing tests first and
 ends with its acceptance gate; checked boxes mean implemented and verified.
-Phase 0 is complete; later phases remain unchecked.
+Phases 0 and 1 are complete; later phases remain unchecked.
 
 ### Phase 0: contracts, pins and prerequisite fixes
 
@@ -780,18 +780,41 @@ explicitly reviewed shared fixes/general-format support.
 
 ### Phase 1: repo crypto and CAR
 
-- [ ] Add BLAKE3 dependency with pure-Go/WASM checks, LtHash and validated commit
+- [x] Add BLAKE3 dependency with pure-Go/WASM checks, LtHash and validated commit
       types, explicit byte order, Expand-only MAC and P-256/K-256 coverage.
-- [ ] Add cross-language positive vectors, fixed signed verification fixtures,
+- [x] Add cross-language positive vectors, fixed signed verification fixtures,
       deniability and malformed-input tests.
-- [ ] Add per-reader CAR limits and full/index-only serialization/verification,
+- [x] Add per-reader CAR limits and full/index-only serialization/verification,
       including duplicate CIDs at distinct paths and an index above 1 MiB.
-- [ ] Verify EOF/completeness, staged streaming and snapshot/spooling contracts;
+- [x] Verify EOF/completeness, staged streaming and snapshot/spooling contracts;
       benchmark index memory, hashing and export allocation behavior.
 
 Done when: deterministic bytes agree with the pinned implementation, both key
 families verify, full exports require complete bodies, and limits are enforced
 without mutating a global setting or silently truncating.
+
+Phase 1 implementation notes:
+
+- `space` separates raw, structurally validated and context-verified commits.
+  The full 2048-byte LtHash state is resumable; its 32-byte digest is not.
+  Operation validation is atomic before hash mutation.
+- The checked-in Node generator pins `@noble/hashes` and `@noble/curves` 1.7.0
+  and reproduces immutable P-256/K-256 signed commits and complete CARs without
+  making Node or network access a test dependency.
+- CAR readers capture immutable header/block limits and permit a tighter limit
+  for each successive block. Space verification additionally bounds total
+  bytes, records, commit, index and record bodies. Public CAR defaults remain
+  unchanged; no global limit is modified by space code.
+- Full verification consumes the clean EOF before returning success. Record
+  callbacks are explicitly provisional staging writes. Index-only mode rejects
+  bodies, and full mode never treats absent bodies as an index-only success.
+- Serialization requires an immutable replayable snapshot. `FileSpool` converts
+  a one-pass source into that contract under explicit record, per-body and disk
+  limits, closes every source/body and removes failed or closed spool files.
+- Benchmarks cover LtHash element sizes, 100/10,000-entry indexes, and 1,000-body
+  full/index-only exports. On the 2026-09-11 Linux/amd64 verification host,
+  LtHash updates used one 192-byte allocation after bounded scratch reuse;
+  these measurements are evidence, not release-envelope defaults for Q3.
 
 ### Phase 2: auth, clients and identity integration
 
