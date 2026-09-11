@@ -51,18 +51,22 @@ type CredentialManagerOptions struct {
 // credential/key pairs. A manager is one cache partition: space, application
 // attestation source, eligible account session, and caller security context.
 type CredentialManager struct {
-	opts      CredentialManagerOptions
-	mu        sync.Mutex
-	current   CredentialPair
-	refreshAt time.Time
-	flight    *credentialFlight
+	opts       CredentialManagerOptions
+	mu         sync.Mutex
+	current    CredentialPair
+	refreshAt  time.Time
+	flight     *credentialFlight
+	generation uint64
 }
 
 type credentialFlight struct {
-	done chan struct{}
-	pair CredentialPair
-	err  error
+	done       chan struct{}
+	pair       CredentialPair
+	err        error
+	generation uint64
 }
+
+var errCredentialInvalidated = errors.New("space client: credential invalidated during refresh")
 
 // NewCredentialManager validates dependencies without performing network IO.
 func NewCredentialManager(opts CredentialManagerOptions) (*CredentialManager, error) {
@@ -108,20 +112,18 @@ func (m *CredentialManager) Credential(ctx context.Context, space atmos.SpaceRef
 	if m.flight != nil {
 		flight := m.flight
 		m.mu.Unlock()
-		select {
-		case <-flight.done:
-			return flight.pair, flight.err
-		case <-ctx.Done():
-			return CredentialPair{}, ctx.Err()
-		}
+		return m.waitCredentialFlight(ctx, flight)
 	}
-	flight := &credentialFlight{done: make(chan struct{})}
+	flight := &credentialFlight{done: make(chan struct{}), generation: m.generation}
 	m.flight = flight
 	m.mu.Unlock()
 
 	flight.pair, flight.err = m.exchange(ctx)
 	m.mu.Lock()
-	if flight.err == nil {
+	if flight.generation != m.generation {
+		flight.pair = CredentialPair{}
+		flight.err = errCredentialInvalidated
+	} else if flight.err == nil {
 		m.current = flight.pair
 		jitter := time.Duration(rand.Int64N(int64(m.opts.RefreshJitter) + 1))
 		m.refreshAt = flight.pair.ExpiresAt.Add(-m.opts.RefreshMargin - jitter)
@@ -130,6 +132,36 @@ func (m *CredentialManager) Credential(ctx context.Context, space atmos.SpaceRef
 	close(flight.done)
 	m.mu.Unlock()
 	return flight.pair, flight.err
+}
+
+func (m *CredentialManager) waitCredentialFlight(ctx context.Context, flight *credentialFlight) (CredentialPair, error) {
+	select {
+	case <-flight.done:
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if flight.generation != m.generation {
+			return CredentialPair{}, errCredentialInvalidated
+		}
+		return flight.pair, flight.err
+	case <-ctx.Done():
+		return CredentialPair{}, ctx.Err()
+	}
+}
+
+// PurgeCredential atomically drops credential and DPoP key material for the
+// bound space. An exchange already in progress is prevented from publishing
+// its result. Requests that already copied an older pair must be canceled by
+// their lifecycle owner.
+func (m *CredentialManager) PurgeCredential(_ context.Context, space atmos.SpaceRef) error {
+	if space != m.opts.Space {
+		return errors.New("space client: credential manager is bound to a different space")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.generation++
+	m.current = CredentialPair{}
+	m.refreshAt = time.Time{}
+	return nil
 }
 
 func (m *CredentialManager) exchange(ctx context.Context) (CredentialPair, error) {

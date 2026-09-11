@@ -3,8 +3,8 @@
 Design and implementation tracker for [AT Protocol spaces][proposal], on
 `jc/spaces`.
 
-Status: Phases 0–2 implemented and verified on `jc/spaces`, 2026-09-11.
-Phases 3–5 have not started. The checkboxes below track implementation; the
+Status: Phases 0–3 implemented and verified on `jc/spaces`, 2026-09-11.
+Phases 4–5 have not started. The checkboxes below track implementation; the
 earlier review experiments remain separate evidence. Settled and deferred
 decisions are recorded at the end.
 
@@ -865,20 +865,55 @@ Phase 2 implementation notes:
 
 ### Phase 3: durable sync and lifecycle
 
-- [ ] Implement staged store/CAS/outbox interfaces and in-memory implementations,
+- [x] Implement staged store/CAS/outbox interfaces and in-memory implementations,
       with a reusable failure-injection conformance suite.
-- [ ] Add bootstrap, bounded scheduling, sweeps/direct polling, optional callback
+- [x] Add bootstrap, bounded scheduling, sweeps/direct polling, optional callback
       registration/renewal and opaque-cursor incremental sync.
-- [ ] Verify `prev`, bodies and terminal commit; complete missing final values;
+- [x] Verify `prev`, bodies and terminal commit; complete missing final values;
       add bounded full/index-only recovery and typed incomplete states.
-- [ ] Add deletion/account status hooks, tombstone fencing, restart cleanup and
+- [x] Add deletion/account status hooks, tombstone fencing, restart cleanup and
       credential-denial behavior selected in Q4/Q5.
-- [ ] Run the model-based harness, crash/retry tests and race detector.
+- [x] Run the model-based harness, crash/retry tests and race detector.
 
 Done when: every published repo generation is complete and verified in its
 recorded direct-host context; restart/replay never double-apply; deletion cannot
 be undone by old work. Conditional convergence and unknown-writer discovery
 limits remain explicit.
+
+Phase 3 implementation notes:
+
+- `space/sync` requires a caller-provided durable `Store`, a strictly routed
+  `Source`, explicit resource/time limits and a credential purger. Stages are
+  invisible, promotion compares repo, space-lifecycle and account-lifecycle
+  fences, and the checkpoint plus versioned outbox event are one atomic store
+  operation. The bounded memory store is explicit test/example infrastructure;
+  `space/sync/storetest` is the reusable backend conformance harness.
+- Each logical author pass opens one immutable direct-host binding: the PDS
+  endpoint and `#atproto` key are selected from the same raw DID document and
+  retained as checkpoint provenance. Identity changes cancel/fence old work;
+  the next pass resolves a new binding. Concurrent work for one repo is
+  coalesced locally, while store CAS remains mandatory across replicas.
+- Incremental passes keep `since` fixed, echo cursors byte-for-byte, permit
+  multiple ordered operations per revision/path, enforce exact `prev`, verify
+  canonical bodies and the terminal commit/LtHash, and fetch only missing final
+  values. Cursor/page/op/byte/time/cardinality limits produce typed incomplete
+  results. History gaps and digest mismatch use bounded full or index-only CAR
+  recovery; rollback/equal-revision equivocation and cryptographic failures do
+  not become blind recovery loops.
+- Directory discovery and already-known-repo polling are independent. Known
+  repos are queued even when the authority directory is unavailable; bounded
+  notification coalescing reports saturation and the next sweep reconciles it.
+  Optional callback leases are persisted and renewed independently of reader
+  credential refresh. Directory omission never deletes a repo.
+- The Q4 contract below distinguishes active, stale, suspended and deleted
+  state. Durable tombstones fence and cancel in-flight work before cleanup;
+  failed cleanup remains pending across restart. Account events fence only the
+  named author. Outbox consumers are at-least-once and must deduplicate by ID.
+- Tests cover store failure boundaries, concurrent CAS/lifecycle fencing,
+  cancellation, restart cleanup, outbox redelivery, opaque/cyclic cursors,
+  missing/final-racing values, same-revision same-path batches, full/index-only
+  recovery, directory loss, queue saturation, lease renewal, credential/account
+  denial, randomized model convergence, fuzzed failure atomicity and race runs.
 
 ### Phase 4: authority host and management
 
@@ -1056,9 +1091,20 @@ serving under its own viewer authorization policy. What offline-serving and
 retention defaults do you want the library to promise, including when all
 eligible renewal sessions are lost?
 
-Answer: **deferred to Phase 3**, before sync retention or serving behavior is
-implemented. Phase 0 caches only declarations and establishes no retained
-record-serving contract.
+Answer: **settled for Phase 3**. A directly verified current checkpoint is
+`active`. A failed bounded sync pass retains that checkpoint but marks the
+author repo `stale`; reconciliation continues, while serving requires an
+explicit application callback that applies current viewer authorization.
+Credential/policy denial and trusted account deactivation/takedown mark the
+affected space or author `suspended`, stop new network work and impose the same
+explicit offline-serving requirement. Losing every eligible renewal session is
+denial, not deletion and not permission to serve implicitly. A later successful
+direct-host verification returns stale state to active; the embedding app must
+explicitly resume suspended access after restoring authorization. Confirmed
+authority deletion and trusted account deletion are tombstoned and purged as
+specified above. Temporary directory failure does not stop direct checks of
+known repos, and no state claims discovery of an unknown writer whose first-hop
+notification was lost.
 
 ### Q5: Should our authority host permit recreation at the same space URI?
 

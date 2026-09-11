@@ -13,6 +13,7 @@ import (
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
+	spaces "github.com/jcalabro/atmos/space"
 	"github.com/jcalabro/atmos/space/credential"
 )
 
@@ -52,6 +53,128 @@ type ReaderClient struct {
 	authority      Endpoint
 	source         CredentialSource
 	eng            *engine
+}
+
+// RepoReader is an immutable direct-host binding for one author. Endpoint and
+// #atproto verification key are selected from the same raw DID document, so a
+// logical sync pass cannot mix request routing with a later identity version.
+// It exposes no credential, signer, arbitrary URL, or arbitrary XRPC method.
+type RepoReader struct {
+	owner      *ReaderClient
+	author     atmos.DID
+	endpoint   Endpoint
+	key        crypto.PublicKey
+	resolvedAt time.Time
+}
+
+// BindRepo resolves and binds one author's direct repo host and signing key.
+func (c *ReaderClient) BindRepo(ctx context.Context, author atmos.DID) (*RepoReader, error) {
+	doc, err := resolveDocument(ctx, c.resolver, author)
+	if err != nil {
+		return nil, err
+	}
+	_, destination, err := identity.SelectService(doc, author, pdsFragment, pdsServiceType, c.endpointPolicy)
+	if err != nil {
+		return nil, fmt.Errorf("space client: resolve repo host: %w", err)
+	}
+	_, key, err := identity.SelectVerificationMethod(doc, author, "atproto")
+	if err != nil {
+		return nil, fmt.Errorf("space client: resolve author key: %w", err)
+	}
+	endpoint := Endpoint{DID: author, Fragment: pdsFragment, Audience: string(author), URL: destination}
+	return &RepoReader{owner: c, author: author, endpoint: endpoint, key: key, resolvedAt: time.Now()}, nil
+}
+
+// Author returns the exact author bound to this direct reader.
+func (r *RepoReader) Author() atmos.DID { return r.author }
+
+// EndpointURL returns the strictly resolved direct-host URL used by this binding.
+func (r *RepoReader) EndpointURL() string { return r.endpoint.URL.String() }
+
+// VerificationKey returns the author key selected alongside EndpointURL.
+func (r *RepoReader) VerificationKey() crypto.PublicKey { return r.key }
+
+// ResolvedAt returns when the immutable identity binding was created.
+func (r *RepoReader) ResolvedAt() time.Time { return r.resolvedAt }
+
+// GetLatestCommit gets the current structurally validated commit through this binding.
+func (r *RepoReader) GetLatestCommit(ctx context.Context) (*comatproto.SpaceGetLatestCommit_Output, error) {
+	eng, err := r.owner.engine()
+	if err != nil {
+		return nil, err
+	}
+	var out comatproto.SpaceGetLatestCommit_Output
+	if err := eng.json(ctx, http.MethodGet, xrpcURL(r.endpoint.URL, "com.atproto.space.getLatestCommit", repoParams(r.owner.space, r.author)), nil, &out); err != nil {
+		return nil, err
+	}
+	if _, err := rawCommit(out.Commit).Validate(); err != nil {
+		return nil, fmt.Errorf("space client: invalid latest commit: %w", err)
+	}
+	return &out, nil
+}
+
+// ListRepoOps gets one validated operation page through this binding.
+func (r *RepoReader) ListRepoOps(ctx context.Context, since atmos.TID, limit int, cursor string, excludeValues bool) (*comatproto.SpaceListRepoOps_Output, error) {
+	params := repoParams(r.owner.space, r.author)
+	if since != "" {
+		if err := since.Validate(); err != nil {
+			return nil, err
+		}
+		params.Set("since", since.String())
+	}
+	if err := setLimit(params, limit, 1000); err != nil {
+		return nil, err
+	}
+	setOptional(params, "cursor", cursor)
+	setBool(params, "excludeValues", excludeValues)
+	eng, err := r.owner.engine()
+	if err != nil {
+		return nil, err
+	}
+	var out comatproto.SpaceListRepoOps_Output
+	if err := eng.json(ctx, http.MethodGet, xrpcURL(r.endpoint.URL, "com.atproto.space.listRepoOps", params), nil, &out); err != nil {
+		return nil, err
+	}
+	if err := validateRepoOps(&out, excludeValues); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetRecord gets one exact final record through this binding.
+func (r *RepoReader) GetRecord(ctx context.Context, path spaces.RecordPath) (*comatproto.SpaceGetRecord_Output, error) {
+	if err := path.Validate(); err != nil {
+		return nil, err
+	}
+	params := repoParams(r.owner.space, r.author)
+	params.Set("collection", path.Collection().String())
+	params.Set("rkey", path.RecordKey().String())
+	eng, err := r.owner.engine()
+	if err != nil {
+		return nil, err
+	}
+	var out comatproto.SpaceGetRecord_Output
+	if err := eng.json(ctx, http.MethodGet, xrpcURL(r.endpoint.URL, "com.atproto.space.getRecord", params), nil, &out); err != nil {
+		return nil, err
+	}
+	if err := validateRecordOutput(out.URI, out.CID, r.owner.space, r.author, path.Collection(), path.RecordKey()); err != nil {
+		return nil, err
+	}
+	if err := validateRecordCID(out.Value, path.Collection(), out.CID); err != nil {
+		return nil, fmt.Errorf("space client: invalid record value response: %w", err)
+	}
+	return &out, nil
+}
+
+// GetRepo streams a CAR through this binding.
+func (r *RepoReader) GetRepo(ctx context.Context, excludeValues bool, maxBytes int64) (io.ReadCloser, error) {
+	params := repoParams(r.owner.space, r.author)
+	setBool(params, "excludeValues", excludeValues)
+	eng, err := r.owner.engine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.stream(ctx, xrpcURL(r.endpoint.URL, "com.atproto.space.getRepo", params), maxBytes, nil)
 }
 
 // NewReaderClient constructs a strictly endpoint-bound space reader.

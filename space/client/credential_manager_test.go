@@ -106,6 +106,12 @@ func TestCredentialManagerSingleflightExchangeAndBinding(t *testing.T) {
 	}
 	require.Equal(t, int64(1), session.calls.Load())
 	require.Equal(t, int64(1), exchanges.Load())
+	require.NoError(t, manager.PurgeCredential(context.Background(), spaceRef))
+	replacement, err := manager.Credential(context.Background(), spaceRef)
+	require.NoError(t, err)
+	require.NotEqual(t, first.Token, replacement.Token)
+	require.NotSame(t, first.Key, replacement.Key)
+	require.Equal(t, int64(2), exchanges.Load())
 }
 
 func TestCredentialManagerNeverReplaysAmbiguousExchangeGrant(t *testing.T) {
@@ -186,6 +192,16 @@ func TestCredentialManagerNeverReplaysAmbiguousExchangeGrant(t *testing.T) {
 	require.Len(t, grants, 2)
 	require.NotEqual(t, grants[0], grants[1])
 	require.NotEqual(t, proofs[0], proofs[1])
+}
+
+func TestCredentialManagerWaiterCannotReturnFlightAfterPurge(t *testing.T) {
+	t.Parallel()
+	manager := &CredentialManager{generation: 1}
+	flight := &credentialFlight{done: make(chan struct{}), generation: 0, pair: CredentialPair{Token: "must-not-escape"}}
+	close(flight.done)
+	pair, err := manager.waitCredentialFlight(context.Background(), flight)
+	require.ErrorIs(t, err, errCredentialInvalidated)
+	require.Empty(t, pair)
 }
 
 type sequenceDelegationSession struct{ calls atomic.Int64 }

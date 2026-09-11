@@ -102,6 +102,37 @@ func TestReaderClientRejectsMismatchedCredentialWithoutRequest(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBindRepoPinsEndpointAndKeyFromOneIdentityResolution(t *testing.T) {
+	t.Parallel()
+	spaceRef, err := atmos.ParseSpaceRef(testSpace)
+	require.NoError(t, err)
+	author := atmos.DID("did:plc:cccccccccccccccccccccccc")
+	oldKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	newKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	authorDoc := &identity.DIDDocument{ID: author.String(), VerificationMethod: []identity.VerificationMethod{{ID: "#atproto", Type: "Multikey", Controller: author.String(), PublicKeyMultibase: oldKey.PublicKey().Multibase()}}, Service: []identity.Service{{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: "http://127.0.0.1:3001"}}}
+	resolver := resolverFunc(func(_ context.Context, did atmos.DID) (*identity.DIDDocument, error) {
+		if did == author {
+			return authorDoc, nil
+		}
+		return &identity.DIDDocument{ID: did.String(), Service: []identity.Service{{ID: "#atproto_space_host", Type: "AtprotoSpaceHost", ServiceEndpoint: "http://127.0.0.1:3000"}}}, nil
+	})
+	proofKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	reader, err := NewReaderClient(context.Background(), ReaderOptions{Space: spaceRef, Resolver: resolver, EndpointPolicy: identity.EndpointPolicy{AllowHTTP: true, AllowPrivateLiteral: true}, Source: staticCredentialSource{pair: CredentialPair{Space: spaceRef, Token: "credential", Key: proofKey, ExpiresAt: time.Now().Add(time.Hour)}}})
+	require.NoError(t, err)
+	bound, err := reader.BindRepo(context.Background(), author)
+	require.NoError(t, err)
+	authorDoc = &identity.DIDDocument{ID: author.String(), VerificationMethod: []identity.VerificationMethod{{ID: "#atproto", Type: "Multikey", Controller: author.String(), PublicKeyMultibase: newKey.PublicKey().Multibase()}}, Service: []identity.Service{{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: "http://127.0.0.1:3002"}}}
+	require.Equal(t, "http://127.0.0.1:3001", bound.EndpointURL())
+	require.True(t, bound.VerificationKey().Equal(oldKey.PublicKey()))
+	rebound, err := reader.BindRepo(context.Background(), author)
+	require.NoError(t, err)
+	require.Equal(t, "http://127.0.0.1:3002", rebound.EndpointURL())
+	require.True(t, rebound.VerificationKey().Equal(newKey.PublicKey()))
+}
+
 func TestReaderClientListReposRejectsDuplicateDIDs(t *testing.T) {
 	t.Parallel()
 	spaceRef, err := atmos.ParseSpaceRef(testSpace)
