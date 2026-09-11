@@ -14,7 +14,7 @@ import (
 
 // Error name constants for ReportCreateActivity.
 const (
-	ErrReportCreateActivity_ReportNotFound         = "ReportNotFound"         // No report exists with the given reportId
+	ErrReportCreateActivity_ReportNotFound         = "ReportNotFound"         // No report exists with the given reportId or eventId
 	ErrReportCreateActivity_InvalidStateTransition = "InvalidStateTransition" // The requested state transition is not permitted from the report's current status
 	ErrReportCreateActivity_AlreadyInTargetState   = "AlreadyInTargetState"   // The report is already in the status implied by this activity type
 )
@@ -246,6 +246,7 @@ type ReportCreateActivity_Output struct {
 var (
 	jsonKey_ReportCreateActivity_Input_dollar_type  = []byte("\"$type\":")
 	jsonKey_ReportCreateActivity_Input_activity     = []byte("\"activity\":")
+	jsonKey_ReportCreateActivity_Input_eventId      = []byte("\"eventId\":")
 	jsonKey_ReportCreateActivity_Input_internalNote = []byte("\"internalNote\":")
 	jsonKey_ReportCreateActivity_Input_isAutomated  = []byte("\"isAutomated\":")
 	jsonKey_ReportCreateActivity_Input_publicNote   = []byte("\"publicNote\":")
@@ -279,6 +280,14 @@ func (s *ReportCreateActivity_Input) AppendJSON(buf []byte) ([]byte, error) {
 		}
 	}
 	first = false
+	if s.EventId.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportCreateActivity_Input_eventId...)
+		buf = cbor.AppendJSONInt(buf, s.EventId.Val())
+		first = false
+	}
 	if s.InternalNote.HasVal() {
 		if !first {
 			buf = append(buf, ',')
@@ -303,12 +312,14 @@ func (s *ReportCreateActivity_Input) AppendJSON(buf []byte) ([]byte, error) {
 		buf = cbor.AppendJSONString(buf, s.PublicNote.Val())
 		first = false
 	}
-	if !first {
-		buf = append(buf, ',')
+	if s.ReportId.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportCreateActivity_Input_reportId...)
+		buf = cbor.AppendJSONInt(buf, s.ReportId.Val())
+		first = false
 	}
-	buf = append(buf, jsonKey_ReportCreateActivity_Input_reportId...)
-	buf = cbor.AppendJSONInt(buf, s.ReportId)
-	first = false
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
 			continue
@@ -359,6 +370,20 @@ func (s *ReportCreateActivity_Input) UnmarshalJSONAt(data []byte, pos int) (int,
 			if err != nil {
 				return 0, err
 			}
+		case "eventId":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.EventId = gt.Some(v)
+			}
 		case "internalNote":
 			if cbor.IsJSONNull(data, pos) {
 				pos, err = cbor.SkipJSONNull(data, pos)
@@ -402,9 +427,18 @@ func (s *ReportCreateActivity_Input) UnmarshalJSONAt(data []byte, pos int) (int,
 				s.PublicNote = gt.Some(v)
 			}
 		case "reportId":
-			s.ReportId, pos, err = cbor.ReadJSONInt(data, pos)
-			if err != nil {
-				return 0, err
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.ReportId = gt.Some(v)
 			}
 		default:
 			valueStart := pos
@@ -421,6 +455,7 @@ func (s *ReportCreateActivity_Input) UnmarshalJSONAt(data []byte, pos int) (int,
 // Precomputed CBOR key tokens for ReportCreateActivity_Input.
 var (
 	cborKey_ReportCreateActivity_Input_dollar_type  = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportCreateActivity_Input_eventId      = cbor.AppendTextKey(nil, "eventId")
 	cborKey_ReportCreateActivity_Input_activity     = cbor.AppendTextKey(nil, "activity")
 	cborKey_ReportCreateActivity_Input_reportId     = cbor.AppendTextKey(nil, "reportId")
 	cborKey_ReportCreateActivity_Input_publicNote   = cbor.AppendTextKey(nil, "publicNote")
@@ -433,8 +468,14 @@ func (s *ReportCreateActivity_Input) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *ReportCreateActivity_Input) AppendCBOR(buf []byte) ([]byte, error) {
-	n := 2 + countExtra(s.extra, extraEncodingCBOR)
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.EventId.HasVal() {
+		n++
+	}
+	if s.ReportId.HasVal() {
 		n++
 	}
 	if s.PublicNote.HasVal() {
@@ -454,6 +495,11 @@ func (s *ReportCreateActivity_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ReportCreateActivity_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "eventId", buf)
+		if s.EventId.HasVal() {
+			buf = append(buf, cborKey_ReportCreateActivity_Input_eventId...)
+			buf = cbor.AppendInt(buf, s.EventId.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "activity", buf)
 		buf = append(buf, cborKey_ReportCreateActivity_Input_activity...)
 		{
@@ -464,8 +510,10 @@ func (s *ReportCreateActivity_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			}
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportId", buf)
-		buf = append(buf, cborKey_ReportCreateActivity_Input_reportId...)
-		buf = cbor.AppendInt(buf, s.ReportId)
+		if s.ReportId.HasVal() {
+			buf = append(buf, cborKey_ReportCreateActivity_Input_reportId...)
+			buf = cbor.AppendInt(buf, s.ReportId.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "publicNote", buf)
 		if s.PublicNote.HasVal() {
 			buf = append(buf, cborKey_ReportCreateActivity_Input_publicNote...)
@@ -487,6 +535,10 @@ func (s *ReportCreateActivity_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ReportCreateActivity_Input_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		if s.EventId.HasVal() {
+			buf = append(buf, cborKey_ReportCreateActivity_Input_eventId...)
+			buf = cbor.AppendInt(buf, s.EventId.Val())
+		}
 		buf = append(buf, cborKey_ReportCreateActivity_Input_activity...)
 		{
 			var err error
@@ -495,8 +547,10 @@ func (s *ReportCreateActivity_Input) AppendCBOR(buf []byte) ([]byte, error) {
 				return nil, err
 			}
 		}
-		buf = append(buf, cborKey_ReportCreateActivity_Input_reportId...)
-		buf = cbor.AppendInt(buf, s.ReportId)
+		if s.ReportId.HasVal() {
+			buf = append(buf, cborKey_ReportCreateActivity_Input_reportId...)
+			buf = cbor.AppendInt(buf, s.ReportId.Val())
+		}
 		if s.PublicNote.HasVal() {
 			buf = append(buf, cborKey_ReportCreateActivity_Input_publicNote...)
 			buf = cbor.AppendText(buf, s.PublicNote.Val())
@@ -557,6 +611,26 @@ func (s *ReportCreateActivity_Input) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "eventId" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.EventId = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "activity" {
 				pos, err = s.Activity.UnmarshalCBORAt(data, pos)
@@ -564,9 +638,15 @@ func (s *ReportCreateActivity_Input) UnmarshalCBORAt(data []byte, pos int) (int,
 					return 0, err
 				}
 			} else if string(data[keyStart:keyEnd]) == "reportId" {
-				s.ReportId, pos, err = cbor.ReadInt(data, pos)
-				if err != nil {
-					return 0, err
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.ReportId = gt.Some(v)
 				}
 			} else {
 				valueStart := pos
@@ -888,10 +968,11 @@ func (u *ReportCreateActivity_Input_Activity) UnmarshalCBORAt(data []byte, pos i
 type ReportCreateActivity_Input struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	Activity      ReportCreateActivity_Input_Activity `json:"activity"`              // The type of activity to record.
+	EventId       gt.Option[int64]                    `json:"eventId,omitzero"`      // ID of the report moderation event. Resolves to the report created from that event. Exactly one of...
 	InternalNote  gt.Option[string]                   `json:"internalNote,omitzero"` // Optional moderator-only note. Not visible to reporters.
 	IsAutomated   gt.Option[bool]                     `json:"isAutomated,omitzero"`  // Set true when this activity is triggered by an automated process. Defaults to false.
 	PublicNote    gt.Option[string]                   `json:"publicNote,omitzero"`   // Optional public-facing note, potentially visible to the reporter.
-	ReportId      int64                               `json:"reportId"`              // ID of the report to record activity on
+	ReportId      gt.Option[int64]                    `json:"reportId,omitzero"`     // ID of the report to record activity on. Exactly one of reportId or eventId must be provided.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField

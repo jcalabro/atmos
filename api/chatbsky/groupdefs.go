@@ -7,12 +7,430 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// GroupDefs_DisabledJoinLinkPreviewView is a "disabledJoinLinkPreviewView" in the chat.bsky.group.defs schema.
+//
+// Preview for a disabled join link. Carries only the code so clients can correlate with the input and render a disabled state.
+type GroupDefs_DisabledJoinLinkPreviewView struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	Code          string `json:"code"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for GroupDefs_DisabledJoinLinkPreviewView.
+var (
+	cborKey_GroupDefs_DisabledJoinLinkPreviewView_code        = cbor.AppendTextKey(nil, "code")
+	cborKey_GroupDefs_DisabledJoinLinkPreviewView_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "code", buf)
+		buf = append(buf, cborKey_GroupDefs_DisabledJoinLinkPreviewView_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GroupDefs_DisabledJoinLinkPreviewView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GroupDefs_DisabledJoinLinkPreviewView_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GroupDefs_DisabledJoinLinkPreviewView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) UnmarshalCBOR(data []byte) error {
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "code" {
+				s.Code, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for GroupDefs_DisabledJoinLinkPreviewView.
+var (
+	jsonKey_GroupDefs_DisabledJoinLinkPreviewView_dollar_type = []byte("\"$type\":")
+	jsonKey_GroupDefs_DisabledJoinLinkPreviewView_code        = []byte("\"code\":")
+)
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_GroupDefs_DisabledJoinLinkPreviewView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_GroupDefs_DisabledJoinLinkPreviewView_code...)
+	buf = cbor.AppendJSONString(buf, s.Code)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *GroupDefs_DisabledJoinLinkPreviewView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "code":
+			s.Code, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// GroupDefs_InvalidJoinLinkPreviewView is a "invalidJoinLinkPreviewView" in the chat.bsky.group.defs schema.
+//
+// Preview for a join link code that does not map to an existing link. Carries only the code so clients can correlate with the input and render an invalid state.
+type GroupDefs_InvalidJoinLinkPreviewView struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	Code          string `json:"code"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for GroupDefs_InvalidJoinLinkPreviewView.
+var (
+	cborKey_GroupDefs_InvalidJoinLinkPreviewView_code        = cbor.AppendTextKey(nil, "code")
+	cborKey_GroupDefs_InvalidJoinLinkPreviewView_dollar_type = cbor.AppendTextKey(nil, "$type")
+)
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "code", buf)
+		buf = append(buf, cborKey_GroupDefs_InvalidJoinLinkPreviewView_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GroupDefs_InvalidJoinLinkPreviewView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		buf = append(buf, cborKey_GroupDefs_InvalidJoinLinkPreviewView_code...)
+		buf = cbor.AppendText(buf, s.Code)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_GroupDefs_InvalidJoinLinkPreviewView_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+	}
+	return buf, nil
+}
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) UnmarshalCBOR(data []byte) error {
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 4:
+			if string(data[keyStart:keyEnd]) == "code" {
+				s.Code, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for GroupDefs_InvalidJoinLinkPreviewView.
+var (
+	jsonKey_GroupDefs_InvalidJoinLinkPreviewView_dollar_type = []byte("\"$type\":")
+	jsonKey_GroupDefs_InvalidJoinLinkPreviewView_code        = []byte("\"code\":")
+)
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_GroupDefs_InvalidJoinLinkPreviewView_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_GroupDefs_InvalidJoinLinkPreviewView_code...)
+	buf = cbor.AppendJSONString(buf, s.Code)
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *GroupDefs_InvalidJoinLinkPreviewView) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "code":
+			s.Code, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
 // GroupDefs_JoinLinkPreviewView is a "joinLinkPreviewView" in the chat.bsky.group.defs schema.
+//
+// Preview that can be shown in feeds, including to unauthenticated viewers.
 type GroupDefs_JoinLinkPreviewView struct {
 	LexiconTypeID   string                                   `json:"$type,omitempty"`
 	Code            string                                   `json:"code"`
 	Convo           gt.Option[ConvoDefs_ConvoView]           `json:"convo,omitzero"` // Present only if the request is authenticated and the user is a member of the group.
-	EnabledStatus   GroupDefs_LinkEnabledStatus              `json:"enabledStatus"`
+	ConvoId         string                                   `json:"convoId"`
 	JoinRule        GroupDefs_JoinRule                       `json:"joinRule"`
 	MemberCount     int64                                    `json:"memberCount"`
 	MemberLimit     int64                                    `json:"memberLimit"`
@@ -33,10 +451,10 @@ var (
 	cborKey_GroupDefs_JoinLinkPreviewView_convo           = cbor.AppendTextKey(nil, "convo")
 	cborKey_GroupDefs_JoinLinkPreviewView_owner           = cbor.AppendTextKey(nil, "owner")
 	cborKey_GroupDefs_JoinLinkPreviewView_viewer          = cbor.AppendTextKey(nil, "viewer")
+	cborKey_GroupDefs_JoinLinkPreviewView_convoId         = cbor.AppendTextKey(nil, "convoId")
 	cborKey_GroupDefs_JoinLinkPreviewView_joinRule        = cbor.AppendTextKey(nil, "joinRule")
 	cborKey_GroupDefs_JoinLinkPreviewView_memberCount     = cbor.AppendTextKey(nil, "memberCount")
 	cborKey_GroupDefs_JoinLinkPreviewView_memberLimit     = cbor.AppendTextKey(nil, "memberLimit")
-	cborKey_GroupDefs_JoinLinkPreviewView_enabledStatus   = cbor.AppendTextKey(nil, "enabledStatus")
 	cborKey_GroupDefs_JoinLinkPreviewView_requireApproval = cbor.AppendTextKey(nil, "requireApproval")
 )
 
@@ -106,6 +524,9 @@ func (s *GroupDefs_JoinLinkPreviewView) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
+		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "joinRule", buf)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_joinRule...)
 		buf = cbor.AppendText(buf, s.JoinRule)
@@ -115,9 +536,6 @@ func (s *GroupDefs_JoinLinkPreviewView) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "memberLimit", buf)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_memberLimit...)
 		buf = cbor.AppendInt(buf, s.MemberLimit)
-		ei, buf = appendCBORExtrasBefore(s.extra, ei, "enabledStatus", buf)
-		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_enabledStatus...)
-		buf = cbor.AppendText(buf, s.EnabledStatus)
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "requireApproval", buf)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_requireApproval...)
 		buf = cbor.AppendBool(buf, s.RequireApproval)
@@ -165,14 +583,14 @@ func (s *GroupDefs_JoinLinkPreviewView) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
+		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_convoId...)
+		buf = cbor.AppendText(buf, s.ConvoId)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_joinRule...)
 		buf = cbor.AppendText(buf, s.JoinRule)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_memberCount...)
 		buf = cbor.AppendInt(buf, s.MemberCount)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_memberLimit...)
 		buf = cbor.AppendInt(buf, s.MemberLimit)
-		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_enabledStatus...)
-		buf = cbor.AppendText(buf, s.EnabledStatus)
 		buf = append(buf, cborKey_GroupDefs_JoinLinkPreviewView_requireApproval...)
 		buf = cbor.AppendBool(buf, s.RequireApproval)
 	}
@@ -278,6 +696,20 @@ func (s *GroupDefs_JoinLinkPreviewView) UnmarshalCBORAt(data []byte, pos int) (i
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 7:
+			if string(data[keyStart:keyEnd]) == "convoId" {
+				s.ConvoId, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 8:
 			if string(data[keyStart:keyEnd]) == "joinRule" {
 				s.JoinRule, pos, err = cbor.ReadText(data, pos)
@@ -300,20 +732,6 @@ func (s *GroupDefs_JoinLinkPreviewView) UnmarshalCBORAt(data []byte, pos int) (i
 				}
 			} else if string(data[keyStart:keyEnd]) == "memberLimit" {
 				s.MemberLimit, pos, err = cbor.ReadInt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-			} else {
-				valueStart := pos
-				pos, err = cbor.SkipValue(data, pos)
-				if err != nil {
-					return 0, err
-				}
-				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
-			}
-		case 13:
-			if string(data[keyStart:keyEnd]) == "enabledStatus" {
-				s.EnabledStatus, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
@@ -356,7 +774,7 @@ var (
 	jsonKey_GroupDefs_JoinLinkPreviewView_dollar_type     = []byte("\"$type\":")
 	jsonKey_GroupDefs_JoinLinkPreviewView_code            = []byte("\"code\":")
 	jsonKey_GroupDefs_JoinLinkPreviewView_convo           = []byte("\"convo\":")
-	jsonKey_GroupDefs_JoinLinkPreviewView_enabledStatus   = []byte("\"enabledStatus\":")
+	jsonKey_GroupDefs_JoinLinkPreviewView_convoId         = []byte("\"convoId\":")
 	jsonKey_GroupDefs_JoinLinkPreviewView_joinRule        = []byte("\"joinRule\":")
 	jsonKey_GroupDefs_JoinLinkPreviewView_memberCount     = []byte("\"memberCount\":")
 	jsonKey_GroupDefs_JoinLinkPreviewView_memberLimit     = []byte("\"memberLimit\":")
@@ -407,8 +825,8 @@ func (s *GroupDefs_JoinLinkPreviewView) AppendJSON(buf []byte) ([]byte, error) {
 	if !first {
 		buf = append(buf, ',')
 	}
-	buf = append(buf, jsonKey_GroupDefs_JoinLinkPreviewView_enabledStatus...)
-	buf = cbor.AppendJSONString(buf, s.EnabledStatus)
+	buf = append(buf, jsonKey_GroupDefs_JoinLinkPreviewView_convoId...)
+	buf = cbor.AppendJSONString(buf, s.ConvoId)
 	first = false
 	if !first {
 		buf = append(buf, ',')
@@ -533,8 +951,8 @@ func (s *GroupDefs_JoinLinkPreviewView) UnmarshalJSONAt(data []byte, pos int) (i
 				}
 				s.Convo = gt.Some(v)
 			}
-		case "enabledStatus":
-			s.EnabledStatus, pos, err = cbor.ReadJSONString(data, pos)
+		case "convoId":
+			s.ConvoId, pos, err = cbor.ReadJSONString(data, pos)
 			if err != nil {
 				return 0, err
 			}
@@ -595,6 +1013,8 @@ func (s *GroupDefs_JoinLinkPreviewView) UnmarshalJSONAt(data []byte, pos int) (i
 }
 
 // GroupDefs_JoinLinkView is a "joinLinkView" in the chat.bsky.group.defs schema.
+//
+// Join link view to be used within a group view, so the convo is surrounding, not specified inside this view.
 type GroupDefs_JoinLinkView struct {
 	LexiconTypeID   string                      `json:"$type,omitempty"`
 	Code            string                      `json:"code"`
@@ -1166,13 +1586,13 @@ func (s *GroupDefs_JoinLinkViewerState) UnmarshalJSONAt(data []byte, pos int) (i
 //
 // A join request from the perspective of the requester, including enough group context to render the request in a list (e.g. group name, owner, member count).
 type GroupDefs_JoinRequestConvoView struct {
-	LexiconTypeID string                     `json:"$type,omitempty"`
-	ConvoId       string                     `json:"convoId"`
-	MemberCount   int64                      `json:"memberCount"`
-	MemberLimit   int64                      `json:"memberLimit"`
-	Name          string                     `json:"name"`
-	Owner         ActorDefs_ProfileViewBasic `json:"owner"`
-	RequestedAt   string                     `json:"requestedAt"`
+	LexiconTypeID string                        `json:"$type,omitempty"`
+	ConvoId       string                        `json:"convoId"`
+	MemberCount   int64                         `json:"memberCount"`
+	MemberLimit   int64                         `json:"memberLimit"`
+	Name          string                        `json:"name"`
+	Owner         ActorDefs_ProfileViewBasic    `json:"owner"`
+	Viewer        GroupDefs_JoinLinkViewerState `json:"viewer"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -1183,10 +1603,10 @@ var (
 	cborKey_GroupDefs_JoinRequestConvoView_name        = cbor.AppendTextKey(nil, "name")
 	cborKey_GroupDefs_JoinRequestConvoView_dollar_type = cbor.AppendTextKey(nil, "$type")
 	cborKey_GroupDefs_JoinRequestConvoView_owner       = cbor.AppendTextKey(nil, "owner")
+	cborKey_GroupDefs_JoinRequestConvoView_viewer      = cbor.AppendTextKey(nil, "viewer")
 	cborKey_GroupDefs_JoinRequestConvoView_convoId     = cbor.AppendTextKey(nil, "convoId")
 	cborKey_GroupDefs_JoinRequestConvoView_memberCount = cbor.AppendTextKey(nil, "memberCount")
 	cborKey_GroupDefs_JoinRequestConvoView_memberLimit = cbor.AppendTextKey(nil, "memberLimit")
-	cborKey_GroupDefs_JoinRequestConvoView_requestedAt = cbor.AppendTextKey(nil, "requestedAt")
 )
 
 func (s *GroupDefs_JoinRequestConvoView) MarshalCBOR() ([]byte, error) {
@@ -1218,6 +1638,15 @@ func (s *GroupDefs_JoinRequestConvoView) AppendCBOR(buf []byte) ([]byte, error) 
 				return nil, err
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "viewer", buf)
+		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_viewer...)
+		{
+			var err error
+			buf, err = s.Viewer.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "convoId", buf)
 		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_convoId...)
 		buf = cbor.AppendText(buf, s.ConvoId)
@@ -1227,9 +1656,6 @@ func (s *GroupDefs_JoinRequestConvoView) AppendCBOR(buf []byte) ([]byte, error) 
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "memberLimit", buf)
 		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_memberLimit...)
 		buf = cbor.AppendInt(buf, s.MemberLimit)
-		ei, buf = appendCBORExtrasBefore(s.extra, ei, "requestedAt", buf)
-		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_requestedAt...)
-		buf = cbor.AppendText(buf, s.RequestedAt)
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_name...)
@@ -1246,14 +1672,20 @@ func (s *GroupDefs_JoinRequestConvoView) AppendCBOR(buf []byte) ([]byte, error) 
 				return nil, err
 			}
 		}
+		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_viewer...)
+		{
+			var err error
+			buf, err = s.Viewer.AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
 		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_convoId...)
 		buf = cbor.AppendText(buf, s.ConvoId)
 		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_memberCount...)
 		buf = cbor.AppendInt(buf, s.MemberCount)
 		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_memberLimit...)
 		buf = cbor.AppendInt(buf, s.MemberLimit)
-		buf = append(buf, cborKey_GroupDefs_JoinRequestConvoView_requestedAt...)
-		buf = cbor.AppendText(buf, s.RequestedAt)
 	}
 	return buf, nil
 }
@@ -1321,6 +1753,20 @@ func (s *GroupDefs_JoinRequestConvoView) UnmarshalCBORAt(data []byte, pos int) (
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "viewer" {
+				pos, err = s.Viewer.UnmarshalCBORAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 7:
 			if string(data[keyStart:keyEnd]) == "convoId" {
 				s.ConvoId, pos, err = cbor.ReadText(data, pos)
@@ -1343,11 +1789,6 @@ func (s *GroupDefs_JoinRequestConvoView) UnmarshalCBORAt(data []byte, pos int) (
 				}
 			} else if string(data[keyStart:keyEnd]) == "memberLimit" {
 				s.MemberLimit, pos, err = cbor.ReadInt(data, pos)
-				if err != nil {
-					return 0, err
-				}
-			} else if string(data[keyStart:keyEnd]) == "requestedAt" {
-				s.RequestedAt, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
 				}
@@ -1379,7 +1820,7 @@ var (
 	jsonKey_GroupDefs_JoinRequestConvoView_memberLimit = []byte("\"memberLimit\":")
 	jsonKey_GroupDefs_JoinRequestConvoView_name        = []byte("\"name\":")
 	jsonKey_GroupDefs_JoinRequestConvoView_owner       = []byte("\"owner\":")
-	jsonKey_GroupDefs_JoinRequestConvoView_requestedAt = []byte("\"requestedAt\":")
+	jsonKey_GroupDefs_JoinRequestConvoView_viewer      = []byte("\"viewer\":")
 )
 
 func (s *GroupDefs_JoinRequestConvoView) MarshalJSON() ([]byte, error) {
@@ -1436,8 +1877,14 @@ func (s *GroupDefs_JoinRequestConvoView) AppendJSON(buf []byte) ([]byte, error) 
 	if !first {
 		buf = append(buf, ',')
 	}
-	buf = append(buf, jsonKey_GroupDefs_JoinRequestConvoView_requestedAt...)
-	buf = cbor.AppendJSONString(buf, s.RequestedAt)
+	buf = append(buf, jsonKey_GroupDefs_JoinRequestConvoView_viewer...)
+	{
+		var err error
+		buf, err = s.Viewer.AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
 	first = false
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
@@ -1509,8 +1956,8 @@ func (s *GroupDefs_JoinRequestConvoView) UnmarshalJSONAt(data []byte, pos int) (
 			if err != nil {
 				return 0, err
 			}
-		case "requestedAt":
-			s.RequestedAt, pos, err = cbor.ReadJSONString(data, pos)
+		case "viewer":
+			pos, err = s.Viewer.UnmarshalJSONAt(data, pos)
 			if err != nil {
 				return 0, err
 			}
@@ -1527,6 +1974,8 @@ func (s *GroupDefs_JoinRequestConvoView) UnmarshalJSONAt(data []byte, pos int) (
 }
 
 // GroupDefs_JoinRequestView is a "joinRequestView" in the chat.bsky.group.defs schema.
+//
+// A join request from the perspective of the group owner.
 type GroupDefs_JoinRequestView struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
 	ConvoId       string                     `json:"convoId"`

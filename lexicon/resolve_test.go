@@ -1,6 +1,7 @@
 package lexicon
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -181,8 +182,11 @@ func TestCatalog_Schemas_Sorted(t *testing.T) {
 	assert.Equal(t, "c", schemas[2].ID)
 }
 
-func TestCatalog_ResolveAllVendoredLexicons(t *testing.T) {
+func TestCatalog_ResolveAllCachedLexicons(t *testing.T) {
 	t.Parallel()
+	if _, err := os.Stat("../lexicons"); os.IsNotExist(err) {
+		t.Skip("lexicon cache is absent; run just update-lexicons")
+	}
 	schemas, err := ParseDir("../lexicons")
 	require.NoError(t, err)
 

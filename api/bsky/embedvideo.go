@@ -263,7 +263,7 @@ type EmbedVideo struct {
 	AspectRatio   gt.Option[EmbedDefs_AspectRatio] `json:"aspectRatio,omitzero"`
 	Captions      []EmbedVideo_Caption             `json:"captions,omitempty"`
 	Presentation  gt.Option[string]                `json:"presentation,omitzero"` // A hint to the client about how to present the video.
-	Video         lextypes.LexBlob                 `json:"video"`                 // The mp4 video file. May be up to 100mb, formerly limited to 50mb.
+	Video         lextypes.LexBlob                 `json:"video"`                 // The mp4 video file. May be up to 300mb, formerly limited to 100mb.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField

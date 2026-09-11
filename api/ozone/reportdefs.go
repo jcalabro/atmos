@@ -3117,6 +3117,7 @@ type ReportDefs_ReportActivityView struct {
 	Meta          json.RawMessage                        `json:"meta,omitempty"`        // Extensible JSON payload for loose activity-specific metadata (e.g. assignmentId).
 	Moderator     gt.Option[TeamDefs_Member]             `json:"moderator,omitzero"`    // Full member record of the moderator who created this activity
 	PublicNote    gt.Option[string]                      `json:"publicNote,omitzero"`   // Optional public note, potentially visible to the reporter.
+	Report        gt.Option[ReportDefs_ReportView]       `json:"report,omitzero"`       // Full view of the report this activity belongs to.
 	ReportId      int64                                  `json:"reportId"`              // ID of the report this activity belongs to
 
 	// extra preserves unknown fields for same-format round-trips.
@@ -3365,6 +3366,7 @@ var (
 	cborKey_ReportDefs_ReportActivityView_id           = cbor.AppendTextKey(nil, "id")
 	cborKey_ReportDefs_ReportActivityView_meta         = cbor.AppendTextKey(nil, "meta")
 	cborKey_ReportDefs_ReportActivityView_dollar_type  = cbor.AppendTextKey(nil, "$type")
+	cborKey_ReportDefs_ReportActivityView_report       = cbor.AppendTextKey(nil, "report")
 	cborKey_ReportDefs_ReportActivityView_activity     = cbor.AppendTextKey(nil, "activity")
 	cborKey_ReportDefs_ReportActivityView_reportId     = cbor.AppendTextKey(nil, "reportId")
 	cborKey_ReportDefs_ReportActivityView_createdAt    = cbor.AppendTextKey(nil, "createdAt")
@@ -3385,6 +3387,9 @@ func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.Report.HasVal() {
 		n++
 	}
 	if s.Moderator.HasVal() {
@@ -3411,6 +3416,20 @@ func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ReportDefs_ReportActivityView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "report", buf)
+		if s.Report.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_report...)
+			{
+				v := s.Report.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "activity", buf)
 		buf = append(buf, cborKey_ReportDefs_ReportActivityView_activity...)
@@ -3468,6 +3487,19 @@ func (s *ReportDefs_ReportActivityView) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ReportDefs_ReportActivityView_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.Report.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportActivityView_report...)
+			{
+				v := s.Report.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 		buf = append(buf, cborKey_ReportDefs_ReportActivityView_activity...)
 		{
@@ -3573,6 +3605,26 @@ func (s *ReportDefs_ReportActivityView) UnmarshalCBORAt(data []byte, pos int) (i
 				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
 				if err != nil {
 					return 0, err
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 6:
+			if string(data[keyStart:keyEnd]) == "report" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v ReportDefs_ReportView
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Report = gt.Some(v)
 				}
 			} else {
 				valueStart := pos
@@ -3709,6 +3761,7 @@ var (
 	jsonKey_ReportDefs_ReportActivityView_meta         = []byte("\"meta\":")
 	jsonKey_ReportDefs_ReportActivityView_moderator    = []byte("\"moderator\":")
 	jsonKey_ReportDefs_ReportActivityView_publicNote   = []byte("\"publicNote\":")
+	jsonKey_ReportDefs_ReportActivityView_report       = []byte("\"report\":")
 	jsonKey_ReportDefs_ReportActivityView_reportId     = []byte("\"reportId\":")
 )
 
@@ -3802,6 +3855,23 @@ func (s *ReportDefs_ReportActivityView) AppendJSON(buf []byte) ([]byte, error) {
 		}
 		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_publicNote...)
 		buf = cbor.AppendJSONString(buf, s.PublicNote.Val())
+		first = false
+	}
+	if s.Report.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportActivityView_report...)
+		{
+			v := s.Report.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		first = false
 	}
 	if !first {
@@ -3930,6 +4000,20 @@ func (s *ReportDefs_ReportActivityView) UnmarshalJSONAt(data []byte, pos int) (i
 					return 0, err
 				}
 				s.PublicNote = gt.Some(v)
+			}
+		case "report":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v ReportDefs_ReportView
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Report = gt.Some(v)
 			}
 		case "reportId":
 			s.ReportId, pos, err = cbor.ReadJSONInt(data, pos)
@@ -4284,6 +4368,7 @@ type ReportDefs_ReportView struct {
 	CreatedAt          string                                      `json:"createdAt"`                   // When the report was created
 	EventId            int64                                       `json:"eventId"`                     // ID of the moderation event that created this report
 	Id                 int64                                       `json:"id"`                          // Report ID
+	IsAutomated        gt.Option[bool]                             `json:"isAutomated,omitzero"`        // Whether this report was emitted by automated tooling.
 	IsMuted            gt.Option[bool]                             `json:"isMuted,omitzero"`            // Whether this report is muted. A report is muted if the reporter was muted or the subject was mute...
 	Queue              gt.Option[QueueDefs_QueueView]              `json:"queue,omitzero"`              // The queue this report is assigned to (if any)
 	QueuedAt           gt.Option[string]                           `json:"queuedAt,omitzero"`           // When the report was assigned to its current queue
@@ -4319,6 +4404,7 @@ var (
 	cborKey_ReportDefs_ReportView_assignment         = cbor.AppendTextKey(nil, "assignment")
 	cborKey_ReportDefs_ReportView_reportType         = cbor.AppendTextKey(nil, "reportType")
 	cborKey_ReportDefs_ReportView_reportedBy         = cbor.AppendTextKey(nil, "reportedBy")
+	cborKey_ReportDefs_ReportView_isAutomated        = cbor.AppendTextKey(nil, "isAutomated")
 	cborKey_ReportDefs_ReportView_subjectStatus      = cbor.AppendTextKey(nil, "subjectStatus")
 	cborKey_ReportDefs_ReportView_actionEventIds     = cbor.AppendTextKey(nil, "actionEventIds")
 	cborKey_ReportDefs_ReportView_relatedReportCount = cbor.AppendTextKey(nil, "relatedReportCount")
@@ -4355,6 +4441,9 @@ func (s *ReportDefs_ReportView) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Assignment.HasVal() {
+		n++
+	}
+	if s.IsAutomated.HasVal() {
 		n++
 	}
 	if s.SubjectStatus.HasVal() {
@@ -4475,6 +4564,11 @@ func (s *ReportDefs_ReportView) AppendCBOR(buf []byte) ([]byte, error) {
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reportedBy", buf)
 		buf = append(buf, cborKey_ReportDefs_ReportView_reportedBy...)
 		buf = cbor.AppendText(buf, s.ReportedBy)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "isAutomated", buf)
+		if s.IsAutomated.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_isAutomated...)
+			buf = cbor.AppendBool(buf, s.IsAutomated.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "subjectStatus", buf)
 		if s.SubjectStatus.HasVal() {
 			buf = append(buf, cborKey_ReportDefs_ReportView_subjectStatus...)
@@ -4593,6 +4687,10 @@ func (s *ReportDefs_ReportView) AppendCBOR(buf []byte) ([]byte, error) {
 		buf = cbor.AppendText(buf, s.ReportType)
 		buf = append(buf, cborKey_ReportDefs_ReportView_reportedBy...)
 		buf = cbor.AppendText(buf, s.ReportedBy)
+		if s.IsAutomated.HasVal() {
+			buf = append(buf, cborKey_ReportDefs_ReportView_isAutomated...)
+			buf = cbor.AppendBool(buf, s.IsAutomated.Val())
+		}
 		if s.SubjectStatus.HasVal() {
 			buf = append(buf, cborKey_ReportDefs_ReportView_subjectStatus...)
 			{
@@ -4854,6 +4952,26 @@ func (s *ReportDefs_ReportView) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "isAutomated" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsAutomated = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "subjectStatus" {
 				if cbor.IsNull(data, pos) {
@@ -4944,6 +5062,7 @@ var (
 	jsonKey_ReportDefs_ReportView_createdAt          = []byte("\"createdAt\":")
 	jsonKey_ReportDefs_ReportView_eventId            = []byte("\"eventId\":")
 	jsonKey_ReportDefs_ReportView_id                 = []byte("\"id\":")
+	jsonKey_ReportDefs_ReportView_isAutomated        = []byte("\"isAutomated\":")
 	jsonKey_ReportDefs_ReportView_isMuted            = []byte("\"isMuted\":")
 	jsonKey_ReportDefs_ReportView_queue              = []byte("\"queue\":")
 	jsonKey_ReportDefs_ReportView_queuedAt           = []byte("\"queuedAt\":")
@@ -5057,6 +5176,14 @@ func (s *ReportDefs_ReportView) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_ReportDefs_ReportView_id...)
 	buf = cbor.AppendJSONInt(buf, s.Id)
 	first = false
+	if s.IsAutomated.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ReportDefs_ReportView_isAutomated...)
+		buf = cbor.AppendJSONBool(buf, s.IsAutomated.Val())
+		first = false
+	}
 	if s.IsMuted.HasVal() {
 		if !first {
 			buf = append(buf, ',')
@@ -5320,6 +5447,20 @@ func (s *ReportDefs_ReportView) UnmarshalJSONAt(data []byte, pos int) (int, erro
 			s.Id, pos, err = cbor.ReadJSONInt(data, pos)
 			if err != nil {
 				return 0, err
+			}
+		case "isAutomated":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.IsAutomated = gt.Some(v)
 			}
 		case "isMuted":
 			if cbor.IsJSONNull(data, pos) {

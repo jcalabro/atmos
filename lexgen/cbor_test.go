@@ -272,9 +272,9 @@ func TestGenerate_ArrayOfRefsCBOR(t *testing.T) {
 	assert.Contains(t, code, "UnmarshalCBORAt(data, pos)")
 }
 
-func TestGenerate_AllVendoredLexiconsCBOR(t *testing.T) {
+func TestGenerate_AllCachedLexiconsCBOR(t *testing.T) {
 	t.Parallel()
-	files, err := generateAllVendored()
+	files, err := generateAllCached(t)
 	require.NoError(t, err)
 
 	// Spot-check that at least some record types got CBOR methods.

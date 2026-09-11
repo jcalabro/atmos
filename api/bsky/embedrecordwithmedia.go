@@ -24,6 +24,7 @@ type EmbedRecordWithMedia struct {
 type EmbedRecordWithMedia_Media struct {
 	EmbedImages   gt.Ref[EmbedImages]
 	EmbedVideo    gt.Ref[EmbedVideo]
+	EmbedGallery  gt.Ref[EmbedGallery]
 	EmbedExternal gt.Ref[EmbedExternal]
 	Unknown       gt.Ref[lextypes.UnknownUnionVariant]
 }
@@ -41,6 +42,11 @@ func (u EmbedRecordWithMedia_Media) AppendJSON(buf []byte) ([]byte, error) {
 	if u.EmbedVideo.HasVal() {
 		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedGallery.HasVal() {
+		v := *u.EmbedGallery.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal.HasVal() {
@@ -85,6 +91,14 @@ func (u *EmbedRecordWithMedia_Media) UnmarshalJSONAt(data []byte, pos int) (int,
 		}
 		u.EmbedVideo = gt.SomeRef(v)
 		return endPos, nil
+	case "app.bsky.embed.gallery":
+		var v EmbedGallery
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery = gt.SomeRef(v)
+		return endPos, nil
 	case "app.bsky.embed.external":
 		var v EmbedExternal
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -112,6 +126,11 @@ func (u EmbedRecordWithMedia_Media) AppendCBOR(buf []byte) ([]byte, error) {
 	if u.EmbedVideo.HasVal() {
 		v := *u.EmbedVideo.Val()
 		v.LexiconTypeID = "app.bsky.embed.video"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedGallery.HasVal() {
+		v := *u.EmbedGallery.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal.HasVal() {
@@ -154,6 +173,14 @@ func (u *EmbedRecordWithMedia_Media) UnmarshalCBORAt(data []byte, pos int) (int,
 			return 0, err
 		}
 		u.EmbedVideo = gt.SomeRef(v)
+		return pos, nil
+	case "app.bsky.embed.gallery":
+		var v EmbedGallery
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery = gt.SomeRef(v)
 		return pos, nil
 	case "app.bsky.embed.external":
 		var v EmbedExternal
@@ -446,6 +473,7 @@ type EmbedRecordWithMedia_View struct {
 type EmbedRecordWithMedia_View_Media struct {
 	EmbedImages_View   gt.Ref[EmbedImages_View]
 	EmbedVideo_View    gt.Ref[EmbedVideo_View]
+	EmbedGallery_View  gt.Ref[EmbedGallery_View]
 	EmbedExternal_View gt.Ref[EmbedExternal_View]
 	Unknown            gt.Ref[lextypes.UnknownUnionVariant]
 }
@@ -463,6 +491,11 @@ func (u EmbedRecordWithMedia_View_Media) AppendJSON(buf []byte) ([]byte, error) 
 	if u.EmbedVideo_View.HasVal() {
 		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
+		return v.AppendJSON(buf)
+	}
+	if u.EmbedGallery_View.HasVal() {
+		v := *u.EmbedGallery_View.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery#view"
 		return v.AppendJSON(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
@@ -507,6 +540,14 @@ func (u *EmbedRecordWithMedia_View_Media) UnmarshalJSONAt(data []byte, pos int) 
 		}
 		u.EmbedVideo_View = gt.SomeRef(v)
 		return endPos, nil
+	case "app.bsky.embed.gallery#view":
+		var v EmbedGallery_View
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery_View = gt.SomeRef(v)
+		return endPos, nil
 	case "app.bsky.embed.external#view":
 		var v EmbedExternal_View
 		endPos, err = v.UnmarshalJSONAt(data, pos)
@@ -534,6 +575,11 @@ func (u EmbedRecordWithMedia_View_Media) AppendCBOR(buf []byte) ([]byte, error) 
 	if u.EmbedVideo_View.HasVal() {
 		v := *u.EmbedVideo_View.Val()
 		v.LexiconTypeID = "app.bsky.embed.video#view"
+		return v.AppendCBOR(buf)
+	}
+	if u.EmbedGallery_View.HasVal() {
+		v := *u.EmbedGallery_View.Val()
+		v.LexiconTypeID = "app.bsky.embed.gallery#view"
 		return v.AppendCBOR(buf)
 	}
 	if u.EmbedExternal_View.HasVal() {
@@ -576,6 +622,14 @@ func (u *EmbedRecordWithMedia_View_Media) UnmarshalCBORAt(data []byte, pos int) 
 			return 0, err
 		}
 		u.EmbedVideo_View = gt.SomeRef(v)
+		return pos, nil
+	case "app.bsky.embed.gallery#view":
+		var v EmbedGallery_View
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.EmbedGallery_View = gt.SomeRef(v)
 		return pos, nil
 	case "app.bsky.embed.external#view":
 		var v EmbedExternal_View

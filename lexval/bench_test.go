@@ -1,6 +1,7 @@
 package lexval
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -10,6 +11,9 @@ import (
 
 func benchCatalog(b *testing.B) *lexicon.Catalog {
 	b.Helper()
+	if _, err := os.Stat(lexiconsDir()); os.IsNotExist(err) {
+		b.Skip("lexicon cache is absent; run just update-lexicons")
+	}
 	schemas, err := lexicon.ParseDir(lexiconsDir())
 	if err != nil {
 		b.Fatal(err)

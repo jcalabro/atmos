@@ -1399,6 +1399,365 @@ func (s *DraftDefs_DraftEmbedExternal) UnmarshalJSONAt(data []byte, pos int) (in
 	}
 }
 
+// DraftDefs_DraftEmbedGallery is a "draftEmbedGallery" in the app.bsky.draft.defs schema.
+type DraftDefs_DraftEmbedGallery struct {
+	LexiconTypeID string                           `json:"$type,omitempty"`
+	Items         DraftDefs_DraftEmbedGalleryItems `json:"items"`
+
+	// extra preserves unknown fields for same-format round-trips.
+	extra []extraField
+}
+
+// Precomputed CBOR key tokens for DraftDefs_DraftEmbedGallery.
+var (
+	cborKey_DraftDefs_DraftEmbedGallery_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_DraftDefs_DraftEmbedGallery_items       = cbor.AppendTextKey(nil, "items")
+)
+
+func (s *DraftDefs_DraftEmbedGallery) MarshalCBOR() ([]byte, error) {
+	return s.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (s *DraftDefs_DraftEmbedGallery) AppendCBOR(buf []byte) ([]byte, error) {
+	n := 1 + countExtra(s.extra, extraEncodingCBOR)
+	if s.LexiconTypeID != "" {
+		n++
+	}
+	buf = cbor.AppendMapHeader(buf, uint64(n))
+	if len(s.extra) > 0 {
+		ei := 0
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "$type", buf)
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedGallery_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "items", buf)
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedGallery_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for i := range s.Items {
+			var err error
+			buf, err = s.Items[i].AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
+	} else {
+		if s.LexiconTypeID != "" {
+			buf = append(buf, cborKey_DraftDefs_DraftEmbedGallery_dollar_type...)
+			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		buf = append(buf, cborKey_DraftDefs_DraftEmbedGallery_items...)
+		buf = cbor.AppendArrayHeader(buf, uint64(len(s.Items)))
+		for i := range s.Items {
+			var err error
+			buf, err = s.Items[i].AppendCBOR(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf, nil
+}
+
+func (s *DraftDefs_DraftEmbedGallery) UnmarshalCBOR(data []byte) error {
+	pos, err := s.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (s *DraftDefs_DraftEmbedGallery) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingCBOR)
+	count, pos, err := cbor.ReadMapHeader(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	var prevKeyStart, prevKeyEnd int
+	keyOrderValid := false
+	for i := uint64(0); i < count; i++ {
+		keyStart, keyEnd, newPos, err := cbor.ReadTextKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		if keyOrderValid {
+			if err := cbor.CheckMapKeyOrder(data, prevKeyStart, prevKeyEnd, keyStart, keyEnd); err != nil {
+				return 0, err
+			}
+		}
+		prevKeyStart, prevKeyEnd = keyStart, keyEnd
+		keyOrderValid = true
+		pos = newPos
+		switch keyEnd - keyStart {
+		case 5:
+			if string(data[keyStart:keyEnd]) == "$type" {
+				s.LexiconTypeID, pos, err = cbor.ReadText(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else if string(data[keyStart:keyEnd]) == "items" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.Items = make(DraftDefs_DraftEmbedGalleryItems, arrLen)
+					for i := range arrLen {
+						var elem DraftDefs_DraftEmbedGalleryItems_Elem
+						pos, err = elem.UnmarshalCBORAt(data, pos)
+						if err != nil {
+							return 0, err
+						}
+						s.Items[i] = elem
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+		}
+	}
+	return pos, nil
+}
+
+// Precomputed JSON key tokens for DraftDefs_DraftEmbedGallery.
+var (
+	jsonKey_DraftDefs_DraftEmbedGallery_dollar_type = []byte("\"$type\":")
+	jsonKey_DraftDefs_DraftEmbedGallery_items       = []byte("\"items\":")
+)
+
+func (s *DraftDefs_DraftEmbedGallery) MarshalJSON() ([]byte, error) {
+	return s.AppendJSON(make([]byte, 0, 256))
+}
+
+func (s *DraftDefs_DraftEmbedGallery) AppendJSON(buf []byte) ([]byte, error) {
+	buf = append(buf, '{')
+	first := true
+	if s.LexiconTypeID != "" {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_DraftDefs_DraftEmbedGallery_dollar_type...)
+		buf = cbor.AppendJSONString(buf, s.LexiconTypeID)
+		first = false
+	}
+	if !first {
+		buf = append(buf, ',')
+	}
+	buf = append(buf, jsonKey_DraftDefs_DraftEmbedGallery_items...)
+	buf = append(buf, '[')
+	for i := range s.Items {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		var err error
+		buf, err = s.Items[i].AppendJSON(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = append(buf, ']')
+	first = false
+	for _, ef := range s.extra {
+		if ef.Encoding != extraEncodingJSON {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = cbor.AppendJSONString(buf, ef.Key)
+		buf = append(buf, ':')
+		buf = append(buf, ef.Value...)
+		first = false
+	}
+	buf = append(buf, '}')
+	return buf, nil
+}
+
+func (s *DraftDefs_DraftEmbedGallery) UnmarshalJSON(data []byte) error {
+	_, err := s.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (s *DraftDefs_DraftEmbedGallery) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	s.extra = clearExtra(s.extra, extraEncodingJSON)
+	var err error
+	pos, err = cbor.ReadJSONObjectStart(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	for {
+		var done bool
+		pos, done = cbor.ReadJSONObjectEnd(data, pos)
+		if done {
+			return pos, nil
+		}
+		var key string
+		key, pos, err = cbor.ReadJSONKey(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		switch key {
+		case "$type":
+			s.LexiconTypeID, pos, err = cbor.ReadJSONString(data, pos)
+			if err != nil {
+				return 0, err
+			}
+		case "items":
+			{
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.Items = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem DraftDefs_DraftEmbedGalleryItems_Elem
+					pos, err = elem.UnmarshalJSONAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.Items = append(s.Items, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			}
+		default:
+			valueStart := pos
+			pos, err = cbor.SkipJSONValue(data, pos)
+			if err != nil {
+				return 0, err
+			}
+			s.extra = append(s.extra, extraField{Key: key, Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingJSON})
+		}
+		pos = cbor.SkipJSONComma(data, pos)
+	}
+}
+
+// DraftDefs_DraftEmbedGalleryItems_Elem is a union type.
+type DraftDefs_DraftEmbedGalleryItems_Elem struct {
+	DraftDefs_DraftEmbedImage gt.Ref[DraftDefs_DraftEmbedImage]
+	Unknown                   gt.Ref[lextypes.UnknownUnionVariant]
+}
+
+func (u DraftDefs_DraftEmbedGalleryItems_Elem) MarshalJSON() ([]byte, error) {
+	return u.AppendJSON(make([]byte, 0, 256))
+}
+
+func (u DraftDefs_DraftEmbedGalleryItems_Elem) AppendJSON(buf []byte) ([]byte, error) {
+	if u.DraftDefs_DraftEmbedImage.HasVal() {
+		v := *u.DraftDefs_DraftEmbedImage.Val()
+		v.LexiconTypeID = "app.bsky.draft.defs#draftEmbedImage"
+		return v.AppendJSON(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().Raw...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union DraftDefs_DraftEmbedGalleryItems_Elem")
+}
+
+func (u *DraftDefs_DraftEmbedGalleryItems_Elem) UnmarshalJSON(data []byte) error {
+	_, err := u.UnmarshalJSONAt(data, 0)
+	return err
+}
+
+func (u *DraftDefs_DraftEmbedGalleryItems_Elem) UnmarshalJSONAt(data []byte, pos int) (int, error) {
+	endPos, err := cbor.SkipJSONValue(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	typ, err := cbor.PeekJSONType(data[pos:endPos])
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "app.bsky.draft.defs#draftEmbedImage":
+		var v DraftDefs_DraftEmbedImage
+		endPos, err = v.UnmarshalJSONAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.DraftDefs_DraftEmbedImage = gt.SomeRef(v)
+		return endPos, nil
+	default:
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, Raw: json.RawMessage(data[pos:endPos])})
+		return endPos, nil
+	}
+}
+
+func (u DraftDefs_DraftEmbedGalleryItems_Elem) MarshalCBOR() ([]byte, error) {
+	return u.AppendCBOR(make([]byte, 0, 256))
+}
+
+func (u DraftDefs_DraftEmbedGalleryItems_Elem) AppendCBOR(buf []byte) ([]byte, error) {
+	if u.DraftDefs_DraftEmbedImage.HasVal() {
+		v := *u.DraftDefs_DraftEmbedImage.Val()
+		v.LexiconTypeID = "app.bsky.draft.defs#draftEmbedImage"
+		return v.AppendCBOR(buf)
+	}
+	if u.Unknown.HasVal() {
+		return append(buf, u.Unknown.Val().RawCBOR...), nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union DraftDefs_DraftEmbedGalleryItems_Elem")
+}
+
+func (u *DraftDefs_DraftEmbedGalleryItems_Elem) UnmarshalCBOR(data []byte) error {
+	pos, err := u.UnmarshalCBORAt(data, 0)
+	if err != nil {
+		return err
+	}
+	return cbor.CheckTrailingData(pos, len(data))
+}
+
+func (u *DraftDefs_DraftEmbedGalleryItems_Elem) UnmarshalCBORAt(data []byte, pos int) (int, error) {
+	typ, err := cbor.PeekTypeAt(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	switch typ {
+	case "app.bsky.draft.defs#draftEmbedImage":
+		var v DraftDefs_DraftEmbedImage
+		pos, err = v.UnmarshalCBORAt(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		u.DraftDefs_DraftEmbedImage = gt.SomeRef(v)
+		return pos, nil
+	default:
+		startPos := pos
+		pos, err = cbor.SkipValue(data, pos)
+		if err != nil {
+			return 0, err
+		}
+		raw := make([]byte, pos-startPos)
+		copy(raw, data[startPos:pos])
+		u.Unknown = gt.SomeRef(lextypes.UnknownUnionVariant{Type: typ, RawCBOR: raw})
+		return pos, nil
+	}
+}
+
+// DraftDefs_DraftEmbedGalleryItems is an array type defined in app.bsky.draft.defs.
+type DraftDefs_DraftEmbedGalleryItems = []DraftDefs_DraftEmbedGalleryItems_Elem
+
 // DraftDefs_DraftEmbedImage is a "draftEmbedImage" in the app.bsky.draft.defs schema.
 type DraftDefs_DraftEmbedImage struct {
 	LexiconTypeID string                       `json:"$type,omitempty"`
@@ -2488,13 +2847,14 @@ func (s *DraftDefs_DraftEmbedVideo) UnmarshalJSONAt(data []byte, pos int) (int, 
 //
 // One of the posts that compose a draft.
 type DraftDefs_DraftPost struct {
-	LexiconTypeID  string                                `json:"$type,omitempty"`
-	EmbedExternals []DraftDefs_DraftEmbedExternal        `json:"embedExternals,omitempty"`
-	EmbedImages    []DraftDefs_DraftEmbedImage           `json:"embedImages,omitempty"`
-	EmbedRecords   []DraftDefs_DraftEmbedRecord          `json:"embedRecords,omitempty"`
-	EmbedVideos    []DraftDefs_DraftEmbedVideo           `json:"embedVideos,omitempty"`
-	Labels         gt.Option[DraftDefs_DraftPost_Labels] `json:"labels,omitzero"` // Self-label values for this post. Effectively content warnings.
-	Text           string                                `json:"text"`            // The primary post content. It has a higher limit than post contents to allow storing a larger text...
+	LexiconTypeID  string                                 `json:"$type,omitempty"`
+	EmbedExternals []DraftDefs_DraftEmbedExternal         `json:"embedExternals,omitempty"`
+	EmbedGallery   gt.Option[DraftDefs_DraftEmbedGallery] `json:"embedGallery,omitzero"`
+	EmbedImages    []DraftDefs_DraftEmbedImage            `json:"embedImages,omitempty"`
+	EmbedRecords   []DraftDefs_DraftEmbedRecord           `json:"embedRecords,omitempty"`
+	EmbedVideos    []DraftDefs_DraftEmbedVideo            `json:"embedVideos,omitempty"`
+	Labels         gt.Option[DraftDefs_DraftPost_Labels]  `json:"labels,omitzero"` // Self-label values for this post. Effectively content warnings.
+	Text           string                                 `json:"text"`            // The primary post content. It has a higher limit than post contents to allow storing a larger text...
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -2609,6 +2969,7 @@ var (
 	cborKey_DraftDefs_DraftPost_labels         = cbor.AppendTextKey(nil, "labels")
 	cborKey_DraftDefs_DraftPost_embedImages    = cbor.AppendTextKey(nil, "embedImages")
 	cborKey_DraftDefs_DraftPost_embedVideos    = cbor.AppendTextKey(nil, "embedVideos")
+	cborKey_DraftDefs_DraftPost_embedGallery   = cbor.AppendTextKey(nil, "embedGallery")
 	cborKey_DraftDefs_DraftPost_embedRecords   = cbor.AppendTextKey(nil, "embedRecords")
 	cborKey_DraftDefs_DraftPost_embedExternals = cbor.AppendTextKey(nil, "embedExternals")
 )
@@ -2629,6 +2990,9 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if len(s.EmbedVideos) > 0 {
+		n++
+	}
+	if s.EmbedGallery.HasVal() {
 		n++
 	}
 	if len(s.EmbedRecords) > 0 {
@@ -2683,6 +3047,20 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
+				}
+			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "embedGallery", buf)
+		if s.EmbedGallery.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedGallery...)
+			{
+				v := s.EmbedGallery.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -2750,6 +3128,19 @@ func (s *DraftDefs_DraftPost) AppendCBOR(buf []byte) ([]byte, error) {
 				buf, err = item.AppendCBOR(buf)
 				if err != nil {
 					return nil, err
+				}
+			}
+		}
+		if s.EmbedGallery.HasVal() {
+			buf = append(buf, cborKey_DraftDefs_DraftPost_embedGallery...)
+			{
+				v := s.EmbedGallery.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -2903,7 +3294,18 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
 		case 12:
-			if string(data[keyStart:keyEnd]) == "embedRecords" {
+			if string(data[keyStart:keyEnd]) == "embedGallery" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v DraftDefs_DraftEmbedGallery
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.EmbedGallery = gt.Some(v)
+				}
+			} else if string(data[keyStart:keyEnd]) == "embedRecords" {
 				{
 					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
 					if err != nil {
@@ -2972,6 +3374,7 @@ func (s *DraftDefs_DraftPost) UnmarshalCBORAt(data []byte, pos int) (int, error)
 var (
 	jsonKey_DraftDefs_DraftPost_dollar_type    = []byte("\"$type\":")
 	jsonKey_DraftDefs_DraftPost_embedExternals = []byte("\"embedExternals\":")
+	jsonKey_DraftDefs_DraftPost_embedGallery   = []byte("\"embedGallery\":")
 	jsonKey_DraftDefs_DraftPost_embedImages    = []byte("\"embedImages\":")
 	jsonKey_DraftDefs_DraftPost_embedRecords   = []byte("\"embedRecords\":")
 	jsonKey_DraftDefs_DraftPost_embedVideos    = []byte("\"embedVideos\":")
@@ -3011,6 +3414,23 @@ func (s *DraftDefs_DraftPost) AppendJSON(buf []byte) ([]byte, error) {
 			}
 		}
 		buf = append(buf, ']')
+		first = false
+	}
+	if s.EmbedGallery.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_DraftDefs_DraftPost_embedGallery...)
+		{
+			v := s.EmbedGallery.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		first = false
 	}
 	if len(s.EmbedImages) > 0 {
@@ -3164,6 +3584,20 @@ func (s *DraftDefs_DraftPost) UnmarshalJSONAt(data []byte, pos int) (int, error)
 				if err != nil {
 					return 0, err
 				}
+			}
+		case "embedGallery":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v DraftDefs_DraftEmbedGallery
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.EmbedGallery = gt.Some(v)
 			}
 		case "embedImages":
 			if !cbor.IsJSONNull(data, pos) {

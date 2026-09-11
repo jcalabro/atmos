@@ -506,7 +506,7 @@ type GroupRequestJoin_Input struct {
 
 // GroupRequestJoin calls the XRPC procedure "chat.bsky.group.requestJoin".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Sends a request to join a group (via join link) to the group owner. Action taken by the prospective group member.
+// Sends a request to join a group (via join link) to the group owner. Action taken by the prospective group member.
 func GroupRequestJoin(ctx context.Context, c *xrpc.Client, input *GroupRequestJoin_Input) (*GroupRequestJoin_Output, error) {
 	var out GroupRequestJoin_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.requestJoin", input, &out)

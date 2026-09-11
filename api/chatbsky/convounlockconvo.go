@@ -10,8 +10,9 @@ import (
 
 // Error name constants for ConvoUnlockConvo.
 const (
-	ErrConvoUnlockConvo_InvalidConvo     = "InvalidConvo"
-	ErrConvoUnlockConvo_InsufficientRole = "InsufficientRole"
+	ErrConvoUnlockConvo_InvalidConvo            = "InvalidConvo"
+	ErrConvoUnlockConvo_InsufficientRole        = "InsufficientRole"
+	ErrConvoUnlockConvo_ConvoLockedByModeration = "ConvoLockedByModeration"
 )
 
 // Precomputed JSON key tokens for ConvoUnlockConvo_Output.
@@ -435,7 +436,7 @@ type ConvoUnlockConvo_Input struct {
 
 // ConvoUnlockConvo calls the XRPC procedure "chat.bsky.convo.unlockConvo".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Unlocks a group convo so it is able to receive new content.
+// Unlocks a group convo so it is able to receive new content.
 func ConvoUnlockConvo(ctx context.Context, c *xrpc.Client, input *ConvoUnlockConvo_Input) (*ConvoUnlockConvo_Output, error) {
 	var out ConvoUnlockConvo_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.unlockConvo", input, &out)

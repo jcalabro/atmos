@@ -617,7 +617,7 @@ type GroupAddMembers_Input struct {
 
 // GroupAddMembers calls the XRPC procedure "chat.bsky.group.addMembers".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Adds members to a group. The members are added in 'request' status, so they have to accept it. This creates convo memberships.
+// Adds members to a group. The members are added in 'request' status, so they have to accept it. This creates convo memberships.
 func GroupAddMembers(ctx context.Context, c *xrpc.Client, input *GroupAddMembers_Input) (*GroupAddMembers_Output, error) {
 	var out GroupAddMembers_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.addMembers", input, &out)

@@ -464,16 +464,17 @@ func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor s
 
 // NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
 type NotificationListNotifications_Notification struct {
-	LexiconTypeID string                       `json:"$type,omitempty"`
-	Author        ActorDefs_ProfileView        `json:"author"`
-	CID           string                       `json:"cid"`
-	IndexedAt     string                       `json:"indexedAt"`
-	IsRead        bool                         `json:"isRead"`
-	Labels        []comatproto.LabelDefs_Label `json:"labels,omitempty"`
-	Reason        string                       `json:"reason"` // The reason why this notification was delivered - e.g. your post was liked, or you received a new ...
-	ReasonSubject gt.Option[string]            `json:"reasonSubject,omitzero"`
-	Record        json.RawMessage              `json:"record"`
-	URI           string                       `json:"uri"`
+	LexiconTypeID string                                    `json:"$type,omitempty"`
+	Author        ActorDefs_ProfileView                     `json:"author"`
+	CID           string                                    `json:"cid"`
+	IndexedAt     string                                    `json:"indexedAt"`
+	IsRead        bool                                      `json:"isRead"`
+	Labels        []comatproto.LabelDefs_Label              `json:"labels,omitempty"`
+	Reason        string                                    `json:"reason"` // The reason why this notification was delivered - e.g. your post was liked, or you received a new ...
+	ReasonSubject gt.Option[string]                         `json:"reasonSubject,omitzero"`
+	Record        json.RawMessage                           `json:"record"`
+	StarterPack   gt.Option[GraphDefs_StarterPackViewBasic] `json:"starterPack,omitzero"` // The starter pack associated with this notification. Present when the notification is for a follow...
+	URI           string                                    `json:"uri"`
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -490,6 +491,7 @@ var (
 	cborKey_NotificationListNotifications_Notification_reason        = cbor.AppendTextKey(nil, "reason")
 	cborKey_NotificationListNotifications_Notification_record        = cbor.AppendTextKey(nil, "record")
 	cborKey_NotificationListNotifications_Notification_indexedAt     = cbor.AppendTextKey(nil, "indexedAt")
+	cborKey_NotificationListNotifications_Notification_starterPack   = cbor.AppendTextKey(nil, "starterPack")
 	cborKey_NotificationListNotifications_Notification_reasonSubject = cbor.AppendTextKey(nil, "reasonSubject")
 )
 
@@ -503,6 +505,9 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 		n++
 	}
 	if len(s.Labels) > 0 {
+		n++
+	}
+	if s.StarterPack.HasVal() {
 		n++
 	}
 	if s.ReasonSubject.HasVal() {
@@ -555,6 +560,20 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "indexedAt", buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_indexedAt...)
 		buf = cbor.AppendText(buf, s.IndexedAt)
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "starterPack", buf)
+		if s.StarterPack.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_starterPack...)
+			{
+				v := s.StarterPack.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "reasonSubject", buf)
 		if s.ReasonSubject.HasVal() {
 			buf = append(buf, cborKey_NotificationListNotifications_Notification_reasonSubject...)
@@ -597,6 +616,19 @@ func (s *NotificationListNotifications_Notification) AppendCBOR(buf []byte) ([]b
 		buf = cbor.AppendNull(buf)
 		buf = append(buf, cborKey_NotificationListNotifications_Notification_indexedAt...)
 		buf = cbor.AppendText(buf, s.IndexedAt)
+		if s.StarterPack.HasVal() {
+			buf = append(buf, cborKey_NotificationListNotifications_Notification_starterPack...)
+			{
+				v := s.StarterPack.Val()
+				{
+					var err error
+					buf, err = v.AppendCBOR(buf)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		if s.ReasonSubject.HasVal() {
 			buf = append(buf, cborKey_NotificationListNotifications_Notification_reasonSubject...)
 			buf = cbor.AppendText(buf, s.ReasonSubject.Val())
@@ -729,6 +761,26 @@ func (s *NotificationListNotifications_Notification) UnmarshalCBORAt(data []byte
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 11:
+			if string(data[keyStart:keyEnd]) == "starterPack" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v GraphDefs_StarterPackViewBasic
+					pos, err = v.UnmarshalCBORAt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.StarterPack = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 13:
 			if string(data[keyStart:keyEnd]) == "reasonSubject" {
 				if cbor.IsNull(data, pos) {
@@ -772,6 +824,7 @@ var (
 	jsonKey_NotificationListNotifications_Notification_reason        = []byte("\"reason\":")
 	jsonKey_NotificationListNotifications_Notification_reasonSubject = []byte("\"reasonSubject\":")
 	jsonKey_NotificationListNotifications_Notification_record        = []byte("\"record\":")
+	jsonKey_NotificationListNotifications_Notification_starterPack   = []byte("\"starterPack\":")
 	jsonKey_NotificationListNotifications_Notification_uri           = []byte("\"uri\":")
 )
 
@@ -859,6 +912,23 @@ func (s *NotificationListNotifications_Notification) AppendJSON(buf []byte) ([]b
 	buf = append(buf, jsonKey_NotificationListNotifications_Notification_record...)
 	buf = append(buf, s.Record...)
 	first = false
+	if s.StarterPack.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_NotificationListNotifications_Notification_starterPack...)
+		{
+			v := s.StarterPack.Val()
+			{
+				var err error
+				buf, err = v.AppendJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		first = false
+	}
 	if !first {
 		buf = append(buf, ',')
 	}
@@ -984,6 +1054,20 @@ func (s *NotificationListNotifications_Notification) UnmarshalJSONAt(data []byte
 					return 0, err
 				}
 				s.Record = json.RawMessage(data[start:pos])
+			}
+		case "starterPack":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v GraphDefs_StarterPackViewBasic
+				pos, err = v.UnmarshalJSONAt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.StarterPack = gt.Some(v)
 			}
 		case "uri":
 			s.URI, pos, err = cbor.ReadJSONString(data, pos)

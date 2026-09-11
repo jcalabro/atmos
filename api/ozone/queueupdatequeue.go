@@ -9,6 +9,11 @@ import (
 	"github.com/jcalabro/gt"
 )
 
+// Error name constants for QueueUpdateQueue.
+const (
+	ErrQueueUpdateQueue_InvalidRecommendedPolicies = "InvalidRecommendedPolicies" // One or more recommended policy keys do not exist in the configured policy list
+)
+
 // Precomputed JSON key tokens for QueueUpdateQueue_Output.
 var (
 	jsonKey_QueueUpdateQueue_Output_dollar_type = []byte("\"$type\":")
@@ -225,11 +230,12 @@ type QueueUpdateQueue_Output struct {
 
 // Precomputed JSON key tokens for QueueUpdateQueue_Input.
 var (
-	jsonKey_QueueUpdateQueue_Input_dollar_type = []byte("\"$type\":")
-	jsonKey_QueueUpdateQueue_Input_description = []byte("\"description\":")
-	jsonKey_QueueUpdateQueue_Input_enabled     = []byte("\"enabled\":")
-	jsonKey_QueueUpdateQueue_Input_name        = []byte("\"name\":")
-	jsonKey_QueueUpdateQueue_Input_queueId     = []byte("\"queueId\":")
+	jsonKey_QueueUpdateQueue_Input_dollar_type         = []byte("\"$type\":")
+	jsonKey_QueueUpdateQueue_Input_description         = []byte("\"description\":")
+	jsonKey_QueueUpdateQueue_Input_enabled             = []byte("\"enabled\":")
+	jsonKey_QueueUpdateQueue_Input_name                = []byte("\"name\":")
+	jsonKey_QueueUpdateQueue_Input_queueId             = []byte("\"queueId\":")
+	jsonKey_QueueUpdateQueue_Input_recommendedPolicies = []byte("\"recommendedPolicies\":")
 )
 
 func (s *QueueUpdateQueue_Input) MarshalJSON() ([]byte, error) {
@@ -277,6 +283,21 @@ func (s *QueueUpdateQueue_Input) AppendJSON(buf []byte) ([]byte, error) {
 	buf = append(buf, jsonKey_QueueUpdateQueue_Input_queueId...)
 	buf = cbor.AppendJSONInt(buf, s.QueueId)
 	first = false
+	if len(s.RecommendedPolicies) > 0 {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_QueueUpdateQueue_Input_recommendedPolicies...)
+		buf = append(buf, '[')
+		for i, item := range s.RecommendedPolicies {
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = cbor.AppendJSONString(buf, item)
+		}
+		buf = append(buf, ']')
+		first = false
+	}
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
 			continue
@@ -369,6 +390,33 @@ func (s *QueueUpdateQueue_Input) UnmarshalJSONAt(data []byte, pos int) (int, err
 			if err != nil {
 				return 0, err
 			}
+		case "recommendedPolicies":
+			if !cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.ReadJSONArrayStart(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.RecommendedPolicies = nil
+				for {
+					var done bool
+					pos, done = cbor.ReadJSONArrayEnd(data, pos)
+					if done {
+						break
+					}
+					var elem string
+					elem, pos, err = cbor.ReadJSONString(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.RecommendedPolicies = append(s.RecommendedPolicies, elem)
+					pos = cbor.SkipJSONComma(data, pos)
+				}
+			} else {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipJSONValue(data, pos)
@@ -383,11 +431,12 @@ func (s *QueueUpdateQueue_Input) UnmarshalJSONAt(data []byte, pos int) (int, err
 
 // Precomputed CBOR key tokens for QueueUpdateQueue_Input.
 var (
-	cborKey_QueueUpdateQueue_Input_name        = cbor.AppendTextKey(nil, "name")
-	cborKey_QueueUpdateQueue_Input_dollar_type = cbor.AppendTextKey(nil, "$type")
-	cborKey_QueueUpdateQueue_Input_enabled     = cbor.AppendTextKey(nil, "enabled")
-	cborKey_QueueUpdateQueue_Input_queueId     = cbor.AppendTextKey(nil, "queueId")
-	cborKey_QueueUpdateQueue_Input_description = cbor.AppendTextKey(nil, "description")
+	cborKey_QueueUpdateQueue_Input_name                = cbor.AppendTextKey(nil, "name")
+	cborKey_QueueUpdateQueue_Input_dollar_type         = cbor.AppendTextKey(nil, "$type")
+	cborKey_QueueUpdateQueue_Input_enabled             = cbor.AppendTextKey(nil, "enabled")
+	cborKey_QueueUpdateQueue_Input_queueId             = cbor.AppendTextKey(nil, "queueId")
+	cborKey_QueueUpdateQueue_Input_description         = cbor.AppendTextKey(nil, "description")
+	cborKey_QueueUpdateQueue_Input_recommendedPolicies = cbor.AppendTextKey(nil, "recommendedPolicies")
 )
 
 func (s *QueueUpdateQueue_Input) MarshalCBOR() ([]byte, error) {
@@ -406,6 +455,9 @@ func (s *QueueUpdateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Description.HasVal() {
+		n++
+	}
+	if len(s.RecommendedPolicies) > 0 {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -434,6 +486,14 @@ func (s *QueueUpdateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_QueueUpdateQueue_Input_description...)
 			buf = cbor.AppendText(buf, s.Description.Val())
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "recommendedPolicies", buf)
+		if len(s.RecommendedPolicies) > 0 {
+			buf = append(buf, cborKey_QueueUpdateQueue_Input_recommendedPolicies...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RecommendedPolicies)))
+			for _, item := range s.RecommendedPolicies {
+				buf = cbor.AppendText(buf, item)
+			}
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		if s.Name.HasVal() {
@@ -453,6 +513,13 @@ func (s *QueueUpdateQueue_Input) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.Description.HasVal() {
 			buf = append(buf, cborKey_QueueUpdateQueue_Input_description...)
 			buf = cbor.AppendText(buf, s.Description.Val())
+		}
+		if len(s.RecommendedPolicies) > 0 {
+			buf = append(buf, cborKey_QueueUpdateQueue_Input_recommendedPolicies...)
+			buf = cbor.AppendArrayHeader(buf, uint64(len(s.RecommendedPolicies)))
+			for _, item := range s.RecommendedPolicies {
+				buf = cbor.AppendText(buf, item)
+			}
 		}
 	}
 	return buf, nil
@@ -567,6 +634,33 @@ func (s *QueueUpdateQueue_Input) UnmarshalCBORAt(data []byte, pos int) (int, err
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 19:
+			if string(data[keyStart:keyEnd]) == "recommendedPolicies" {
+				{
+					arrLen, newPos, err := cbor.ReadArrayHeader(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					if err := cbor.CheckArrayLen(arrLen, data, newPos); err != nil {
+						return 0, err
+					}
+					pos = newPos
+					s.RecommendedPolicies = make([]string, arrLen)
+					for idx := range arrLen {
+						s.RecommendedPolicies[idx], pos, err = cbor.ReadText(data, pos)
+						if err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -580,11 +674,12 @@ func (s *QueueUpdateQueue_Input) UnmarshalCBORAt(data []byte, pos int) (int, err
 }
 
 type QueueUpdateQueue_Input struct {
-	LexiconTypeID string            `json:"$type,omitempty"`
-	Description   gt.Option[string] `json:"description,omitzero"` // Optional description of the queue
-	Enabled       gt.Option[bool]   `json:"enabled,omitzero"`     // Enable or disable the queue
-	Name          gt.Option[string] `json:"name,omitzero"`        // New display name for the queue
-	QueueId       int64             `json:"queueId"`              // ID of the queue to update
+	LexiconTypeID       string            `json:"$type,omitempty"`
+	Description         gt.Option[string] `json:"description,omitzero"`          // Optional description of the queue
+	Enabled             gt.Option[bool]   `json:"enabled,omitzero"`              // Enable or disable the queue
+	Name                gt.Option[string] `json:"name,omitzero"`                 // New display name for the queue
+	QueueId             int64             `json:"queueId"`                       // ID of the queue to update
+	RecommendedPolicies []string          `json:"recommendedPolicies,omitempty"` // Policy keys to recommend when actioning reports in this queue
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -592,7 +687,7 @@ type QueueUpdateQueue_Input struct {
 
 // QueueUpdateQueue calls the XRPC procedure "tools.ozone.queue.updateQueue".
 //
-// Update queue properties. Currently only supports updating the name and enabled status to prevent configuration conflicts.
+// Update queue properties.
 func QueueUpdateQueue(ctx context.Context, c *xrpc.Client, input *QueueUpdateQueue_Input) (*QueueUpdateQueue_Output, error) {
 	var out QueueUpdateQueue_Output
 	return &out, c.Procedure(ctx, "tools.ozone.queue.updateQueue", input, &out)

@@ -11,6 +11,7 @@ import (
 // Error name constants for ConvoLeaveConvo.
 const (
 	ErrConvoLeaveConvo_InvalidConvo     = "InvalidConvo"
+	ErrConvoLeaveConvo_AlreadyLeftConvo = "AlreadyLeftConvo" // The user has already left the conversation and is not back in (a direct conversation can be resta...
 	ErrConvoLeaveConvo_OwnerCannotLeave = "OwnerCannotLeave" // The owner of a group conversation cannot leave before locking the group.
 )
 

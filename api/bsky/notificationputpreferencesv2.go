@@ -1442,7 +1442,7 @@ func (s *NotificationPutPreferencesV2_Input) UnmarshalCBORAt(data []byte, pos in
 
 type NotificationPutPreferencesV2_Input struct {
 	LexiconTypeID     string                                           `json:"$type,omitempty"`
-	Chat              gt.Option[NotificationDefs_ChatPreference]       `json:"chat,omitzero"`
+	Chat              gt.Option[NotificationDefs_ChatPreference]       `json:"chat,omitzero"` // Deprecated: use chat.bsky.notification preferences instead. Setting this won't stick and the defa...
 	Follow            gt.Option[NotificationDefs_FilterablePreference] `json:"follow,omitzero"`
 	Like              gt.Option[NotificationDefs_FilterablePreference] `json:"like,omitzero"`
 	LikeViaRepost     gt.Option[NotificationDefs_FilterablePreference] `json:"likeViaRepost,omitzero"`

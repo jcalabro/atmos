@@ -339,7 +339,7 @@ type GroupListJoinRequests_Output struct {
 
 // GroupListJoinRequests calls the XRPC query "chat.bsky.group.listJoinRequests".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Lists a page of request to join a group (via join link) the user owns. Shows the data from the owner's point of view.
+// Lists a page of request to join a group (via join link) the user owns. Shows the data from the owner's point of view.
 func GroupListJoinRequests(ctx context.Context, c *xrpc.Client, convoId string, cursor string, limit int64) (*GroupListJoinRequests_Output, error) {
 	params := map[string]any{}
 	params["convoId"] = convoId

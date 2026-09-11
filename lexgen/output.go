@@ -1,10 +1,12 @@
 package lexgen
 
 import (
+	"errors"
 	"fmt"
 	"go/format"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -22,18 +24,133 @@ func formatSource(filename string, src []byte) ([]byte, error) {
 	return out, nil
 }
 
-// WriteFiles writes all generated files to disk, creating directories as needed.
+type stagedFile struct {
+	path      string
+	temporary string
+	backup    string
+	installed bool
+}
+
+// WriteFiles transactionally replaces all generated files on disk, creating
+// directories as needed. It leaves existing outputs unchanged if preparation
+// or installation fails, unless rollback itself also fails.
 func WriteFiles(files map[string][]byte) error {
-	for path, data := range files {
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	staged := make([]stagedFile, 0, len(paths))
+	for _, path := range paths {
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("mkdir %s: %w", dir, err)
+			return cleanupStaged(staged, fmt.Errorf("mkdir %s: %w", dir, err))
 		}
-		if err := os.WriteFile(path, data, 0o644); err != nil {
-			return fmt.Errorf("write %s: %w", path, err)
+
+		temp, err := os.CreateTemp(dir, ".lexgen-*")
+		if err != nil {
+			return cleanupStaged(staged, fmt.Errorf("create temporary file for %s: %w", path, err))
+		}
+		tempPath := temp.Name()
+		if _, err := temp.Write(files[path]); err != nil {
+			cause := fmt.Errorf("write temporary file for %s: %w", path, err)
+			if closeErr := temp.Close(); closeErr != nil {
+				cause = errors.Join(cause, fmt.Errorf("close temporary file for %s: %w", path, closeErr))
+			}
+			return cleanupStaged(staged, removeTemporaryFile(tempPath, cause))
+		}
+		if err := temp.Close(); err != nil {
+			return cleanupStaged(staged, removeTemporaryFile(tempPath, fmt.Errorf("close temporary file for %s: %w", path, err)))
+		}
+		if err := os.Chmod(tempPath, 0o644); err != nil {
+			return cleanupStaged(staged, removeTemporaryFile(tempPath, fmt.Errorf("set permissions on temporary file for %s: %w", path, err)))
+		}
+		staged = append(staged, stagedFile{path: path, temporary: tempPath})
+	}
+
+	for i := range staged {
+		if err := installStagedFile(&staged[i]); err != nil {
+			return rollbackStaged(staged, err)
 		}
 	}
+
+	for _, file := range staged {
+		if file.backup == "" {
+			continue
+		}
+		// The transaction is committed. Retaining a backup is preferable to
+		// falsely reporting that callers should retry over installed output.
+		_ = os.Remove(file.backup)
+	}
 	return nil
+}
+
+func installStagedFile(file *stagedFile) error {
+	if _, err := os.Lstat(file.path); err == nil {
+		backup, err := os.CreateTemp(filepath.Dir(file.path), ".lexgen-backup-*")
+		if err != nil {
+			return fmt.Errorf("create backup for %s: %w", file.path, err)
+		}
+		backupPath := backup.Name()
+		if err := backup.Close(); err != nil {
+			return removeTemporaryFile(backupPath, fmt.Errorf("close backup for %s: %w", file.path, err))
+		}
+		if err := os.Remove(backupPath); err != nil {
+			return fmt.Errorf("prepare backup for %s: %w", file.path, err)
+		}
+		if err := os.Rename(file.path, backupPath); err != nil {
+			return fmt.Errorf("back up %s: %w", file.path, err)
+		}
+		file.backup = backupPath
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", file.path, err)
+	}
+
+	if err := os.Rename(file.temporary, file.path); err != nil {
+		return fmt.Errorf("install %s: %w", file.path, err)
+	}
+	file.temporary = ""
+	file.installed = true
+	return nil
+}
+
+func removeTemporaryFile(path string, cause error) error {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return errors.Join(cause, fmt.Errorf("remove temporary file %s: %w", path, err))
+	}
+	return cause
+}
+
+func rollbackStaged(staged []stagedFile, cause error) error {
+	var rollbackErrs []error
+	for i := len(staged) - 1; i >= 0; i-- {
+		file := &staged[i]
+		if file.installed {
+			if err := os.Remove(file.path); err != nil && !os.IsNotExist(err) {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("remove installed %s: %w", file.path, err))
+			}
+		}
+		if file.backup != "" {
+			if err := os.Rename(file.backup, file.path); err != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("restore %s: %w", file.path, err))
+			}
+		}
+	}
+	return cleanupStaged(staged, errors.Join(append([]error{cause}, rollbackErrs...)...))
+}
+
+func cleanupStaged(staged []stagedFile, cause error) error {
+	var cleanupErrs []error
+	for _, file := range staged {
+		if file.temporary == "" {
+			continue
+		}
+		if err := os.Remove(file.temporary); err != nil && !os.IsNotExist(err) {
+			cleanupErrs = append(cleanupErrs, fmt.Errorf("remove temporary file for %s: %w", file.path, err))
+		}
+	}
+	return errors.Join(append([]error{cause}, cleanupErrs...)...)
 }
 
 // generateSharedTypes produces the shared types file for a package.

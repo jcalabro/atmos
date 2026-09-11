@@ -9,6 +9,12 @@ import "fmt"
 // collection is not recognized or decoding fails.
 func DecodeRecord(collection string, data []byte) (any, error) {
 	switch collection {
+	case "app.bsky.actor.contentVisibilityDeclaration":
+		var v ActorContentVisibilityDeclaration
+		if err := v.UnmarshalCBOR(data); err != nil {
+			return nil, err
+		}
+		return &v, nil
 	case "app.bsky.actor.profile":
 		var v ActorProfile
 		if err := v.UnmarshalCBOR(data); err != nil {
@@ -83,6 +89,12 @@ func DecodeRecord(collection string, data []byte) (any, error) {
 		return &v, nil
 	case "app.bsky.graph.listitem":
 		var v GraphListitem
+		if err := v.UnmarshalCBOR(data); err != nil {
+			return nil, err
+		}
+		return &v, nil
+	case "app.bsky.graph.referencelistoptout":
+		var v GraphReferencelistoptout
 		if err := v.UnmarshalCBOR(data); err != nil {
 			return nil, err
 		}

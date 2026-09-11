@@ -560,7 +560,7 @@ type GroupEditJoinLink_Input struct {
 
 // GroupEditJoinLink calls the XRPC procedure "chat.bsky.group.editJoinLink".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Edits the existing join link settings for the group convo.
+// Edits the existing join link settings for the group convo.
 func GroupEditJoinLink(ctx context.Context, c *xrpc.Client, input *GroupEditJoinLink_Input) (*GroupEditJoinLink_Output, error) {
 	var out GroupEditJoinLink_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.editJoinLink", input, &out)

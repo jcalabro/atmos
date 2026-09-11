@@ -422,6 +422,7 @@ func (s *ActorDefs_BskyAppProgressGuide) UnmarshalJSONAt(data []byte, pos int) (
 type ActorDefs_BskyAppStatePref struct {
 	LexiconTypeID       string                                    `json:"$type,omitempty"`
 	ActiveProgressGuide gt.Option[ActorDefs_BskyAppProgressGuide] `json:"activeProgressGuide,omitzero"`
+	IsBetaUser          gt.Option[bool]                           `json:"isBetaUser,omitzero"`    // Indicates if the user is participating in the beta features program.
 	Nuxs                []ActorDefs_Nux                           `json:"nuxs,omitempty"`         // Storage for NUXs the user has encountered.
 	QueuedNudges        []string                                  `json:"queuedNudges,omitempty"` // An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be s...
 
@@ -433,6 +434,7 @@ type ActorDefs_BskyAppStatePref struct {
 var (
 	cborKey_ActorDefs_BskyAppStatePref_nuxs                = cbor.AppendTextKey(nil, "nuxs")
 	cborKey_ActorDefs_BskyAppStatePref_dollar_type         = cbor.AppendTextKey(nil, "$type")
+	cborKey_ActorDefs_BskyAppStatePref_isBetaUser          = cbor.AppendTextKey(nil, "isBetaUser")
 	cborKey_ActorDefs_BskyAppStatePref_queuedNudges        = cbor.AppendTextKey(nil, "queuedNudges")
 	cborKey_ActorDefs_BskyAppStatePref_activeProgressGuide = cbor.AppendTextKey(nil, "activeProgressGuide")
 )
@@ -447,6 +449,9 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.IsBetaUser.HasVal() {
 		n++
 	}
 	if len(s.QueuedNudges) > 0 {
@@ -474,6 +479,11 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "isBetaUser", buf)
+		if s.IsBetaUser.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_isBetaUser...)
+			buf = cbor.AppendBool(buf, s.IsBetaUser.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "queuedNudges", buf)
 		if len(s.QueuedNudges) > 0 {
@@ -513,6 +523,10 @@ func (s *ActorDefs_BskyAppStatePref) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.IsBetaUser.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_isBetaUser...)
+			buf = cbor.AppendBool(buf, s.IsBetaUser.Val())
 		}
 		if len(s.QueuedNudges) > 0 {
 			buf = append(buf, cborKey_ActorDefs_BskyAppStatePref_queuedNudges...)
@@ -609,6 +623,26 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 10:
+			if string(data[keyStart:keyEnd]) == "isBetaUser" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.IsBetaUser = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 12:
 			if string(data[keyStart:keyEnd]) == "queuedNudges" {
 				{
@@ -672,6 +706,7 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalCBORAt(data []byte, pos int) (int,
 var (
 	jsonKey_ActorDefs_BskyAppStatePref_dollar_type         = []byte("\"$type\":")
 	jsonKey_ActorDefs_BskyAppStatePref_activeProgressGuide = []byte("\"activeProgressGuide\":")
+	jsonKey_ActorDefs_BskyAppStatePref_isBetaUser          = []byte("\"isBetaUser\":")
 	jsonKey_ActorDefs_BskyAppStatePref_nuxs                = []byte("\"nuxs\":")
 	jsonKey_ActorDefs_BskyAppStatePref_queuedNudges        = []byte("\"queuedNudges\":")
 )
@@ -706,6 +741,14 @@ func (s *ActorDefs_BskyAppStatePref) AppendJSON(buf []byte) ([]byte, error) {
 				}
 			}
 		}
+		first = false
+	}
+	if s.IsBetaUser.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_BskyAppStatePref_isBetaUser...)
+		buf = cbor.AppendJSONBool(buf, s.IsBetaUser.Val())
 		first = false
 	}
 	if len(s.Nuxs) > 0 {
@@ -800,6 +843,20 @@ func (s *ActorDefs_BskyAppStatePref) UnmarshalJSONAt(data []byte, pos int) (int,
 					return 0, err
 				}
 				s.ActiveProgressGuide = gt.Some(v)
+			}
+		case "isBetaUser":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.IsBetaUser = gt.Some(v)
 			}
 		case "nuxs":
 			if !cbor.IsJSONNull(data, pos) {
@@ -2202,8 +2259,9 @@ func (s *ActorDefs_HiddenPostsPref) UnmarshalJSONAt(data []byte, pos int) (int, 
 
 // ActorDefs_InterestsPref is a "interestsPref" in the app.bsky.actor.defs schema.
 type ActorDefs_InterestsPref struct {
-	LexiconTypeID string   `json:"$type,omitempty"`
-	Tags          []string `json:"tags"` // A list of tags which describe the account owner's interests gathered during onboarding.
+	LexiconTypeID string            `json:"$type,omitempty"`
+	Tags          []string          `json:"tags"`               // A list of tags which describe the account owner's interests gathered during onboarding.
+	UpdatedAt     gt.Option[string] `json:"updatedAt,omitzero"` // The timestamp when the account owner last updated their interests.
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -2213,6 +2271,7 @@ type ActorDefs_InterestsPref struct {
 var (
 	cborKey_ActorDefs_InterestsPref_tags        = cbor.AppendTextKey(nil, "tags")
 	cborKey_ActorDefs_InterestsPref_dollar_type = cbor.AppendTextKey(nil, "$type")
+	cborKey_ActorDefs_InterestsPref_updatedAt   = cbor.AppendTextKey(nil, "updatedAt")
 )
 
 func (s *ActorDefs_InterestsPref) MarshalCBOR() ([]byte, error) {
@@ -2222,6 +2281,9 @@ func (s *ActorDefs_InterestsPref) MarshalCBOR() ([]byte, error) {
 func (s *ActorDefs_InterestsPref) AppendCBOR(buf []byte) ([]byte, error) {
 	n := 1 + countExtra(s.extra, extraEncodingCBOR)
 	if s.LexiconTypeID != "" {
+		n++
+	}
+	if s.UpdatedAt.HasVal() {
 		n++
 	}
 	buf = cbor.AppendMapHeader(buf, uint64(n))
@@ -2238,6 +2300,11 @@ func (s *ActorDefs_InterestsPref) AppendCBOR(buf []byte) ([]byte, error) {
 			buf = append(buf, cborKey_ActorDefs_InterestsPref_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "updatedAt", buf)
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_InterestsPref_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
+		}
 		_, buf = appendCBORExtrasBefore(s.extra, ei, "", buf)
 	} else {
 		buf = append(buf, cborKey_ActorDefs_InterestsPref_tags...)
@@ -2248,6 +2315,10 @@ func (s *ActorDefs_InterestsPref) AppendCBOR(buf []byte) ([]byte, error) {
 		if s.LexiconTypeID != "" {
 			buf = append(buf, cborKey_ActorDefs_InterestsPref_dollar_type...)
 			buf = cbor.AppendText(buf, s.LexiconTypeID)
+		}
+		if s.UpdatedAt.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_InterestsPref_updatedAt...)
+			buf = cbor.AppendText(buf, s.UpdatedAt.Val())
 		}
 	}
 	return buf, nil
@@ -2324,6 +2395,26 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, er
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 9:
+			if string(data[keyStart:keyEnd]) == "updatedAt" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v string
+					v, pos, err = cbor.ReadText(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.UpdatedAt = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		default:
 			valueStart := pos
 			pos, err = cbor.SkipValue(data, pos)
@@ -2340,6 +2431,7 @@ func (s *ActorDefs_InterestsPref) UnmarshalCBORAt(data []byte, pos int) (int, er
 var (
 	jsonKey_ActorDefs_InterestsPref_dollar_type = []byte("\"$type\":")
 	jsonKey_ActorDefs_InterestsPref_tags        = []byte("\"tags\":")
+	jsonKey_ActorDefs_InterestsPref_updatedAt   = []byte("\"updatedAt\":")
 )
 
 func (s *ActorDefs_InterestsPref) MarshalJSON() ([]byte, error) {
@@ -2370,6 +2462,14 @@ func (s *ActorDefs_InterestsPref) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	if s.UpdatedAt.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_InterestsPref_updatedAt...)
+		buf = cbor.AppendJSONString(buf, s.UpdatedAt.Val())
+		first = false
+	}
 	for _, ef := range s.extra {
 		if ef.Encoding != extraEncodingJSON {
 			continue
@@ -2441,6 +2541,20 @@ func (s *ActorDefs_InterestsPref) UnmarshalJSONAt(data []byte, pos int) (int, er
 				if err != nil {
 					return 0, err
 				}
+			}
+		case "updatedAt":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v string
+				v, pos, err = cbor.ReadJSONString(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.UpdatedAt = gt.Some(v)
 			}
 		default:
 			valueStart := pos
@@ -13613,8 +13727,10 @@ type ActorDefs_ViewerState struct {
 	FollowedBy           gt.Option[string]                                `json:"followedBy,omitzero"`
 	Following            gt.Option[string]                                `json:"following,omitzero"`
 	KnownFollowers       gt.Option[ActorDefs_KnownFollowers]              `json:"knownFollowers,omitzero"` // This property is present only in selected cases, as an optimization.
-	Muted                gt.Option[bool]                                  `json:"muted,omitzero"`
+	Muted                gt.Option[bool]                                  `json:"muted,omitzero"`          // Whether the account is fully muted, directly or via a mutelist. False when the mute is scoped to ...
 	MutedByList          gt.Option[GraphDefs_ListViewBasic]               `json:"mutedByList,omitzero"`
+	MutedOnlyQuoteposts  gt.Option[bool]                                  `json:"mutedOnlyQuoteposts,omitzero"` // Whether the account's quote posts are muted. Scoped mutes are exclusive with muted: this can be t...
+	MutedOnlyReposts     gt.Option[bool]                                  `json:"mutedOnlyReposts,omitzero"`    // Whether the account's reposts are muted. Scoped mutes are exclusive with muted: this can be true ...
 
 	// extra preserves unknown fields for same-format round-trips.
 	extra []extraField
@@ -13631,6 +13747,8 @@ var (
 	cborKey_ActorDefs_ViewerState_mutedByList          = cbor.AppendTextKey(nil, "mutedByList")
 	cborKey_ActorDefs_ViewerState_blockingByList       = cbor.AppendTextKey(nil, "blockingByList")
 	cborKey_ActorDefs_ViewerState_knownFollowers       = cbor.AppendTextKey(nil, "knownFollowers")
+	cborKey_ActorDefs_ViewerState_mutedOnlyReposts     = cbor.AppendTextKey(nil, "mutedOnlyReposts")
+	cborKey_ActorDefs_ViewerState_mutedOnlyQuoteposts  = cbor.AppendTextKey(nil, "mutedOnlyQuoteposts")
 	cborKey_ActorDefs_ViewerState_activitySubscription = cbor.AppendTextKey(nil, "activitySubscription")
 )
 
@@ -13665,6 +13783,12 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.KnownFollowers.HasVal() {
+		n++
+	}
+	if s.MutedOnlyReposts.HasVal() {
+		n++
+	}
+	if s.MutedOnlyQuoteposts.HasVal() {
 		n++
 	}
 	if s.ActivitySubscription.HasVal() {
@@ -13745,6 +13869,16 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 				}
 			}
 		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "mutedOnlyReposts", buf)
+		if s.MutedOnlyReposts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_mutedOnlyReposts...)
+			buf = cbor.AppendBool(buf, s.MutedOnlyReposts.Val())
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "mutedOnlyQuoteposts", buf)
+		if s.MutedOnlyQuoteposts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_mutedOnlyQuoteposts...)
+			buf = cbor.AppendBool(buf, s.MutedOnlyQuoteposts.Val())
+		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "activitySubscription", buf)
 		if s.ActivitySubscription.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ViewerState_activitySubscription...)
@@ -13823,6 +13957,14 @@ func (s *ActorDefs_ViewerState) AppendCBOR(buf []byte) ([]byte, error) {
 					}
 				}
 			}
+		}
+		if s.MutedOnlyReposts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_mutedOnlyReposts...)
+			buf = cbor.AppendBool(buf, s.MutedOnlyReposts.Val())
+		}
+		if s.MutedOnlyQuoteposts.HasVal() {
+			buf = append(buf, cborKey_ActorDefs_ViewerState_mutedOnlyQuoteposts...)
+			buf = cbor.AppendBool(buf, s.MutedOnlyQuoteposts.Val())
 		}
 		if s.ActivitySubscription.HasVal() {
 			buf = append(buf, cborKey_ActorDefs_ViewerState_activitySubscription...)
@@ -14018,6 +14160,46 @@ func (s *ActorDefs_ViewerState) UnmarshalCBORAt(data []byte, pos int) (int, erro
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 16:
+			if string(data[keyStart:keyEnd]) == "mutedOnlyReposts" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.MutedOnlyReposts = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
+		case 19:
+			if string(data[keyStart:keyEnd]) == "mutedOnlyQuoteposts" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v bool
+					v, pos, err = cbor.ReadBool(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.MutedOnlyQuoteposts = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 20:
 			if string(data[keyStart:keyEnd]) == "activitySubscription" {
 				if cbor.IsNull(data, pos) {
@@ -14062,6 +14244,8 @@ var (
 	jsonKey_ActorDefs_ViewerState_knownFollowers       = []byte("\"knownFollowers\":")
 	jsonKey_ActorDefs_ViewerState_muted                = []byte("\"muted\":")
 	jsonKey_ActorDefs_ViewerState_mutedByList          = []byte("\"mutedByList\":")
+	jsonKey_ActorDefs_ViewerState_mutedOnlyQuoteposts  = []byte("\"mutedOnlyQuoteposts\":")
+	jsonKey_ActorDefs_ViewerState_mutedOnlyReposts     = []byte("\"mutedOnlyReposts\":")
 )
 
 func (s *ActorDefs_ViewerState) MarshalJSON() ([]byte, error) {
@@ -14185,6 +14369,22 @@ func (s *ActorDefs_ViewerState) AppendJSON(buf []byte) ([]byte, error) {
 				}
 			}
 		}
+		first = false
+	}
+	if s.MutedOnlyQuoteposts.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_ViewerState_mutedOnlyQuoteposts...)
+		buf = cbor.AppendJSONBool(buf, s.MutedOnlyQuoteposts.Val())
+		first = false
+	}
+	if s.MutedOnlyReposts.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ActorDefs_ViewerState_mutedOnlyReposts...)
+		buf = cbor.AppendJSONBool(buf, s.MutedOnlyReposts.Val())
 		first = false
 	}
 	for _, ef := range s.extra {
@@ -14357,6 +14557,34 @@ func (s *ActorDefs_ViewerState) UnmarshalJSONAt(data []byte, pos int) (int, erro
 					return 0, err
 				}
 				s.MutedByList = gt.Some(v)
+			}
+		case "mutedOnlyQuoteposts":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.MutedOnlyQuoteposts = gt.Some(v)
+			}
+		case "mutedOnlyReposts":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v bool
+				v, pos, err = cbor.ReadJSONBool(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.MutedOnlyReposts = gt.Some(v)
 			}
 		default:
 			valueStart := pos

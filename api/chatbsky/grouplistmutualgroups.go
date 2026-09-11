@@ -324,7 +324,7 @@ type GroupListMutualGroups_Output struct {
 
 // GroupListMutualGroups calls the XRPC query "chat.bsky.group.listMutualGroups".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Returns a page of group conversations that both the requester and the specified actor are members of.
+// Returns a page of group conversations that both the requester and the specified actor are members of.
 func GroupListMutualGroups(ctx context.Context, c *xrpc.Client, cursor string, limit int64, subject string) (*GroupListMutualGroups_Output, error) {
 	params := map[string]any{}
 	if cursor != "" {

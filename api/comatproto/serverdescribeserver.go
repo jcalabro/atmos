@@ -521,6 +521,7 @@ func (s *ServerDescribeServer_Links) UnmarshalJSONAt(data []byte, pos int) (int,
 var (
 	jsonKey_ServerDescribeServer_Output_dollar_type               = []byte("\"$type\":")
 	jsonKey_ServerDescribeServer_Output_availableUserDomains      = []byte("\"availableUserDomains\":")
+	jsonKey_ServerDescribeServer_Output_blobUploadLimit           = []byte("\"blobUploadLimit\":")
 	jsonKey_ServerDescribeServer_Output_contact                   = []byte("\"contact\":")
 	jsonKey_ServerDescribeServer_Output_did                       = []byte("\"did\":")
 	jsonKey_ServerDescribeServer_Output_inviteCodeRequired        = []byte("\"inviteCodeRequired\":")
@@ -556,6 +557,14 @@ func (s *ServerDescribeServer_Output) AppendJSON(buf []byte) ([]byte, error) {
 	}
 	buf = append(buf, ']')
 	first = false
+	if s.BlobUploadLimit.HasVal() {
+		if !first {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, jsonKey_ServerDescribeServer_Output_blobUploadLimit...)
+		buf = cbor.AppendJSONInt(buf, s.BlobUploadLimit.Val())
+		first = false
+	}
 	if s.Contact.HasVal() {
 		if !first {
 			buf = append(buf, ',')
@@ -684,6 +693,20 @@ func (s *ServerDescribeServer_Output) UnmarshalJSONAt(data []byte, pos int) (int
 					return 0, err
 				}
 			}
+		case "blobUploadLimit":
+			if cbor.IsJSONNull(data, pos) {
+				pos, err = cbor.SkipJSONNull(data, pos)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				var v int64
+				v, pos, err = cbor.ReadJSONInt(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.BlobUploadLimit = gt.Some(v)
+			}
 		case "contact":
 			if cbor.IsJSONNull(data, pos) {
 				pos, err = cbor.SkipJSONNull(data, pos)
@@ -763,6 +786,7 @@ var (
 	cborKey_ServerDescribeServer_Output_dollar_type               = cbor.AppendTextKey(nil, "$type")
 	cborKey_ServerDescribeServer_Output_links                     = cbor.AppendTextKey(nil, "links")
 	cborKey_ServerDescribeServer_Output_contact                   = cbor.AppendTextKey(nil, "contact")
+	cborKey_ServerDescribeServer_Output_blobUploadLimit           = cbor.AppendTextKey(nil, "blobUploadLimit")
 	cborKey_ServerDescribeServer_Output_inviteCodeRequired        = cbor.AppendTextKey(nil, "inviteCodeRequired")
 	cborKey_ServerDescribeServer_Output_availableUserDomains      = cbor.AppendTextKey(nil, "availableUserDomains")
 	cborKey_ServerDescribeServer_Output_phoneVerificationRequired = cbor.AppendTextKey(nil, "phoneVerificationRequired")
@@ -781,6 +805,9 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 		n++
 	}
 	if s.Contact.HasVal() {
+		n++
+	}
+	if s.BlobUploadLimit.HasVal() {
 		n++
 	}
 	if s.InviteCodeRequired.HasVal() {
@@ -827,6 +854,11 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 					}
 				}
 			}
+		}
+		ei, buf = appendCBORExtrasBefore(s.extra, ei, "blobUploadLimit", buf)
+		if s.BlobUploadLimit.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_blobUploadLimit...)
+			buf = cbor.AppendInt(buf, s.BlobUploadLimit.Val())
 		}
 		ei, buf = appendCBORExtrasBefore(s.extra, ei, "inviteCodeRequired", buf)
 		if s.InviteCodeRequired.HasVal() {
@@ -877,6 +909,10 @@ func (s *ServerDescribeServer_Output) AppendCBOR(buf []byte) ([]byte, error) {
 					}
 				}
 			}
+		}
+		if s.BlobUploadLimit.HasVal() {
+			buf = append(buf, cborKey_ServerDescribeServer_Output_blobUploadLimit...)
+			buf = cbor.AppendInt(buf, s.BlobUploadLimit.Val())
 		}
 		if s.InviteCodeRequired.HasVal() {
 			buf = append(buf, cborKey_ServerDescribeServer_Output_inviteCodeRequired...)
@@ -984,6 +1020,26 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 				}
 				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
 			}
+		case 15:
+			if string(data[keyStart:keyEnd]) == "blobUploadLimit" {
+				if cbor.IsNull(data, pos) {
+					pos++
+				} else {
+					var v int64
+					v, pos, err = cbor.ReadInt(data, pos)
+					if err != nil {
+						return 0, err
+					}
+					s.BlobUploadLimit = gt.Some(v)
+				}
+			} else {
+				valueStart := pos
+				pos, err = cbor.SkipValue(data, pos)
+				if err != nil {
+					return 0, err
+				}
+				s.extra = append(s.extra, extraField{Key: string(data[keyStart:keyEnd]), Value: append([]byte(nil), data[valueStart:pos]...), Encoding: extraEncodingCBOR})
+			}
 		case 18:
 			if string(data[keyStart:keyEnd]) == "inviteCodeRequired" {
 				if cbor.IsNull(data, pos) {
@@ -1065,8 +1121,9 @@ func (s *ServerDescribeServer_Output) UnmarshalCBORAt(data []byte, pos int) (int
 
 type ServerDescribeServer_Output struct {
 	LexiconTypeID             string                                  `json:"$type,omitempty"`
-	AvailableUserDomains      []string                                `json:"availableUserDomains"` // List of domain suffixes that can be used in account handles.
-	Contact                   gt.Option[ServerDescribeServer_Contact] `json:"contact,omitzero"`     // Contact information
+	AvailableUserDomains      []string                                `json:"availableUserDomains"`     // List of domain suffixes that can be used in account handles.
+	BlobUploadLimit           gt.Option[int64]                        `json:"blobUploadLimit,omitzero"` // Maximum size of a blob that can be uploaded via com.atproto.repo.uploadBlob, in bytes.
+	Contact                   gt.Option[ServerDescribeServer_Contact] `json:"contact,omitzero"`         // Contact information
 	DID                       string                                  `json:"did"`
 	InviteCodeRequired        gt.Option[bool]                         `json:"inviteCodeRequired,omitzero"`        // If true, an invite code must be supplied to create an account on this instance.
 	Links                     gt.Option[ServerDescribeServer_Links]   `json:"links,omitzero"`                     // URLs of service policy documents.

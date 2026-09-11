@@ -392,7 +392,7 @@ type GroupWithdrawJoinRequest_Input struct {
 
 // GroupWithdrawJoinRequest calls the XRPC procedure "chat.bsky.group.withdrawJoinRequest".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Withdraws a pending request to join a group. Action taken by the prospective member who originally requested to join.
+// Withdraws a pending request to join a group. Action taken by the prospective member who originally requested to join.
 func GroupWithdrawJoinRequest(ctx context.Context, c *xrpc.Client, input *GroupWithdrawJoinRequest_Input) (*GroupWithdrawJoinRequest_Output, error) {
 	var out GroupWithdrawJoinRequest_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.withdrawJoinRequest", input, &out)

@@ -32,8 +32,9 @@ test-long *ARGS="./...":
 test-race *ARGS="./...":
     just test-long -race {{ARGS}}
 
-# Regenerates all API types from vendored lexicon schemas
+# Regenerates all API types from the cached lexicon schemas
 lexgen:
+    test -d lexicons || { echo "lexicon cache is absent; run just update-lexicons" >&2; exit 1; }
     go run ./cmd/lexgen -lexdir lexicons -config lexgen.json
 
 # Runs benchmarks
@@ -63,10 +64,10 @@ fuzz DURATION="10s" *ARGS="./...":
         done
     done
 
-# Pulls and builds the latest lexicons from the atproto repo (assuming well-structured GOPATH)
+# Fetches, vendors, and generates from the latest upstream lexicons.
+#
+# `lexgen.lock` records the immutable upstream commits used to
+# generate the checked-in API. The bsky repository is authoritative for the
+# app.bsky and chat.bsky namespaces; atproto supplies every other namespace.
 update-lexicons:
-    #!/usr/bin/env bash
-
-    rm -rf lexicons/*
-    cp -r ../../bluesky-social/atproto/lexicons/* lexicons
-    just lexgen
+    ./scripts/update-lexicons.sh

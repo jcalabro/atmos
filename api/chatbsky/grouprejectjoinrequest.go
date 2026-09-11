@@ -426,7 +426,7 @@ type GroupRejectJoinRequest_Input struct {
 
 // GroupRejectJoinRequest calls the XRPC procedure "chat.bsky.group.rejectJoinRequest".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Rejects a request to join a group (via join link) the user owns. Action taken by the group owner.
+// Rejects a request to join a group (via join link) the user owns. Action taken by the group owner.
 func GroupRejectJoinRequest(ctx context.Context, c *xrpc.Client, input *GroupRejectJoinRequest_Input) (*GroupRejectJoinRequest_Output, error) {
 	var out GroupRejectJoinRequest_Output
 	return &out, c.Procedure(ctx, "chat.bsky.group.rejectJoinRequest", input, &out)

@@ -436,7 +436,7 @@ type ConvoLockConvo_Input struct {
 
 // ConvoLockConvo calls the XRPC procedure "chat.bsky.convo.lockConvo".
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Locks a group convo so no more content (messages, reactions) can be added to it.
+// Locks a group convo so no more content (messages, reactions) can be added to it.
 func ConvoLockConvo(ctx context.Context, c *xrpc.Client, input *ConvoLockConvo_Input) (*ConvoLockConvo_Output, error) {
 	var out ConvoLockConvo_Output
 	return &out, c.Procedure(ctx, "chat.bsky.convo.lockConvo", input, &out)
