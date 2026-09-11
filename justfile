@@ -35,7 +35,12 @@ test-race *ARGS="./...":
 # Regenerates all API types from the cached lexicon schemas
 lexgen:
     test -d lexicons || { echo "lexicon cache is absent; run just update-lexicons" >&2; exit 1; }
-    go run ./cmd/lexgen -lexdir lexicons -config lexgen.json
+    test -d lexicons-space || { echo "space lexicon overlay is absent" >&2; exit 1; }
+    go run ./cmd/lexgen -lexdir lexicons -lexdir lexicons-space -config lexgen.json
+
+# Hydrates the ignored main lexicon cache from immutable lock-file commits
+hydrate-lexicons:
+    ./scripts/hydrate-lexicons.sh
 
 # Runs benchmarks
 bench *ARGS="./...":
@@ -49,7 +54,7 @@ wasm:
 
 # Runs tests under GOOS=js/wasm via Node (closest to in-browser WASM)
 test-wasm:
-    PATH="$PATH:$(go env GOROOT)/lib/wasm" GOOS=js GOARCH=wasm just test
+    env -i HOME="$HOME" PATH="$PATH:$(go env GOROOT)/lib/wasm" GOOS=js GOARCH=wasm just test
 
 # Runs fuzz tests for the given duration (default 10s per target)
 fuzz DURATION="10s" *ARGS="./...":
@@ -71,3 +76,7 @@ fuzz DURATION="10s" *ARGS="./...":
 # app.bsky and chat.bsky namespaces; atproto supplies every other namespace.
 update-lexicons:
     ./scripts/update-lexicons.sh
+
+# Updates the checked-in spaces overlay to an explicit immutable atproto commit
+update-space-lexicons SHA:
+    ./scripts/update-space-lexicons.sh {{SHA}}

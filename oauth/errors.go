@@ -37,6 +37,10 @@ var (
 
 	// ErrUseDPoPNonce is the error code returned by servers requiring a DPoP nonce.
 	ErrUseDPoPNonce = errors.New("oauth: use_dpop_nonce")
+
+	// ErrNonReplayableRequest is returned when nonce negotiation or token
+	// refresh requires retrying a request whose body cannot be recreated.
+	ErrNonReplayableRequest = errors.New("oauth: request body is not replayable")
 )
 
 // OAuthError represents an error response from an OAuth endpoint.

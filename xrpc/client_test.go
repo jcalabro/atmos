@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -52,6 +54,38 @@ func TestQuery_Success(t *testing.T) {
 	}, &out)
 	require.NoError(t, err)
 	assert.Equal(t, "data", out["feed"])
+}
+
+func TestQuery_MalformedSuccessPreservesStatus(t *testing.T) {
+	t.Parallel()
+	_, c := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write([]byte("{"))
+	})
+
+	var out map[string]any
+	err := c.Query(context.Background(), "test.method", nil, &out)
+	var decodeErr *ResponseDecodeError
+	require.ErrorAs(t, err, &decodeErr)
+	require.Equal(t, http.StatusPartialContent, decodeErr.StatusCode)
+	var syntaxErr *json.SyntaxError
+	require.ErrorAs(t, err, &syntaxErr)
+}
+
+func TestProcedure_MalformedSuccessIsAmbiguous(t *testing.T) {
+	t.Parallel()
+	_, c := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("{"))
+	})
+
+	var out map[string]any
+	err := c.Procedure(context.Background(), "test.method", map[string]bool{"write": true}, &out)
+	var ambiguous *AmbiguousResultError
+	require.ErrorAs(t, err, &ambiguous)
+	var decodeErr *ResponseDecodeError
+	require.ErrorAs(t, err, &decodeErr)
+	require.Equal(t, http.StatusOK, decodeErr.StatusCode)
 }
 
 func TestQuery_NoParams(t *testing.T) {
@@ -113,6 +147,13 @@ func TestProcedure_MarshalError(t *testing.T) {
 	err := c.Procedure(context.Background(), "test.method", make(chan int), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "marshal request body")
+}
+
+func TestDoRejectsUnsupportedMethod(t *testing.T) {
+	t.Parallel()
+	c := &Client{Host: "https://example.com", Retry: gt.Some(noRetry())}
+	err := c.Do(context.Background(), "post", "test.method", "", nil, nil, nil)
+	require.ErrorContains(t, err, "unsupported method")
 }
 
 func TestQuery_AuthHeader(t *testing.T) {
@@ -222,9 +263,40 @@ func TestQuery_ResponseBodyLimit(t *testing.T) {
 
 	var out map[string]string
 	err := c.Query(context.Background(), "test.method", nil, &out)
-	// Should fail to decode because body was truncated at 5MB.
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode response")
+	var tooLarge *ResponseTooLargeError
+	require.ErrorAs(t, err, &tooLarge)
+	assert.Equal(t, int64(maxResponseBody), tooLarge.Limit)
+}
+
+func TestQuery_DeterministicOversizeNotRetried(t *testing.T) {
+	t.Parallel()
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Length", strconv.FormatInt(maxResponseBody+1, 10))
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{
+		Host:       srv.URL,
+		HTTPClient: gt.Some(srv.Client()),
+		Retry: gt.Some(RetryPolicy{
+			MaxAttempts: gt.Some(3),
+			BaseDelay:   gt.Some(time.Millisecond),
+			MaxDelay:    gt.Some(time.Millisecond),
+			Jitter:      gt.Some(0.0),
+		}),
+	}
+
+	err := c.Query(context.Background(), "test.method", nil, nil)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusOK, readErr.StatusCode)
+	var tooLarge *ResponseTooLargeError
+	require.ErrorAs(t, err, &tooLarge)
+	require.Equal(t, int64(maxResponseBody+1), tooLarge.ContentLength)
+	require.Equal(t, int32(1), attempts.Load())
 }
 
 func TestQuery_NetworkErrorRetried(t *testing.T) {
@@ -335,7 +407,92 @@ func TestProcedure_Retried_On_429(t *testing.T) {
 	assert.Equal(t, int32(2), attempts.Load(), "POST must be retried on 429")
 }
 
-func TestQuery_NonSeekableBodyNotRetried(t *testing.T) {
+func TestProcedure_ResponseReadFailureIsAmbiguousAndNotRetried(t *testing.T) {
+	t.Parallel()
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		_, _ = io.Copy(io.Discard, r.Body)
+		hijacker, ok := w.(http.Hijacker)
+		require.True(t, ok)
+		conn, buf, err := hijacker.Hijack()
+		require.NoError(t, err)
+		_, err = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 32\r\n\r\n{\"committed\":true}")
+		require.NoError(t, err)
+		require.NoError(t, buf.Flush())
+		require.NoError(t, conn.Close())
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &Client{
+		Host:       srv.URL,
+		Retry:      gt.Some(RetryPolicy{MaxAttempts: gt.Some(3), BaseDelay: gt.Some(time.Millisecond)}),
+		HTTPClient: gt.Some(srv.Client()),
+	}
+	err := c.Procedure(context.Background(), "test.method", map[string]bool{"commit": true}, nil)
+	var ambiguous *AmbiguousResultError
+	require.ErrorAs(t, err, &ambiguous)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	assert.Equal(t, int32(1), attempts.Load())
+}
+
+func TestProcedure_UnreadableServerErrorIsAmbiguousAndNotRetried(t *testing.T) {
+	t.Parallel()
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Length", "64")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"InternalServerError"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{
+		Host:       srv.URL,
+		HTTPClient: gt.Some(srv.Client()),
+		Retry:      gt.Some(RetryPolicy{MaxAttempts: gt.Some(3), BaseDelay: gt.Some(time.Millisecond)}),
+	}
+
+	err := c.Procedure(context.Background(), "test.method", map[string]bool{"write": true}, nil)
+	var ambiguous *AmbiguousResultError
+	require.ErrorAs(t, err, &ambiguous)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusInternalServerError, readErr.StatusCode)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	require.Equal(t, int32(1), attempts.Load())
+}
+
+func TestProcedure_Unreadable429PreservesStatusAndIsNotRetried(t *testing.T) {
+	t.Parallel()
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Length", "32")
+		w.Header().Set("RateLimit-Remaining", "0")
+		w.Header().Set("RateLimit-Reset", strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10))
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error":"rate limited"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{
+		Host: srv.URL, HTTPClient: gt.Some(srv.Client()),
+		Retry: gt.Some(RetryPolicy{MaxAttempts: gt.Some(3), BaseDelay: gt.Some(time.Millisecond)}),
+	}
+	err := c.Procedure(context.Background(), "test.method", map[string]bool{"write": true}, nil)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusTooManyRequests, readErr.StatusCode)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	var ambiguous *AmbiguousResultError
+	require.NotErrorAs(t, err, &ambiguous)
+	require.Equal(t, int32(1), attempts.Load())
+	c.rl.mu.Lock()
+	_, parked := c.rl.exhausted[hostOfURL(srv.URL)]
+	c.rl.mu.Unlock()
+	require.True(t, parked, "rate-limit headers must survive an unreadable response body")
+}
+
+func TestProcedure_NonReplayableBodyNotRetried(t *testing.T) {
 	t.Parallel()
 	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -348,9 +505,7 @@ func TestQuery_NonSeekableBodyNotRetried(t *testing.T) {
 			w.WriteHeader(429)
 			return
 		}
-		// Second attempt: body should be empty (non-seekable).
-		assert.Empty(t, body)
-		w.WriteHeader(200)
+		t.Errorf("non-replayable body was retried with %q", body)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -359,10 +514,9 @@ func TestQuery_NonSeekableBodyNotRetried(t *testing.T) {
 		Retry:      gt.Some(RetryPolicy{MaxAttempts: gt.Some(2), BaseDelay: gt.Some(time.Millisecond), MaxDelay: gt.Some(10 * time.Millisecond), Jitter: gt.Some(0.0)}),
 		HTTPClient: gt.Some(srv.Client()),
 	}
-	// strings.Reader is not *bytes.Reader, so it's treated as non-seekable.
-	err := c.Do(context.Background(), http.MethodPost, "test.method", "text/plain", nil, strings.NewReader("stream-data"), nil)
-	require.NoError(t, err)
-	assert.Equal(t, int32(2), attempts.Load())
+	err := c.Do(context.Background(), http.MethodPost, "test.method", "text/plain", nil, struct{ io.Reader }{strings.NewReader("stream-data")}, nil)
+	require.Error(t, err)
+	assert.Equal(t, int32(1), attempts.Load())
 }
 
 func TestQuery_MaxAttemptsZero(t *testing.T) {
@@ -558,14 +712,174 @@ func TestReadResponseBody_OverlongBodyFailsLoud(t *testing.T) {
 	assert.Contains(t, err.Error(), "exceeds Content-Length")
 }
 
-func TestReadResponseBody_ContentLengthOverLimitFallsBackBounded(t *testing.T) {
+type terminalErrorReader struct {
+	reader io.Reader
+	err    error
+}
+
+type closeErrorReadCloser struct {
+	io.Reader
+	err error
+}
+
+func (r *closeErrorReadCloser) Close() error { return r.err }
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
+func clientWithResponseBody(t *testing.T, statusCode int, body io.ReadCloser, contentLength int64) *Client {
+	t.Helper()
+	httpClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    statusCode,
+			Body:          body,
+			ContentLength: contentLength,
+			Header:        make(http.Header),
+			Request:       req,
+		}, nil
+	})}
+	return &Client{
+		Host:       "https://example.com",
+		HTTPClient: gt.Some(httpClient),
+		Retry:      gt.Some(noRetry()),
+	}
+}
+
+func TestStatusReadCloser_CloseFailurePreservesStatus(t *testing.T) {
 	t.Parallel()
-	// A declared length above the safety cap must not pre-allocate it; it falls
-	// back to the bounded read, which truncates at the limit.
+	want := errors.New("close response body")
+	body := &statusReadCloser{
+		ReadCloser: &closeErrorReadCloser{Reader: strings.NewReader("ok"), err: want},
+		statusCode: http.StatusPartialContent,
+	}
+
+	err := body.Close()
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusPartialContent, readErr.StatusCode)
+	require.ErrorIs(t, err, want)
+}
+
+func TestQuery_BufferedCloseFailurePreservesStatus(t *testing.T) {
+	t.Parallel()
+	want := errors.New("close buffered response body")
+	c := clientWithResponseBody(t, http.StatusOK, &closeErrorReadCloser{
+		Reader: strings.NewReader("{}"),
+		err:    want,
+	}, 2)
+
+	err := c.Query(context.Background(), "test.method", nil, nil)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusOK, readErr.StatusCode)
+	require.ErrorIs(t, err, want)
+}
+
+func TestQueryStream_ErrorCloseFailurePreservesStatus(t *testing.T) {
+	t.Parallel()
+	want := errors.New("close streaming error response body")
+	const responseBody = `{"error":"InvalidRequest"}`
+	c := clientWithResponseBody(t, http.StatusBadRequest, &closeErrorReadCloser{
+		Reader: strings.NewReader(responseBody),
+		err:    want,
+	}, int64(len(responseBody)))
+
+	body, err := c.QueryStream(context.Background(), "test.method", nil)
+	require.Nil(t, body)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusBadRequest, readErr.StatusCode)
+	require.ErrorIs(t, err, want)
+}
+
+func (r *terminalErrorReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if err == io.EOF {
+		return n, r.err
+	}
+	return n, err
+}
+
+type dataErrorReader struct {
+	data []byte
+	err  error
+}
+
+func (r *dataErrorReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, r.err
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, r.err
+}
+
+func TestReadResponseBody_UnknownLengthOversizePrecedesTerminalError(t *testing.T) {
+	t.Parallel()
+	reader := &dataErrorReader{data: []byte("12345"), err: errors.New("connection reset")}
+	_, err := readResponseBody(reader, -1, 4)
+	var tooLarge *ResponseTooLargeError
+	require.ErrorAs(t, err, &tooLarge)
+	require.Equal(t, int64(-1), tooLarge.ContentLength)
+	require.Equal(t, int64(4), tooLarge.Limit)
+}
+
+func TestReadResponseBody_ExtraByteProbePreservesReadError(t *testing.T) {
+	t.Parallel()
+	want := errors.New("connection reset during boundary probe")
+	reader := &terminalErrorReader{reader: bytes.NewReader([]byte("1234")), err: want}
+	_, err := readResponseBody(reader, 4, 10)
+	require.ErrorIs(t, err, want)
+}
+
+func TestQuery_FinalResponseReadFailurePreservesStatus(t *testing.T) {
+	t.Parallel()
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"NotFound"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{
+		Host: srv.URL, HTTPClient: gt.Some(srv.Client()),
+		Retry: gt.Some(RetryPolicy{MaxAttempts: gt.Some(2), BaseDelay: gt.Some(time.Millisecond)}),
+	}
+	err := c.Query(context.Background(), "test.method", nil, nil)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusNotFound, readErr.StatusCode)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	require.Equal(t, int32(2), attempts.Load())
+}
+
+func TestReadResponseBody_ContentLengthOverLimitFails(t *testing.T) {
+	t.Parallel()
+	// A declared length above the safety cap must fail before reading or allocating.
 	body := []byte("0123456789")
-	got, err := readResponseBody(bytes.NewReader(body), 10, 4)
+	_, err := readResponseBody(bytes.NewReader(body), 10, 4)
+	var tooLarge *ResponseTooLargeError
+	require.ErrorAs(t, err, &tooLarge)
+	assert.Equal(t, int64(10), tooLarge.ContentLength)
+	assert.Equal(t, int64(4), tooLarge.Limit)
+}
+
+func TestReadResponseBody_UnknownLengthOverLimitFails(t *testing.T) {
+	t.Parallel()
+	_, err := readResponseBody(bytes.NewReader([]byte("12345")), -1, 4)
+	var tooLarge *ResponseTooLargeError
+	require.ErrorAs(t, err, &tooLarge)
+	assert.Equal(t, int64(-1), tooLarge.ContentLength)
+	assert.Equal(t, int64(4), tooLarge.Limit)
+}
+
+func TestReadResponseBody_UnknownLengthExactlyLimitSucceeds(t *testing.T) {
+	t.Parallel()
+	got, err := readResponseBody(bytes.NewReader([]byte("1234")), -1, 4)
 	require.NoError(t, err)
-	assert.Equal(t, body[:4], got)
+	assert.Equal(t, []byte("1234"), got)
 }
 
 func TestQueryRaw_Success(t *testing.T) {
@@ -691,6 +1005,23 @@ func TestQueryStream_Success(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+func TestQueryStream_SuccessReadFailurePreservesStatus(t *testing.T) {
+	t.Parallel()
+	_, c := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "20")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("short"))
+	})
+	body, err := c.QueryStream(context.Background(), "test.method", nil)
+	require.NoError(t, err)
+	_, err = io.ReadAll(body)
+	require.NoError(t, body.Close())
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	require.Equal(t, http.StatusOK, readErr.StatusCode)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+}
+
 func TestQueryStream_Error(t *testing.T) {
 	t.Parallel()
 	_, c := testServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -705,6 +1036,23 @@ func TestQueryStream_Error(t *testing.T) {
 	require.ErrorAs(t, err, &xErr)
 	assert.Equal(t, 400, xErr.StatusCode)
 	assert.Equal(t, "InvalidRequest", xErr.Name)
+}
+
+func TestQueryStream_OversizedErrorBodyFailsLoud(t *testing.T) {
+	t.Parallel()
+	_, c := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write(bytes.Repeat([]byte("x"), (64<<10)+1))
+	})
+
+	body, err := c.QueryStream(context.Background(), "test.method", nil)
+	require.Nil(t, body)
+	var readErr *ResponseReadError
+	require.ErrorAs(t, err, &readErr)
+	assert.Equal(t, http.StatusBadRequest, readErr.StatusCode)
+	var tooLarge *ResponseTooLargeError
+	require.ErrorAs(t, err, &tooLarge)
+	assert.Equal(t, int64(64<<10), tooLarge.Limit)
 }
 
 func TestQueryStream_Auth(t *testing.T) {
@@ -782,6 +1130,7 @@ func TestQueryStreamHost_ErrorCarriesHost(t *testing.T) {
 
 	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("RateLimit-Remaining", "0")
+		w.Header().Set("Retry-After", "1")
 		w.WriteHeader(429)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RateLimitExceeded"})
 	}))
@@ -807,4 +1156,8 @@ func TestQueryStreamHost_ErrorCarriesHost(t *testing.T) {
 	assert.Equal(t, 429, xerr.StatusCode)
 	assert.Equal(t, pdsURL.Host, xerr.Host, "Error.Host must carry the post-redirect host")
 	assert.True(t, IsRateLimited(err))
+	c.rl.mu.Lock()
+	_, parked := c.rl.exhausted[pdsURL.Host]
+	c.rl.mu.Unlock()
+	assert.True(t, parked, "streaming responses must update per-host client rate-limit state")
 }

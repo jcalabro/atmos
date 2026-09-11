@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -23,6 +24,48 @@ func TestRetryPolicy_Delay(t *testing.T) {
 	assert.Equal(t, 400*time.Millisecond, p.delay(2))
 	assert.Equal(t, 800*time.Millisecond, p.delay(3))
 	assert.Equal(t, 1*time.Second, p.delay(4)) // capped
+}
+
+func TestRetryPolicy_PartialUsesDefaults(t *testing.T) {
+	t.Parallel()
+	p := RetryPolicy{MaxAttempts: gt.Some(2), Jitter: gt.Some(0.0)}.normalized()
+	assert.Equal(t, 2, p.maxAttempts)
+	assert.Equal(t, 500*time.Millisecond, p.delay(0))
+	assert.Equal(t, time.Second, p.delay(1))
+}
+
+func TestRetryPolicy_InvalidValuesAreClamped(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		policy RetryPolicy
+		want   effectiveRetryPolicy
+	}{
+		{
+			name: "negative",
+			policy: RetryPolicy{MaxAttempts: gt.Some(-1), BaseDelay: gt.Some(-time.Second),
+				MaxDelay: gt.Some(-time.Second), Jitter: gt.Some(-1.0)},
+			want: effectiveRetryPolicy{maxAttempts: 1},
+		},
+		{
+			name: "excessive jitter",
+			policy: RetryPolicy{MaxAttempts: gt.Some(2), BaseDelay: gt.Some(time.Second),
+				MaxDelay: gt.Some(2 * time.Second), Jitter: gt.Some(10.0)},
+			want: effectiveRetryPolicy{maxAttempts: 2, baseDelay: time.Second, maxDelay: 2 * time.Second, jitter: 1},
+		},
+		{
+			name: "nan jitter",
+			policy: RetryPolicy{MaxAttempts: gt.Some(2), BaseDelay: gt.Some(time.Second),
+				MaxDelay: gt.Some(2 * time.Second), Jitter: gt.Some(math.NaN())},
+			want: effectiveRetryPolicy{maxAttempts: 2, baseDelay: time.Second, maxDelay: 2 * time.Second},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, tt.policy.normalized())
+		})
+	}
 }
 
 func TestRetry_503Retried(t *testing.T) {

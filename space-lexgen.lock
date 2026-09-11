@@ -1,0 +1,3 @@
+# Immutable AT Protocol spaces overlay used by jc/spaces.
+# source URL commit paths
+atproto https://github.com/bluesky-social/atproto.git 9d787ebff231ff8f4e01c63717e9f5bcd6e1bc33 lexicons/com/atproto/space lexicons/com/atproto/simplespace

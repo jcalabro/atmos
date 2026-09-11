@@ -992,11 +992,16 @@ func TestDPoPTransport_NonceRetry_401(t *testing.T) {
 	require.NoError(t, err)
 
 	var attempt atomic.Int32
+	var firstProof atomic.Value
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := attempt.Add(1)
 		assert.NotEmpty(t, r.Header.Get("DPoP"))
+		body, readErr := io.ReadAll(r.Body)
+		require.NoError(t, readErr)
+		assert.Equal(t, `{"write":true}`, string(body))
 
 		if n == 1 {
+			firstProof.Store(r.Header.Get("DPoP"))
 			w.Header().Set("DPoP-Nonce", "server-nonce-abc")
 			w.Header().Set("WWW-Authenticate", `DPoP error="use_dpop_nonce"`)
 			w.WriteHeader(http.StatusUnauthorized)
@@ -1010,6 +1015,7 @@ func TestDPoPTransport_NonceRetry_401(t *testing.T) {
 		claims, ok := token.Claims.(jwt.MapClaims)
 		require.True(t, ok)
 		assert.Equal(t, "server-nonce-abc", claims["nonce"])
+		assert.NotEqual(t, firstProof.Load(), r.Header.Get("DPoP"))
 
 		w.Header().Set("DPoP-Nonce", "server-nonce-abc")
 		w.WriteHeader(http.StatusOK)
@@ -1025,7 +1031,7 @@ func TestDPoPTransport_NonceRetry_401(t *testing.T) {
 	}
 
 	client := &http.Client{Transport: transport}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/resource", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/resource", strings.NewReader(`{"write":true}`))
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -1034,6 +1040,33 @@ func TestDPoPTransport_NonceRetry_401(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, int32(2), attempt.Load())
 	assert.Equal(t, "server-nonce-abc", nonces.Get(originFromURL(srv.URL)))
+}
+
+func TestDPoPTransport_NonceRetryRejectsNonReplayableBody(t *testing.T) {
+	t.Parallel()
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.Header().Set("DPoP-Nonce", "nonce")
+		w.Header().Set("WWW-Authenticate", `DPoP error="use_dpop_nonce"`)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	t.Cleanup(srv.Close)
+	transport := &Transport{
+		Base: srv.Client().Transport, Nonces: NewNonceStore(),
+		Source: &StaticTokenSource{AccessToken: "token", Key: key},
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, struct{ io.Reader }{strings.NewReader("body")})
+	require.NoError(t, err)
+	resp, err := (&http.Client{Transport: transport}).Do(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	require.ErrorIs(t, err, ErrNonReplayableRequest)
+	require.Equal(t, int32(1), attempts.Load())
 }
 
 // refreshableSource is a RefreshingTokenSource that swaps a stale token for a

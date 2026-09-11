@@ -3,9 +3,10 @@
 Design and implementation tracker for [AT Protocol spaces][proposal], on
 `jc/spaces`.
 
-Status: design review, 2026-09-11. No spaces implementation has started. The
-checkboxes below track future implementation; the review experiments are
-separate from those milestones. Open decisions for Jim are at the end.
+Status: Phase 0 implemented and verified on `jc/spaces`, 2026-09-11. Phases
+1–5 have not started. The checkboxes below track implementation; the earlier
+review experiments remain separate evidence. Settled and deferred decisions
+are recorded at the end.
 
 Spaces are an early alpha. [PR #5187][pr] was still open at review time and its
 head still matched `9d787ebff231ff8f4e01c63717e9f5bcd6e1bc33`. Implement against
@@ -207,8 +208,9 @@ ATURIs retain their existing meaning. Separately expose a general Lexicon
 `at-uri` validator that dispatches between public and space forms, because the
 space APIs' **record** `uri` fields use `format: "at-uri"`. Test references
 embedded in records, not just endpoint parameters. The pinned TS generic
-validator also supports JSON-pointer fragments; decide that broader alignment
-under Q2, separately from strict `SpaceRef` and `SpaceURI` identities.
+validator also supports JSON-pointer fragments. As settled under Q2, the
+general validator accepts valid RFC 6901 fragments, while strict `SpaceRef` and
+`SpaceURI` identities remain fragment-free.
 
 ### Declarations and resolution
 
@@ -408,6 +410,15 @@ multiplexing, so it is not an acceptable silent performance fallback. Q3 must
 establish whether such an explicit initial mode fits the workload or pooled
 transport support is required before release. Do not weaken server replay
 checking or rely on undocumented header-mutation hooks to hide this problem.
+
+The Phase 0 wire prototype confirmed that Go transparently reuses the same DPoP
+proof for an HTTP/1 retry on a stale pooled connection and for HTTP/2
+`REFUSED_STREAM` and `GOAWAY` retries. Disabling HTTP/1 reuse suppresses the
+reproduced HTTP/1 replay, but is only a correctness baseline. Q3 now requires a
+pooled, HTTP/2-capable proof-per-send transport before release; the no-reuse
+mode is not a production fallback. Until that transport exists, authenticated
+spaces clients remain release-blocked even though the prerequisite failure
+modes have regression coverage.
 
 Avoid a second independent logical retry loop. GET failures before publishing a body
 can be retried; restart a failed stream from the last verified checkpoint.
@@ -743,22 +754,23 @@ reused-connection failure as a mandatory regression case.
 
 The order follows dependencies. Every phase includes failing tests first and
 ends with its acceptance gate; checked boxes mean implemented and verified.
-No current box is complete.
+Phase 0 is complete; later phases remain unchecked.
 
 ### Phase 0: contracts, pins and prerequisite fixes
 
-- [ ] Resolve Q1–Q6 where they affect the selected milestone; record answers.
-- [ ] Implement combined lexicon generation, locked overlay, declaration schema
+- [x] Resolve Q1–Q6 where they affect the selected milestone; record Q2/Q3 and
+      explicitly defer Q1/Q4–Q6 to their dependent phases.
+- [x] Implement combined lexicon generation, locked overlay, declaration schema
       support and update-script atomicity; test normal refresh retains spaces.
-- [ ] Implement strict space identities and the general `at-uri` format decision.
-- [ ] Add declaration resolver/cache with explicit trust, errors and bounds.
-- [ ] Preserve raw DID evidence for strict selected-entry validation: expected
+- [x] Implement strict space identities and the general `at-uri` format decision.
+- [x] Add declaration resolver/cache with explicit trust, errors and bounds.
+- [x] Preserve raw DID evidence for strict selected-entry validation: expected
       document DID, full IDs/controller, duplicate fragments, service type/URL,
       malformed-present versus absent, `did:web` and `did:plc`.
-- [ ] Fix/cover xrpc non-idempotent response-read retries, strict oversize
+- [x] Fix/cover xrpc non-idempotent response-read retries, strict oversize
       detection, and partial `RetryPolicy` options that currently panic when
       delay fields are absent. Test complete request/response behavior.
-- [ ] Prototype per-send DPoP signing or suppression of transparent transport
+- [x] Prototype per-send DPoP signing or suppression of transparent transport
       retries. Test a consumed request followed by connection close, with HTTP/1
       reuse and HTTP/2 failures; evaluate any loss of pooling against Q3.
 
@@ -922,10 +934,11 @@ PRs and longer scheduled/manual `just fuzz` runs are planned CI work, not a
 claim about the current workflow. Regeneration remains a separate deliberate
 step. No test-only flags may disable verification.
 
-## Open questions for Jim
+## Settled and deferred questions
 
-Answers belong here before dependent implementation is called complete. The
-recommendations are proposals, not settled decisions.
+Answers belong here before dependent implementation is called complete.
+Deferral means the question does not affect Phase 0; it is not permission for a
+later phase to choose silently.
 
 ### Q1: Are we building the repo-host server too?
 
@@ -937,7 +950,9 @@ migration), or clients plus reusable repo primitives? Recommend authority host
 wanted. That keeps the advertised server scope concrete without pretending the
 host library is a PDS.
 
-Answer: **open**.
+Answer: **deferred to Phase 4 scope planning**. Phase 0 adds no repo-host
+server and does not imply one. The current plan remains authority host plus
+clients and reusable repo primitives unless Q1 is explicitly expanded.
 
 ### Q2: How far should generic Lexicon `at-uri` compatibility expand?
 
@@ -950,7 +965,10 @@ explicitly whether fragment support ships with it. This changes generic Lexicon
 validation, not the public repo URI type. Should we include that fragment
 compatibility in this branch?
 
-Answer: **open**.
+Answer: **settled for Phase 0**. General Lexicon `at-uri` validation accepts
+valid RFC 6901 JSON-pointer fragments, including correctly percent-encoded
+forms. `ATURI`, `SpaceRef` and `SpaceURI` remain fragment-free identity types.
+Invalid JSON-pointer escapes are rejected rather than normalized or ignored.
 
 ### Q3: What operating envelope must the first release support?
 
@@ -966,7 +984,12 @@ transport prototype above, and the demonstrated no-reuse HTTP/1 baseline adds
 dials/TLS handshakes. Recommend retaining pooling as a release requirement for
 high-scale deployments rather than silently sacrificing it for the alpha.
 
-Answer: **open**.
+Answer: **partly settled where Phase 0 requires it**. Pooled shared connections
+and HTTP/2 are release requirements. The no-reuse HTTP/1 mode is a correctness
+baseline only and must never activate as a silent production fallback. Concrete
+repo/cardinality/latency limits and replica targets remain deferred to the
+Phase 5 measurements that set release defaults; those measurements cannot
+waive the pooled proof-per-send requirement.
 
 ### Q4: What retention/serving contract should the syncer expose after access loss?
 
@@ -979,7 +1002,9 @@ serving under its own viewer authorization policy. What offline-serving and
 retention defaults do you want the library to promise, including when all
 eligible renewal sessions are lost?
 
-Answer: **open**.
+Answer: **deferred to Phase 3**, before sync retention or serving behavior is
+implemented. Phase 0 caches only declarations and establishes no retained
+record-serving contract.
 
 ### Q5: Should our authority host permit recreation at the same space URI?
 
@@ -990,7 +1015,8 @@ Clients must still recognize that external authorities can recreate. This is a
 host-policy departure from the alpha, especially relevant to `literal:self`
 space conventions. Is that restriction acceptable?
 
-Answer: **open**.
+Answer: **deferred to Phase 4**, before authority creation/deletion semantics
+are implemented. No Phase 0 API permits space creation or URI reuse.
 
 ### Q6: Should callback registration be open to any space credential holder?
 
@@ -1003,7 +1029,8 @@ with quotas and rely on periodic sync to tolerate third-party withdrawal, or
 require restricted subscriber admission? A stronger ownership protocol would
 need additional authentication and upstream design work.
 
-Answer: **open**.
+Answer: **deferred to Phase 4**, before callback registration is implemented.
+Phase 0 establishes no permissive callback-admission default.
 
 ## Changelog
 
@@ -1018,6 +1045,20 @@ Answer: **open**.
   bounded experiments and six open decisions. Adversarial review clarified the
   management authenticator and callback admission contracts. No implementation
   started.
+- 2026-09-11: completed Phase 0. Added strict `SpaceRef`/`SpaceURI` and general
+  Lexicon AT-URI validation; a trust-partitioned, bounded declaration resolver
+  and cache; strict raw DID entry selection; combined multi-root generation;
+  the 29-schema spaces overlay pinned to
+  `9d787ebff231ff8f4e01c63717e9f5bcd6e1bc33`; reproducible hydration and
+  rollback-safe update scripts; and generated low-level spaces APIs. Hardened
+  XRPC body limits, response error metadata, retry/ambiguity policy and partial
+  retry options, and made OAuth logical retries body-replay-safe. Wire tests
+  cover reused HTTP/1, no-reuse HTTP/1, HTTP/2 `REFUSED_STREAM`, and HTTP/2
+  `GOAWAY`; they retain pooled proof-per-send transport as a release blocker.
+  Full short/race/WASM suites, repeated race stress, deterministic generation,
+  cache corruption recovery, signal-interruption rollback tests and 30 focused
+  fuzz campaigns passed. Focused adversarial reviews were iterated to no
+  findings.
 
 [guide]: https://gist.github.com/jcalabro/41f1738d22647f8896db4cb178161f07
 [proposal]: https://github.com/bluesky-social/proposals/blob/119fa6b63476d30c2516846c714319046e0422f3/0016-permissioned-data/README.md

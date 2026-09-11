@@ -10,6 +10,67 @@ import (
 	"time"
 )
 
+// ResponseTooLargeError reports that a buffered XRPC response exceeded its
+// configured safety limit. ContentLength is -1 when the server did not declare
+// a length and the limit was detected while reading.
+type ResponseTooLargeError struct {
+	Limit         int64
+	ContentLength int64
+}
+
+// ResponseReadError reports that an HTTP response was received but its body
+// could not be read safely. StatusCode remains authoritative; Err carries
+// the truncation, transfer, or size-limit failure.
+type ResponseReadError struct {
+	StatusCode int
+	Err        error
+}
+
+func (e *ResponseReadError) Error() string {
+	return fmt.Sprintf("xrpc: read HTTP %d response body: %v", e.StatusCode, e.Err)
+}
+
+// Unwrap returns the response-body failure.
+func (e *ResponseReadError) Unwrap() error { return e.Err }
+
+// ResponseDecodeError reports that a successful HTTP response body could not
+// be decoded. StatusCode remains authoritative; Err carries the decoder error.
+type ResponseDecodeError struct {
+	StatusCode int
+	Err        error
+}
+
+func (e *ResponseDecodeError) Error() string {
+	return fmt.Sprintf("xrpc: decode HTTP %d response body: %v", e.StatusCode, e.Err)
+}
+
+// Unwrap returns the response-body decoder failure.
+func (e *ResponseDecodeError) Unwrap() error { return e.Err }
+
+func (e *ResponseTooLargeError) Error() string {
+	if e.ContentLength >= 0 {
+		return fmt.Sprintf("xrpc: response Content-Length %d exceeds limit %d", e.ContentLength, e.Limit)
+	}
+	return fmt.Sprintf("xrpc: response body exceeds limit %d", e.Limit)
+}
+
+// AmbiguousResultError reports a failure after a non-idempotent request may
+// have reached its server. Callers must reconcile state rather than replaying
+// the operation blindly.
+type AmbiguousResultError struct {
+	Method string
+	URL    string
+	Err    error
+}
+
+func (e *AmbiguousResultError) Error() string {
+	return fmt.Sprintf("xrpc: %s %s may have been applied: %v", e.Method, e.URL, e.Err)
+}
+
+// Unwrap returns the transport or response-read failure that made the result
+// ambiguous.
+func (e *AmbiguousResultError) Unwrap() error { return e.Err }
+
 // Error represents an XRPC error response.
 type Error struct {
 	StatusCode int

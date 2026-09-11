@@ -32,6 +32,9 @@ type dpopClaims struct {
 
 // CreateDPoPProof creates a signed DPoP proof JWT per RFC 9449.
 func CreateDPoPProof(key *crypto.P256PrivateKey, method, targetURL, nonce, accessToken string) (string, error) {
+	if key == nil {
+		return "", fmt.Errorf("oauth: DPoP key is required")
+	}
 	// Generate cryptographically random jti.
 	var jti [16]byte
 	if _, err := rand.Read(jti[:]); err != nil {
@@ -161,6 +164,12 @@ func (t *Transport) base() http.RoundTripper {
 }
 
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.Source == nil {
+		return nil, fmt.Errorf("oauth: DPoP token source is required")
+	}
+	if t.Nonces == nil {
+		return nil, fmt.Errorf("oauth: DPoP nonce store is required")
+	}
 	accessToken, dpopKey, err := t.Source.Token(req.Context())
 	if err != nil {
 		return nil, fmt.Errorf("oauth: get token: %w", err)
@@ -195,6 +204,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Check if this is a use_dpop_nonce error requiring retry.
 	if newNonce != "" && newNonce != nonce && isUseDPoPNonceError(resp) {
+		retryReq, err := cloneRequestForRetry(req)
+		if err != nil {
+			_ = resp.Body.Close()
+			return nil, err
+		}
 		// Drain and close the original response body.
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
@@ -202,10 +216,12 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// Retry with the new nonce.
 		proof2, err := CreateDPoPProof(dpopKey, req.Method, reqURL, newNonce, accessToken)
 		if err != nil {
+			if retryReq.Body != nil {
+				_ = retryReq.Body.Close()
+			}
 			return nil, err
 		}
 
-		retryReq := req.Clone(req.Context())
 		retryReq.Header.Set("DPoP", proof2)
 
 		resp2, err := t.base().RoundTrip(retryReq)
@@ -235,6 +251,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if newToken == "" || newToken == accessToken {
 			return resp, nil
 		}
+		retryReq, err := cloneRequestForRetry(req)
+		if err != nil {
+			_ = resp.Body.Close()
+			return nil, err
+		}
 
 		// Commit to the retry: drain and close the original 401 response.
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -243,9 +264,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		retryNonce := t.Nonces.Get(origin)
 		proof2, err := CreateDPoPProof(newKey, req.Method, reqURL, retryNonce, newToken)
 		if err != nil {
+			if retryReq.Body != nil {
+				_ = retryReq.Body.Close()
+			}
 			return nil, err
 		}
-		retryReq := req.Clone(req.Context())
 		retryReq.Header.Set("DPoP", proof2)
 		retryReq.Header.Set("Authorization", "DPoP "+newToken)
 
@@ -260,6 +283,22 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	return resp, nil
+}
+
+func cloneRequestForRetry(req *http.Request) (*http.Request, error) {
+	retry := req.Clone(req.Context())
+	if req.Body == nil || req.Body == http.NoBody {
+		return retry, nil
+	}
+	if req.GetBody == nil {
+		return nil, ErrNonReplayableRequest
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrNonReplayableRequest, err)
+	}
+	retry.Body = body
+	return retry, nil
 }
 
 // isInvalidTokenError reports whether resp is a 401 with a DPoP/Bearer

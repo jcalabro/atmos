@@ -57,7 +57,8 @@ func (c *Client) retryPolicy() *RetryPolicy {
 		r := c.Retry.Val()
 		return &r
 	}
-	return &DefaultRetryPolicy
+	r := DefaultRetryPolicy
+	return &r
 }
 
 // userAgent returns the user agent string.
@@ -104,15 +105,25 @@ type rawResponse struct {
 // error rather than a silently short or silently capped buffer — a wrong segment
 // is worse than a failed fetch (it would feed corrupt frames to decode).
 //
-// When Content-Length is absent or negative (chunked / unknown), it falls back
-// to the bounded io.ReadAll path unchanged, so non-segment endpoints and servers
-// that don't set the header keep working exactly as before.
+// When Content-Length is absent or negative (chunked / unknown), the reader
+// consumes at most limit+1 bytes so an oversized response is detected rather
+// than silently truncated.
 func readResponseBody(body io.Reader, contentLength, limit int64) ([]byte, error) {
-	if contentLength < 0 || contentLength > limit {
-		// Unknown length, or a declared length over our safety cap: read bounded.
-		// (contentLength > limit is surfaced as the same truncation the LimitReader
-		// would produce; the caller's limit is the zstd-bomb / oversized-body guard.)
-		return io.ReadAll(io.LimitReader(body, limit))
+	if limit < 0 {
+		return nil, fmt.Errorf("xrpc: invalid response body limit %d", limit)
+	}
+	if contentLength > limit {
+		return nil, &ResponseTooLargeError{Limit: limit, ContentLength: contentLength}
+	}
+	if contentLength < 0 {
+		buf, err := io.ReadAll(io.LimitReader(body, limit+1))
+		if int64(len(buf)) > limit {
+			return nil, &ResponseTooLargeError{Limit: limit, ContentLength: -1}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("xrpc: read response body: %w", err)
+		}
+		return buf, nil
 	}
 	buf := make([]byte, contentLength)
 	if _, err := io.ReadFull(body, buf); err != nil {
@@ -124,8 +135,12 @@ func readResponseBody(body io.Reader, contentLength, limit int64) ([]byte, error
 	// read succeeding means the server sent more than it advertised — refuse it
 	// rather than silently truncating to Content-Length.
 	var extra [1]byte
-	if m, _ := io.ReadFull(body, extra[:]); m > 0 {
+	m, err := io.ReadFull(body, extra[:])
+	if m > 0 {
 		return nil, fmt.Errorf("xrpc: response body exceeds Content-Length %d", contentLength)
+	}
+	if err != io.EOF {
+		return nil, fmt.Errorf("xrpc: verify response Content-Length %d: %w", contentLength, err)
 	}
 	return buf, nil
 }
@@ -151,9 +166,12 @@ func (c *Client) Do(ctx context.Context, method, nsid, contentType string, param
 // doInternal implements the retry loop. bearerOverride, if non-empty, is used
 // instead of the stored session's access JWT for the Authorization header.
 func (c *Client) doInternal(ctx context.Context, method, nsid, contentType string, params map[string]any, body io.Reader, out any, bearerOverride string) error {
-	policy := c.retryPolicy()
-	maxAttempts := max(policy.MaxAttempts.Val(), 1)
-	maxRetryDelay := policy.MaxDelay.ValOr(DefaultRetryPolicy.MaxDelay.Val())
+	if method != http.MethodGet && method != http.MethodPost {
+		return fmt.Errorf("xrpc: unsupported method %q", method)
+	}
+	policy := c.retryPolicy().normalized()
+	maxAttempts := policy.maxAttempts
+	maxRetryDelay := policy.maxDelay
 	serverDelayLimit := max(time.Duration(0), min(maxRetryDelay, MaxServerDirectedDelay))
 
 	// Idempotent methods (GET/HEAD/PUT/DELETE) are safe to retry on any
@@ -171,12 +189,14 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 	// Only *bytes.Reader (from Procedure) is seekable; arbitrary io.Readers
 	// (e.g. blob uploads) get a single attempt.
 	var bodyBytes []byte
+	bodyReplayable := body == nil
 	if body != nil {
 		if rs, ok := body.(*bytes.Reader); ok {
 			bodyBytes = make([]byte, rs.Len())
 			if _, err := io.ReadFull(rs, bodyBytes); err != nil {
 				return fmt.Errorf("xrpc: read request body: %w", err)
 			}
+			bodyReplayable = true
 		}
 	}
 
@@ -272,10 +292,19 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 			// non-idempotent POST, retry only when the connection was refused
 			// (the request provably never reached the server); any other
 			// transport error is ambiguous and could have committed the write.
-			if idempotent || errors.Is(err, syscall.ECONNREFUSED) {
+			if bodyReplayable && (idempotent || errors.Is(err, syscall.ECONNREFUSED)) {
 				continue
 			}
-			return lastErr
+			if !idempotent && !errors.Is(err, syscall.ECONNREFUSED) {
+				return &AmbiguousResultError{Method: method, URL: u, Err: err}
+			}
+			return err
+		}
+
+		// Track rate-limit headers even when the response body is malformed or
+		// truncated. The headers and responding host are already authoritative.
+		if rl := parseRateLimit(resp.Header); rl != nil {
+			c.rl.update(respHost(resp), rl, serverDelayLimit)
 		}
 
 		respLimit := int64(maxResponseBody)
@@ -283,17 +312,19 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 			respLimit = maxRawResponseBody
 		}
 		respBody, err := readResponseBody(resp.Body, resp.ContentLength, respLimit)
-		_ = resp.Body.Close()
+		err = joinResponseBodyErrors(err, resp.Body.Close())
 		if err != nil {
-			lastErr = err
-			continue
-		}
-
-		// Track rate limit headers on every response, attributed to the
-		// host that actually answered (post-redirect), which for a
-		// relay-fronted request is the PDS rather than the relay.
-		if rl := parseRateLimit(resp.Header); rl != nil {
-			c.rl.update(respHost(resp), rl, serverDelayLimit)
+			readErr := &ResponseReadError{StatusCode: resp.StatusCode, Err: err}
+			lastErr = readErr
+			var tooLarge *ResponseTooLargeError
+			deterministic := errors.As(err, &tooLarge)
+			if idempotent && bodyReplayable && !deterministic && attempt < maxAttempts-1 {
+				continue
+			}
+			if !idempotent && resp.StatusCode != http.StatusTooManyRequests {
+				return &AmbiguousResultError{Method: method, URL: u, Err: readErr}
+			}
+			return readErr
 		}
 
 		// Success.
@@ -302,7 +333,11 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 				if raw, ok := out.(*rawResponse); ok {
 					raw.data = respBody
 				} else if err := json.Unmarshal(respBody, out); err != nil {
-					return fmt.Errorf("xrpc: decode response: %w", err)
+					decodeErr := &ResponseDecodeError{StatusCode: resp.StatusCode, Err: err}
+					if !idempotent {
+						return &AmbiguousResultError{Method: method, URL: u, Err: decodeErr}
+					}
+					return decodeErr
 				}
 			}
 			return nil
@@ -318,7 +353,7 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		if !idempotent && resp.StatusCode != http.StatusTooManyRequests {
 			retryStatus = false
 		}
-		if retryStatus && attempt < maxAttempts-1 {
+		if retryStatus && bodyReplayable && attempt < maxAttempts-1 {
 			continue
 		}
 		return xErr
@@ -382,15 +417,54 @@ func (c *Client) QueryStreamHost(ctx context.Context, nsid string, params map[st
 	if resp.Request != nil && resp.Request.URL != nil {
 		host = resp.Request.URL.Host
 	}
+	maxRetryDelay := c.retryPolicy().normalized().maxDelay
+	serverDelayLimit := max(time.Duration(0), min(maxRetryDelay, MaxServerDirectedDelay))
+	if rl := parseRateLimit(resp.Header); rl != nil {
+		c.rl.update(host, rl, serverDelayLimit)
+	}
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return resp.Body, host, nil
+		return &statusReadCloser{ReadCloser: resp.Body, statusCode: resp.StatusCode}, host, nil
 	}
 
 	// Error: read small body for error message, then close.
-	defer func() { _ = resp.Body.Close() }()
-	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10)) // 64KB for error JSON
+	respBody, readErr := readResponseBody(resp.Body, resp.ContentLength, 64<<10)
+	readErr = joinResponseBodyErrors(readErr, resp.Body.Close())
+	if readErr != nil {
+		return nil, host, &ResponseReadError{StatusCode: resp.StatusCode, Err: readErr}
+	}
 	return nil, host, parseError(resp, respBody)
+}
+
+type statusReadCloser struct {
+	io.ReadCloser
+	statusCode int
+}
+
+func joinResponseBodyErrors(readErr, closeErr error) error {
+	if closeErr == nil {
+		return readErr
+	}
+	closeErr = fmt.Errorf("xrpc: close response body: %w", closeErr)
+	if readErr == nil {
+		return closeErr
+	}
+	return errors.Join(readErr, closeErr)
+}
+
+func (r *statusReadCloser) Read(p []byte) (int, error) {
+	n, err := r.ReadCloser.Read(p)
+	if err != nil && err != io.EOF {
+		return n, &ResponseReadError{StatusCode: r.statusCode, Err: err}
+	}
+	return n, err
+}
+
+func (r *statusReadCloser) Close() error {
+	if err := r.ReadCloser.Close(); err != nil {
+		return &ResponseReadError{StatusCode: r.statusCode, Err: err}
+	}
+	return nil
 }
 
 // hostOfURL extracts the host (host:port) from a base URL string, or ""

@@ -18,23 +18,36 @@ import (
 )
 
 func main() {
-	lexDir := flag.String("lexdir", "", "directory containing lexicon JSON files (required)")
+	var lexDirs stringListFlag
+	flag.Var(&lexDirs, "lexdir", "directory containing lexicon JSON files (repeatable; at least one required)")
 	configFile := flag.String("config", "", "config JSON file (required)")
 	outputRoot := flag.String("output-root", "", "root directory for generated files (optional)")
 	flag.Parse()
 
-	if *lexDir == "" || *configFile == "" {
+	if len(lexDirs) == 0 || *configFile == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	if err := run(*lexDir, *configFile, *outputRoot); err != nil {
+	if err := run(lexDirs, *configFile, *outputRoot); err != nil {
 		fmt.Fprintf(os.Stderr, "lexgen: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(lexDir, configFile, outputRoot string) error {
+type stringListFlag []string
+
+func (f *stringListFlag) String() string { return strings.Join(*f, ",") }
+
+func (f *stringListFlag) Set(value string) error {
+	if value == "" {
+		return fmt.Errorf("lexicon directory must not be empty")
+	}
+	*f = append(*f, value)
+	return nil
+}
+
+func run(lexDirs []string, configFile, outputRoot string) error {
 	// Load config.
 	cfgData, err := os.ReadFile(configFile)
 	if err != nil {
@@ -50,18 +63,22 @@ func run(lexDir, configFile, outputRoot string) error {
 		}
 	}
 
-	// Parse lexicons.
-	schemas, err := lexicon.ParseDir(lexDir)
-	if err != nil {
-		return fmt.Errorf("parse lexicons: %w", err)
-	}
-	fmt.Fprintf(os.Stderr, "parsed %d lexicon schemas\n", len(schemas))
-
-	// Build catalog and resolve refs.
+	// Parse all roots into one catalog. A single catalog is required because
+	// package-wide generated helpers must see records from every input root.
 	cat := lexicon.NewCatalog()
-	if err := cat.AddAll(schemas); err != nil {
-		return err
+	parsed := 0
+	for _, lexDir := range lexDirs {
+		schemas, err := lexicon.ParseDir(lexDir)
+		if err != nil {
+			return fmt.Errorf("parse lexicons from %s: %w", lexDir, err)
+		}
+		if err := cat.AddAll(schemas); err != nil {
+			return fmt.Errorf("catalog root %s: %w", lexDir, err)
+		}
+		parsed += len(schemas)
 	}
+	fmt.Fprintf(os.Stderr, "parsed %d lexicon schemas from %d roots\n", parsed, len(lexDirs))
+
 	if err := cat.Resolve(); err != nil {
 		return err
 	}

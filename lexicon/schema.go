@@ -51,6 +51,12 @@ type Def struct {
 	Key    string  `json:"key,omitempty"`    // "tid", "nsid", "any", "literal:self"
 	Record *Object `json:"record,omitempty"` // the record's object schema
 
+	// Space declaration metadata. These fields are represented explicitly so
+	// resolving a published declaration does not discard consent-critical data.
+	Name        string            `json:"name,omitempty"`
+	Names       map[string]string `json:"name:lang,omitempty"`
+	Collections []string          `json:"collections,omitempty"`
+
 	// Query / Procedure
 	Parameters *Params    `json:"parameters,omitempty"`
 	Input      *Body      `json:"input,omitempty"`
