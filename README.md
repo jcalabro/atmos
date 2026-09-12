@@ -51,7 +51,7 @@ You can use the justfile to develop this library. Here are some common ones:
 ```bash
 just --list # show all commands
 just # run the linter and tests
-just just test ./xrpcserver/... # run a specific package's tests recursively
+just test ./xrpcserver/... # run a specific package's tests recursively
 just test-long # run all tests
 just test-race # run all tests with the race detector enabled
 just fuzz # run the fuzz tests
