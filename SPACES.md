@@ -1307,6 +1307,15 @@ operator consent, not cryptographic ownership of the callback identifier.
   perimeter and dedicated-host routing defects plus the open draft/production
   gate remain external blockers, so Phase 5 and the no-merge gate are not
   declared complete.
+- 2026-09-12: post-phase-5 adversarial review found that legacy
+  `EcdsaSecp256{k1,r1}VerificationKey2019` support had landed only in strict
+  verification-method selection; the generic `Identity.PublicKeyForFragment`
+  path used by service-JWT verification still required multicodec Multikey
+  encoding, so service JWTs from issuers with legacy DID keys failed to
+  verify. Fixed by dispatching on the entry's declared type there as well,
+  and the serviceauth test resolvers now encode legacy-typed keys as raw
+  SEC1 (they previously labeled keys legacy while supplying Multikey bytes,
+  masking the gap).
 
 [guide]: https://gist.github.com/jcalabro/41f1738d22647f8896db4cb178161f07
 [proposal]: https://github.com/bluesky-social/proposals/blob/119fa6b63476d30c2516846c714319046e0422f3/0016-permissioned-data/README.md

@@ -15,7 +15,9 @@ import (
 	"time"
 
 	"github.com/jcalabro/atmos"
+	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/gt"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -128,6 +130,47 @@ func TestIdentity_PublicKeyMissing(t *testing.T) {
 	id := &Identity{Keys: map[string]Key{}}
 	_, err := id.PublicKey()
 	assert.Error(t, err)
+}
+
+func TestIdentity_PublicKeyForFragment_LegacyKeyTypes(t *testing.T) {
+	t.Parallel()
+
+	k256, err := crypto.GenerateK256()
+	require.NoError(t, err)
+	p256, err := crypto.GenerateP256()
+	require.NoError(t, err)
+
+	for name, tc := range map[string]struct {
+		keyType string
+		pub     crypto.PublicKey
+	}{
+		"k256": {keyType: "EcdsaSecp256k1VerificationKey2019", pub: k256.PublicKey()},
+		"p256": {keyType: "EcdsaSecp256r1VerificationKey2019", pub: p256.PublicKey()},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Legacy 2019 types carry raw SEC1 bytes with no multicodec prefix.
+			id := &Identity{Keys: map[string]Key{"atproto": {
+				Type:      tc.keyType,
+				Multibase: "z" + base58.Encode(tc.pub.Bytes()),
+			}}}
+			parsed, err := id.PublicKeyForFragment("atproto")
+			require.NoError(t, err)
+			require.True(t, tc.pub.Equal(parsed))
+
+			// A legacy-typed entry must not accept multicodec-prefixed bytes.
+			id.Keys["atproto"] = Key{Type: tc.keyType, Multibase: tc.pub.Multibase()}
+			_, err = id.PublicKeyForFragment("atproto")
+			require.Error(t, err)
+
+			// Multikey entries keep requiring the multicodec encoding.
+			id.Keys["atproto"] = Key{Type: "Multikey", Multibase: tc.pub.Multibase()}
+			parsed, err = id.PublicKeyForFragment("atproto")
+			require.NoError(t, err)
+			require.True(t, tc.pub.Equal(parsed))
+		})
+	}
 }
 
 func TestIdentityFromDocument_NoHandle(t *testing.T) {

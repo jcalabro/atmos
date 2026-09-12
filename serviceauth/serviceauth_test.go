@@ -13,6 +13,7 @@ import (
 	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/gt"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +37,7 @@ func (m *mockResolver) ResolveDID(_ context.Context, did atmos.DID) (*identity.D
 				ID:                 string(m.did) + "#atproto",
 				Type:               keyType(m.pub),
 				Controller:         string(m.did),
-				PublicKeyMultibase: m.pub.Multibase(),
+				PublicKeyMultibase: legacyMultibase(m.pub),
 			},
 		},
 		Service: []identity.Service{
@@ -47,6 +48,12 @@ func (m *mockResolver) ResolveDID(_ context.Context, did atmos.DID) (*identity.D
 
 func (m *mockResolver) ResolveHandle(_ context.Context, _ atmos.Handle) (atmos.DID, error) {
 	return m.did, nil
+}
+
+// legacyMultibase encodes a key the way EcdsaSecp256{k1,r1}VerificationKey2019
+// DID entries carry it on the wire: raw SEC1 bytes, no multicodec prefix.
+func legacyMultibase(pub crypto.PublicKey) string {
+	return "z" + base58.Encode(pub.Bytes())
 }
 
 func keyType(pub crypto.PublicKey) string {
@@ -75,7 +82,7 @@ func (m *fragmentResolver) ResolveDID(_ context.Context, _ atmos.DID) (*identity
 			ID:                 string(m.did) + "#" + m.fragment,
 			Type:               keyType(m.pub),
 			Controller:         string(m.did),
-			PublicKeyMultibase: m.pub.Multibase(),
+			PublicKeyMultibase: legacyMultibase(m.pub),
 		}},
 	}, nil
 }

@@ -57,6 +57,13 @@ func (id *Identity) PublicKey() (crypto.PublicKey, error) {
 // given bare fragment (e.g. "atproto" or "atproto_labeler"). A leading '#' is
 // tolerated. An empty fragment defaults to the atproto signing key. This
 // supports service-auth issuers of the form did:plc:xxx#atproto_labeler.
+//
+// Parsing follows the entry's declared type: legacy
+// EcdsaSecp256{k1,r1}VerificationKey2019 entries carry raw SEC1 multibase
+// values, and every other entry (Multikey, historical untyped, or unknown
+// labels) must carry a self-describing multicodec-prefixed value, which pins
+// the key's interpretation regardless of the label. Callers that must reject
+// unknown verification-method types use SelectVerificationMethod instead.
 func (id *Identity) PublicKeyForFragment(fragment string) (crypto.PublicKey, error) {
 	fragment = strings.TrimPrefix(fragment, "#")
 	if fragment == "" {
@@ -66,7 +73,14 @@ func (id *Identity) PublicKeyForFragment(fragment string) (crypto.PublicKey, err
 	if !ok {
 		return nil, errors.New("identity: no key for fragment " + fragment)
 	}
-	return crypto.ParsePublicMultibase(k.Multibase)
+	switch k.Type {
+	case "EcdsaSecp256k1VerificationKey2019":
+		return crypto.ParseLegacyPublicMultibaseK256(k.Multibase)
+	case "EcdsaSecp256r1VerificationKey2019":
+		return crypto.ParseLegacyPublicMultibaseP256(k.Multibase)
+	default:
+		return crypto.ParsePublicMultibase(k.Multibase)
+	}
 }
 
 // DIDDocument is the raw JSON structure from a PLC directory or did:web resolution.
