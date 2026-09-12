@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -145,6 +147,9 @@ type RefreshingTokenSource interface {
 // Transport is an http.RoundTripper that adds DPoP proof headers
 // and handles nonce retry transparently. It uses a TokenSource to
 // get the current (possibly refreshed) access token on each request.
+// A fresh proof is created for every wire send, including the standard
+// library's transparent HTTP/1.1 and HTTP/2 connection-failure retries,
+// so a proof JTI is never reused on the wire.
 type Transport struct {
 	// Base is the underlying transport. If nil, http.DefaultTransport is used.
 	Base http.RoundTripper
@@ -161,6 +166,78 @@ func (t *Transport) base() http.RoundTripper {
 		return t.Base
 	}
 	return http.DefaultTransport
+}
+
+// roundTripFreshProofs sends one logical request whose DPoP header has already
+// been set for the first wire attempt, and re-signs before every
+// transport-selected replacement wire send: Go's transparent HTTP/1.1
+// reused-connection replays and HTTP/2 REFUSED_STREAM/GOAWAY retries bypass
+// RoundTrip, so without this hook they would carry the previous proof. A
+// failed re-sign removes the credential headers and cancels the attempt
+// rather than letting the old proof replay.
+func (t *Transport) roundTripFreshProofs(req *http.Request, resign func() (string, error)) (*http.Response, error) {
+	ctx, cancel := context.WithCancelCause(req.Context())
+	var connections atomic.Uint32
+	var signMu sync.Mutex
+	var signErr error
+	trace := &httptrace.ClientTrace{GotConn: func(httptrace.GotConnInfo) {
+		if connections.Add(1) == 1 {
+			return
+		}
+		proof, err := resign()
+		if err != nil {
+			req.Header.Del("Authorization")
+			req.Header.Del("DPoP")
+			signMu.Lock()
+			if signErr == nil {
+				signErr = err
+			}
+			signMu.Unlock()
+			cancel(err)
+			return
+		}
+		req.Header.Set("DPoP", proof)
+	}}
+	traced := req.WithContext(httptrace.WithClientTrace(ctx, trace))
+	resp, err := t.base().RoundTrip(traced)
+	signMu.Lock()
+	deferredSignErr := signErr
+	signMu.Unlock()
+	if deferredSignErr != nil {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		cancel(deferredSignErr)
+		return nil, fmt.Errorf("oauth: sign transparent retry: %w", deferredSignErr)
+	}
+	if err != nil || resp == nil || resp.Body == nil {
+		cancel(err)
+		return resp, err
+	}
+	// The body keeps the traced context alive through close/EOF so the
+	// connection remains poolable.
+	resp.Body = &cancelContextBody{ReadCloser: resp.Body, cancel: cancel}
+	return resp, nil
+}
+
+type cancelContextBody struct {
+	io.ReadCloser
+	cancel context.CancelCauseFunc
+	once   sync.Once
+}
+
+func (b *cancelContextBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if err != nil {
+		b.once.Do(func() { b.cancel(nil) })
+	}
+	return n, err
+}
+
+func (b *cancelContextBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.once.Do(func() { b.cancel(nil) })
+	return err
 }
 
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -191,7 +268,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Set("Authorization", "DPoP "+accessToken)
 	}
 
-	resp, err := t.base().RoundTrip(req)
+	resp, err := t.roundTripFreshProofs(req, func() (string, error) {
+		return CreateDPoPProof(dpopKey, req.Method, reqURL, nonce, accessToken)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +303,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		retryReq.Header.Set("DPoP", proof2)
 
-		resp2, err := t.base().RoundTrip(retryReq)
+		resp2, err := t.roundTripFreshProofs(retryReq, func() (string, error) {
+			return CreateDPoPProof(dpopKey, req.Method, reqURL, newNonce, accessToken)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -272,7 +353,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		retryReq.Header.Set("DPoP", proof2)
 		retryReq.Header.Set("Authorization", "DPoP "+newToken)
 
-		resp2, err := t.base().RoundTrip(retryReq)
+		resp2, err := t.roundTripFreshProofs(retryReq, func() (string, error) {
+			return CreateDPoPProof(newKey, req.Method, reqURL, retryNonce, newToken)
+		})
 		if err != nil {
 			return nil, err
 		}

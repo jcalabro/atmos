@@ -109,6 +109,38 @@ func Run(ctx context.Context, factory Factory) error {
 	if err != nil {
 		return err
 	}
+	// A per-author deletion tombstone must stay enumerable even when the author
+	// never published a generation, or restart cleanup cannot retry its purge.
+	unpublished := spacesync.RepoKey{Space: space, Author: "did:plc:unpublished"}
+	unpublishedState, err := store.RepoLifecycle(ctx, unpublished)
+	if err != nil {
+		return fmt.Errorf("unpublished repo lifecycle: %w", err)
+	}
+	if _, err := store.TransitionRepoLifecycle(ctx, unpublished, unpublishedState.Generation, spacesync.LifecycleDeleted, "test"); err != nil {
+		return fmt.Errorf("tombstone unpublished repo: %w", err)
+	}
+	published, err := store.ListRepos(ctx, space)
+	if err != nil {
+		return err
+	}
+	for _, listed := range published {
+		if listed == unpublished {
+			return errors.New("unpublished tombstone listed as a published repo")
+		}
+	}
+	states, err := store.ListRepoLifecycles(ctx, space)
+	if err != nil {
+		return fmt.Errorf("list repo lifecycles: %w", err)
+	}
+	foundUnpublished := false
+	for _, listed := range states {
+		if listed == unpublished {
+			foundUnpublished = true
+		}
+	}
+	if !foundUnpublished {
+		return errors.New("lifecycle enumeration omitted an unpublished deletion tombstone")
+	}
 	lifecycle, err = store.TransitionLifecycle(ctx, space, lifecycle.Generation, spacesync.LifecycleDeleted, "test")
 	if err != nil {
 		return err

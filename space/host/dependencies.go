@@ -268,6 +268,9 @@ func (f SubscriberPolicyFunc) AuthorizeSubscriber(ctx context.Context, req Subsc
 
 // DeliveryTransport performs exactly one notification HTTP attempt. The Host
 // creates a fresh service JWT and strictly resolves endpoint for every attempt.
+// The supplied context deadline is bounded by the delivery lease; an
+// implementation must honor cancellation, or a send that outlives the lease can
+// duplicate another claimer's delivery.
 type DeliveryTransport interface {
 	Deliver(context.Context, *url.URL, atmos.NSID, string, any) error
 }

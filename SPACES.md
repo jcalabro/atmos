@@ -1307,7 +1307,23 @@ operator consent, not cryptographic ownership of the callback identifier.
   perimeter and dedicated-host routing defects plus the open draft/production
   gate remain external blockers, so Phase 5 and the no-merge gate are not
   declared complete.
-- 2026-09-12: post-phase-5 adversarial review found that legacy
+- 2026-09-12: branch-wide adversarial review (six path-scoped roast runs across
+  every spaces package plus supporting infrastructure). Six confirmed findings,
+  each fixed with a regression test that fails without the fix: scheduler
+  workers now rerun a coalesced dirty author in place instead of a blocking
+  re-enqueue that could deadlock every worker against a full queue; restart
+  cleanup enumerates durable per-author lifecycle rows through the new
+  `Store.ListRepoLifecycles`, so a failed deletion purge with no published
+  generation remains discoverable and retryable (storetest now requires this);
+  host notification delivery refuses to start or send past its claim lease and
+  bounds the delivery context by the lease, closing a duplicate-send window
+  after lease reclaim; `oauth.Transport` re-signs DPoP proofs on every
+  transport-selected wire send, matching the space clients' pooled
+  proof-per-wire-send contract, and its wire tests now assert fresh proofs
+  rather than documenting reuse; `simplespace.Client.Get` enforces the same
+  local ownership boundary as every mutation; and declaration resolution
+  rejects provenance URIs that do not identify the requested
+  `com.atproto.lexicon.schema` record.
   `EcdsaSecp256{k1,r1}VerificationKey2019` support had landed only in strict
   verification-method selection; the generic `Identity.PublicKeyForFragment`
   path used by service-JWT verification still required multicodec Multikey

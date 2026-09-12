@@ -51,7 +51,7 @@ func doWireGET(client *http.Client, rawURL string) error {
 	return closeErr
 }
 
-func TestDPoPTransport_HTTP1ReusedConnectionTransparentReplayEvidence(t *testing.T) {
+func TestDPoPTransport_HTTP1ReusedConnectionTransparentReplayGetsFreshProof(t *testing.T) {
 	t.Parallel()
 	var attempts atomic.Int32
 	var mu sync.Mutex
@@ -94,7 +94,8 @@ func TestDPoPTransport_HTTP1ReusedConnectionTransparentReplayEvidence(t *testing
 	defer mu.Unlock()
 	require.Len(t, proofs, 3)
 	assert.NotEqual(t, proofs[0], proofs[1], "logical requests must receive fresh proofs")
-	assert.Equal(t, proofs[1], proofs[2], "the hidden wire replay bypasses the signing RoundTripper")
+	assert.NotEmpty(t, proofs[2])
+	assert.NotEqual(t, proofs[1], proofs[2], "the hidden wire replay must be re-signed with a fresh proof")
 	require.Len(t, peers, 3)
 	assert.Equal(t, peers[0], peers[1], "the failure must occur on a reused connection")
 	assert.NotEqual(t, peers[1], peers[2], "the hidden replay must use a replacement connection")
@@ -175,7 +176,8 @@ func TestDPoPTransport_HTTP2RefusedStreamTransparentReplayEvidence(t *testing.T)
 	first := <-proofs
 	second := <-proofs
 	assert.NotEmpty(t, first)
-	assert.Equal(t, first, second, "HTTP/2 REFUSED_STREAM retry bypasses the signing RoundTripper")
+	assert.NotEmpty(t, second)
+	assert.NotEqual(t, first, second, "HTTP/2 REFUSED_STREAM retry must be re-signed with a fresh proof")
 }
 
 func TestDPoPTransport_HTTP2GoAwayTransparentReplayEvidence(t *testing.T) {
@@ -201,7 +203,8 @@ func TestDPoPTransport_HTTP2GoAwayTransparentReplayEvidence(t *testing.T) {
 	first := <-proofs
 	second := <-proofs
 	assert.NotEmpty(t, first)
-	assert.Equal(t, first, second, "HTTP/2 GOAWAY retry bypasses the signing RoundTripper")
+	assert.NotEmpty(t, second)
+	assert.NotEqual(t, first, second, "HTTP/2 GOAWAY retry must be re-signed with a fresh proof")
 }
 
 func serveGoAwayThenOK(listener net.Listener, proofs chan<- string) error {

@@ -494,6 +494,30 @@ func TestCleanupFailureRemainsVisibleAndRetryableAfterRestart(t *testing.T) {
 	require.False(t, lifecycle.CleanupPending)
 }
 
+func TestResumeCleanupRetriesDeletionOfUnpublishedAuthor(t *testing.T) {
+	t.Parallel()
+	source := makeSource(t, atmos.NewTID(1, 0), map[spaces.RecordPath]Record{}, spaces.CARFull)
+	store, _ := NewMemoryStore(10, 10, 20, 10<<20)
+	syncer := newSyncer(t, source, store, RecoveryFull)
+	key := RepoKey{Space: testSpace, Author: testAuthor}
+	// The author was deleted before any generation was published, and the purge
+	// accompanying the deletion fails. Restart cleanup must still discover the
+	// pending tombstone: it cannot be reached through published-repo enumeration.
+	store.FailNext("purge_repo", errors.New("disk unavailable"))
+	err := syncer.ApplyTrustedAccountEvent(context.Background(), key, AccountDeleted, "trusted deletion")
+	require.ErrorContains(t, err, "disk unavailable")
+	state, err := store.RepoLifecycle(context.Background(), key)
+	require.NoError(t, err)
+	require.Equal(t, LifecycleDeleted, state.State)
+	require.True(t, state.CleanupPending)
+	restarted := newSyncer(t, source, store, RecoveryFull)
+	require.NoError(t, restarted.ResumeCleanup(context.Background()))
+	state, err = store.RepoLifecycle(context.Background(), key)
+	require.NoError(t, err)
+	require.Equal(t, LifecycleDeleted, state.State)
+	require.False(t, state.CleanupPending)
+}
+
 func TestAccountLifecycleFencesOnlyNamedAuthor(t *testing.T) {
 	t.Parallel()
 	store, _ := NewMemoryStore(10, 10, 20, 10<<20)

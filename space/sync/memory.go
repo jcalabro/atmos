@@ -250,6 +250,30 @@ func (s *MemoryStore) ListRepos(ctx context.Context, space atmos.SpaceRef) ([]Re
 	return keys, nil
 }
 
+// ListRepoLifecycles returns stable sorted keys for every durable per-author
+// lifecycle row, including tombstoned keys with no published generation.
+func (s *MemoryStore) ListRepoLifecycles(ctx context.Context, space atmos.SpaceRef) ([]RepoKey, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := space.Validate(); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.fail("list_repo_lifecycles"); err != nil {
+		return nil, err
+	}
+	keys := make([]RepoKey, 0)
+	for key := range s.repoStates {
+		if key.Space == space {
+			keys = append(keys, key)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Author < keys[j].Author })
+	return keys, nil
+}
+
 // Begin creates an invisible clone from the expected published generation.
 func (s *MemoryStore) Begin(ctx context.Context, key RepoKey, expectedVersion, generation uint64) (Stage, error) {
 	if err := ctx.Err(); err != nil {

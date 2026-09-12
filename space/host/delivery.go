@@ -80,7 +80,17 @@ func (h *Host) processDelivery(parent context.Context, delivery Delivery) {
 		h.emit(parent, Event{Kind: EventDeliveryFailed, Space: delivery.Space, Service: delivery.Service, Attempt: delivery.Attempt, Err: err})
 		return
 	}
-	ctx, cancel := context.WithTimeout(parent, min(h.limits.DeliveryTimeout, delivery.ExpiresAt.Sub(now)))
+	// A claimed delivery can wait in the worker queue, so the lease may already
+	// be gone before processing starts. Never start work on a lost lease: another
+	// claimer may own the row, and a send here would duplicate its notification.
+	// The row itself stays reclaimable through ordinary lease recovery.
+	if !delivery.LeaseExpires.After(now) {
+		h.emit(parent, Event{Kind: EventDeliveryFailed, Space: delivery.Space, Service: delivery.Service, Attempt: delivery.Attempt, Err: errors.New("space host: delivery lease expired before processing")})
+		return
+	}
+	// The deadline is additionally bounded by the lease so a context-honoring
+	// dependency cannot keep working into another claimer's ownership window.
+	ctx, cancel := context.WithTimeout(parent, min(h.limits.DeliveryTimeout, min(delivery.ExpiresAt.Sub(now), delivery.LeaseExpires.Sub(now))))
 	defer cancel()
 	endpoint, err := h.resolveService(ctx, delivery.Service, delivery.ServiceType)
 	if err == nil && !delivery.ExpiresAt.After(h.clock.Now()) {
@@ -122,6 +132,9 @@ func (h *Host) processDelivery(parent context.Context, delivery Delivery) {
 			}
 			if err == nil && !delivery.ExpiresAt.After(h.clock.Now()) {
 				err = errors.New("space host: notification delivery expired before send")
+			}
+			if err == nil && !delivery.LeaseExpires.After(h.clock.Now()) {
+				err = errors.New("space host: delivery lease expired before send")
 			}
 			if err == nil {
 				err = h.delivery.Deliver(ctx, endpoint, method, token, body)

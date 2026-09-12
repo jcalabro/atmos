@@ -71,6 +71,59 @@ func TestSchedulerStillQueuesKnownReposDuringDirectoryOutage(t *testing.T) {
 	}
 }
 
+func TestSchedulerCoalescedRerunDoesNotDeadlockOnFullQueue(t *testing.T) {
+	t.Parallel()
+	source := makeSource(t, atmos.NewTID(1, 0), map[spaces.RecordPath]Record{}, spaces.CARFull)
+	store, _ := NewMemoryStore(10, 10, 40, 10<<20)
+	syncer := newSyncer(t, source, store, RecoveryFull)
+	// The single worker parks in OnResult after each sync and before it reads
+	// the dirty bit, making the interleaving below deterministic.
+	entered := make(chan atmos.DID)
+	proceed := make(chan struct{})
+	scheduler, err := NewScheduler(syncer, SchedulerOptions{Workers: 1, QueueCapacity: 1, SweepInterval: time.Hour, RegistrationCheckInterval: time.Hour, OnResult: func(result JobResult) { entered <- result.Author; <-proceed }})
+	require.NoError(t, err)
+	other := atmos.DID("did:plc:other")
+	require.NoError(t, scheduler.Hint(testAuthor))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	workerDone := make(chan struct{})
+	go func() { defer close(workerDone); scheduler.worker(ctx) }()
+	receive := func(want atmos.DID) {
+		t.Helper()
+		select {
+		case author := <-entered:
+			require.Equal(t, want, author)
+		case <-time.After(5 * time.Second):
+			t.Fatal("scheduler made no progress; coalesced rerun deadlocked the worker")
+		}
+	}
+	release := func() {
+		t.Helper()
+		select {
+		case proceed <- struct{}{}:
+		case <-time.After(5 * time.Second):
+			t.Fatal("worker never resumed from the result handler")
+		}
+	}
+	receive(testAuthor)
+	// The worker is parked after syncing testAuthor: coalesce a rerun for it and
+	// fill the only queue slot with someone else. A blocking rerun re-enqueue
+	// would deadlock the sole worker once released.
+	require.NoError(t, scheduler.Hint(testAuthor))
+	require.NoError(t, scheduler.Hint(other))
+	release()
+	receive(testAuthor)
+	release()
+	receive(other)
+	release()
+	cancel()
+	select {
+	case <-workerDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not exit on cancellation")
+	}
+}
+
 func TestSchedulerPersistsCallbackLease(t *testing.T) {
 	t.Parallel()
 	source := makeSource(t, atmos.NewTID(1, 0), map[spaces.RecordPath]Record{}, spaces.CARFull)

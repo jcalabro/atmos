@@ -217,21 +217,29 @@ func (s *Scheduler) worker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case author := <-s.queue:
-			repo, err := s.syncer.SyncRepo(ctx, author)
-			s.opts.OnResult(JobResult{Author: author, Repo: repo, Err: err})
-			s.mu.Lock()
-			rerun := s.dirty[author]
-			if rerun {
-				s.dirty[author] = false
-			} else {
-				delete(s.dirty, author)
-			}
-			s.mu.Unlock()
-			if rerun {
+			// Coalesced reruns execute in this worker rather than re-entering the
+			// queue: a blocking re-send from the only goroutines that drain the
+			// queue can deadlock every worker once the queue is full. The dirty
+			// entry stays present (value false) across the rerun so concurrent
+			// Hint calls keep coalescing instead of enqueueing a duplicate.
+			for {
+				repo, err := s.syncer.SyncRepo(ctx, author)
+				s.opts.OnResult(JobResult{Author: author, Repo: repo, Err: err})
+				s.mu.Lock()
+				rerun := s.dirty[author]
+				if rerun {
+					s.dirty[author] = false
+				} else {
+					delete(s.dirty, author)
+				}
+				s.mu.Unlock()
+				if !rerun {
+					break
+				}
 				select {
-				case s.queue <- author:
 				case <-ctx.Done():
 					return
+				default:
 				}
 			}
 		}

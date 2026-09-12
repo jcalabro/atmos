@@ -252,9 +252,13 @@ func TestDirectoryRejectsUntrustedResultShapes(t *testing.T) {
 		"oversize":   func(r *RawResult) { r.Schema = make([]byte, 100) },
 		"bad uri":    func(r *RawResult) { r.URI = "https://example.com" },
 		"bad cid":    func(r *RawResult) { r.CID = "not-a-cid" },
+		// Syntactically valid provenance for the wrong record is not evidence for
+		// the requested declaration.
+		"unrelated collection": func(r *RawResult) { r.URI = "at://did:plc:resolver/com.example.other/com.example.forum" },
+		"unrelated record":     func(r *RawResult) { r.URI = "at://did:plc:resolver/com.atproto.lexicon.schema/com.example.other" },
+		"partial uri":          func(r *RawResult) { r.URI = "at://did:plc:resolver" },
 	}
 	for name, mutate := range tests {
-		name, mutate := name, mutate
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			raw := rawFixture("com.example.forum")

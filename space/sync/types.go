@@ -172,6 +172,12 @@ type Store interface {
 	TransitionRepoLifecycle(context.Context, RepoKey, uint64, LifecycleState, string) (Lifecycle, error)
 	LoadRepo(context.Context, RepoKey) (Repo, error)
 	ListRepos(context.Context, atmos.SpaceRef) ([]RepoKey, error)
+	// ListRepoLifecycles returns every key in the space with a durable per-author
+	// lifecycle row, including keys that have no published generation. Restart
+	// cleanup depends on it: a deletion whose purge failed before anything was
+	// published must remain discoverable, so implementations must retain deletion
+	// tombstone rows until PurgeSpace.
+	ListRepoLifecycles(context.Context, atmos.SpaceRef) ([]RepoKey, error)
 	Begin(context.Context, RepoKey, uint64, uint64) (Stage, error)
 	SaveStage(context.Context, Stage) error
 	Promote(context.Context, StageID, Checkpoint) (Repo, error)

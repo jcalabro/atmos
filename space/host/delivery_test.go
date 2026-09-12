@@ -156,6 +156,65 @@ func TestDeliveryStopsWhenLeaseExpiresDuringDependencies(t *testing.T) {
 	}
 }
 
+func TestDeliveryDoesNotSendAfterLeaseExpires(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		configure func(*Host, *mutableClock, Delivery)
+		prepare   func(*mutableClock, *Delivery)
+	}{
+		// The lease was consumed while the claimed delivery waited in the worker
+		// queue: processing must not even start.
+		{name: "before processing", prepare: func(clock *mutableClock, delivery *Delivery) {
+			clock.set(delivery.LeaseExpires)
+		}},
+		// The lease expires during service resolution: the send must not start,
+		// because another claimer may already own the row.
+		{name: "during resolution", configure: func(host *Host, clock *mutableClock, delivery Delivery) {
+			host.resolver = &advancingResolver{Resolver: host.resolver, clock: clock, at: delivery.LeaseExpires.Add(time.Nanosecond)}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			now := time.Now().UTC()
+			clock := &mutableClock{now: now}
+			store := newTestMemoryStore(t, 4)
+			config := testConfig(t)
+			state, err := store.CreateSpace(t.Context(), config, now)
+			require.NoError(t, err)
+			service := "did:plc:cccccccccccccccccccccccc#sync"
+			require.NoError(t, store.Register(t.Context(), testRegistration(config.URI, service, "credential", now), RegistrationLimits{1, 1, 1}))
+			_, err = store.AdmitWriter(t.Context(), config.URI, state.Generation, testWriter(testMemberDID(), "3jzfcijpj2z2a", 1), now)
+			require.NoError(t, err)
+			claimed, err := store.ClaimDeliveries(t.Context(), now, 1, time.Minute)
+			require.NoError(t, err)
+			require.Len(t, claimed, 1)
+
+			authorityKey := mustP256(t)
+			resolver := &integrationResolver{docs: map[atmos.DID]*identity.DIDDocument{
+				config.URI.Authority():             didDoc(config.URI.Authority(), authorityKey, nil),
+				"did:plc:cccccccccccccccccccccccc": didDoc("did:plc:cccccccccccccccccccccccc", mustP256(t), &identity.Service{ID: "#sync", Type: "AtprotoSpaceSyncer", ServiceEndpoint: "http://subscriber.test"}),
+			}}
+			transport := &captureDelivery{}
+			host := newDeliveryTestHost(t, store, resolver, authorityKey, transport, clock)
+			if tt.configure != nil {
+				tt.configure(host, clock, claimed[0])
+			}
+			if tt.prepare != nil {
+				tt.prepare(clock, &claimed[0])
+			}
+			host.processDelivery(t.Context(), claimed[0])
+			assert.Zero(t, transport.calls.Load(), "no notification may be sent on an expired lease")
+			clock.set(claimed[0].LeaseExpires.Add(2 * time.Minute))
+			recovered, err := store.ClaimDeliveries(t.Context(), clock.Now(), 1, time.Minute)
+			require.NoError(t, err)
+			assert.Len(t, recovered, 1, "the delivery must remain recoverable through lease reclaim")
+		})
+	}
+}
+
 func TestDeliveryJWTDoesNotOutliveLease(t *testing.T) {
 	t.Parallel()
 	now := time.Now().UTC()

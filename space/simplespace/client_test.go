@@ -55,6 +55,10 @@ func TestClientRejectsCrossAuthorityResponsesAndMutations(t *testing.T) {
 	foreign := atmos.SpaceRef("at://did:plc:bcdefghijklmnopqrstuvwxy/space/com.example.board/main")
 	require.Error(t, client.Delete(t.Context(), foreign))
 	require.Error(t, client.PutMember(t.Context(), foreign, Member{DID: "did:plc:cdefghijklmnopqrstuvwxyz"}))
+	_, err = client.Get(t.Context(), foreign)
+	require.ErrorContains(t, err, "not owned", "Get must enforce the same local ownership boundary as mutations")
+	_, _, err = client.Members(t.Context(), foreign, 10, "")
+	require.ErrorContains(t, err, "not owned")
 }
 
 type fakeManagementAPI struct {

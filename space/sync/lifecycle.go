@@ -195,7 +195,10 @@ func (s *Syncer) ResumeCleanup(ctx context.Context) error {
 	if lifecycle.State == LifecycleDeleted && lifecycle.CleanupPending {
 		return s.finishSpaceCleanup(ctx, lifecycle)
 	}
-	keys, err := s.store.ListRepos(ctx, s.space)
+	// Enumerate lifecycle rows, not published repos: a deletion whose purge
+	// failed can belong to an author with no published generation (staged data
+	// only), and it must stay discoverable after restart.
+	keys, err := s.store.ListRepoLifecycles(ctx, s.space)
 	if err != nil {
 		return err
 	}

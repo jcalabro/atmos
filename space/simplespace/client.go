@@ -62,8 +62,13 @@ func (c *Client) Create(ctx context.Context, typ atmos.NSID, skey atmos.RecordKe
 	return space, nil
 }
 
-// Get returns a closed, validated policy configuration.
+// Get returns a closed, validated policy configuration. Like every other
+// management operation, it accepts only spaces owned by the configured
+// account; foreign spaces are read through reader credentials, not this client.
 func (c *Client) Get(ctx context.Context, space atmos.SpaceRef) (Config, error) {
+	if err := requireOwned(c.api.DID(), space); err != nil {
+		return Config{}, err
+	}
 	out, err := c.api.GetSpace(ctx, space)
 	if err != nil {
 		return Config{}, err

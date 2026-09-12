@@ -259,6 +259,12 @@ func (d *Directory) resolve(ctx context.Context, key string, nsid atmos.NSID, ge
 	if err != nil {
 		return nil, fmt.Errorf("space declaration: invalid provenance URI: %w", err)
 	}
+	// Provenance must identify the schema record that was requested. A resolver
+	// answer attributing the declaration to an unrelated record is not evidence
+	// and must not be cached or returned.
+	if uri.Collection() != "com.atproto.lexicon.schema" || string(uri.RecordKey()) != string(nsid) {
+		return nil, fmt.Errorf("space declaration: provenance URI %q does not identify the schema record for %s", raw.URI, nsid)
+	}
 	if _, err := cbor.ParseCIDString(raw.CID); err != nil {
 		return nil, fmt.Errorf("space declaration: invalid provenance CID: %w", err)
 	}
