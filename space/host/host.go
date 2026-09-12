@@ -39,6 +39,29 @@ type Limits struct {
 	CredentialLifetime  time.Duration
 }
 
+// AlphaLimits returns the bounded first-release authority profile. Durable
+// stores must enforce the same registration quotas and a bounded outbox
+// atomically.
+// Deployments should tune worker counts only after measuring their own
+// notification destination latency and store contention.
+func AlphaLimits() Limits {
+	return Limits{
+		MaxRequestBody:      1 << 20,
+		MaxListMembers:      1000,
+		MaxListWriters:      1000,
+		RegistrationTTL:     24 * time.Hour,
+		Registration:        RegistrationLimits{PerSpace: 1000, PerCredential: 10, PerService: 100},
+		DeliveryWorkers:     32,
+		DeliveryBatch:       32,
+		DeliveryLease:       30 * time.Second,
+		DeliveryPoll:        100 * time.Millisecond,
+		DeliveryTimeout:     10 * time.Second,
+		DeliveryRetention:   24 * time.Hour,
+		DeliveryMaxAttempts: 10,
+		CredentialLifetime:  2 * time.Hour,
+	}
+}
+
 // Options provides every authority dependency explicitly.
 type Options struct {
 	Origin         *url.URL

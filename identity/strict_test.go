@@ -6,6 +6,7 @@ import (
 
 	"github.com/jcalabro/atmos"
 	"github.com/jcalabro/atmos/crypto"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +44,37 @@ func TestSelectStrictEntries(t *testing.T) {
 			require.Equal(t, "space.example.com", endpoint.Host)
 		})
 	}
+}
+
+func TestSelectVerificationMethodAcceptsPinnedPDSLegacyKeyType(t *testing.T) {
+	t.Parallel()
+	did := atmos.DID("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa")
+	doc := strictDocument(t, did)
+	privateKey, err := crypto.GenerateK256()
+	require.NoError(t, err)
+	doc.VerificationMethod[0].Type = "EcdsaSecp256k1VerificationKey2019"
+	doc.VerificationMethod[0].PublicKeyMultibase = "z" + base58.Encode(privateKey.PublicKey().Bytes())
+	selected, key, err := SelectVerificationMethod(doc, did, "atproto_space")
+	require.NoError(t, err)
+	require.Equal(t, "EcdsaSecp256k1VerificationKey2019", selected.Type)
+	require.NotNil(t, key)
+
+	doc.VerificationMethod[0].PublicKeyMultibase = strictDocument(t, did).VerificationMethod[0].PublicKeyMultibase
+	_, _, err = SelectVerificationMethod(doc, did, "atproto_space")
+	require.ErrorIs(t, err, ErrMalformedSelectedEntry)
+}
+
+func TestSelectVerificationMethodAcceptsLegacyP256KeyType(t *testing.T) {
+	t.Parallel()
+	did := atmos.DID("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa")
+	doc := strictDocument(t, did)
+	privateKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	doc.VerificationMethod[0].Type = "EcdsaSecp256r1VerificationKey2019"
+	doc.VerificationMethod[0].PublicKeyMultibase = "z" + base58.Encode(privateKey.PublicKey().Bytes())
+	_, key, err := SelectVerificationMethod(doc, did, "atproto_space")
+	require.NoError(t, err)
+	require.NotNil(t, key)
 }
 
 func TestSelectedEntryAbsentVersusMalformed(t *testing.T) {
@@ -120,6 +152,10 @@ func TestSelectServiceExplicitDevelopmentPolicy(t *testing.T) {
 	_, endpoint, err = SelectService(doc, did, "atproto_space_host", "AtprotoSpaceHost", EndpointPolicy{AllowHTTP: true, AllowPrivateLiteral: true})
 	require.NoError(t, err)
 	require.Equal(t, "fe80::1%eth0", endpoint.Hostname())
+	doc.Service[0].ServiceEndpoint = "http://localhost:3000"
+	_, endpoint, err = SelectService(doc, did, "atproto_space_host", "AtprotoSpaceHost", EndpointPolicy{AllowHTTP: true, AllowPrivateNetworks: true})
+	require.NoError(t, err)
+	require.Equal(t, "localhost", endpoint.Hostname())
 }
 
 func FuzzStrictSelectedEntries(f *testing.F) {

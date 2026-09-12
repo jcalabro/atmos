@@ -3,6 +3,7 @@ package crypto
 import (
 	"testing"
 
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +44,41 @@ func TestP256_CompressedBytesRoundTrip(t *testing.T) {
 	parsed, err := ParsePublicBytesP256(compressed)
 	require.NoError(t, err)
 	require.True(t, pub.Equal(parsed))
+}
+
+func TestP256_LegacyPublicMultibaseRoundTrip(t *testing.T) {
+	t.Parallel()
+	privateKey, err := GenerateP256()
+	require.NoError(t, err)
+	publicKey, ok := privateKey.PublicKey().(*P256PublicKey)
+	require.True(t, ok)
+
+	for name, raw := range map[string][]byte{
+		"compressed":   publicKey.Bytes(),
+		"uncompressed": publicKey.UncompressedBytes(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			parsed, err := ParseLegacyPublicMultibaseP256("z" + base58.Encode(raw))
+			require.NoError(t, err)
+			require.True(t, publicKey.Equal(parsed))
+		})
+	}
+
+	for name, encoded := range map[string]string{
+		"empty":                "",
+		"wrong multibase":      "f00",
+		"empty payload":        "z",
+		"invalid compressed":   "z" + base58.Encode(make([]byte, 33)),
+		"invalid uncompressed": "z" + base58.Encode(make([]byte, 65)),
+		"multicodec prefixed":  publicKey.Multibase(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseLegacyPublicMultibaseP256(encoded)
+			require.Error(t, err)
+		})
+	}
 }
 
 func TestP256_DIDKeyRoundTrip(t *testing.T) {

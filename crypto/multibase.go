@@ -26,20 +26,28 @@ func encodeMultibase(prefix, keyBytes []byte) string {
 // decodeMultibase decodes a z-prefixed base58btc multibase string.
 // Returns the 2-byte multicodec prefix and the remaining key bytes.
 func decodeMultibase(s string) (prefix []byte, keyBytes []byte, err error) {
-	if len(s) == 0 {
-		return nil, nil, errors.New("crypto: empty multibase string")
-	}
-	if s[0] != 'z' {
-		return nil, nil, fmt.Errorf("crypto: expected 'z' multibase prefix, got %q", s[0])
-	}
-	raw, err := base58.Decode(s[1:])
+	raw, err := decodeRawMultibase(s)
 	if err != nil {
-		return nil, nil, fmt.Errorf("crypto: base58 decode: %w", err)
+		return nil, nil, err
 	}
 	if len(raw) < 2 {
 		return nil, nil, errors.New("crypto: multibase data too short for multicodec prefix")
 	}
 	return raw[:2], raw[2:], nil
+}
+
+func decodeRawMultibase(s string) ([]byte, error) {
+	if len(s) == 0 {
+		return nil, errors.New("crypto: empty multibase string")
+	}
+	if s[0] != 'z' {
+		return nil, fmt.Errorf("crypto: expected 'z' multibase prefix, got %q", s[0])
+	}
+	raw, err := base58.Decode(s[1:])
+	if err != nil {
+		return nil, fmt.Errorf("crypto: base58 decode: %w", err)
+	}
+	return raw, nil
 }
 
 // matchPrefix returns true if the prefix matches the expected bytes.

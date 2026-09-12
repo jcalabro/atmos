@@ -87,7 +87,10 @@ func NewAccountClient(ctx context.Context, opts AccountOptions) (*AccountClient,
 	eng, err := newEngine(engineOptions{
 		HTTPClient: opts.HTTPClient, Signer: opts.Signer, JSONLimit: opts.JSONLimit,
 		MaxReadAttempts: opts.MaxReadAttempts,
-		NetworkPolicy:   NetworkPolicy{AllowPrivateLiteralHosts: opts.EndpointPolicy.AllowPrivateLiteral},
+		NetworkPolicy: NetworkPolicy{
+			AllowPrivateNetworks:     opts.EndpointPolicy.AllowPrivateNetworks,
+			AllowPrivateLiteralHosts: opts.EndpointPolicy.AllowPrivateLiteral,
+		},
 	})
 	if err != nil {
 		return nil, err

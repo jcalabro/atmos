@@ -31,6 +31,20 @@ type SchedulerOptions struct {
 	OnResult                  func(JobResult)
 }
 
+// AlphaSchedulerOptions returns bounded first-release scheduling settings with
+// the required result handler installed. Callback registration remains opt-in;
+// callers set both callback fields together after constructing the profile.
+func AlphaSchedulerOptions(onResult func(JobResult)) SchedulerOptions {
+	return SchedulerOptions{
+		Workers:                   32,
+		QueueCapacity:             10_000,
+		SweepInterval:             5 * time.Minute,
+		RegistrationCheckInterval: time.Hour,
+		RegistrationRenewBefore:   10 * time.Minute,
+		OnResult:                  onResult,
+	}
+}
+
 // Validate checks scheduler bounds and makes background failures observable.
 func (o SchedulerOptions) Validate() error {
 	if o.Workers <= 0 || o.QueueCapacity <= 0 || o.SweepInterval <= 0 || o.RegistrationCheckInterval <= 0 || o.RegistrationRenewBefore < 0 {

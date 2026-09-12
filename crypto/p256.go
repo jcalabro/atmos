@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"math/big"
 )
 
@@ -97,6 +98,28 @@ func ParsePublicBytesP256(compressed []byte) (*P256PublicKey, error) {
 	key, err := ecdsa.ParseUncompressedPublicKey(p256Curve, uncompressed)
 	if err != nil {
 		return nil, err
+	}
+	return &P256PublicKey{key: key}, nil
+}
+
+// ParseLegacyPublicMultibaseP256 parses the raw SEC1 multibase representation
+// used by EcdsaSecp256r1VerificationKey2019 DID verification methods. Unlike a
+// Multikey value, the decoded bytes have no multicodec prefix.
+func ParseLegacyPublicMultibaseP256(encoded string) (*P256PublicKey, error) {
+	raw, err := decodeRawMultibase(encoded)
+	if err != nil {
+		return nil, err
+	}
+	key, err := ecdsa.ParseUncompressedPublicKey(p256Curve, raw)
+	if err != nil {
+		if len(raw) != 33 {
+			return nil, fmt.Errorf("crypto: invalid legacy P-256 public key: %w", err)
+		}
+		x, y := elliptic.UnmarshalCompressed(p256Curve, raw)
+		if x == nil {
+			return nil, errors.New("crypto: invalid legacy compressed P-256 public key")
+		}
+		key = &ecdsa.PublicKey{Curve: p256Curve, X: x, Y: y}
 	}
 	return &P256PublicKey{key: key}, nil
 }

@@ -32,6 +32,10 @@ test-long *ARGS="./...":
 test-race *ARGS="./...":
     just test-long -race {{ARGS}}
 
+# Runs the opt-in wire gate against immutable local atproto and Bulletin pins
+test-spaces-interop:
+    bash ./scripts/test-spaces-interop.sh
+
 # Regenerates all API types from the cached lexicon schemas
 lexgen:
     test -d lexicons || { echo "lexicon cache is absent; run just update-lexicons" >&2; exit 1; }

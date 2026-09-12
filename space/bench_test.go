@@ -28,7 +28,7 @@ func benchmarkSnapshot(size int) *memorySnapshot {
 }
 
 func BenchmarkRepoIndex(b *testing.B) {
-	for _, size := range []int{100, 10_000} {
+	for _, size := range []int{100, 10_000, 100_000} {
 		b.Run(fmt.Sprintf("records-%d", size), func(b *testing.B) {
 			snapshot := benchmarkSnapshot(size)
 			limits := CARLimits{

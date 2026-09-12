@@ -23,6 +23,10 @@ var (
 type EndpointPolicy struct {
 	AllowHTTP           bool
 	AllowPrivateLiteral bool
+	// AllowPrivateNetworks permits private hostnames and IP literals. It is a
+	// development-only escape hatch for local multi-service interoperability
+	// tests and disables the native transport's DNS-rebinding/SSRF boundary.
+	AllowPrivateNetworks bool
 }
 
 // SelectVerificationMethod strictly selects one public Multikey entry without
@@ -54,10 +58,19 @@ func SelectVerificationMethod(doc *DIDDocument, expected atmos.DID, fragment str
 	if selected.Controller != string(expected) {
 		return nil, nil, fmt.Errorf("%w: verification controller %q does not match %s", ErrMalformedSelectedEntry, selected.Controller, expected)
 	}
-	if selected.Type != "Multikey" {
-		return nil, nil, fmt.Errorf("%w: verification type %q is not Multikey", ErrMalformedSelectedEntry, selected.Type)
+	if selected.Type != "Multikey" && selected.Type != "EcdsaSecp256k1VerificationKey2019" && selected.Type != "EcdsaSecp256r1VerificationKey2019" {
+		return nil, nil, fmt.Errorf("%w: unsupported verification type %q", ErrMalformedSelectedEntry, selected.Type)
 	}
-	key, err := crypto.ParsePublicMultibase(selected.PublicKeyMultibase)
+	var key crypto.PublicKey
+	var err error
+	switch selected.Type {
+	case "Multikey":
+		key, err = crypto.ParsePublicMultibase(selected.PublicKeyMultibase)
+	case "EcdsaSecp256k1VerificationKey2019":
+		key, err = crypto.ParseLegacyPublicMultibaseK256(selected.PublicKeyMultibase)
+	case "EcdsaSecp256r1VerificationKey2019":
+		key, err = crypto.ParseLegacyPublicMultibaseP256(selected.PublicKeyMultibase)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: invalid public key: %w", ErrMalformedSelectedEntry, err)
 	}
@@ -141,7 +154,7 @@ func validateServiceEndpoint(raw string, policy EndpointPolicy) (*url.URL, error
 	if endpoint.Scheme != "https" && (!policy.AllowHTTP || endpoint.Scheme != "http") {
 		return nil, fmt.Errorf("service endpoint must use HTTPS")
 	}
-	if !policy.AllowPrivateLiteral {
+	if !policy.AllowPrivateLiteral && !policy.AllowPrivateNetworks {
 		host := endpoint.Hostname()
 		if strings.EqualFold(host, "localhost") {
 			return nil, fmt.Errorf("service endpoint must not use localhost")

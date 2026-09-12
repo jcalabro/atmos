@@ -2,6 +2,9 @@ package serviceauth
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,6 +136,26 @@ func TestCreateAndVerify_P256(t *testing.T) {
 	assert.Equal(t, "did:web:api.example.com", claims.Audience)
 	assert.NotEmpty(t, claims.JTI)
 	assert.Equal(t, atmos.NSID(""), claims.LexMethod)
+}
+
+func TestCreateTokenUsesScalarAudience(t *testing.T) {
+	t.Parallel()
+	privateKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	token, err := CreateToken(TokenParams{
+		Issuer: "did:plc:alice", Audience: "did:web:api.example.com",
+		Exp: time.Now().Add(time.Minute), LexMethod: "com.atproto.space.notifyWrite",
+	}, privateKey)
+	require.NoError(t, err)
+	parts := strings.Split(token, ".")
+	require.Len(t, parts, 3)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	require.NoError(t, err)
+	var claims map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(payload, &claims))
+	var audience string
+	require.NoError(t, json.Unmarshal(claims["aud"], &audience))
+	require.Equal(t, "did:web:api.example.com", audience)
 }
 
 func TestCreateToken_UsesExplicitIssuanceTime(t *testing.T) {

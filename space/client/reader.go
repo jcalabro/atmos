@@ -192,13 +192,16 @@ func NewReaderClient(ctx context.Context, opts ReaderOptions) (*ReaderClient, er
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
-		httpClient = NewCorrectnessHTTPClient(NetworkPolicy{})
+		httpClient = NewPooledHTTPClient(NetworkPolicy{})
 	}
 	reader := &ReaderClient{space: opts.Space, resolver: opts.Resolver, endpointPolicy: opts.EndpointPolicy, authority: authority, source: opts.Source}
 	eng, err := newEngine(engineOptions{
 		HTTPClient: httpClient, Signer: RequestSignerFunc(reader.signRequest),
 		JSONLimit: opts.JSONLimit, MaxReadAttempts: opts.MaxReadAttempts,
-		NetworkPolicy: NetworkPolicy{AllowPrivateNetworks: opts.EndpointPolicy.AllowPrivateLiteral},
+		NetworkPolicy: NetworkPolicy{
+			AllowPrivateNetworks:     opts.EndpointPolicy.AllowPrivateNetworks,
+			AllowPrivateLiteralHosts: opts.EndpointPolicy.AllowPrivateLiteral,
+		},
 	})
 	if err != nil {
 		return nil, err

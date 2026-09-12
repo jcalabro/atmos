@@ -35,6 +35,21 @@ type CARLimits struct {
 	MaxRecords    int
 }
 
+// AlphaCARLimits returns the measured first-release resource profile. It
+// permits at most 100,000 records and 256 MiB of framed CAR data; callers with
+// a smaller operating envelope should reduce these bounds. The profile is
+// versioned by its name and may change while spaces remain alpha.
+func AlphaCARLimits() CARLimits {
+	return CARLimits{
+		MaxHeaderSize: 4 << 10,
+		MaxCommitSize: 4 << 10,
+		MaxIndexSize:  8 << 20,
+		MaxRecordSize: 1 << 20,
+		MaxTotalSize:  256 << 20,
+		MaxRecords:    100_000,
+	}
+}
+
 // Validate rejects absent or internally inconsistent limits.
 func (l CARLimits) Validate() error {
 	if l.MaxHeaderSize == 0 || l.MaxCommitSize == 0 || l.MaxIndexSize == 0 || l.MaxRecordSize == 0 || l.MaxTotalSize == 0 {

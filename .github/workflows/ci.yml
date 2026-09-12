@@ -165,6 +165,59 @@ jobs:
       - name: Test (race detector)
         run: just test-race
 
+  spaces-interop:
+    name: test (spaces interop)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@9ca718d3bf646d6534007c269a635b3e54cadf99 # v2.19.2
+        with:
+          egress-policy: block
+          # The runner checks out two immutable GitHub revisions, installs their
+          # pinned npm trees, and compiles the local Go interoperability test.
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            raw.githubusercontent.com:443
+            registry.npmjs.org:443
+            proxy.golang.org:443
+            sum.golang.org:443
+            storage.googleapis.com:443
+            dl.google.com:443
+            nodejs.org:443
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Set up pnpm
+        # atproto and Bulletin pin different pnpm releases. Preload both so
+        # Corepack does not select or fetch an implicit package-manager version.
+        run: corepack enable && corepack prepare pnpm@11.11.0 pnpm@8.15.9
+
+      - name: Set up just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+
+      - name: Test pinned spaces interoperability
+        run: just test-spaces-interop
+
   test-wasm:
     name: test (wasm)
     runs-on: ubuntu-24.04

@@ -42,6 +42,27 @@ type Limits struct {
 	CAR                 spaces.CARLimits
 }
 
+// AlphaLimits returns the measured bounded profile for an author-space repo of
+// at most 100,000 records and 256 MiB, in a space with at most 10,000 authors.
+// It is an explicit alpha profile, not an unbounded or stable protocol default.
+func AlphaLimits() Limits {
+	return Limits{
+		PageSize:            1000,
+		DirectoryPageSize:   1000,
+		MaxPages:            100,
+		MaxDirectoryPages:   10,
+		MaxAuthors:          10_000,
+		MaxOperations:       100_000,
+		MaxIncrementalBytes: 64 << 20,
+		MaxFinalFetches:     100_000,
+		MaxRecoveryAttempts: 2,
+		MaxRepoBytes:        256 << 20,
+		PassTimeout:         2 * time.Minute,
+		CleanupTimeout:      30 * time.Second,
+		CAR:                 spaces.AlphaCARLimits(),
+	}
+}
+
 // Validate rejects absent or inconsistent limits.
 func (l Limits) Validate() error {
 	if l.PageSize <= 0 || l.PageSize > 1000 || l.DirectoryPageSize <= 0 || l.DirectoryPageSize > 1000 {

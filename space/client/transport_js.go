@@ -21,4 +21,11 @@ func NewCorrectnessHTTPClient(_ NetworkPolicy) *http.Client {
 	return &http.Client{Timeout: 30 * time.Minute, CheckRedirect: rejectRedirect}
 }
 
+// NewPooledHTTPClient returns a redirect-rejecting browser HTTP client. Browser
+// fetch owns connection pooling, wire retries, proxying, and DNS; callers must
+// enforce equivalent transport policy in their embedding environment.
+func NewPooledHTTPClient(_ NetworkPolicy) *http.Client {
+	return &http.Client{Timeout: 30 * time.Minute, CheckRedirect: rejectRedirect}
+}
+
 func hardenTransportNetwork(_ *http.Transport, _ NetworkPolicy) {}

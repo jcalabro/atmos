@@ -12,12 +12,16 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/gttp"
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/atmos/xrpc"
+	"golang.org/x/net/http/httpguts"
 )
 
 const (
@@ -81,7 +85,6 @@ type engineOptions struct {
 
 type engine struct {
 	client          *http.Client
-	signer          RequestSigner
 	jsonLimit       int64
 	maxReadAttempts int
 }
@@ -95,9 +98,9 @@ func newEngine(opts engineOptions) (*engine, error) {
 	}
 	client := opts.HTTPClient
 	if client == nil {
-		client = NewCorrectnessHTTPClient(NetworkPolicy{})
+		client = NewPooledHTTPClient(NetworkPolicy{})
 	}
-	clientCopy, err := hardenHTTPClient(client, opts.NetworkPolicy)
+	clientCopy, err := hardenHTTPClient(client, opts.NetworkPolicy, opts.Signer)
 	if err != nil {
 		return nil, err
 	}
@@ -109,10 +112,10 @@ func newEngine(opts engineOptions) (*engine, error) {
 	if attempts == 0 {
 		attempts = 1
 	}
-	return &engine{client: clientCopy, signer: opts.Signer, jsonLimit: limit, maxReadAttempts: attempts}, nil
+	return &engine{client: clientCopy, jsonLimit: limit, maxReadAttempts: attempts}, nil
 }
 
-func hardenHTTPClient(input *http.Client, networkPolicy NetworkPolicy) (*http.Client, error) {
+func hardenHTTPClient(input *http.Client, networkPolicy NetworkPolicy, signer RequestSigner) (*http.Client, error) {
 	if input == nil {
 		return nil, errors.New("space client: HTTP client is required")
 	}
@@ -126,21 +129,27 @@ func hardenHTTPClient(input *http.Client, networkPolicy NetworkPolicy) (*http.Cl
 	}
 	transport = transport.Clone()
 	transport.Proxy = nil
-	transport.DisableKeepAlives = true
-	transport.ForceAttemptHTTP2 = false
 	transport.ResponseHeaderTimeout = xrpc.BulkResponseHeaderTimeout
 	if transport.MaxResponseHeaderBytes <= 0 || transport.MaxResponseHeaderBytes > xrpc.MaxResponseHeaderBytes {
 		transport.MaxResponseHeaderBytes = xrpc.MaxResponseHeaderBytes
 	}
-	hardenTransportProtocol(transport)
+	if transport.DisableKeepAlives {
+		hardenCorrectnessTransportProtocol(transport)
+	} else {
+		hardenPooledTransportProtocol(transport)
+	}
 	hardenTransportNetwork(transport, networkPolicy)
+	var roundTripper http.RoundTripper = transport
+	if signer != nil {
+		roundTripper = &wireSigningTransport{next: transport, signer: signer}
+	}
 
 	timeout := input.Timeout
 	if timeout <= 0 || timeout > xrpc.BulkMaxRequestTimeout {
 		timeout = xrpc.BulkMaxRequestTimeout
 	}
 	client := gttp.New(
-		gttp.WithTransport(transport),
+		gttp.WithTransport(roundTripper),
 		gttp.WithNoRetries(),
 		gttp.WithRedirectPolicy(0),
 		gttp.WithTimeout(timeout),
@@ -152,7 +161,7 @@ func hardenHTTPClient(input *http.Client, networkPolicy NetworkPolicy) (*http.Cl
 	return client, nil
 }
 
-func hardenTransportProtocol(transport *http.Transport) {
+func hardenCorrectnessTransportProtocol(transport *http.Transport) {
 	config := transport.TLSClientConfig
 	if config == nil {
 		config = &tls.Config{}
@@ -172,6 +181,140 @@ func hardenTransportProtocol(transport *http.Transport) {
 	// Retain the older explicit opt-out as defense in depth for standard-library
 	// versions and paths that consult TLSNextProto before Protocols.
 	transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+}
+
+func hardenPooledTransportProtocol(transport *http.Transport) {
+	config := transport.TLSClientConfig
+	if config == nil {
+		config = &tls.Config{}
+	} else {
+		config = config.Clone()
+	}
+	config.InsecureSkipVerify = false
+	if config.MinVersion < tls.VersionTLS12 {
+		config.MinVersion = tls.VersionTLS12
+	}
+	config.NextProtos = []string{"h2", "http/1.1"}
+	transport.TLSClientConfig = config
+	transport.ForceAttemptHTTP2 = true
+	transport.DisableKeepAlives = false
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetHTTP2(true)
+	transport.Protocols = protocols
+	transport.TLSNextProto = nil
+}
+
+type wireSigningTransport struct {
+	next   http.RoundTripper
+	signer RequestSigner
+}
+
+func (t *wireSigningTransport) CloseIdleConnections() {
+	if closer, ok := t.next.(interface{ CloseIdleConnections() }); ok {
+		closer.CloseIdleConnections()
+	}
+}
+
+func (t *wireSigningTransport) RoundTrip(original *http.Request) (*http.Response, error) {
+	request := original.Clone(original.Context())
+	request.Header = original.Header.Clone()
+	if err := refreshSignerHeaders(request, t.signer); err != nil {
+		return nil, fmt.Errorf("space client: sign request: %w", err)
+	}
+
+	ctx, cancel := context.WithCancelCause(request.Context())
+	var connections atomic.Uint32
+	var signMu sync.Mutex
+	var signErr error
+	trace := &httptrace.ClientTrace{GotConn: func(httptrace.GotConnInfo) {
+		if connections.Add(1) == 1 {
+			return
+		}
+		if err := refreshSignerHeaders(request, t.signer); err != nil {
+			// Never leave a replayable credential on a request whose replacement
+			// proof could not be created. Cancellation prevents the transport from
+			// starting the replacement wire attempt.
+			request.Header.Del("Authorization")
+			request.Header.Del("DPoP")
+			signMu.Lock()
+			if signErr == nil {
+				signErr = err
+			}
+			signMu.Unlock()
+			cancel(err)
+		}
+	}}
+	request = request.WithContext(httptrace.WithClientTrace(ctx, trace))
+	response, err := t.next.RoundTrip(request)
+	signMu.Lock()
+	deferredSignErr := signErr
+	signMu.Unlock()
+	if deferredSignErr != nil {
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
+		cancel(deferredSignErr)
+		return nil, fmt.Errorf("space client: sign transparent retry: %w", deferredSignErr)
+	}
+	if err != nil || response == nil || response.Body == nil {
+		cancel(err)
+		return response, err
+	}
+	response.Body = &cancelContextBody{ReadCloser: response.Body, cancel: cancel}
+	return response, err
+}
+
+type cancelContextBody struct {
+	io.ReadCloser
+	cancel context.CancelCauseFunc
+	once   sync.Once
+}
+
+func (b *cancelContextBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if err != nil {
+		b.once.Do(func() { b.cancel(nil) })
+	}
+	return n, err
+}
+
+func (b *cancelContextBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.once.Do(func() { b.cancel(nil) })
+	return err
+}
+
+func refreshSignerHeaders(request *http.Request, signer RequestSigner) error {
+	headers, err := signer.SignRequest(request.Context(), request.Method, request.URL.String())
+	if err != nil {
+		return err
+	}
+	if len(headers) == 0 {
+		return errors.New("request signer returned no authentication headers")
+	}
+	for name, values := range headers {
+		canonical := http.CanonicalHeaderKey(name)
+		if canonical != "Authorization" && canonical != "Dpop" {
+			return fmt.Errorf("request signer returned non-authentication header %q", name)
+		}
+		if !httpguts.ValidHeaderFieldName(name) || len(values) == 0 {
+			return fmt.Errorf("request signer returned invalid header %q", name)
+		}
+		for _, value := range values {
+			if !httpguts.ValidHeaderFieldValue(value) {
+				return fmt.Errorf("request signer returned invalid value for header %q", name)
+			}
+		}
+	}
+	request.Header.Del("Authorization")
+	request.Header.Del("DPoP")
+	for name, values := range headers {
+		for _, value := range values {
+			request.Header.Add(name, value)
+		}
+	}
+	return nil
 }
 
 func (e *engine) json(ctx context.Context, method, target string, input, output any) error {
@@ -220,17 +363,6 @@ func (e *engine) jsonAttempt(ctx context.Context, method, target string, encoded
 	if encoded != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if e.signer != nil {
-		headers, err := e.signer.SignRequest(ctx, method, target)
-		if err != nil {
-			return fmt.Errorf("space client: sign request: %w", err)
-		}
-		for name, values := range headers {
-			for _, value := range values {
-				req.Header.Add(name, value)
-			}
-		}
-	}
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return requestFailure(method, "send request", err)
@@ -278,17 +410,6 @@ func (e *engine) stream(ctx context.Context, target string, maxBytes int64, expe
 	}
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("User-Agent", defaultUserAgent)
-	if e.signer != nil {
-		headers, err := e.signer.SignRequest(ctx, http.MethodGet, target)
-		if err != nil {
-			return nil, fmt.Errorf("space client: sign stream request: %w", err)
-		}
-		for name, values := range headers {
-			for _, value := range values {
-				req.Header.Add(name, value)
-			}
-		}
-	}
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("space client: send stream request: %w", err)
@@ -326,17 +447,6 @@ func (e *engine) upload(ctx context.Context, target, contentType string, body io
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("User-Agent", defaultUserAgent)
-	if e.signer != nil {
-		headers, err := e.signer.SignRequest(ctx, http.MethodPost, target)
-		if err != nil {
-			return fmt.Errorf("space client: sign upload request: %w", err)
-		}
-		for name, values := range headers {
-			for _, value := range values {
-				req.Header.Add(name, value)
-			}
-		}
-	}
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrAmbiguousResult, err)

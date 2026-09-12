@@ -27,8 +27,8 @@ var blockedNetworkPrefixes = [...]netip.Prefix{
 	netip.MustParsePrefix("2001:db8::/32"),
 }
 
-// NetworkPolicy controls explicit local-test exceptions in the correctness
-// transport. Production callers should use the zero value.
+// NetworkPolicy controls explicit local-test exceptions in native space
+// transports. Production callers should use the zero value.
 type NetworkPolicy struct {
 	// AllowPrivateNetworks permits every private or special-use dial result,
 	// including DNS answers for public hostnames, which removes the
@@ -59,13 +59,41 @@ func NewCorrectnessHTTPClient(policy NetworkPolicy) *http.Client {
 		MaxResponseHeaderBytes: xrpc.MaxResponseHeaderBytes,
 		TLSClientConfig:        &tls.Config{MinVersion: tls.VersionTLS12},
 	}
-	hardenTransportProtocol(transport)
+	hardenCorrectnessTransportProtocol(transport)
+	hardenTransportNetwork(transport, policy)
+	return &http.Client{Transport: transport, Timeout: 30 * time.Minute, CheckRedirect: rejectRedirect}
+}
+
+// NewPooledHTTPClient returns a hardened production transport with HTTP/1 and
+// HTTP/2 connection pooling. Space clients install their request signer at the
+// transport boundary so every transparent wire retry receives a fresh proof.
+// It has no proxy, rejects redirects, and validates every resolved IP at dial
+// time. The zero network policy blocks private and special-use destinations.
+func NewPooledHTTPClient(policy NetworkPolicy) *http.Client {
+	transport := &http.Transport{
+		Proxy:                  nil,
+		ForceAttemptHTTP2:      true,
+		DisableKeepAlives:      false,
+		MaxIdleConns:           100,
+		MaxIdleConnsPerHost:    10,
+		IdleConnTimeout:        90 * time.Second,
+		TLSHandshakeTimeout:    5 * time.Second,
+		ResponseHeaderTimeout:  30 * time.Second,
+		ExpectContinueTimeout:  time.Second,
+		MaxResponseHeaderBytes: xrpc.MaxResponseHeaderBytes,
+		TLSClientConfig:        &tls.Config{MinVersion: tls.VersionTLS12},
+	}
+	hardenPooledTransportProtocol(transport)
 	hardenTransportNetwork(transport, policy)
 	return &http.Client{Transport: transport, Timeout: 30 * time.Minute, CheckRedirect: rejectRedirect}
 }
 
 func hardenTransportNetwork(transport *http.Transport, policy NetworkPolicy) {
-	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: -1}
+	keepAlive := 30 * time.Second
+	if transport.DisableKeepAlives {
+		keepAlive = -1
+	}
+	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: keepAlive}
 	transport.DialTLSContext = nil
 	transport.DialTLS = nil //nolint:staticcheck // Clear the deprecated caller hook so it cannot bypass the hardened dialer.
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {

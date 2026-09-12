@@ -55,7 +55,10 @@ func NewHTTPManagingAppChecker(opts HTTPManagingAppOptions) (*HTTPManagingAppChe
 	if opts.Resolver == nil || opts.Signer == nil || opts.Clock == nil || opts.ServiceType == nil || opts.Timeout <= 0 || opts.MaxResponse <= 0 || opts.MaxResponse == math.MaxInt64 {
 		return nil, errors.New("space host: managing-app resolver, signer, clock, service-type policy, timeout, and response limit below MaxInt64 are required")
 	}
-	client := spaceclient.NewCorrectnessHTTPClient(spaceclient.NetworkPolicy{AllowPrivateNetworks: opts.EndpointPolicy.AllowPrivateLiteral})
+	client := spaceclient.NewCorrectnessHTTPClient(spaceclient.NetworkPolicy{
+		AllowPrivateNetworks:     opts.EndpointPolicy.AllowPrivateNetworks,
+		AllowPrivateLiteralHosts: opts.EndpointPolicy.AllowPrivateLiteral,
+	})
 	client.Timeout = opts.Timeout
 	return &HTTPManagingAppChecker{
 		resolver: opts.Resolver, signer: opts.Signer, clock: opts.Clock, endpointPolicy: opts.EndpointPolicy,

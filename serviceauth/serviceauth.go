@@ -172,17 +172,18 @@ func CreateToken(params TokenParams, key crypto.PrivateKey) (string, error) {
 		now = time.Now()
 	}
 
-	c := claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    string(params.Issuer),
-			Audience:  jwt.ClaimStrings{params.Audience},
-			ExpiresAt: jwt.NewNumericDate(params.Exp),
-			IssuedAt:  jwt.NewNumericDate(now),
-			ID:        base64.RawURLEncoding.EncodeToString(nonce[:]),
-		},
+	// AT Protocol service JWTs use a scalar aud claim. RegisteredClaims emits
+	// ClaimStrings as a JSON array, which its own parser accepts but the pinned
+	// TypeScript verifier correctly rejects for this profile.
+	c := jwt.MapClaims{
+		"iss": string(params.Issuer),
+		"aud": params.Audience,
+		"exp": params.Exp.Unix(),
+		"iat": now.Unix(),
+		"jti": base64.RawURLEncoding.EncodeToString(nonce[:]),
 	}
 	if params.LexMethod != "" {
-		c.LexMethod = string(params.LexMethod)
+		c["lxm"] = string(params.LexMethod)
 	}
 
 	// Select signing method based on key type.

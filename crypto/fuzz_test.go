@@ -3,6 +3,8 @@ package crypto
 import (
 	"bytes"
 	"testing"
+
+	"github.com/mr-tron/base58"
 )
 
 // FuzzParseDIDKey tests that DID key parsing never panics and round-trips.
@@ -94,6 +96,32 @@ func FuzzParsePublicMultibase(f *testing.F) {
 		}
 		if !pk.Equal(rt) {
 			t.Fatalf("round-trip key mismatch")
+		}
+	})
+}
+
+// FuzzParseLegacyPublicMultibase tests that legacy SEC1 multibase parsers
+// never panic and canonicalize every accepted key to compressed SEC1 bytes.
+func FuzzParseLegacyPublicMultibase(f *testing.F) {
+	p256, _ := GenerateP256()
+	k256, _ := GenerateK256()
+	f.Add("z" + base58.Encode(p256.PublicKey().Bytes()))
+	f.Add("z" + base58.Encode(k256.PublicKey().Bytes()))
+	f.Add("")
+	f.Add("z")
+
+	f.Fuzz(func(t *testing.T, encoded string) {
+		if key, err := ParseLegacyPublicMultibaseP256(encoded); err == nil {
+			roundTrip, err := ParseLegacyPublicMultibaseP256("z" + base58.Encode(key.Bytes()))
+			if err != nil || !key.Equal(roundTrip) {
+				t.Fatalf("P-256 round-trip failed: %v", err)
+			}
+		}
+		if key, err := ParseLegacyPublicMultibaseK256(encoded); err == nil {
+			roundTrip, err := ParseLegacyPublicMultibaseK256("z" + base58.Encode(key.Bytes()))
+			if err != nil || !key.Equal(roundTrip) {
+				t.Fatalf("K-256 round-trip failed: %v", err)
+			}
 		}
 	})
 }

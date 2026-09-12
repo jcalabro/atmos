@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 
 	secp256k1 "gitlab.com/yawning/secp256k1-voi"
 	secp256k1secec "gitlab.com/yawning/secp256k1-voi/secec"
@@ -90,6 +91,25 @@ func ParsePublicBytesK256(raw []byte) (*K256PublicKey, error) {
 		return nil, err
 	}
 	return &K256PublicKey{key: pub}, nil
+}
+
+// ParseLegacyPublicMultibaseK256 parses the raw SEC1 multibase representation
+// used by EcdsaSecp256k1VerificationKey2019 DID verification methods. Unlike a
+// Multikey value, the decoded bytes have no multicodec prefix.
+func ParseLegacyPublicMultibaseK256(encoded string) (*K256PublicKey, error) {
+	raw, err := decodeRawMultibase(encoded)
+	if err != nil {
+		return nil, err
+	}
+	point, err := secp256k1.NewIdentityPoint().SetBytes(raw)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: invalid legacy K-256 public key: %w", err)
+	}
+	publicKey, err := secp256k1secec.NewPublicKeyFromPoint(point)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: construct legacy K-256 public key: %w", err)
+	}
+	return &K256PublicKey{key: publicKey}, nil
 }
 
 // Bytes returns the compressed SEC1 public key (33 bytes).

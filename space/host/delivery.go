@@ -183,7 +183,10 @@ func NewHTTPDeliveryTransport(policy identity.EndpointPolicy, timeout time.Durat
 	if timeout <= 0 || maxResponse <= 0 || maxResponse == math.MaxInt64 {
 		return nil, errors.New("space host: delivery timeout and response limit must be positive and response limit must be below MaxInt64")
 	}
-	client := spaceclient.NewCorrectnessHTTPClient(spaceclient.NetworkPolicy{AllowPrivateLiteralHosts: policy.AllowPrivateLiteral})
+	client := spaceclient.NewCorrectnessHTTPClient(spaceclient.NetworkPolicy{
+		AllowPrivateNetworks:     policy.AllowPrivateNetworks,
+		AllowPrivateLiteralHosts: policy.AllowPrivateLiteral,
+	})
 	client.Timeout = timeout
 	return &HTTPDeliveryTransport{client: client, maxResponse: maxResponse}, nil
 }

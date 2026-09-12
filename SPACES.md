@@ -4,7 +4,9 @@ Design and implementation tracker for [AT Protocol spaces][proposal], on
 `jc/spaces`.
 
 Status: Phases 0–4 implemented and verified on `jc/spaces`, 2026-09-11.
-Phase 5 has not started. The checkboxes below track implementation; the earlier
+Phase 5 is implemented where locally controllable, but remains release-blocked
+by the two pinned PDS defects and the open draft upstream gate below. The
+checkboxes track the complete external outcome; the earlier
 review experiments remain separate evidence. Settled and deferred decisions
 are recorded at the end.
 
@@ -856,12 +858,11 @@ Phase 2 implementation notes:
   absolute/idle/rate/size limits, and keep own-account writes atomic rather than
   splitting or retrying them. Account OAuth nonce and refresh policy remains a
   caller-provided account-session responsibility, separate from space DPoP.
-- Native authenticated requests use an explicit hardened HTTP/1 transport with
-  redirects, proxies, connection reuse and HTTP/2 disabled. It replaces custom
-  dial hooks, checks resolved IPs at dial time, and enforces TLS verification
-  and protocol bounds. This is the reviewed correctness mode, not a pooling or
-  performance claim; a proof-per-wire-send pooled HTTP/2 transport remains the
-  Q3 release blocker.
+- At Phase 2 completion, native authenticated requests used an explicit hardened
+  HTTP/1 correctness transport with redirects, proxies, connection reuse and
+  HTTP/2 disabled. Phase 5 retains that diagnostic mode but replaces the default
+  with the proof-per-wire-send pooled HTTP/1.1 and HTTP/2 transport described
+  below.
 - Tests exercise real delegation and credential signatures through one mock
   authority and two independently resolved repo hosts, fresh per-request proofs,
   wrong-host/space/role rejection, ambiguous exchange/write behavior, dedicated
@@ -993,7 +994,7 @@ Phase 4 implementation notes:
       exchange, reads/writes, pagination, notification auth, management and
       deletion in both directions wherever both implementations serve a role.
 - [ ] Reproduce/resolve the blob perimeter and dedicated-host routing blockers.
-- [ ] Establish Q3 workload limits with load/latency/allocation measurements and
+- [x] Establish Q3 workload limits with load/latency/allocation measurements and
       failure tests; document operating limits and backpressure behavior.
 - [ ] Review updated upstream pins and all deliberate divergences; provide
       examples, exported API/package docs, operational events and migration
@@ -1001,6 +1002,43 @@ Phase 4 implementation notes:
 
 Done when: the supported role combinations work with the pinned reference stack,
 known release blockers are resolved, and the original no-merge gate is met.
+
+Phase 5 implementation notes:
+
+- `just test-spaces-interop` checks out the immutable atproto and Bulletin pins,
+  runs 157 pinned PDS space tests (with one upstream todo) and 44 Bulletin tests,
+  starts two synthetic PDSes plus Bulletin, and then runs atmos through PDS
+  management, cross-PDS writes, credential exchange, notification discovery,
+  paginated reads and deletion. Atmos-signed write/deletion service JWTs also
+  cross into Bulletin's independent DID resolver and verifier, including a
+  negative method-binding case. The gate found and fixed legacy raw
+  `EcdsaSecp256{k1,r1}VerificationKey2019` DID keys and scalar service-JWT
+  audience interoperability. A separate explicit private-network policy
+  supports only local multi-service tests. The same reproducible command is a
+  required egress-hardened CI job; both upstream package-manager versions are
+  pinned and preloaded, and Actions caches remain disabled.
+- Native clients now retain HTTP/1.1 and HTTP/2 pooling. DPoP signing is attached
+  to each transport connection attempt, so transparent standard-library retries
+  receive a new proof. The no-reuse HTTP/1 client remains an explicit diagnostic
+  baseline, not a production fallback.
+- The explicit alpha profile is 100,000 records and 256 MiB per author-space
+  repo, 10,000 authors per space, an 8 MiB index, 64 MiB incremental pass and
+  10,000-item coalescing scheduler queue with 32 workers.
+  Five 100,000-record index build/encode samples on the verification host took
+  27.6–28.4 ms and allocated 25.9 MB. These are bounds and local measurements,
+  not a network/store latency SLO; deployment concurrency and watched-space
+  counts must be load-tested against the caller's durable backends.
+- `space/OPERATIONS.md` records profiles, backpressure, operational feedback,
+  migration limits, the role gate and sensitive-data handling. Exported package
+  docs and examples identify the alpha profiles without silently selecting an
+  unbounded mode.
+- On 2026-09-11 PR #5187 remained an open draft at the same pinned head. The
+  isolated blob reproduction returned an unauthenticated HTTP 200 with the exact
+  body of a space-only blob. Source and live two-PDS testing confirmed remote
+  first-hop notification routing still selects the bare authority DID's
+  `#atproto_pds`, not `#atproto_space_host`. These upstream defects keep the
+  first, second and fourth Phase 5 outcomes unchecked and preserve the no-merge
+  gate; atmos does not misrepresent polling or PDS fallback as a repair.
 
 ## Verification strategy
 
@@ -1127,12 +1165,15 @@ transport prototype above, and the demonstrated no-reuse HTTP/1 baseline adds
 dials/TLS handshakes. Recommend retaining pooling as a release requirement for
 high-scale deployments rather than silently sacrificing it for the alpha.
 
-Answer: **partly settled where Phase 0 requires it**. Pooled shared connections
-and HTTP/2 are release requirements. The no-reuse HTTP/1 mode is a correctness
-baseline only and must never activate as a silent production fallback. Concrete
-repo/cardinality/latency limits and replica targets remain deferred to the
-Phase 5 measurements that set release defaults; those measurements cannot
-waive the pooled proof-per-send requirement.
+Answer: **settled for Phase 5 where the library can set a portable bound**.
+Pooled shared connections and HTTP/2 are release requirements. The no-reuse
+HTTP/1 mode is a correctness baseline only and never activates as a silent
+production fallback. The explicit alpha profile bounds an author repo at
+100,000 records/256 MiB, a space at 10,000 discovered authors, and every sync
+pass, queue, page, retry and timeout exposed by the library. Store-backed
+replica count, watched spaces per process and end-to-end sync lag depend on the
+embedder's durable store, network and SLO; they require deployment load tests
+rather than a hardware-independent library claim.
 
 ### Q4: What retention/serving contract should the syncer expose after access loss?
 
@@ -1230,6 +1271,13 @@ operator consent, not cryptographic ownership of the callback identifier.
   author snapshots with blob references, durable fanout, sync rebuild and
   deletion cleanup; account-PDS blob upload/download and callback HTTP profiles
   have direct boundary tests.
+- 2026-09-11: implemented the locally controllable Phase 5 work. Added pooled
+  proof-per-wire-send HTTP/1.1 and HTTP/2 transport, pinned two-PDS/Bulletin
+  interoperability, legacy PDS DID-key support, scalar service-JWT audiences,
+  measured alpha profiles, examples and operational guidance. The pinned blob-
+  perimeter and dedicated-host routing defects plus the open draft/production
+  gate remain external blockers, so Phase 5 and the no-merge gate are not
+  declared complete.
 
 [guide]: https://gist.github.com/jcalabro/41f1738d22647f8896db4cb178161f07
 [proposal]: https://github.com/bluesky-social/proposals/blob/119fa6b63476d30c2516846c714319046e0422f3/0016-permissioned-data/README.md

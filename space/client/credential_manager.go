@@ -92,7 +92,7 @@ func NewCredentialManager(opts CredentialManagerOptions) (*CredentialManager, er
 		opts.Now = time.Now
 	}
 	if opts.HTTPClient == nil {
-		opts.HTTPClient = NewCorrectnessHTTPClient(NetworkPolicy{})
+		opts.HTTPClient = NewPooledHTTPClient(NetworkPolicy{})
 	}
 	return &CredentialManager{opts: opts}, nil
 }
@@ -205,7 +205,10 @@ func (m *CredentialManager) exchange(ctx context.Context) (CredentialPair, error
 	})
 	eng, err := newEngine(engineOptions{
 		HTTPClient: m.opts.HTTPClient, Signer: signer, JSONLimit: m.opts.JSONLimit,
-		NetworkPolicy: NetworkPolicy{AllowPrivateLiteralHosts: m.opts.EndpointPolicy.AllowPrivateLiteral},
+		NetworkPolicy: NetworkPolicy{
+			AllowPrivateNetworks:     m.opts.EndpointPolicy.AllowPrivateNetworks,
+			AllowPrivateLiteralHosts: m.opts.EndpointPolicy.AllowPrivateLiteral,
+		},
 	})
 	if err != nil {
 		return CredentialPair{}, err
