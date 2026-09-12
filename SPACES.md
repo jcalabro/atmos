@@ -6,9 +6,9 @@ Design and implementation tracker for [AT Protocol spaces][proposal], on
 Status: Phases 0–4 implemented and verified on `jc/spaces`, 2026-09-11.
 Phase 5 is implemented where locally controllable, but remains release-blocked
 by the two pinned PDS defects and the open draft upstream gate below. The
-checkboxes track the complete external outcome; the earlier
-review experiments remain separate evidence. Settled and deferred decisions
-are recorded at the end.
+checkboxes distinguish verified local outcomes from unresolved external ones;
+the earlier review experiments remain separate evidence. Settled and deferred
+decisions are recorded at the end.
 
 Spaces are an early alpha. [PR #5187][pr] was still open at review time and its
 head still matched `9d787ebff231ff8f4e01c63717e9f5bcd6e1bc33`. Implement against
@@ -42,11 +42,13 @@ critical path.
 - Cryptographic constructions: [RFC 9449][dpop-rfc], [RFC 7638][jkt-rfc],
   [RFC 5869 §2.3][hkdf-rfc].
 
-Local contracts were inspected at atmos commit
-`d157f14790124e518303150acddc4278cbf59cd9`. The review used downloaded source
-snapshots and isolated programs outside the repository. It did not run the
-reference PDS or its full test suite, contact the shared alpha with test writes,
-or establish production interoperability.
+The initial local-contract review was performed at atmos commit
+`d157f14790124e518303150acddc4278cbf59cd9` using downloaded source snapshots
+and isolated programs outside the repository. At that review checkpoint it did
+not run the reference PDS or its full test suite, contact the shared alpha with
+test writes, or establish production interoperability. Phase 5 subsequently
+added the pinned local PDS/Bulletin gate described below; no tests write to the
+shared alpha.
 
 Experiments on Linux/amd64, Go 1.26.6 and Node 24.14.0:
 
@@ -62,12 +64,14 @@ These are narrow reproductions, not performance measurements. Keep reproducible
 regression tests with the implementation changes; do not mark those fixes done
 because this document identifies them.
 
-The same primitive experiment passed with `-tags purego` and compiled for
-`GOOS=js GOARCH=wasm`; browser execution remains untested. Repository lint,
-4,312 short tests, 6,132 race-enabled tests, and `just wasm` passed. The first
-test run exposed an incomplete ignored Lexicon cache; restoring missing files
-from the existing `lexgen.lock` pins brought it from 27 to 413 schemas without
-replacing existing files or changing generated code/pins.
+At the initial review checkpoint, the same primitive experiment passed with
+`-tags purego` and compiled for `GOOS=js GOARCH=wasm`; browser execution remained
+untested. Repository lint, 4,312 short tests, 6,132 race-enabled tests, and
+`just wasm` passed at that checkpoint. The first test run exposed an incomplete
+ignored Lexicon cache; restoring missing files from the existing `lexgen.lock`
+pins brought it from 27 to 413 schemas without replacing existing files or
+changing generated code/pins. Current post-Phase-5 verification is recorded in
+the Phase 5 notes.
 
 ## What the protocol actually guarantees
 
@@ -165,16 +169,18 @@ atmos/space/host/          authority state, policy, replay, notification deliver
 atmos/space/simplespace/   management client helpers and policy types/adapters
 ```
 
-This is a proposed dependency direction, not a promise of every exported name.
-`atmos` stays independent of `space`. Core repo primitives do not depend on
-OAuth, networking or generated endpoints. `credential` may import OAuth helpers;
-`oauth` must not import `space/credential` in return. Put scope parsing/building
-in `oauth`, with explicit inputs for declaration-based expansion. The host uses
-management types without importing a package that imports the host.
+This is the implemented dependency direction, not a promise of every exported
+name. `atmos` stays independent of `space`. Core repo primitives do not depend
+on OAuth, networking or generated endpoints. `credential` and `oauth` remain
+independent sibling packages over shared crypto, identity and XRPC primitives;
+neither imports the other. Scope parsing/building lives in `oauth`, with explicit
+inputs for declaration-based expansion. The host uses management types without
+introducing an import cycle.
 
-Existing surfaces that require work:
+Initial surface audit and required integration, retained as design rationale;
+the phase notes below record the implemented resolutions:
 
-| Package | Actual contract and planned integration |
+| Package | Contract at the initial audit and required integration |
 |---|---|
 | `lexicon` | `Parse` currently checks only the document envelope and drops unknown fields. Add/preserve `space` declaration fields and validate them explicitly; parsing JSON alone is not declaration validation. |
 | `lexval` | `at-uri` currently calls `ParseATURI`; `space-ref` currently falls through the unknown-format path. Add both supported checks without weakening public-repo parsing. |
@@ -389,38 +395,29 @@ request bodies, so handlers must separately enforce the requested space, repo,
 operation and authenticated caller. Configure the host's external HTTPS origin;
 never derive it from arbitrary untrusted forwarding headers.
 
-Use this request order for the new clients:
+The implemented clients use this request order:
 
 ```text
 bounded logical retry -> construct request -> check destination/operation
-  -> create fresh proof -> hardened transport with retries disabled
+  -> create initial proof -> pooled HTTP transport
+  -> refresh proof before each transparent replacement wire send
 ```
 
-A signing `RoundTripper` is valid when every retry re-enters it. A signer outside
-a retrying gttp transport is not. Use `gttp.WithNoRetries()` below signing, but
-**this does not disable Go's own transparent retries**. The reused-connection
-experiment above demonstrates a proof being sent twice after the server has
-consumed the first request. A generic xrpc hook or outer RoundTripper cannot
-regenerate a proof for that hidden attempt.
+`gttp.WithNoRetries()` prevents an inner logical retry loop but does not disable
+Go's transparent transport retries. The native signing transport therefore
+installs an `httptrace.GotConn` hook before entering `http.Transport`; every
+wire-send selection after the first refreshes the proof before request headers
+are written, including retries that reuse the same HTTP/2 connection. Failure
+to sign cancels the attempt and removes the old authorization headers. The
+response body retains the traced context through close/EOF so HTTP/1.1 and
+HTTP/2 connections remain poolable.
 
-Transport implementation is therefore gated on a prototype with one of two
-explicit contracts: a hardened transport that exposes every actual send to the
-signer, or suppression of hidden retries. A no-reuse HTTP/1 configuration is a
-correctness baseline for the reproduced case; validate TLS and stream failures
-before treating it as a general solution. It costs connection reuse and HTTP/2
-multiplexing, so it is not an acceptable silent performance fallback. Q3 must
-establish whether such an explicit initial mode fits the workload or pooled
-transport support is required before release. Do not weaken server replay
-checking or rely on undocumented header-mutation hooks to hide this problem.
-
-The Phase 0 wire prototype confirmed that Go transparently reuses the same DPoP
-proof for an HTTP/1 retry on a stale pooled connection and for HTTP/2
-`REFUSED_STREAM` and `GOAWAY` retries. Disabling HTTP/1 reuse suppresses the
-reproduced HTTP/1 replay, but is only a correctness baseline. Q3 now requires a
-pooled, HTTP/2-capable proof-per-send transport before release; the no-reuse
-mode is not a production fallback. Until that transport exists, authenticated
-spaces clients remain release-blocked even though the prerequisite failure
-modes have regression coverage.
+The Phase 0 wire prototype confirmed proof reuse on a stale pooled HTTP/1
+connection and on HTTP/2 `REFUSED_STREAM` and `GOAWAY`. Phase 5 resolves those
+cases with the pooled proof-per-wire-send transport and real frame-level
+regression tests. The explicit no-reuse HTTP/1 client remains available only as
+a diagnostic correctness baseline; it is never selected as a silent fallback.
+Do not weaken server replay checking or add another independent retry loop.
 
 Avoid a second independent logical retry loop. GET failures before publishing a body
 can be retried; restart a failed stream from the last verified checkpoint.
@@ -437,10 +434,10 @@ before attaching credentials; do not reattach auth to redirects, even if an
 HTTP client stripped the previous Authorization header. Redirects also invalidate
 the method/path proof binding on the same origin.
 
-Share clients/transports; do not allocate one per author. Retain bounded shared
-connection pools when the transport prototype can meet the proof contract with
-reuse. Bound total workers, per-host requests, queued work, retries, and
-simultaneous backfills.
+Share clients/transports; do not allocate one per author. Native clients retain
+bounded shared connection pools while meeting the proof-per-wire-send contract.
+Bound total workers, per-host requests, queued work, retries, and simultaneous
+backfills.
 Make service/DID/metadata resolution cancellable and apply DNS-rebinding-safe
 SSRF checks at dial time. Native Go networking and browser/WASM networking have
 different guarantees: a WASM build passing does not prove socket-level SSRF or
@@ -740,9 +737,9 @@ fencing solves the wire ambiguity for external authorities that permit reuse.
 
 | Gap confirmed by source inspection | Consequence / required follow-up |
 |---|---|
-| PDS first-hop notification routing uses bare authority DID -> `#atproto_pds`, not the proposal's dedicated space-host endpoint. | Standalone host support needs a real two-host interoperability test and upstream routing repair. Mock-only success is insufficient. |
+| PDS first-hop notification routing uses bare authority DID -> `#atproto_pds`, not the proposal's dedicated space-host endpoint. | Source inspection and live two-PDS testing reproduce the route. Standalone host support remains blocked on an upstream routing repair followed by a real dedicated-host test; mock-only success is insufficient. |
 | First-hop notifications lack a durable outbox; directory upserts accept older revisions. | Retain the discovery limitation in SDK guarantees. Our host adds monotonic updates/outbox; it cannot fix remote discovery loss. |
-| Public `sync.getBlob` uses the shared blob reader without a public-reference check, while space writes make blobs permanent. | Source indicates a space-only blob may be fetched publicly by DID/CID. Reproduce on an isolated pinned PDS and establish the intended perimeter before describing blob support as private. Do not probe other users' blobs. |
+| Public `sync.getBlob` uses the shared blob reader without a public-reference check, while space writes make blobs permanent. | An isolated pinned PDS returned the exact bytes of a space-only blob without authentication. Establish and repair the intended upstream perimeter before describing blob support as private; do not probe other users' blobs. |
 | Reference full exports read state then page records without an explicit consistent snapshot. | Detect and reject mismatches; test convergence under writes and bound recovery amplification. |
 | Same-URI recreation and no instantaneous credential revocation. | Q4/Q5 require permanent local tombstones and explicit residual-access documentation; no claims of immediate erase or revocation. |
 | Registration/withdrawal authenticates a space reader, not ownership of the named subscriber. | Q6 requires explicit host policy; account for unsolicited notifications and third-party subscription removal. |
@@ -754,16 +751,18 @@ Recheck each when updating the pin and before release. Changes in sibling public
 packages remain in-scope only as concrete prerequisites below; this document
 review does not start those implementation changes.
 
-The local transport blocker is separate from alpha bugs: prototype proof
-generation versus Go's transparent HTTP retries before selecting a production
-transport. `WithNoRetries()` fixes the gttp layer only. Keep the reproduced
-reused-connection failure as a mandatory regression case.
+The former local transport blocker is resolved: the pooled native transport
+signs each actual wire send, including Go's transparent HTTP/1.1 and HTTP/2
+retries. `WithNoRetries()` still fixes only the gttp layer, so the reproduced
+reused-connection, `REFUSED_STREAM` and `GOAWAY` cases remain mandatory
+regressions. The no-reuse HTTP/1 transport remains a diagnostic baseline.
 
 ## Phased implementation tracker
 
 The order follows dependencies. Every phase includes failing tests first and
 ends with its acceptance gate; checked boxes mean implemented and verified.
-Phases 0–4 are complete; Phase 5 remains unchecked.
+Phases 0–4 are complete. Phase 5's locally controllable work is implemented and
+verified; blocker resolution and the external production gate remain open.
 
 ### Phase 0: contracts, pins and prerequisite fixes
 
@@ -990,15 +989,19 @@ Phase 4 implementation notes:
 
 ### Phase 5: pinned stack interoperability and release readiness
 
-- [ ] Run the reference PDS and Bulletin locally with synthetic accounts; test
+- [x] Run the reference PDS and Bulletin locally with synthetic accounts; test
       exchange, reads/writes, pagination, notification auth, management and
       deletion in both directions wherever both implementations serve a role.
-- [ ] Reproduce/resolve the blob perimeter and dedicated-host routing blockers.
+- [x] Reproduce the blob perimeter and dedicated-host routing blockers on an
+      isolated pinned PDS.
+- [ ] Resolve the upstream blob perimeter and dedicated-host routing blockers,
+      then verify the repaired dedicated-host topology.
 - [x] Establish Q3 workload limits with load/latency/allocation measurements and
       failure tests; document operating limits and backpressure behavior.
-- [ ] Review updated upstream pins and all deliberate divergences; provide
-      examples, exported API/package docs, operational events and migration
-      limitations. Confirm the external stability/production release gate.
+- [x] Review the pinned upstream revisions and all deliberate divergences;
+      provide examples, exported API/package docs, operational events and
+      migration limitations.
+- [ ] Confirm the external stability/production release gate.
 
 Done when: the supported role combinations work with the pinned reference stack,
 known release blockers are resolved, and the original no-merge gate is met.
@@ -1015,12 +1018,13 @@ Phase 5 implementation notes:
   `EcdsaSecp256{k1,r1}VerificationKey2019` DID keys and scalar service-JWT
   audience interoperability. A separate explicit private-network policy
   supports only local multi-service tests. The same reproducible command is a
-  required egress-hardened CI job; both upstream package-manager versions are
+  dedicated egress-hardened CI job; both upstream package-manager versions are
   pinned and preloaded, and Actions caches remain disabled.
 - Native clients now retain HTTP/1.1 and HTTP/2 pooling. DPoP signing is attached
-  to each transport connection attempt, so transparent standard-library retries
-  receive a new proof. The no-reuse HTTP/1 client remains an explicit diagnostic
-  baseline, not a production fallback.
+  to every transport-selected wire send, so transparent standard-library retries
+  receive a new proof even when HTTP/2 reuses the same connection. The no-reuse
+  HTTP/1 client remains an explicit diagnostic baseline, not a production
+  fallback.
 - The explicit alpha profile is 100,000 records and 256 MiB per author-space
   repo, 10,000 authors per space, an 8 MiB index, 64 MiB incremental pass and
   10,000-item coalescing scheduler queue with 32 workers.
@@ -1037,8 +1041,14 @@ Phase 5 implementation notes:
   body of a space-only blob. Source and live two-PDS testing confirmed remote
   first-hop notification routing still selects the bare authority DID's
   `#atproto_pds`, not `#atproto_space_host`. These upstream defects keep the
-  first, second and fourth Phase 5 outcomes unchecked and preserve the no-merge
-  gate; atmos does not misrepresent polling or PDS fallback as a repair.
+  blocker-resolution and external release outcomes unchecked and preserve the
+  no-merge gate; atmos does not misrepresent polling or PDS fallback as a
+  repair.
+- Post-Phase-5 verification passed repository lint and 4,945 short tests, 6,765
+  race-enabled tests, `just wasm`, and 4,754 tests under the Node-hosted WASM
+  runtime, with only the documented opt-in/large-test skips. Focused crypto and
+  identity fuzzing, repeated native transport retry stress, and the complete
+  pinned interoperability gate also passed.
 
 ## Verification strategy
 
@@ -1094,9 +1104,10 @@ and keep primitive-only fixtures clearly scoped.
    repo size, not independent of element length. Use leak checks that account
    for reusable HTTP pools; raw goroutine-count deltas alone are unreliable.
 9. **Wire integration.** Run local pinned PDS/Bulletin tests before each network
-   milestone, recording implementation SHA, dependency/container digest,
-   commands and result. No sensitive data or public service writes are needed.
-   These gated tests supplement, not replace, local deterministic CI.
+   milestone, recording implementation SHAs, locked package-manager/dependency
+   inputs, commands and result. No sensitive data or public service writes are
+   needed. The dedicated interoperability CI job supplements, rather than
+   replaces, the deterministic local suites.
 
 Use typed errors and structured events for credential expiry/denial, resolver
 failure, replay/store failure, stale/conflicting hints, backfill cause/bytes,
@@ -1256,11 +1267,29 @@ operator consent, not cryptographic ownership of the callback identifier.
   XRPC body limits, response error metadata, retry/ambiguity policy and partial
   retry options, and made OAuth logical retries body-replay-safe. Wire tests
   cover reused HTTP/1, no-reuse HTTP/1, HTTP/2 `REFUSED_STREAM`, and HTTP/2
-  `GOAWAY`; they retain pooled proof-per-send transport as a release blocker.
+  `GOAWAY`; at that checkpoint they left pooled proof-per-send transport as a
+  release blocker.
   Full short/race/WASM suites, repeated race stress, deterministic generation,
   cache corruption recovery, signal-interruption rollback tests and 30 focused
   fuzz campaigns passed. Focused adversarial reviews were iterated to no
   findings.
+- 2026-09-11: completed Phase 1. Added resumable LtHash and validated
+  context-bound P-256/K-256 commits; deterministic cross-language fixtures;
+  strict full/index-only permissioned-repo CAR serialization and verification;
+  per-reader and total resource limits; replayable bounded file spooling; and
+  adversarial, malformed, completeness, allocation and benchmark coverage.
+- 2026-09-11: completed Phase 2. Added strict OAuth space permissions, the three
+  credential JWT profiles, client metadata/JWKS verification, DPoP and replay
+  protection, raw-DID endpoint/key selection, typed account and reader clients,
+  credential renewal, notification authentication, bounded streaming and
+  mock-authority/two-repo-host integration. The no-reuse HTTP/1 client was the
+  explicit correctness baseline pending Phase 5's pooled transport.
+- 2026-09-11: completed Phase 3. Added the fenced staged sync store contract and
+  conformance harness, bounded memory store, direct-host incremental and CAR
+  recovery, coalescing scheduler and callback leases, durable checkpoint
+  outbox, explicit incomplete/integrity outcomes, account/space lifecycle
+  fencing and restart cleanup. Model, fault-injection, fuzz, race and recovery
+  tests cover publication atomicity and conditional convergence.
 - 2026-09-11: completed Phase 4. Added the mountable authority host, durable
   store contract and conformance harness, bounded memory store, exact OAuth
   permission adapter, credential/policy enforcement, monotonic writer directory,

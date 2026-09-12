@@ -30,17 +30,18 @@ and lower the profile when their SLO or memory budget requires it.
 
 The scheduler exposes backpressure through `QueueFullError`, `JobResult`, and
 `EventQueueSaturated`; a later sweep reconciles dropped hints. The authority
-store returns `ErrQuota` and `ErrOutboxFull` atomically and the host emits
-bounded delivery success/failure and queue events. Sync stages remain invisible
-until verified promotion. Do not use unbounded queues or retry either ambiguous
-writes or credential exchanges.
+store returns `ErrQuota` and `ErrOutboxFull` atomically, while the host emits
+bounded delivery success/failure events. Sync stages remain invisible until
+verified promotion. Do not use unbounded queues or retry either ambiguous writes
+or credential exchanges.
 
 Native clients use pooled HTTP/1.1 and HTTP/2. Their signer runs once for every
-transport connection attempt, including transparent standard-library retries,
-so a DPoP proof is never reused for a second wire send. `NewCorrectnessHTTPClient`
-remains available as an explicit no-reuse diagnostic baseline. Browser fetch
-owns pooling and hidden retries under WebAssembly, so the embedding browser is
-part of that transport trust boundary.
+wire send selected by the transport, including transparent standard-library
+retries on the same HTTP/2 connection, so a DPoP proof is never reused for a
+second wire send. `NewCorrectnessHTTPClient` remains available as an explicit
+no-reuse diagnostic baseline. Browser fetch owns pooling and hidden retries
+under WebAssembly, so the embedding browser is part of that transport trust
+boundary.
 
 ## Interoperability gate
 
@@ -50,8 +51,8 @@ synthetic PDSes and Bulletin, then exercises atmos management, cross-PDS writes,
 credential exchange, notification-driven writer discovery, paginated reads,
 and deletion. It also sends atmos-signed write and deletion notifications into
 Bulletin's independent DID/service-JWT verifier and checks wrong-method denial.
-CI runs this same command in its required `spaces-interop` job with blocked-by-
-default egress, immutable Actions, exact pnpm versions and no shared caches.
+CI runs this same command in its dedicated `spaces-interop` job with
+default-deny egress, immutable Actions, exact pnpm versions and no shared caches.
 Existing clean checkouts can be reused with
 `ATMOS_ATPROTO_CHECKOUT` and `ATMOS_BULLETIN_CHECKOUT`. Set
 `ATMOS_KEEP_INTEROP_ROOT=1` to retain logs.

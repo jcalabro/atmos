@@ -41,11 +41,10 @@ type NetworkPolicy struct {
 	AllowPrivateLiteralHosts bool
 }
 
-// NewCorrectnessHTTPClient returns the explicit HTTP/1, no-connection-reuse
-// correctness transport used until a pooled proof-per-wire-send transport is
-// available. It has no proxy, rejects redirects, validates every resolved IP
-// at dial time, and suppresses the standard library's reproduced hidden retry
-// paths by never reusing a connection and disabling HTTP/2.
+// NewCorrectnessHTTPClient returns an explicit HTTP/1, no-connection-reuse
+// diagnostic transport. It has no proxy, rejects redirects, validates every
+// resolved IP at dial time, and suppresses the standard library's reproduced
+// hidden retry paths by never reusing a connection and disabling HTTP/2.
 //
 // This mode is intentionally not described as production-performance ready.
 func NewCorrectnessHTTPClient(policy NetworkPolicy) *http.Client {
