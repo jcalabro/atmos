@@ -2,13 +2,18 @@ package oauth
 
 import (
 	"context"
+	"crypto/elliptic"
+	"encoding/base64"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"sync/atomic"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/jcalabro/atmos/crypto"
 	"github.com/jcalabro/atmos/identity"
 	"github.com/jcalabro/gt"
 	"github.com/stretchr/testify/require"
@@ -246,4 +251,251 @@ func TestLoopbackClientMetadata_DoesNotRelaxSSRFProtection(t *testing.T) {
 	_, err = c.Authorize(context.Background(), AuthorizeOptions{Input: did})
 	require.ErrorContains(t, err, "fetch protected resource metadata")
 	require.False(t, reached.Load(), "a loopback client must not fetch metadata from a private PDS")
+}
+
+func TestConfidentialClientMetadata_JWKSURIAndKeyedJWKS(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	const clientID = "https://leadsheet.fm/oauth/client-metadata.json"
+	const keyID = "leadsheet-key-1"
+	jwksURI := "https://leadsheet.fm/oauth/jwks.json"
+	c := &Client{
+		ClientMetadata: ClientMetadata{
+			ClientID:                    clientID,
+			ApplicationType:             "web",
+			GrantTypes:                  []string{"authorization_code", "refresh_token"},
+			Scope:                       "atproto include:fm.leadsheet.authFull",
+			ResponseTypes:               []string{"code"},
+			RedirectURIs:                []string{"https://leadsheet.fm/oauth/callback"},
+			DPoPBoundAccessTokens:       true,
+			TokenEndpointAuthMethod:     "private_key_jwt",
+			TokenEndpointAuthSigningAlg: "ES256",
+			JWKSURI:                     &jwksURI,
+		},
+		Key:   key,
+		KeyID: keyID,
+	}
+	require.NoError(t, c.ClientMetadata.ValidateClientAuth())
+	require.NoError(t, c.ValidateClientAuth())
+
+	metadataJSON, err := json.Marshal(c.ClientMetadata)
+	require.NoError(t, err)
+	var metadata map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(metadataJSON, &metadata))
+	require.JSONEq(t, `"https://leadsheet.fm/oauth/jwks.json"`, string(metadata["jwks_uri"]))
+	require.NotContains(t, metadata, "jwks")
+	require.JSONEq(t, `"private_key_jwt"`, string(metadata["token_endpoint_auth_method"]))
+	require.JSONEq(t, `"ES256"`, string(metadata["token_endpoint_auth_signing_alg"]))
+
+	set, err := c.PublicJWKS()
+	require.NoError(t, err)
+	require.Len(t, set.Keys, 1)
+	require.Equal(t, keyID, set.Keys[0].KeyID)
+	setJSON, err := json.Marshal(set)
+	require.NoError(t, err)
+	var public struct {
+		Keys []map[string]any `json:"keys"`
+	}
+	require.NoError(t, json.Unmarshal(setJSON, &public))
+	require.Len(t, public.Keys, 1)
+	require.Equal(t, keyID, public.Keys[0]["kid"])
+	require.NotContains(t, public.Keys[0], "d", "a public JWKS must never contain private key material")
+
+	params := url.Values{}
+	require.NoError(t, c.clientAuth().Apply(params, "https://auth.example.com"))
+	x, err := base64.RawURLEncoding.DecodeString(set.Keys[0].X)
+	require.NoError(t, err)
+	y, err := base64.RawURLEncoding.DecodeString(set.Keys[0].Y)
+	require.NoError(t, err)
+	verificationKey, err := crypto.ParsePublicBytesP256(elliptic.MarshalCompressed(
+		elliptic.P256(), new(big.Int).SetBytes(x), new(big.Int).SetBytes(y),
+	))
+	require.NoError(t, err)
+	token, err := jwt.Parse(params.Get("client_assertion"), func(token *jwt.Token) (any, error) {
+		return verificationKey, nil
+	}, jwt.WithValidMethods([]string{"ES256"}), jwt.WithIssuer(clientID), jwt.WithAudience("https://auth.example.com"))
+	require.NoError(t, err)
+	require.True(t, token.Valid)
+	require.Equal(t, keyID, token.Header["kid"])
+}
+
+func TestClientMetadata_ValidateClientAuth(t *testing.T) {
+	t.Parallel()
+
+	uri := "https://leadsheet.fm/oauth/jwks.json"
+	loopbackURI := "http://127.0.0.1:8120/oauth/jwks.json"
+	localhostURI := "http://localhost:8120/oauth/jwks.json"
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	pub, ok := key.PublicKey().(*crypto.P256PublicKey)
+	require.True(t, ok)
+	jwk := PublicJWK(pub)
+	jwk.KeyID = "k1"
+	otherKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	otherPub, ok := otherKey.PublicKey().(*crypto.P256PublicKey)
+	require.True(t, ok)
+	otherJWK := PublicJWK(otherPub)
+	inline := &JWKSet{Keys: []ECPublicJWK{jwk}}
+	base := ClientMetadata{
+		TokenEndpointAuthMethod:     "private_key_jwt",
+		TokenEndpointAuthSigningAlg: "ES256",
+		JWKSURI:                     &uri,
+	}
+	for _, tc := range []struct {
+		name string
+		meta ClientMetadata
+		want string
+	}{
+		{name: "jwks_uri", meta: base},
+		{name: "loopback jwks_uri", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKSURI: &loopbackURI}},
+		{name: "localhost jwks_uri", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKSURI: &localhostURI}},
+		{name: "inline jwks", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: inline}},
+		{name: "public client", meta: ClientMetadata{TokenEndpointAuthMethod: "none"}},
+		{name: "both key sources", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: inline, JWKSURI: &uri}, want: "mutually exclusive"},
+		{name: "missing key source", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256"}, want: "requires jwks or jwks_uri"},
+		{name: "missing signing algorithm", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", JWKSURI: &uri}, want: "requires token_endpoint_auth_signing_alg ES256"},
+		{name: "empty inline jwks", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{}}, want: "at least one public key"},
+		{name: "inline key missing kid", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{Keys: []ECPublicJWK{{}}}}, want: "requires kid"},
+		{name: "inline key malformed", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{Keys: []ECPublicJWK{{KTY: "EC", CRV: "P-256", X: "not-base64", Y: jwk.Y, KeyID: "k1"}}}}, want: "invalid x coordinate"},
+		{name: "inline key off curve", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{Keys: []ECPublicJWK{{KTY: "EC", CRV: "P-256", X: jwk.X, Y: otherJWK.Y, KeyID: "k1"}}}}, want: "not a P-256 point"},
+		{name: "public signing algorithm", meta: ClientMetadata{TokenEndpointAuthMethod: "none", TokenEndpointAuthSigningAlg: "ES256"}, want: "must not declare"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.meta.ValidateClientAuth()
+			if tc.want == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestClientMetadata_InvalidJWKSURI(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{
+		"", "oauth/jwks.json", "ftp://leadsheet.fm/jwks.json",
+		"http://leadsheet.fm/jwks.json", "http://127.0.0.2/jwks.json",
+		"https://localhost/jwks.json", "https://127.0.0.1/jwks.json",
+		"https://127.1/jwks.json", "https://0x7f.1/jwks.json", "https://127.0.0.1./jwks.json",
+		"https://internal.local/jwks.json", "https://intranet/jwks.json",
+		"https://user@leadsheet.fm/jwks.json", "https://leadsheet.fm/jwks.json#fragment",
+		"https://leadsheet.fm/\\evil.example/jwks.json",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			t.Parallel()
+			meta := ClientMetadata{
+				TokenEndpointAuthMethod:     "private_key_jwt",
+				TokenEndpointAuthSigningAlg: "ES256",
+				JWKSURI:                     &raw,
+			}
+			require.ErrorContains(t, meta.ValidateClientAuth(), "invalid jwks_uri")
+		})
+	}
+}
+
+func TestClientValidateClientAuth_MatchesSigningKey(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	otherKey, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	public, ok := key.PublicKey().(*crypto.P256PublicKey)
+	require.True(t, ok)
+	otherPublic, ok := otherKey.PublicKey().(*crypto.P256PublicKey)
+	require.True(t, ok)
+	keyJWK := PublicJWK(public)
+	keyJWK.KeyID = "k1"
+	otherJWK := PublicJWK(otherPublic)
+	otherJWK.KeyID = "k1"
+	uri := "https://leadsheet.fm/oauth/jwks.json"
+	base := ClientMetadata{
+		TokenEndpointAuthMethod:     "private_key_jwt",
+		TokenEndpointAuthSigningAlg: "ES256",
+		JWKSURI:                     &uri,
+	}
+	for _, tc := range []struct {
+		name string
+		meta ClientMetadata
+		key  *crypto.P256PrivateKey
+		kid  string
+		want string
+	}{
+		{name: "remote JWKS", meta: base, key: key, kid: "k1"},
+		{name: "matching inline JWKS", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{Keys: []ECPublicJWK{keyJWK}}}, key: key, kid: "k1"},
+		{name: "different inline key", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{Keys: []ECPublicJWK{otherJWK}}}, key: key, kid: "k1", want: "does not match"},
+		{name: "missing inline key", meta: ClientMetadata{TokenEndpointAuthMethod: "private_key_jwt", TokenEndpointAuthSigningAlg: "ES256", JWKS: &JWKSet{Keys: []ECPublicJWK{otherJWK}}}, key: key, kid: "k2", want: "must appear exactly once"},
+		{name: "missing signing key", meta: base, kid: "k1", want: "requires a signing key and kid"},
+		{name: "missing kid", meta: base, key: key, want: "requires a signing key and kid"},
+		{name: "public client with key", meta: ClientMetadata{TokenEndpointAuthMethod: "none"}, key: key, kid: "k1", want: "public client must not configure"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			client := &Client{ClientMetadata: tc.meta, Key: tc.key, KeyID: tc.kid}
+			err := client.ValidateClientAuth()
+			if tc.want == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestAuthorize_RejectsInvalidClientAuthBeforeNetwork(t *testing.T) {
+	t.Parallel()
+
+	uri := "https://leadsheet.fm/oauth/jwks.json"
+	c := &Client{ClientMetadata: ClientMetadata{
+		TokenEndpointAuthMethod:     "private_key_jwt",
+		TokenEndpointAuthSigningAlg: "ES256",
+		JWKSURI:                     &uri,
+	}}
+	_, err := c.Authorize(context.Background(), AuthorizeOptions{Input: "did:plc:testuser1234567890abcde"})
+	require.ErrorContains(t, err, "requires a signing key and kid")
+}
+
+func TestClientPublicJWKS(t *testing.T) {
+	t.Parallel()
+
+	set, err := (&Client{}).PublicJWKS()
+	require.NoError(t, err)
+	require.Empty(t, set.Keys)
+	encoded, err := json.Marshal(set)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"keys":[]}`, string(encoded))
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	_, err = (&Client{Key: key}).PublicJWKS()
+	require.ErrorContains(t, err, "requires a kid")
+}
+
+func TestConfidentialClientAuth_RequiresKeyAndKeyID(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateP256()
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name string
+		key  *crypto.P256PrivateKey
+		kid  string
+	}{
+		{name: "missing key", kid: "k1"},
+		{name: "missing kid", key: key},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			auth := ConfidentialClientAuth{ClientID: "https://leadsheet.fm/oauth/client-metadata.json", Key: tc.key, KeyID: tc.kid}
+			params := url.Values{}
+			require.ErrorContains(t, auth.Apply(params, "https://auth.example.com"), "requires a key and kid")
+			require.Empty(t, params)
+		})
+	}
 }

@@ -88,6 +88,9 @@ type AuthorizeResult struct {
 // Authorize initiates the OAuth authorization flow.
 // Returns the URL to redirect the user's browser to.
 func (c *Client) Authorize(ctx context.Context, opts AuthorizeOptions) (*AuthorizeResult, error) {
+	if err := c.ValidateClientAuth(); err != nil {
+		return nil, err
+	}
 	httpClient := c.httpClient()
 
 	// 1. Resolve identity → PDS → AS metadata.
@@ -431,6 +434,64 @@ func (c *Client) clientAuth() ClientAuth {
 		}
 	}
 	return &PublicClientAuth{ClientID: c.ClientMetadata.ClientID}
+}
+
+// ValidateClientAuth checks that the client's signing key agrees with its
+// published authentication metadata. Call it before publishing metadata; the
+// authorization flow also calls it before making any network requests.
+func (c *Client) ValidateClientAuth() error {
+	if err := c.ClientMetadata.ValidateClientAuth(); err != nil {
+		return err
+	}
+	if c.ClientMetadata.TokenEndpointAuthMethod == "none" {
+		if c.Key != nil || c.KeyID != "" {
+			return fmt.Errorf("oauth: public client must not configure a signing key or kid")
+		}
+		return nil
+	}
+	if c.Key == nil || c.KeyID == "" {
+		return fmt.Errorf("oauth: private_key_jwt requires a signing key and kid")
+	}
+	if c.ClientMetadata.JWKS != nil {
+		set, err := c.PublicJWKS()
+		if err != nil {
+			return err
+		}
+		matches := 0
+		for _, key := range c.ClientMetadata.JWKS.Keys {
+			if key.KeyID == c.KeyID {
+				if key != set.Keys[0] {
+					return fmt.Errorf("oauth: signing key does not match the public JWK with kid %q", c.KeyID)
+				}
+				matches++
+			}
+		}
+		if matches != 1 {
+			return fmt.Errorf("oauth: signing key must appear exactly once in jwks with kid %q", c.KeyID)
+		}
+	}
+	return nil
+}
+
+// PublicJWKS returns the public client authentication key for a confidential
+// client, with the same kid used in its client assertions. Public clients get
+// an empty key set. Serve this as JSON at ClientMetadata.JWKSURI.
+func (c *Client) PublicJWKS() (JWKSet, error) {
+	set := JWKSet{Keys: []ECPublicJWK{}}
+	if c.Key == nil {
+		return set, nil
+	}
+	if c.KeyID == "" {
+		return set, fmt.Errorf("oauth: confidential client key requires a kid")
+	}
+	pub, ok := c.Key.PublicKey().(*crypto.P256PublicKey)
+	if !ok {
+		return set, fmt.Errorf("oauth: confidential client key must be P-256")
+	}
+	jwk := PublicJWK(pub)
+	jwk.KeyID = c.KeyID
+	set.Keys = append(set.Keys, jwk)
+	return set, nil
 }
 
 func (c *Client) refreshSession(ctx context.Context, session *Session) error {

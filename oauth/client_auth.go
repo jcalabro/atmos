@@ -37,6 +37,9 @@ type ConfidentialClientAuth struct {
 }
 
 func (a *ConfidentialClientAuth) Apply(params url.Values, issuer string) error {
+	if a.Key == nil || a.KeyID == "" {
+		return fmt.Errorf("oauth: confidential client authentication requires a key and kid")
+	}
 	// Generate random jti.
 	var jti [16]byte
 	if _, err := rand.Read(jti[:]); err != nil {

@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -21,16 +22,118 @@ type ClientMetadata struct {
 	TokenEndpointAuthMethod     string   `json:"token_endpoint_auth_method"`
 	TokenEndpointAuthSigningAlg string   `json:"token_endpoint_auth_signing_alg,omitempty"`
 	JWKS                        *JWKSet  `json:"jwks,omitempty"`
-	ClientName                  string   `json:"client_name,omitempty"`
-	ClientURI                   string   `json:"client_uri,omitempty"`
-	LogoURI                     string   `json:"logo_uri,omitempty"`
-	TOSURI                      string   `json:"tos_uri,omitempty"`
-	PolicyURI                   string   `json:"policy_uri,omitempty"`
+	// JWKSURI points to the public key set for private_key_jwt clients.
+	// It must not be set together with JWKS.
+	JWKSURI    *string `json:"jwks_uri,omitempty"`
+	ClientName string  `json:"client_name,omitempty"`
+	ClientURI  string  `json:"client_uri,omitempty"`
+	LogoURI    string  `json:"logo_uri,omitempty"`
+	TOSURI     string  `json:"tos_uri,omitempty"`
+	PolicyURI  string  `json:"policy_uri,omitempty"`
 }
 
 // JWKSet is a JSON Web Key Set containing public keys for confidential clients.
 type JWKSet struct {
 	Keys []ECPublicJWK `json:"keys"`
+}
+
+// ValidateClientAuth checks the client authentication metadata required by
+// ATProto OAuth. A confidential client must advertise exactly one of jwks and
+// jwks_uri, and its signing algorithm must match atmos's ES256 client auth.
+func (m ClientMetadata) ValidateClientAuth() error {
+	if m.JWKS != nil && m.JWKSURI != nil {
+		return fmt.Errorf("oauth: jwks and jwks_uri are mutually exclusive")
+	}
+	if m.JWKSURI != nil {
+		if err := validateJWKSURI(*m.JWKSURI); err != nil {
+			return err
+		}
+	}
+
+	switch m.TokenEndpointAuthMethod {
+	case "none":
+		if m.TokenEndpointAuthSigningAlg != "" {
+			return fmt.Errorf("oauth: public client must not declare token_endpoint_auth_signing_alg")
+		}
+	case "private_key_jwt":
+		if m.TokenEndpointAuthSigningAlg != "ES256" {
+			return fmt.Errorf("oauth: private_key_jwt requires token_endpoint_auth_signing_alg ES256")
+		}
+		if m.JWKS == nil && m.JWKSURI == nil {
+			return fmt.Errorf("oauth: private_key_jwt requires jwks or jwks_uri")
+		}
+		if m.JWKS != nil {
+			if len(m.JWKS.Keys) == 0 {
+				return fmt.Errorf("oauth: private_key_jwt requires at least one public key in jwks")
+			}
+			for _, key := range m.JWKS.Keys {
+				if err := validateClientPublicJWK(key); err != nil {
+					return err
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("oauth: unsupported token_endpoint_auth_method %q", m.TokenEndpointAuthMethod)
+	}
+	return nil
+}
+
+func validateJWKSURI(raw string) error {
+	if strings.Contains(raw, "\\") {
+		return fmt.Errorf("oauth: invalid jwks_uri %q: backslashes are not allowed", raw)
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.Opaque != "" || u.User != nil || u.Fragment != "" {
+		return fmt.Errorf("oauth: invalid jwks_uri %q: expected an absolute web URL", raw)
+	}
+	host := strings.ToLower(u.Hostname())
+	isLoopback := host == "localhost" || host == "127.0.0.1" || host == "::1"
+	if u.Scheme != "https" && (u.Scheme != "http" || !isLoopback) {
+		return fmt.Errorf("oauth: invalid jwks_uri %q: expected HTTPS or HTTP on loopback", raw)
+	}
+	if u.Scheme == "https" && isLoopback {
+		return fmt.Errorf("oauth: invalid jwks_uri %q: HTTPS loopback URLs are not supported", raw)
+	}
+	if u.Scheme == "https" && net.ParseIP(host) == nil &&
+		(!strings.Contains(host, ".") || strings.HasSuffix(host, ".local") || numericIPv4Host(host)) {
+		return fmt.Errorf("oauth: invalid jwks_uri %q: HTTPS host must be a public domain or IP address", raw)
+	}
+	return nil
+}
+
+// Numeric IPv4 shorthand (for example, 127.1 or 0x7f.1) is normalized to a
+// loopback IP by URL parsers used by authorization servers. Reject it rather
+// than treating it as an ordinary DNS name.
+func numericIPv4Host(host string) bool {
+	parts := strings.Split(strings.TrimSuffix(host, "."), ".")
+	if len(parts) > 4 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		if strings.HasPrefix(part, "0x") || strings.HasPrefix(part, "0X") {
+			part = part[2:]
+			if part == "" {
+				return false
+			}
+			for _, r := range part {
+				switch {
+				case '0' <= r && r <= '9', 'a' <= r && r <= 'f', 'A' <= r && r <= 'F':
+				default:
+					return false
+				}
+			}
+			continue
+		}
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // NewLoopbackClientMetadata configures a public ATProto OAuth client that
