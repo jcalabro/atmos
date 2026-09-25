@@ -118,9 +118,11 @@ func TestAuthenticatedClient_UsesSSRFProtectedTransport(t *testing.T) {
 	require.NoError(t, err)
 
 	sessions := NewMemorySessionStore()
-	require.NoError(t, sessions.SetSession(context.Background(), "did:plc:alice", &Session{
-		DPoPKey: dpopKey,
+	require.NoError(t, sessions.SetSession(context.Background(), &Session{
+		SessionID: "browser-1",
+		DPoPKey:   dpopKey,
 		TokenSet: TokenSet{
+			Sub:             "did:plc:alice",
 			Aud:             srv.URL, // attacker-influenced PDS on a private address
 			AccessToken:     "test-access-token",
 			ExpiresAt:       time.Now().Add(time.Hour),
@@ -129,7 +131,7 @@ func TestAuthenticatedClient_UsesSSRFProtectedTransport(t *testing.T) {
 	}))
 
 	client := &Client{SessionStore: sessions}
-	xc, err := client.AuthenticatedClient(context.Background(), "did:plc:alice")
+	xc, err := client.AuthenticatedClient(context.Background(), "did:plc:alice", "browser-1")
 	require.NoError(t, err)
 
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/xrpc/com.atproto.server.getSession", nil)
@@ -882,7 +884,8 @@ func TestSessionJSON_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	original := &Session{
-		DPoPKey: key,
+		SessionID: "browser-1",
+		DPoPKey:   key,
 		TokenSet: TokenSet{
 			Issuer:             "https://bsky.social",
 			Sub:                "did:plc:test123",
@@ -900,6 +903,7 @@ func TestSessionJSON_RoundTrip(t *testing.T) {
 	var restored Session
 	require.NoError(t, json.Unmarshal(data, &restored))
 
+	assert.Equal(t, original.SessionID, restored.SessionID)
 	assert.Equal(t, original.TokenSet, restored.TokenSet)
 	assert.Equal(t, key.PublicKey().DIDKey(), restored.DPoPKey.PublicKey().DIDKey())
 }
@@ -941,22 +945,71 @@ func TestMemorySessionStore(t *testing.T) {
 	ctx := context.Background()
 	store := NewMemorySessionStore()
 
-	_, err := store.GetSession(ctx, "did:plc:test")
+	_, err := store.GetSession(ctx, "did:plc:test", "browser-1")
 	assert.ErrorIs(t, err, ErrNoSession)
 
 	key, err := crypto.GenerateP256()
 	require.NoError(t, err)
 
-	session := &Session{DPoPKey: key, TokenSet: TokenSet{Sub: "did:plc:test", AccessToken: "at"}}
-	require.NoError(t, store.SetSession(ctx, "did:plc:test", session))
+	session := &Session{SessionID: "browser-1", DPoPKey: key, TokenSet: TokenSet{Sub: "did:plc:test", AccessToken: "at"}}
+	require.NoError(t, store.SetSession(ctx, session))
 
-	got, err := store.GetSession(ctx, "did:plc:test")
+	got, err := store.GetSession(ctx, "did:plc:test", "browser-1")
 	require.NoError(t, err)
 	assert.Equal(t, "at", got.TokenSet.AccessToken)
 
-	require.NoError(t, store.DeleteSession(ctx, "did:plc:test"))
-	_, err = store.GetSession(ctx, "did:plc:test")
+	require.NoError(t, store.DeleteSession(ctx, "did:plc:test", "browser-1"))
+	_, err = store.GetSession(ctx, "did:plc:test", "browser-1")
 	assert.ErrorIs(t, err, ErrNoSession)
+}
+
+func TestMemorySessionStore_KeysByDIDAndSessionID(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store := NewMemorySessionStore()
+	for _, tc := range []struct {
+		did, sessionID, token string
+	}{
+		{"did:plc:alice", "browser-1", "alice-1"},
+		{"did:plc:alice", "browser-2", "alice-2"},
+		{"did:plc:bob", "browser-1", "bob-1"},
+	} {
+		require.NoError(t, store.SetSession(ctx, &Session{
+			SessionID: tc.sessionID,
+			TokenSet:  TokenSet{Sub: tc.did, AccessToken: tc.token},
+		}))
+	}
+
+	for _, tc := range []struct {
+		did, sessionID, token string
+	}{
+		{"did:plc:alice", "browser-1", "alice-1"},
+		{"did:plc:alice", "browser-2", "alice-2"},
+		{"did:plc:bob", "browser-1", "bob-1"},
+	} {
+		session, err := store.GetSession(ctx, tc.did, tc.sessionID)
+		require.NoError(t, err)
+		require.Equal(t, tc.token, session.TokenSet.AccessToken)
+	}
+
+	require.NoError(t, store.DeleteSession(ctx, "did:plc:alice", "browser-1"))
+	_, err := store.GetSession(ctx, "did:plc:alice", "browser-1")
+	require.ErrorIs(t, err, ErrNoSession)
+	_, err = store.GetSession(ctx, "did:plc:alice", "browser-2")
+	require.NoError(t, err)
+	_, err = store.GetSession(ctx, "did:plc:bob", "browser-1")
+	require.NoError(t, err)
+}
+
+func TestMemorySessionStore_RejectsMissingIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	store := NewMemorySessionStore()
+	ctx := context.Background()
+	require.Error(t, store.SetSession(ctx, nil))
+	require.Error(t, store.SetSession(ctx, &Session{SessionID: "browser-1"}))
+	require.Error(t, store.SetSession(ctx, &Session{TokenSet: TokenSet{Sub: "did:plc:alice"}}))
 }
 
 func TestMemoryStateStore(t *testing.T) {
@@ -1538,6 +1591,149 @@ func setupVerifyIssuer(t *testing.T, pdsHandler, asHandler http.Handler, resolve
 	}
 }
 
+func TestCallback_MultipleSessionsForSameDID(t *testing.T) {
+	t.Parallel()
+
+	const did = "did:plc:testuser1234567890abcde"
+	ctx := context.Background()
+	var pdsURL, asURL string
+	var revokedMu sync.Mutex
+	var revoked []string
+
+	pdsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-protected-resource":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"resource":              pdsURL,
+				"authorization_servers": []string{asURL},
+			})
+		case "/xrpc/com.atproto.server.getSession":
+			_, _ = io.WriteString(w, r.Header.Get("Authorization"))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	asHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                                asURL,
+				"authorization_endpoint":                asURL + "/oauth/authorize",
+				"token_endpoint":                        asURL + "/oauth/token",
+				"pushed_authorization_request_endpoint": asURL + "/oauth/par",
+				"client_id_metadata_document_supported": true,
+				"require_pushed_authorization_requests": true,
+			})
+		case "/oauth/token":
+			var suffix string
+			switch r.Form.Get("grant_type") {
+			case "authorization_code":
+				suffix = r.Form.Get("code")
+			case "refresh_token":
+				if r.Form.Get("refresh_token") != "refresh-b" {
+					http.Error(w, "unexpected refresh token", http.StatusBadRequest)
+					return
+				}
+				suffix = "b-refreshed"
+			default:
+				http.Error(w, "unexpected grant type", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token":  "access-" + suffix,
+				"refresh_token": "refresh-" + suffix,
+				"token_type":    "DPoP",
+				"expires_in":    300,
+				"scope":         "atproto",
+				"sub":           did,
+			})
+		case "/oauth/revoke":
+			revokedMu.Lock()
+			revoked = append(revoked, r.Form.Get("token"))
+			revokedMu.Unlock()
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	doc := &identity.DIDDocument{
+		ID: did,
+		Service: []identity.Service{
+			{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer"},
+		},
+	}
+	env := setupVerifyIssuer(t, pdsHandler, asHandler, &fakeResolver{doc: doc})
+	pdsURL, asURL = env.pdsURL, env.asURL
+	c := env.client
+	c.HTTPClient = gt.Some(env.httpClient)
+	c.ClientMetadata = ClientMetadata{ClientID: "https://app.example.com/client-metadata.json"}
+
+	var sessions [2]*Session
+	for i, flow := range []struct{ state, code string }{{"state-a", "a"}, {"state-b", "b"}} {
+		key, err := crypto.GenerateP256()
+		require.NoError(t, err)
+		require.NoError(t, c.StateStore.SetState(ctx, flow.state, &AuthState{
+			Issuer:             asURL,
+			DPoPKey:            key,
+			Verifier:           "verifier",
+			RedirectURI:        "https://app.example.com/callback",
+			TokenEndpoint:      asURL + "/oauth/token",
+			RevocationEndpoint: asURL + "/oauth/revoke",
+		}))
+		sessions[i], err = c.Callback(ctx, CallbackParams{Code: flow.code, State: flow.state, Iss: asURL})
+		require.NoError(t, err)
+		require.Equal(t, did, sessions[i].TokenSet.Sub)
+		decodedID, err := base64.RawURLEncoding.DecodeString(sessions[i].SessionID)
+		require.NoError(t, err)
+		require.Len(t, decodedID, 32)
+		require.NotEqual(t, flow.state, sessions[i].SessionID)
+	}
+	require.NotEqual(t, sessions[0].SessionID, sessions[1].SessionID)
+	revokedMu.Lock()
+	revokedBeforeSignOut := append([]string(nil), revoked...)
+	revokedMu.Unlock()
+	require.Empty(t, revokedBeforeSignOut, "a second login must not revoke the first")
+
+	assertToken := func(sessionID, want string) {
+		t.Helper()
+		xc, err := c.AuthenticatedClient(ctx, did, sessionID)
+		require.NoError(t, err)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, xc.Host+"/xrpc/com.atproto.server.getSession", nil)
+		require.NoError(t, err)
+		resp, err := xc.HTTPClient.Val().Do(req)
+		require.NoError(t, err)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "DPoP "+want, string(body))
+	}
+	assertToken(sessions[0].SessionID, "access-a")
+	assertToken(sessions[1].SessionID, "access-b")
+
+	require.NoError(t, c.refreshSession(ctx, sessions[1]))
+	storedFirst, err := c.SessionStore.GetSession(ctx, did, sessions[0].SessionID)
+	require.NoError(t, err)
+	require.Equal(t, "access-a", storedFirst.TokenSet.AccessToken)
+	assertToken(sessions[1].SessionID, "access-b-refreshed")
+
+	require.NoError(t, c.SignOut(ctx, did, sessions[0].SessionID))
+	_, err = c.SessionStore.GetSession(ctx, did, sessions[0].SessionID)
+	require.ErrorIs(t, err, ErrNoSession)
+	assertToken(sessions[1].SessionID, "access-b-refreshed")
+	revokedMu.Lock()
+	revokedAfterSignOut := append([]string(nil), revoked...)
+	revokedMu.Unlock()
+	require.Equal(t, []string{"refresh-a"}, revokedAfterSignOut)
+}
+
 func TestVerifyIssuer_Valid(t *testing.T) {
 	t.Parallel()
 
@@ -1654,7 +1850,8 @@ func TestRefreshSession_SetsAudToPDS(t *testing.T) {
 	c.HTTPClient = gt.Some(env.httpClient)
 
 	session := &Session{
-		DPoPKey: key,
+		SessionID: "browser-1",
+		DPoPKey:   key,
 		TokenSet: TokenSet{
 			AccessToken:   "at_old",
 			RefreshToken:  "rt_old",
@@ -1664,11 +1861,11 @@ func TestRefreshSession_SetsAudToPDS(t *testing.T) {
 			Aud:           "", // stale: would be wrong after refresh without the fix
 		},
 	}
-	require.NoError(t, c.SessionStore.SetSession(context.Background(), did, session))
+	require.NoError(t, c.SessionStore.SetSession(context.Background(), session))
 
-	require.NoError(t, c.refreshSession(context.Background(), did, session))
+	require.NoError(t, c.refreshSession(context.Background(), session))
 
-	stored, err := c.SessionStore.GetSession(context.Background(), did)
+	stored, err := c.SessionStore.GetSession(context.Background(), did, "browser-1")
 	require.NoError(t, err)
 	assert.Equal(t, "at_new", stored.TokenSet.AccessToken)
 	assert.Equal(t, pdsURL, stored.TokenSet.Aud,
@@ -1967,7 +2164,7 @@ func TestSignOut_NoSession(t *testing.T) {
 	c := &Client{
 		SessionStore: NewMemorySessionStore(),
 	}
-	err := c.SignOut(context.Background(), "did:plc:nonexistent")
+	err := c.SignOut(context.Background(), "did:plc:nonexistent", "browser-1")
 	require.Error(t, err)
 }
 
@@ -1986,8 +2183,9 @@ func TestSignOut_WithRefreshToken(t *testing.T) {
 	require.NoError(t, err)
 
 	store := NewMemorySessionStore()
-	_ = store.SetSession(context.Background(), "did:plc:test", &Session{
-		DPoPKey: key,
+	require.NoError(t, store.SetSession(context.Background(), &Session{
+		SessionID: "browser-1",
+		DPoPKey:   key,
 		TokenSet: TokenSet{
 			Issuer:             "https://as.example.com",
 			Sub:                "did:plc:test",
@@ -1995,7 +2193,7 @@ func TestSignOut_WithRefreshToken(t *testing.T) {
 			RefreshToken:       "refresh-tok",
 			RevocationEndpoint: revokeSrv.URL,
 		},
-	})
+	}))
 
 	c := &Client{
 		SessionStore:   store,
@@ -2003,11 +2201,11 @@ func TestSignOut_WithRefreshToken(t *testing.T) {
 		ClientMetadata: ClientMetadata{ClientID: "https://test.example.com/client-metadata.json"},
 	}
 
-	require.NoError(t, c.SignOut(context.Background(), "did:plc:test"))
+	require.NoError(t, c.SignOut(context.Background(), "did:plc:test", "browser-1"))
 	assert.Equal(t, "refresh-tok", revokedToken)
 
 	// Session should be deleted.
-	_, err = store.GetSession(context.Background(), "did:plc:test")
+	_, err = store.GetSession(context.Background(), "did:plc:test", "browser-1")
 	require.Error(t, err)
 }
 
@@ -2061,20 +2259,21 @@ func TestAuthenticatedClient_ReturnsClient(t *testing.T) {
 	require.NoError(t, err)
 
 	store := NewMemorySessionStore()
-	_ = store.SetSession(context.Background(), "did:plc:test", &Session{
-		DPoPKey: key,
+	require.NoError(t, store.SetSession(context.Background(), &Session{
+		SessionID: "browser-1",
+		DPoPKey:   key,
 		TokenSet: TokenSet{
 			Issuer:      "https://as.example.com",
 			Sub:         "did:plc:test",
 			AccessToken: "access-tok",
 			Aud:         "https://pds.example.com",
 		},
-	})
+	}))
 
 	c := &Client{
 		SessionStore: store,
 	}
-	xc, err := c.AuthenticatedClient(context.Background(), "did:plc:test")
+	xc, err := c.AuthenticatedClient(context.Background(), "did:plc:test", "browser-1")
 	require.NoError(t, err)
 	assert.Equal(t, "https://pds.example.com", xc.Host)
 }
@@ -2084,8 +2283,33 @@ func TestAuthenticatedClient_NoSession(t *testing.T) {
 	c := &Client{
 		SessionStore: NewMemorySessionStore(),
 	}
-	_, err := c.AuthenticatedClient(context.Background(), "did:plc:nonexistent")
+	_, err := c.AuthenticatedClient(context.Background(), "did:plc:nonexistent", "browser-1")
 	require.Error(t, err)
+}
+
+type wrongSessionStore struct {
+	SessionStore
+	session *Session
+}
+
+func (s wrongSessionStore) GetSession(context.Context, string, string) (*Session, error) {
+	return s.session, nil
+}
+
+func TestStoredSessionIdentifierMismatch(t *testing.T) {
+	t.Parallel()
+
+	c := &Client{SessionStore: wrongSessionStore{session: &Session{
+		SessionID: "browser-2",
+		TokenSet: TokenSet{
+			Sub: "did:plc:bob",
+			Aud: "https://pds.example.com",
+		},
+	}}}
+	_, err := c.AuthenticatedClient(context.Background(), "did:plc:alice", "browser-1")
+	require.ErrorContains(t, err, "stored session does not match")
+	err = c.SignOut(context.Background(), "did:plc:alice", "browser-1")
+	require.ErrorContains(t, err, "stored session does not match")
 }
 
 // --- refreshSession ---
@@ -2103,7 +2327,7 @@ func TestRefreshSession_NoRefreshToken(t *testing.T) {
 			// No RefreshToken
 		},
 	}
-	err = c.refreshSession(context.Background(), "did:plc:test", session)
+	err = c.refreshSession(context.Background(), session)
 	require.ErrorIs(t, err, ErrNoRefreshToken)
 }
 

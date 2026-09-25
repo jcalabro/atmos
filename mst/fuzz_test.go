@@ -57,8 +57,7 @@ func FuzzInsertGet(f *testing.F) {
 		}
 		if got == nil {
 			t.Fatalf("key %q not found after insert", key)
-		}
-		if !got.Equal(val) {
+		} else if !got.Equal(val) {
 			t.Fatalf("value mismatch for key %q", key)
 		}
 	})

@@ -26,8 +26,8 @@ var (
 	// required "atproto" scope.
 	ErrMissingScope = errors.New("oauth: token response missing required atproto scope")
 
-	// ErrNoSession is returned when no session exists for the requested DID.
-	ErrNoSession = errors.New("oauth: no session for DID")
+	// ErrNoSession is returned when no session exists for the requested DID and session ID.
+	ErrNoSession = errors.New("oauth: no session for DID and session ID")
 
 	// ErrTokenExpired is returned when a token has expired and cannot be refreshed.
 	ErrTokenExpired = errors.New("oauth: token expired and no refresh token available")

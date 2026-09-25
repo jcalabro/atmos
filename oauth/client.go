@@ -210,6 +210,8 @@ type CallbackParams struct {
 }
 
 // Callback handles the OAuth redirect callback and completes token exchange.
+// The returned session has a fresh ID that the application can associate with
+// its own authenticated browser or device session.
 func (c *Client) Callback(ctx context.Context, params CallbackParams) (*Session, error) {
 	httpClient := c.httpClient()
 
@@ -260,17 +262,21 @@ func (c *Client) Callback(ctx context.Context, params CallbackParams) (*Session,
 	}
 	tokenSet.Aud = pds
 
-	// 5. Revoke any existing session for this user before storing the new one.
-	if oldSession, oldErr := c.SessionStore.GetSession(ctx, tokenSet.Sub); oldErr == nil {
-		RevokeToken(ctx, oldSession.TokenSet.RevocationEndpoint, oldSession.TokenSet.RefreshToken, c.clientAuth(), oldSession.DPoPKey, nonces, httpClient)
+	// 5. Give this grant its own session ID. The callback URL contains the
+	// authorization state, so do not reuse that value as an application session ID.
+	var sessionIDBytes [32]byte
+	if _, err := rand.Read(sessionIDBytes[:]); err != nil {
+		RevokeToken(ctx, tokenSet.RevocationEndpoint, tokenSet.AccessToken, c.clientAuth(), authState.DPoPKey, nonces, httpClient)
+		return nil, fmt.Errorf("oauth: generate session ID: %w", err)
 	}
 
 	// 6. Store session.
 	session := &Session{
-		DPoPKey:  authState.DPoPKey,
-		TokenSet: *tokenSet,
+		SessionID: base64.RawURLEncoding.EncodeToString(sessionIDBytes[:]),
+		DPoPKey:   authState.DPoPKey,
+		TokenSet:  *tokenSet,
 	}
-	if err := c.SessionStore.SetSession(ctx, tokenSet.Sub, session); err != nil {
+	if err := c.SessionStore.SetSession(ctx, session); err != nil {
 		RevokeToken(ctx, tokenSet.RevocationEndpoint, tokenSet.AccessToken, c.clientAuth(), authState.DPoPKey, nonces, httpClient)
 		return nil, fmt.Errorf("oauth: store session: %w", err)
 	}
@@ -279,12 +285,15 @@ func (c *Client) Callback(ctx context.Context, params CallbackParams) (*Session,
 }
 
 // AuthenticatedClient returns an *xrpc.Client configured with DPoP authentication
-// for the given user DID. The client is long-lived: it automatically refreshes
+// for the given user DID and session ID. The client is long-lived: it automatically refreshes
 // stale tokens on each request, protected by a mutex so concurrent requests
 // coalesce on a single refresh.
-func (c *Client) AuthenticatedClient(ctx context.Context, did string) (*xrpc.Client, error) {
-	session, err := c.SessionStore.GetSession(ctx, did)
+func (c *Client) AuthenticatedClient(ctx context.Context, did, sessionID string) (*xrpc.Client, error) {
+	session, err := c.SessionStore.GetSession(ctx, did, sessionID)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateStoredSession(session, did, sessionID); err != nil {
 		return nil, err
 	}
 
@@ -298,7 +307,6 @@ func (c *Client) AuthenticatedClient(ctx context.Context, did string) (*xrpc.Cli
 
 	source := &sessionTokenSource{
 		client:  c,
-		did:     did,
 		session: session,
 	}
 
@@ -336,7 +344,6 @@ func (c *Client) AuthenticatedClient(ctx context.Context, did string) (*xrpc.Cli
 // refresh of single-use refresh tokens.
 type sessionTokenSource struct {
 	client  *Client
-	did     string
 	session *Session
 	mu      sync.Mutex
 }
@@ -346,7 +353,7 @@ func (s *sessionTokenSource) Token(ctx context.Context) (string, *crypto.P256Pri
 	defer s.mu.Unlock()
 
 	if s.session.TokenSet.IsStale() {
-		if err := s.client.refreshSession(ctx, s.did, s.session); err != nil {
+		if err := s.client.refreshSession(ctx, s.session); err != nil {
 			return "", nil, err
 		}
 	}
@@ -366,16 +373,19 @@ func (s *sessionTokenSource) Refresh(ctx context.Context, staleToken string) (st
 		// Already refreshed by a concurrent caller.
 		return s.session.TokenSet.AccessToken, s.session.DPoPKey, nil
 	}
-	if err := s.client.refreshSession(ctx, s.did, s.session); err != nil {
+	if err := s.client.refreshSession(ctx, s.session); err != nil {
 		return "", nil, err
 	}
 	return s.session.TokenSet.AccessToken, s.session.DPoPKey, nil
 }
 
-// SignOut revokes tokens and deletes the session for the given DID.
-func (c *Client) SignOut(ctx context.Context, did string) error {
-	session, err := c.SessionStore.GetSession(ctx, did)
+// SignOut revokes tokens and deletes the session for the given DID and session ID.
+func (c *Client) SignOut(ctx context.Context, did, sessionID string) error {
+	session, err := c.SessionStore.GetSession(ctx, did, sessionID)
 	if err != nil {
+		return err
+	}
+	if err := validateStoredSession(session, did, sessionID); err != nil {
 		return err
 	}
 
@@ -388,7 +398,14 @@ func (c *Client) SignOut(ctx context.Context, did string) error {
 		RevokeToken(ctx, session.TokenSet.RevocationEndpoint, session.TokenSet.AccessToken, c.clientAuth(), session.DPoPKey, nonces, httpClient)
 	}
 
-	return c.SessionStore.DeleteSession(ctx, did)
+	return c.SessionStore.DeleteSession(ctx, did, sessionID)
+}
+
+func validateStoredSession(session *Session, did, sessionID string) error {
+	if session == nil || session.TokenSet.Sub != did || session.SessionID != sessionID {
+		return fmt.Errorf("oauth: stored session does not match requested DID and session ID")
+	}
+	return nil
 }
 
 func (c *Client) httpClient() *http.Client {
@@ -416,10 +433,11 @@ func (c *Client) clientAuth() ClientAuth {
 	return &PublicClientAuth{ClientID: c.ClientMetadata.ClientID}
 }
 
-func (c *Client) refreshSession(ctx context.Context, did string, session *Session) error {
+func (c *Client) refreshSession(ctx context.Context, session *Session) error {
 	if session.TokenSet.RefreshToken == "" {
 		return ErrNoRefreshToken
 	}
+	did := session.TokenSet.Sub
 
 	httpClient := c.httpClient()
 	nonces := c.getNonces()
@@ -456,7 +474,7 @@ func (c *Client) refreshSession(ctx context.Context, did string, session *Sessio
 	newTokens.Aud = pds
 
 	session.TokenSet = *newTokens
-	return c.SessionStore.SetSession(ctx, did, session)
+	return c.SessionStore.SetSession(ctx, session)
 }
 
 // verifyIssuer resolves the sub DID and verifies that its PDS points to

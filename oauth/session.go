@@ -11,14 +11,18 @@ import (
 
 // Session represents an authenticated OAuth session for a user.
 type Session struct {
-	DPoPKey  *crypto.P256PrivateKey
-	TokenSet TokenSet
+	// SessionID identifies this grant among sessions for the same DID.
+	// Applications should bind it to their own authenticated user session.
+	SessionID string
+	DPoPKey   *crypto.P256PrivateKey
+	TokenSet  TokenSet
 }
 
 // sessionJSON is the JSON-serializable form of Session.
 type sessionJSON struct {
-	DPoPKey  string   `json:"dpop_key"` // base64url-encoded 32-byte P-256 scalar
-	TokenSet TokenSet `json:"token_set"`
+	SessionID string   `json:"session_id"`
+	DPoPKey   string   `json:"dpop_key"` // base64url-encoded 32-byte P-256 scalar
+	TokenSet  TokenSet `json:"token_set"`
 }
 
 func (s *Session) MarshalJSON() ([]byte, error) {
@@ -27,8 +31,9 @@ func (s *Session) MarshalJSON() ([]byte, error) {
 		keyStr = base64.RawURLEncoding.EncodeToString(s.DPoPKey.Bytes())
 	}
 	return json.Marshal(sessionJSON{
-		DPoPKey:  keyStr,
-		TokenSet: s.TokenSet,
+		SessionID: s.SessionID,
+		DPoPKey:   keyStr,
+		TokenSet:  s.TokenSet,
 	})
 }
 
@@ -47,6 +52,7 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("oauth: parse DPoP key: %w", err)
 	}
 
+	s.SessionID = j.SessionID
 	s.DPoPKey = key
 	s.TokenSet = j.TokenSet
 	return nil
@@ -119,14 +125,15 @@ func (s *AuthState) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// SessionStore persists OAuth sessions. Keyed by user DID.
+// SessionStore persists OAuth sessions keyed by user DID and session ID.
 type SessionStore interface {
-	// GetSession retrieves a session by DID. Returns [ErrNoSession] if not found.
-	GetSession(ctx context.Context, did string) (*Session, error)
-	// SetSession stores or replaces a session for the given DID.
-	SetSession(ctx context.Context, did string, session *Session) error
-	// DeleteSession removes the session for the given DID.
-	DeleteSession(ctx context.Context, did string) error
+	// GetSession retrieves a session by DID and session ID. Returns [ErrNoSession] if not found.
+	GetSession(ctx context.Context, did, sessionID string) (*Session, error)
+	// SetSession stores or replaces a session using its subject DID and session ID.
+	// Both identifiers must be nonempty and must remain stable during refresh.
+	SetSession(ctx context.Context, session *Session) error
+	// DeleteSession removes the session for the given DID and session ID.
+	DeleteSession(ctx context.Context, did, sessionID string) error
 }
 
 // StateStore stores pending authorization flow state. Keyed by state parameter.
@@ -142,29 +149,37 @@ type StateStore interface {
 
 // MemorySessionStore is an in-memory [SessionStore] for testing. Not safe for concurrent use.
 type MemorySessionStore struct {
-	sessions map[string]*Session
+	sessions map[sessionKey]*Session
+}
+
+type sessionKey struct {
+	did       string
+	sessionID string
 }
 
 // NewMemorySessionStore creates an empty in-memory session store.
 func NewMemorySessionStore() *MemorySessionStore {
-	return &MemorySessionStore{sessions: make(map[string]*Session)}
+	return &MemorySessionStore{sessions: make(map[sessionKey]*Session)}
 }
 
-func (s *MemorySessionStore) GetSession(_ context.Context, did string) (*Session, error) {
-	sess, ok := s.sessions[did]
+func (s *MemorySessionStore) GetSession(_ context.Context, did, sessionID string) (*Session, error) {
+	sess, ok := s.sessions[sessionKey{did, sessionID}]
 	if !ok {
 		return nil, ErrNoSession
 	}
 	return sess, nil
 }
 
-func (s *MemorySessionStore) SetSession(_ context.Context, did string, session *Session) error {
-	s.sessions[did] = session
+func (s *MemorySessionStore) SetSession(_ context.Context, session *Session) error {
+	if session == nil || session.TokenSet.Sub == "" || session.SessionID == "" {
+		return fmt.Errorf("oauth: session requires a subject DID and session ID")
+	}
+	s.sessions[sessionKey{session.TokenSet.Sub, session.SessionID}] = session
 	return nil
 }
 
-func (s *MemorySessionStore) DeleteSession(_ context.Context, did string) error {
-	delete(s.sessions, did)
+func (s *MemorySessionStore) DeleteSession(_ context.Context, did, sessionID string) error {
+	delete(s.sessions, sessionKey{did, sessionID})
 	return nil
 }
 
