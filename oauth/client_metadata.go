@@ -1,7 +1,15 @@
 package oauth
 
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+)
+
 // ClientMetadata is the OAuth client metadata document.
-// The client_id is the URL where this document is hosted.
+// For a discoverable client, client_id is the URL where this document is hosted.
+// Loopback clients instead encode their redirect URI and scope in client_id.
 type ClientMetadata struct {
 	ClientID                    string   `json:"client_id"`
 	ApplicationType             string   `json:"application_type,omitempty"`
@@ -23,4 +31,89 @@ type ClientMetadata struct {
 // JWKSet is a JSON Web Key Set containing public keys for confidential clients.
 type JWKSet struct {
 	Keys []ECPublicJWK `json:"keys"`
+}
+
+// NewLoopbackClientMetadata configures a public ATProto OAuth client that
+// receives callbacks on a loopback IP address. The special http://localhost
+// client ID encodes the redirect URI and scope, so no metadata endpoint is
+// needed. Use a nil [Client.Key]; this does not change outbound SSRF protection.
+func NewLoopbackClientMetadata(redirectURI, scope string) (ClientMetadata, error) {
+	if err := validateLoopbackRedirectURI(redirectURI); err != nil {
+		return ClientMetadata{}, err
+	}
+	if !validATProtoOAuthScope(scope) {
+		return ClientMetadata{}, fmt.Errorf("oauth: invalid loopback client scope %q: expected space-separated OAuth scope including atproto", scope)
+	}
+
+	params := url.Values{
+		"redirect_uri": {redirectURI},
+		"scope":        {scope},
+	}
+	return ClientMetadata{
+		ClientID:                "http://localhost?" + params.Encode(),
+		ApplicationType:         "native",
+		GrantTypes:              []string{"authorization_code", "refresh_token"},
+		Scope:                   scope,
+		ResponseTypes:           []string{"code"},
+		RedirectURIs:            []string{redirectURI},
+		DPoPBoundAccessTokens:   true,
+		TokenEndpointAuthMethod: "none",
+	}, nil
+}
+
+func validateLoopbackRedirectURI(raw string) error {
+	if strings.Contains(raw, "\\") {
+		return fmt.Errorf("oauth: invalid loopback redirect URI %q: backslashes are not allowed", raw)
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("oauth: invalid loopback redirect URI %q: %w", raw, err)
+	}
+	if u.Scheme != "http" || u.User != nil || u.Opaque != "" || u.Fragment != "" {
+		return fmt.Errorf("oauth: invalid loopback redirect URI %q: expected an http URL without userinfo or fragment", raw)
+	}
+	if u.Hostname() != "127.0.0.1" && u.Hostname() != "::1" {
+		return fmt.Errorf("oauth: invalid loopback redirect URI %q: host must be 127.0.0.1 or [::1]", raw)
+	}
+
+	expectedHost := u.Hostname()
+	if expectedHost == "::1" {
+		expectedHost = "[::1]"
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.ParseUint(port, 10, 16)
+		if err != nil || n == 0 {
+			return fmt.Errorf("oauth: invalid loopback redirect URI %q: port must be between 1 and 65535", raw)
+		}
+		expectedHost += ":" + port
+	}
+	if u.Host != expectedHost {
+		return fmt.Errorf("oauth: invalid loopback redirect URI %q: malformed host or port", raw)
+	}
+	if _, err := url.ParseQuery(u.RawQuery); err != nil {
+		return fmt.Errorf("oauth: invalid loopback redirect URI %q: %w", raw, err)
+	}
+	return nil
+}
+
+func validATProtoOAuthScope(scope string) bool {
+	if scope == "" {
+		return false
+	}
+	hasATProto := false
+	for _, token := range strings.Split(scope, " ") {
+		if token == "" {
+			return false
+		}
+		if token == "atproto" {
+			hasATProto = true
+		}
+		for i := range len(token) {
+			b := token[i]
+			if b != '!' && (b < '#' || b > '[') && (b < ']' || b > '~') {
+				return false
+			}
+		}
+	}
+	return hasATProto
 }
