@@ -431,7 +431,7 @@ type NotificationListNotifications_Output struct {
 	LexiconTypeID string                                       `json:"$type,omitempty"`
 	Cursor        gt.Option[string]                            `json:"cursor,omitzero"`
 	Notifications []NotificationListNotifications_Notification `json:"notifications"`
-	Priority      gt.Option[bool]                              `json:"priority,omitzero"`
+	Priority      gt.Option[bool]                              `json:"priority,omitzero"` // Deprecated: this field is no longer populated.
 	SeenAt        gt.Option[string]                            `json:"seenAt,omitzero"`
 
 	// extra preserves unknown fields for same-format round-trips.
