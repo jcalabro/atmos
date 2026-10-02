@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/bits"
 	"math/rand/v2"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -50,7 +51,6 @@ const (
 	DefaultDownloadTimeout           = 5 * time.Minute
 	// DefaultMaxRepoBytes is the default decoded getRepo CAR size limit.
 	DefaultMaxRepoBytes int64 = 2 << 30
-	didLockShards             = 256
 )
 
 type retrySleeper interface {
@@ -91,7 +91,10 @@ type Engine struct {
 
 	claimMu sync.Mutex
 	claims  map[atmos.DID]*didClaim
-	didMu   [didLockShards]sync.Mutex
+
+	// didLocksMu guards didLocks, the per-DID locks taken by lockDIDs.
+	didLocksMu sync.Mutex
+	didLocks   map[atmos.DID]chan struct{}
 }
 
 // didClaim is the in-Run ownership record for a DID that appears on more
@@ -129,6 +132,7 @@ func (e *Engine) Run(ctx context.Context) error {
 	}
 	e.globalSlots = make(chan struct{}, e.globalDownloadCount())
 	e.claims = make(map[atmos.DID]*didClaim)
+	e.didLocks = make(map[atmos.DID]chan struct{})
 	if e.opts.NewHostClient.HasVal() {
 		e.builder = e.opts.NewHostClient.Val()
 	} else {
@@ -243,16 +247,16 @@ pages:
 			}
 			return nil, fmt.Errorf("backfill: listHosts: %w", err)
 		}
+		infos := make([]HostInfo, 0, len(page.Entries))
+		capped := false
 		for _, entry := range page.Entries {
 			// The cap counts every examined entry — before dedup and
 			// validation — so a hostile relay cannot bypass it with
 			// duplicates or junk names; it bounds total work, not just
 			// retained roster size.
 			if examined >= e.maxHosts() {
-				if cb := e.opts.OnRosterCapped; cb.HasVal() {
-					cb.Val()(e.maxHosts())
-				}
-				break pages
+				capped = true
+				break
 			}
 			examined++
 			hostname := strings.ToLower(entry.Hostname)
@@ -268,25 +272,17 @@ pages:
 				}
 			}
 			seen[hostname] = struct{}{}
-			info := HostInfo{Hostname: hostname, RelayStatus: entry.Status, RelayAccounts: entry.AccountCount, Seq: entry.Seq}
-			if err := e.opts.Store.OnHost(ctx, info); err != nil {
-				return nil, fmt.Errorf("backfill: store on_host %s: %w", hostname, err)
+			infos = append(infos, HostInfo{Hostname: hostname, RelayStatus: entry.Status, RelayAccounts: entry.AccountCount, Seq: entry.Seq})
+		}
+		var recErr error
+		if hosts, recErr = e.recordHosts(ctx, infos, terminal, hosts); recErr != nil {
+			return nil, recErr
+		}
+		if capped {
+			if cb := e.opts.OnRosterCapped; cb.HasVal() {
+				cb.Val()(e.maxHosts())
 			}
-			if _, ok := terminal[hostname]; ok {
-				continue
-			}
-			_, drained, err := e.opts.Store.HostCursor(ctx, hostname)
-			if err != nil {
-				return nil, fmt.Errorf("backfill: store host_cursor %s: %w", hostname, err)
-			}
-			if drained {
-				terminal[hostname] = HostStateDrained
-				continue
-			}
-			if entry.Status == "banned" && !e.opts.IncludeBannedHosts.ValOr(false) {
-				continue
-			}
-			hosts = append(hosts, hostCandidate{info: info})
+			break pages
 		}
 	}
 	// The ListHosts iterator also returns silently on cancellation; without
@@ -301,6 +297,48 @@ pages:
 		}
 		return hosts[i].info.RelayAccounts > hosts[j].info.RelayAccounts
 	})
+	return hosts, nil
+}
+
+// recordHosts reports one listHosts page's hosts to the Store, in roster
+// order, and appends the ones this pass must still crawl to hosts.
+func (e *Engine) recordHosts(ctx context.Context, infos []HostInfo, terminal map[string]HostState, hosts []hostCandidate) ([]hostCandidate, error) {
+	if len(infos) == 0 {
+		return hosts, nil
+	}
+	if err := e.opts.Store.OnHost(ctx, infos); err != nil {
+		return nil, fmt.Errorf("backfill: store on_host (%d hosts): %w", len(infos), err)
+	}
+	open := make([]HostInfo, 0, len(infos))
+	for _, info := range infos {
+		if _, ok := terminal[info.Hostname]; !ok {
+			open = append(open, info)
+		}
+	}
+	if len(open) == 0 {
+		return hosts, nil
+	}
+	names := make([]string, len(open))
+	for i, info := range open {
+		names[i] = info.Hostname
+	}
+	states, err := e.opts.Store.HostCursor(ctx, names)
+	if err != nil {
+		return nil, fmt.Errorf("backfill: store host_cursor (%d hosts): %w", len(names), err)
+	}
+	if len(states) != len(names) {
+		return nil, fmt.Errorf("backfill: store host_cursor returned %d states for %d hosts", len(states), len(names))
+	}
+	for i, info := range open {
+		if states[i].Drained {
+			terminal[info.Hostname] = HostStateDrained
+			continue
+		}
+		if info.RelayStatus == "banned" && !e.opts.IncludeBannedHosts.ValOr(false) {
+			continue
+		}
+		hosts = append(hosts, hostCandidate{info: info})
+	}
 	return hosts, nil
 }
 
@@ -436,10 +474,14 @@ func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmo
 	if *pagesRemaining <= 0 {
 		return "", fmt.Errorf("%w: host %s", ErrHostPageLimit, host.Hostname)
 	}
-	startCursor, _, err := e.opts.Store.HostCursor(ctx, host.Hostname)
+	states, err := e.opts.Store.HostCursor(ctx, []string{host.Hostname})
 	if err != nil {
 		return "", &fatalStoreError{fmt.Errorf("backfill: store host_cursor %s: %w", host.Hostname, err)}
 	}
+	if len(states) != 1 {
+		return "", &fatalStoreError{fmt.Errorf("backfill: store host_cursor returned %d states for 1 host", len(states))}
+	}
+	startCursor := states[0].Cursor
 	workers := e.workerCount(host.RelayAccounts)
 	jobs := make(chan repoJob, workers*2)
 	var wg sync.WaitGroup
@@ -472,17 +514,13 @@ func (e *Engine) runHostAttempt(ctx context.Context, host HostInfo, client *atmo
 		if page.NextCursor != "" {
 			lastNonEmpty = page.NextCursor
 		}
-		for _, entry := range page.Entries {
-			e.enumerated.Add(1)
-			job, dispatch, recErr := e.reconcile(ctx, host.Hostname, client, entry)
-			if recErr != nil {
-				e.releaseClaims(batch)
-				return "", &fatalStoreError{recErr}
-			}
-			if dispatch {
-				batch = append(batch, job)
-			}
+		e.enumerated.Add(int64(len(page.Entries)))
+		pageJobs, recErr := e.reconcilePage(ctx, host.Hostname, client, page.Entries)
+		if recErr != nil {
+			e.releaseClaims(batch)
+			return "", &fatalStoreError{recErr}
 		}
+		batch = append(batch, pageJobs...)
 		if batchEntries >= e.batchSize() {
 			if err := e.finishBatch(ctx, jobs, batch, host.Hostname, batchCursor); err != nil {
 				return "", classifyBatchErr(err)
@@ -522,47 +560,140 @@ func classifyBatchErr(err error) error {
 	return &fatalStoreError{err}
 }
 
-func (e *Engine) reconcile(ctx context.Context, host string, client *atmossync.Client, entry atmossync.ListReposEntry) (repoJob, bool, error) {
-	mu := &e.didMu[didShard(entry.DID)]
-	mu.Lock()
-	defer mu.Unlock()
-	rec, err := e.opts.Store.Lookup(ctx, entry.DID)
+// reconcilePage reconciles one listRepos page in listing order and returns
+// the jobs to dispatch. Each run of distinct DIDs costs one Lookup and at most
+// one OnDiscover and one OnUpdate.
+func (e *Engine) reconcilePage(ctx context.Context, host string, client *atmossync.Client, entries []atmossync.ListReposEntry) ([]repoJob, error) {
+	var jobs []repoJob
+	for len(entries) > 0 {
+		// A page that repeats a DID splits at the repeat, so the second
+		// sighting reconciles against the first one's durable result just
+		// as it would in a batch of its own.
+		n := distinctPrefix(entries)
+		chunk, err := e.reconcile(ctx, host, client, entries[:n])
+		if err != nil {
+			e.releaseClaims(jobs)
+			return nil, err
+		}
+		jobs = append(jobs, chunk...)
+		entries = entries[n:]
+	}
+	return jobs, nil
+}
+
+// distinctPrefix returns the length of the longest prefix of entries in which
+// no DID repeats. It is at least 1 for a non-empty slice.
+func distinctPrefix(entries []atmossync.ListReposEntry) int {
+	seen := make(map[atmos.DID]struct{}, len(entries))
+	for i, entry := range entries {
+		if _, ok := seen[entry.DID]; ok {
+			return i
+		}
+		seen[entry.DID] = struct{}{}
+	}
+	return len(entries)
+}
+
+// reconcile looks up a run of entries with distinct DIDs, records the new
+// and Active-flipped ones, and claims the ones to download. It holds every
+// entry's DID lock from the lookup through the claims, so it is atomic with
+// respect to other producers and to resolveClaim.
+func (e *Engine) reconcile(ctx context.Context, host string, client *atmossync.Client, entries []atmossync.ListReposEntry) ([]repoJob, error) {
+	dids := make([]atmos.DID, len(entries))
+	for i, entry := range entries {
+		dids[i] = entry.DID
+	}
+	unlock := e.lockDIDs(slices.Sorted(slices.Values(dids)))
+	defer unlock()
+	recs, err := e.opts.Store.Lookup(ctx, dids)
 	if err != nil {
-		return repoJob{}, false, fmt.Errorf("backfill: store lookup %s: %w", entry.DID, err)
+		return nil, fmt.Errorf("backfill: store lookup (%d dids): %w", len(dids), err)
 	}
-	if rec.State == StateUnknown {
-		if err := e.opts.Store.OnDiscover(ctx, host, entry); err != nil {
-			return repoJob{}, false, fmt.Errorf("backfill: store on_discover %s: %w", entry.DID, err)
+	if len(recs) != len(dids) {
+		return nil, fmt.Errorf("backfill: store lookup returned %d entries for %d dids", len(recs), len(dids))
+	}
+	var discovered, updated []atmossync.ListReposEntry
+	for i, entry := range entries {
+		switch {
+		case recs[i].State == StateUnknown:
+			discovered = append(discovered, entry)
+		case recs[i].Active != entry.Active:
+			updated = append(updated, entry)
 		}
-	} else if rec.Active != entry.Active {
-		if err := e.opts.Store.OnUpdate(ctx, host, entry); err != nil {
-			return repoJob{}, false, fmt.Errorf("backfill: store on_update %s: %w", entry.DID, err)
+	}
+	if len(discovered) > 0 {
+		if err := e.opts.Store.OnDiscover(ctx, host, discovered); err != nil {
+			return nil, fmt.Errorf("backfill: store on_discover (%d dids): %w", len(discovered), err)
 		}
 	}
-	if e.opts.DiscoverOnly.ValOr(false) || !entry.Active || rec.State == StateComplete {
-		return repoJob{}, false, nil
+	if len(updated) > 0 {
+		if err := e.opts.Store.OnUpdate(ctx, host, updated); err != nil {
+			return nil, fmt.Errorf("backfill: store on_update (%d dids): %w", len(updated), err)
+		}
 	}
+	var jobs []repoJob
 	e.claimMu.Lock()
 	defer e.claimMu.Unlock()
+	for i, entry := range entries {
+		if e.dispatchable(entry, recs[i]) {
+			jobs = append(jobs, e.claimLocked(host, client, entry))
+		}
+	}
+	return jobs, nil
+}
+
+// dispatchable reports whether a reconciled entry needs a download job.
+func (e *Engine) dispatchable(entry atmossync.ListReposEntry, rec StoreEntry) bool {
+	return !e.opts.DiscoverOnly.ValOr(false) && entry.Active && rec.State != StateComplete
+}
+
+// claimLocked builds the job for a dispatchable entry. The caller holds
+// claimMu and the entry's DID lock.
+func (e *Engine) claimLocked(host string, client *atmossync.Client, entry atmossync.ListReposEntry) repoJob {
 	if owner, claimed := e.claims[entry.DID]; claimed {
 		// Another host's pipeline owns this DID (migration window). Dispatch
 		// a wait-only job so this host's batch barrier blocks until the owner
 		// reaches a terminal state — otherwise this host could save a cursor
 		// covering a DID that never landed OnComplete/OnFail.
-		return repoJob{host: host, entry: entry, wait: owner}, true, nil
+		return repoJob{host: host, entry: entry, wait: owner}
 	}
 	claim := &didClaim{done: make(chan struct{})}
 	e.claims[entry.DID] = claim
-	return repoJob{host: host, client: client, entry: entry, claim: claim}, true, nil
+	return repoJob{host: host, client: client, entry: entry, claim: claim}
 }
 
-func didShard(did atmos.DID) uint8 {
-	var h uint32 = 2166136261
-	for i := range len(did) {
-		h ^= uint32(did[i])
-		h *= 16777619
+// lockDIDs takes the per-DID lock of every DID in dids, which must be sorted
+// and unique, and returns the function that releases them. Every caller that
+// holds more than one lock acquired them in ascending order, so lockers can
+// never wait on each other in a cycle; only callers naming the same DID
+// contend. A waiter blocks on a channel rather than a sync.Mutex because the
+// locks are held across Store calls, and testing/synctest counts a goroutine
+// waiting on a channel, but not on a sync.Mutex, as durably blocked.
+func (e *Engine) lockDIDs(dids []atmos.DID) func() {
+	held := make([]chan struct{}, 0, len(dids))
+	for _, did := range dids {
+		for {
+			e.didLocksMu.Lock()
+			wait, locked := e.didLocks[did]
+			if !locked {
+				ch := make(chan struct{})
+				e.didLocks[did] = ch
+				e.didLocksMu.Unlock()
+				held = append(held, ch)
+				break
+			}
+			e.didLocksMu.Unlock()
+			<-wait
+		}
 	}
-	return uint8(h)
+	return func() {
+		e.didLocksMu.Lock()
+		defer e.didLocksMu.Unlock()
+		for i, did := range dids {
+			delete(e.didLocks, did)
+			close(held[i])
+		}
+	}
 }
 
 func (e *Engine) finishBatch(ctx context.Context, jobs chan<- repoJob, batch []repoJob, host, cursor string) error {
@@ -654,7 +785,7 @@ func (e *Engine) awaitClaim(ctx context.Context, claim *didClaim) error {
 // resolveClaim publishes the claim outcome and releases the DID for later
 // sightings (a re-listed host attempt re-claims it via reconcile).
 //
-// It takes the DID's shard lock (same didMu → claimMu order as reconcile) so
+// It takes the DID's lock (same DID lock → claimMu order as reconcile) so
 // deletion cannot interleave with another producer's Lookup+claim sequence:
 // without it, a producer could Lookup before the owner's OnComplete commits,
 // observe the claim already deleted, re-claim, and run the Handler twice in
@@ -663,9 +794,8 @@ func (e *Engine) resolveClaim(did atmos.DID, claim *didClaim, terminal bool) {
 	if claim == nil {
 		return
 	}
-	mu := &e.didMu[didShard(did)]
-	mu.Lock()
-	defer mu.Unlock()
+	unlock := e.lockDIDs([]atmos.DID{did})
+	defer unlock()
 	claim.terminal = terminal
 	close(claim.done)
 	e.claimMu.Lock()
