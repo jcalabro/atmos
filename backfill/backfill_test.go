@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -258,10 +259,23 @@ type memStore struct {
 	hostDrained    map[string]bool
 	hostExhausted  map[string]int
 
+	// discoverCalls and updateCalls count DIDs, not batches, so a batch of
+	// n counts as the n per-DID callbacks it replaces.
 	discoverCalls atomic.Int32
 	updateCalls   atomic.Int32
 	completeCalls atomic.Int32
 	failCalls     atomic.Int32
+
+	// lookupBatches records each Lookup call's size, hostBatches each OnHost
+	// call's size, and hostCursorBatches each HostCursor call's hostnames.
+	lookupBatches     []int
+	hostBatches       []int
+	hostCursorBatches [][]string
+	// contractErrs records batches that broke the Store contract (empty,
+	// or naming a DID or host twice).
+	contractErrs []string
+	// shortLookup makes Lookup answer for one DID fewer than asked.
+	shortLookup bool
 
 	// failOnDiscover/Update/Complete/Fail, when non-nil, makes the
 	// corresponding callback return the configured error for the
@@ -294,44 +308,87 @@ func newMemStore() *memStore {
 	}
 }
 
-func (s *memStore) Lookup(_ context.Context, did atmos.DID) (backfill.StoreEntry, error) {
+func (s *memStore) Lookup(_ context.Context, dids []atmos.DID) ([]backfill.StoreEntry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st, ok := s.state[string(did)]
-	if !ok {
-		return backfill.StoreEntry{State: backfill.StateUnknown}, nil
+	s.lookupBatches = append(s.lookupBatches, len(dids))
+	s.checkUniqueLocked("Lookup", didStrings(dids))
+	out := make([]backfill.StoreEntry, 0, len(dids))
+	for _, did := range dids {
+		st, ok := s.state[string(did)]
+		if !ok {
+			out = append(out, backfill.StoreEntry{State: backfill.StateUnknown})
+			continue
+		}
+		out = append(out, backfill.StoreEntry{State: st, Active: s.active[string(did)]})
 	}
-	return backfill.StoreEntry{State: st, Active: s.active[string(did)]}, nil
+	if s.shortLookup && len(out) > 0 {
+		out = out[:len(out)-1]
+	}
+	return out, nil
 }
 
-func (s *memStore) OnDiscover(_ context.Context, host string, entry atmossync.ListReposEntry) error {
-	s.discoverCalls.Add(1)
-	if s.failOnDiscover != nil {
+func (s *memStore) OnDiscover(_ context.Context, host string, entries []atmossync.ListReposEntry) error {
+	s.discoverCalls.Add(int32(len(entries)))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.checkUniqueLocked("OnDiscover", entryDIDs(entries))
+	for _, entry := range entries {
 		if err, ok := s.failOnDiscover[string(entry.DID)]; ok {
 			return err
 		}
+		s.state[string(entry.DID)] = backfill.StateDiscovered
+		s.active[string(entry.DID)] = entry.Active
+		s.entries[string(entry.DID)] = entry
+		s.discoveryHosts[string(entry.DID)] = host
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.state[string(entry.DID)] = backfill.StateDiscovered
-	s.active[string(entry.DID)] = entry.Active
-	s.entries[string(entry.DID)] = entry
-	s.discoveryHosts[string(entry.DID)] = host
 	return nil
 }
 
-func (s *memStore) OnUpdate(_ context.Context, _ string, entry atmossync.ListReposEntry) error {
-	s.updateCalls.Add(1)
-	if s.failOnUpdate != nil {
+func (s *memStore) OnUpdate(_ context.Context, _ string, entries []atmossync.ListReposEntry) error {
+	s.updateCalls.Add(int32(len(entries)))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.checkUniqueLocked("OnUpdate", entryDIDs(entries))
+	for _, entry := range entries {
 		if err, ok := s.failOnUpdate[string(entry.DID)]; ok {
 			return err
 		}
+		s.active[string(entry.DID)] = entry.Active
+		s.updates[string(entry.DID)] = entry
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.active[string(entry.DID)] = entry.Active
-	s.updates[string(entry.DID)] = entry
 	return nil
+}
+
+// checkUniqueLocked records a contract violation for an empty batch or one
+// that names a key twice.
+func (s *memStore) checkUniqueLocked(call string, keys []string) {
+	if len(keys) == 0 {
+		s.contractErrs = append(s.contractErrs, call+": empty batch")
+	}
+	seen := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		if _, dup := seen[k]; dup {
+			s.contractErrs = append(s.contractErrs, call+": duplicate "+k)
+		}
+		seen[k] = struct{}{}
+	}
+}
+
+func didStrings(dids []atmos.DID) []string {
+	out := make([]string, len(dids))
+	for i, did := range dids {
+		out[i] = string(did)
+	}
+	return out
+}
+
+func entryDIDs(entries []atmossync.ListReposEntry) []string {
+	out := make([]string, len(entries))
+	for i, entry := range entries {
+		out[i] = string(entry.DID)
+	}
+	return out
 }
 
 func (s *memStore) OnComplete(_ context.Context, did atmos.DID, host string, commit *atmosrepo.Commit) error {
@@ -365,16 +422,28 @@ func (s *memStore) OnFail(_ context.Context, did atmos.DID, host string, err err
 	return nil
 }
 
-func (s *memStore) OnHost(_ context.Context, info backfill.HostInfo) error {
+func (s *memStore) OnHost(_ context.Context, hosts []backfill.HostInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.hostInfos[info.Hostname] = info
+	s.hostBatches = append(s.hostBatches, len(hosts))
+	names := make([]string, len(hosts))
+	for i, info := range hosts {
+		names[i] = info.Hostname
+		s.hostInfos[info.Hostname] = info
+	}
+	s.checkUniqueLocked("OnHost", names)
 	return nil
 }
-func (s *memStore) HostCursor(_ context.Context, host string) (string, bool, error) {
+func (s *memStore) HostCursor(_ context.Context, hosts []string) ([]backfill.HostCursorState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.hostCursors[host], s.hostDrained[host], nil
+	s.hostCursorBatches = append(s.hostCursorBatches, slices.Clone(hosts))
+	s.checkUniqueLocked("HostCursor", hosts)
+	out := make([]backfill.HostCursorState, len(hosts))
+	for i, host := range hosts {
+		out[i] = backfill.HostCursorState{Cursor: s.hostCursors[host], Drained: s.hostDrained[host]}
+	}
+	return out, nil
 }
 func (s *memStore) SaveHostCursor(_ context.Context, host, cursor string) error {
 	if s.onSaveCursor != nil {

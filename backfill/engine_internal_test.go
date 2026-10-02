@@ -77,28 +77,34 @@ func newEngineInternalStore() *engineInternalStore {
 	}
 }
 
-func (s *engineInternalStore) Lookup(_ context.Context, did atmos.DID) (StoreEntry, error) {
+func (s *engineInternalStore) Lookup(_ context.Context, dids []atmos.DID) ([]StoreEntry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st, ok := s.state[string(did)]
-	if !ok {
-		return StoreEntry{State: StateUnknown}, nil
+	out := make([]StoreEntry, len(dids))
+	for i, did := range dids {
+		if st, ok := s.state[string(did)]; ok {
+			out[i] = StoreEntry{State: st, Active: s.active[string(did)]}
+		}
 	}
-	return StoreEntry{State: st, Active: s.active[string(did)]}, nil
+	return out, nil
 }
 
-func (s *engineInternalStore) OnDiscover(_ context.Context, _ string, entry atmossync.ListReposEntry) error {
+func (s *engineInternalStore) OnDiscover(_ context.Context, _ string, entries []atmossync.ListReposEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.state[string(entry.DID)] = StateDiscovered
-	s.active[string(entry.DID)] = entry.Active
+	for _, entry := range entries {
+		s.state[string(entry.DID)] = StateDiscovered
+		s.active[string(entry.DID)] = entry.Active
+	}
 	return nil
 }
 
-func (s *engineInternalStore) OnUpdate(_ context.Context, _ string, entry atmossync.ListReposEntry) error {
+func (s *engineInternalStore) OnUpdate(_ context.Context, _ string, entries []atmossync.ListReposEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.active[string(entry.DID)] = entry.Active
+	for _, entry := range entries {
+		s.active[string(entry.DID)] = entry.Active
+	}
 	return nil
 }
 
@@ -118,9 +124,9 @@ func (s *engineInternalStore) OnFail(_ context.Context, did atmos.DID, _ string,
 	return nil
 }
 
-func (s *engineInternalStore) OnHost(context.Context, HostInfo) error { return nil }
-func (s *engineInternalStore) HostCursor(context.Context, string) (string, bool, error) {
-	return "", false, nil
+func (s *engineInternalStore) OnHost(context.Context, []HostInfo) error { return nil }
+func (s *engineInternalStore) HostCursor(_ context.Context, hosts []string) ([]HostCursorState, error) {
+	return make([]HostCursorState, len(hosts)), nil
 }
 func (s *engineInternalStore) SaveHostCursor(context.Context, string, string) error { return nil }
 func (s *engineInternalStore) OnHostDrained(context.Context, string, string) error  { return nil }

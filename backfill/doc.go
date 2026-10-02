@@ -49,5 +49,7 @@
 //
 // Two interfaces - Store and Handler - cover the full extension
 // surface. Neither is provided by atmos; consumers ship their own
-// implementations.
+// implementations. The Store's enumeration callbacks take a page at a time,
+// so a Store backed by a remote database pays a constant number of round
+// trips per listHosts or listRepos page rather than one per entry.
 package backfill
