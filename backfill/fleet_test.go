@@ -539,3 +539,53 @@ func TestEngineFleet_RejectsInvalidBounds(t *testing.T) {
 		})
 	}
 }
+
+// A host whose getRepo quota is spent waits for its reset holding no
+// fleet-wide download slot, so the rest of the fleet keeps downloading. With
+// one slot, a parked worker holding it would stall host B until host A's
+// window reset.
+func TestEngineFleet_ParkedHostHoldsNoSlot(t *testing.T) {
+	t.Parallel()
+
+	store := newMemStore()
+	aDIDs := []string{"did:plc:park-a0", "did:plc:park-a1"}
+	bDIDs := []string{"did:plc:park-b0", "did:plc:park-b1"}
+	repos := func(dids []string) map[string][]byte {
+		out := make(map[string][]byte, len(dids))
+		for _, did := range dids {
+			out[did] = buildTestRepoCAR(t, did, 1)
+		}
+		return out
+	}
+	aServed := make(chan struct{})
+	a := &fleetPDS{hostname: "park-a.example.test", dids: aDIDs, repos: repos(aDIDs)}
+	a.get = func(w http.ResponseWriter, _ *http.Request) bool {
+		// The first download spends A's quota until long after the test.
+		w.Header().Set("RateLimit-Limit", "6000")
+		w.Header().Set("RateLimit-Remaining", "0")
+		w.Header().Set("RateLimit-Reset", fmt.Sprint(time.Now().Add(time.Hour).Unix()))
+		if a.getCalls.Load() == 1 {
+			close(aServed)
+		}
+		return false
+	}
+	b := &fleetPDS{hostname: "park-b.example.test", dids: bDIDs, repos: repos(bDIDs)}
+	b.list = func(http.ResponseWriter, *http.Request) bool { <-aServed; return false }
+	opts := fleetOptions(t, store, a, b)
+	opts.GlobalDownloads = gt.Some(1)
+	opts.HostWorkers = gt.Some(1)
+	var waitedHost atomic.Value
+	opts.OnRateLimitWait = gt.Some(func(host string, _ time.Duration) { waitedHost.Store(host) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- backfill.NewEngine(opts).Run(ctx) }()
+
+	require.Eventually(t, func() bool { return store.completeCalls.Load() == 3 }, 5*time.Second, time.Millisecond,
+		"host B could not download while host A was parked")
+	require.Equal(t, int32(1), a.getCalls.Load(), "host A downloaded into a spent quota")
+	cancel()
+	require.ErrorIs(t, <-done, context.Canceled)
+	require.Equal(t, a.hostname, waitedHost.Load(), "the parked worker's wait was not reported when it ended")
+}

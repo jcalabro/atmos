@@ -129,7 +129,8 @@ func guardedDialContext(ctx context.Context, network, address string) (net.Conn,
 // NewDefaultHostClientBuilder returns the engine's default direct-PDS client
 // builder: HTTPS-only against validated hostnames, one shared fleet
 // transport, strict SSRF protection with a pinned-address guarded dialer,
-// and XRPC retries disabled (the engine owns retries).
+// XRPC retries disabled (the engine owns retries), getRepo parks of up to
+// DefaultRateLimitMaxWait, and 5% of each host's quota left unused.
 //
 // Exported for consumers whose own builders must wrap the default (e.g. to
 // special-case a loopback dev relay) without losing the hardening — an
@@ -137,10 +138,10 @@ func guardedDialContext(ctx context.Context, network, address string) (net.Conn,
 // wrapper that doesn't delegate here silently downgrades to whatever
 // transport it supplies.
 func NewDefaultHostClientBuilder() func(string) (*atmossync.Client, error) {
-	return defaultHostClientBuilder()
+	return defaultHostClientBuilder(DefaultRateLimitMaxWait)
 }
 
-func defaultHostClientBuilder() func(string) (*atmossync.Client, error) {
+func defaultHostClientBuilder(rateLimitMaxWait time.Duration) func(string) (*atmossync.Client, error) {
 	// One transport/pool is shared by the entire fleet. The engine owns all
 	// retries; the HTTP and XRPC layers each perform one attempt.
 	//
@@ -164,9 +165,11 @@ func defaultHostClientBuilder() func(string) (*atmossync.Client, error) {
 			return nil, err
 		}
 		xc := &xrpc.Client{
-			Host:       "https://" + strings.ToLower(hostname),
-			HTTPClient: gt.Some[*http.Client](httpClient),
-			Retry:      gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+			Host:             "https://" + strings.ToLower(hostname),
+			HTTPClient:       gt.Some[*http.Client](httpClient),
+			Retry:            gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+			MaxRateLimitWait: gt.Some(rateLimitMaxWait),
+			RateLimitReserve: gt.Some(defaultRateLimitReserve),
 		}
 		return atmossync.NewClient(atmossync.Options{Client: xc}), nil
 	}
