@@ -25,10 +25,11 @@ func TestProactiveRateLimit_DelaysWhenExhausted(t *testing.T) {
 	// Test wait() directly with millisecond precision to avoid the
 	// Unix-second truncation that made the HTTP-based test flaky/slow.
 	var s rateLimitState
-	s.update("a.example", &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(50 * time.Millisecond)}, time.Second)
+	s.update(testKey("a.example"), &RateLimit{Remaining: 0, RemainingSet: true, Reset: time.Now().Add(50 * time.Millisecond)}, time.Second, 0)
 
 	start := time.Now()
-	require.NoError(t, s.wait(context.Background(), "a.example"))
+	_, err := s.wait(context.Background(), testKey("a.example"))
+	require.NoError(t, err)
 	elapsed := time.Since(start)
 
 	assert.GreaterOrEqual(t, elapsed, 40*time.Millisecond, "should have waited for rate limit reset")
@@ -86,7 +87,8 @@ func TestProactiveRateLimit_RetryAfterWithoutRemainingIsBounded(t *testing.T) {
 
 	now := time.Now()
 	c.rl.mu.Lock()
-	reset, ok := c.rl.exhausted[hostOfURL(srv.URL)]
+	park, ok := c.rl.exhausted[rateLimitKey{host: hostOfURL(srv.URL), nsid: "test.method"}]
+	reset := park.until
 	c.rl.mu.Unlock()
 	require.True(t, ok)
 	require.Greater(t, reset, now.Add(MaxServerDirectedDelay-time.Second))
