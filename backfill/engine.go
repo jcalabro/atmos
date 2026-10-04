@@ -45,10 +45,16 @@ const (
 	defaultHostBackoffMax            = time.Hour
 	defaultHostMaxAttempts           = 8
 	DefaultMaxRetries                = 1
-	DefaultRetryRateLimitMaxAttempts = 1
-	defaultRetryBaseDelay            = time.Second
-	defaultRetryMaxDelay             = 30 * time.Second
-	DefaultDownloadTimeout           = 5 * time.Minute
+	DefaultRetryRateLimitMaxAttempts = 3
+	// DefaultRateLimitMaxWait is the default Options.RateLimitMaxWait.
+	DefaultRateLimitMaxWait = 10 * time.Minute
+	// defaultRateLimitReserve is the share of each host's quota the default
+	// host clients leave to other clients from the same address, such as a
+	// live firehose consumer resyncing repos on the same PDS.
+	defaultRateLimitReserve = 0.05
+	defaultRetryBaseDelay   = time.Second
+	defaultRetryMaxDelay    = 30 * time.Second
+	DefaultDownloadTimeout  = 5 * time.Minute
 	// DefaultMaxRepoBytes is the default decoded getRepo CAR size limit.
 	DefaultMaxRepoBytes int64 = 2 << 30
 )
@@ -136,7 +142,7 @@ func (e *Engine) Run(ctx context.Context) error {
 	if e.opts.NewHostClient.HasVal() {
 		e.builder = e.opts.NewHostClient.Val()
 	} else {
-		e.builder = defaultHostClientBuilder()
+		e.builder = defaultHostClientBuilder(e.rateLimitMaxWait())
 	}
 
 	terminal := make(map[string]HostState)
@@ -172,7 +178,7 @@ func (e *Engine) enumerateHostsWithRetry(ctx context.Context, terminal map[strin
 		}
 		delay := backoffDelay(e.hostBackoffBase(), e.hostBackoffMax(), attempt-1)
 		if xrpc.IsRateLimited(err) {
-			delay = rateLimitDelay(err, e.hostBackoffBase(), attempt)
+			delay = rateLimitDelay(err, e.hostBackoffBase(), attempt, e.rateLimitMaxWait())
 		}
 		if err := e.sleep(ctx, delay); err != nil {
 			return nil, err
@@ -221,7 +227,7 @@ func (e *Engine) validate() error {
 		"HostBackoffBase": e.hostBackoffBase(), "HostBackoffMax": e.hostBackoffMax(),
 		"RetryBaseDelay":  e.opts.RetryBaseDelay.ValOr(defaultRetryBaseDelay),
 		"RetryMaxDelay":   e.opts.RetryMaxDelay.ValOr(defaultRetryMaxDelay),
-		"DownloadTimeout": e.downloadTimeout(),
+		"DownloadTimeout": e.downloadTimeout(), "RateLimitMaxWait": e.rateLimitMaxWait(),
 	} {
 		if value < 0 {
 			return fmt.Errorf("backfill: %s must be non-negative", name)
@@ -837,12 +843,13 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 			return e.recordFail(ctx, job.entry.DID, requestHost, err, attempts)
 		}
 		var delay time.Duration
-		if xrpc.IsRateLimited(err) {
+		rateLimited := xrpc.IsRateLimited(err)
+		if rateLimited {
 			if rlAttempt >= rlMaxAttempts || retries >= totalRetryLimit {
 				return e.recordFail(ctx, job.entry.DID, requestHost, fmt.Errorf("backfill: still rate limited after %d attempts: %w", rlAttempt+1, err), attempts)
 			}
 			rlAttempt++
-			delay = rateLimitDelay(err, baseDelay, rlAttempt)
+			delay = rateLimitDelay(err, baseDelay, rlAttempt, e.rateLimitMaxWait())
 		} else {
 			if !xrpc.IsTransient(err) || transientAttempt >= maxRetries || retries >= totalRetryLimit {
 				return e.recordFail(ctx, job.entry.DID, requestHost, err, attempts)
@@ -854,18 +861,15 @@ func (e *Engine) processRepo(ctx context.Context, job repoJob) error {
 		if err := e.sleep(ctx, delay); err != nil {
 			return err
 		}
+		if rateLimited {
+			e.notifyRateLimitWait(job.host, delay)
+		}
 	}
 }
 
 func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
-	started := time.Now()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case e.globalSlots <- struct{}{}:
-	}
-	if cb := e.opts.OnDownloadSlotWait; cb.HasVal() {
-		cb.Val()(time.Since(started))
+	if err := e.acquireDownloadSlot(ctx, job); err != nil {
+		return err
 	}
 	rp, commit, responseHost, err := e.download(ctx, job.client, job.entry.DID)
 	<-e.globalSlots
@@ -886,6 +890,39 @@ func (e *Engine) tryRepo(ctx context.Context, job repoJob) error {
 		return errOnCompleteRecorded
 	}
 	e.notifyComplete()
+	return nil
+}
+
+// acquireDownloadSlot takes a fleet-wide download slot once job's host
+// client no longer has getRepo parked. A parked host waits holding no slot:
+// with tens of workers per host, a few hosts holding slots through their
+// rate-limit windows would starve every other host. A worker that got a slot
+// while another worker parked the host gives it back and waits again.
+func (e *Engine) acquireDownloadSlot(ctx context.Context, job repoJob) error {
+	var slotWait time.Duration
+	for {
+		waited, err := job.client.WaitGetRepoRateLimit(ctx)
+		if waited > 0 {
+			e.notifyRateLimitWait(job.host, waited)
+		}
+		if err != nil {
+			return err
+		}
+		started := time.Now()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case e.globalSlots <- struct{}{}:
+		}
+		slotWait += time.Since(started)
+		if job.client.GetRepoRateLimitedUntil().IsZero() {
+			break
+		}
+		<-e.globalSlots
+	}
+	if cb := e.opts.OnDownloadSlotWait; cb.HasVal() {
+		cb.Val()(slotWait)
+	}
 	return nil
 }
 
@@ -947,10 +984,12 @@ func (e *Engine) recordFail(ctx context.Context, did atmos.DID, host string, cau
 	return nil
 }
 
-func rateLimitDelay(err error, baseDelay time.Duration, attempt int) time.Duration {
+// rateLimitDelay is the wait after a 429: until the server's reset, at
+// most ceiling, or exponential backoff when the server gave no reset.
+func rateLimitDelay(err error, baseDelay time.Duration, attempt int, ceiling time.Duration) time.Duration {
 	if reset := xrpc.RetryAfter(err); !reset.IsZero() {
 		if wait := time.Until(reset); wait > 0 {
-			return min(wait, xrpc.MaxServerDirectedDelay)
+			return min(wait, ceiling)
 		}
 	}
 	return max(baseDelay, backoffDelay(baseDelay, xrpc.MaxServerDirectedDelay, attempt-1))
@@ -1008,6 +1047,12 @@ func (e *Engine) notifyHostState(host HostInfo, state HostState, attempts int, e
 	e.notifyProgress()
 }
 
+func (e *Engine) notifyRateLimitWait(host string, d time.Duration) {
+	if cb := e.opts.OnRateLimitWait; cb.HasVal() && d > 0 {
+		cb.Val()(host, d)
+	}
+}
+
 func (e *Engine) notifyEntryError(err error) {
 	if cb := e.opts.OnEntryError; cb.HasVal() {
 		cb.Val()(err)
@@ -1039,6 +1084,9 @@ func (e *Engine) downloadTimeout() time.Duration {
 	return e.opts.DownloadTimeout.ValOr(DefaultDownloadTimeout)
 }
 func (e *Engine) maxRepoBytes() int64 { return e.opts.MaxRepoBytes.ValOr(DefaultMaxRepoBytes) }
+func (e *Engine) rateLimitMaxWait() time.Duration {
+	return e.opts.RateLimitMaxWait.ValOr(DefaultRateLimitMaxWait)
+}
 
 // maxBytesReader fails as soon as a peer sends more than remaining bytes. It
 // probes one byte past the boundary so an oversized CAR ending exactly at a

@@ -16,8 +16,13 @@ type Options struct {
 
 	// NewHostClient constructs a direct client for a validated listHosts
 	// hostname. None uses HTTPS, one fleet-wide connection pool, and disabled
-	// XRPC retries. An injected builder is an explicit trust boundary and may
-	// support test-only host syntax such as ports.
+	// XRPC retries; its clients park a host's spent getRepo quota for up to
+	// RateLimitMaxWait and leave 5% of each host's quota unused, for other
+	// clients behind the same address. An injected builder is an explicit
+	// trust boundary and may support test-only host syntax such as ports.
+	// Workers wait out a host client's parked getRepo quota before taking a
+	// fleet-wide download slot (see [xrpc.Client.MaxRateLimitWait] and
+	// [xrpc.Client.RateLimitReserve]).
 	NewHostClient gt.Option[func(hostname string) (*sync.Client, error)]
 
 	Store   Store
@@ -56,6 +61,10 @@ type Options struct {
 	OnHostnameRejected gt.Option[func(hostname string, err error)]
 	OnRosterCapped     gt.Option[func(limit int)]
 	OnDownloadSlotWait gt.Option[func(time.Duration)]
+	// OnRateLimitWait reports a worker waiting on a host's rate limit:
+	// before a download while the host client has getRepo parked, or after
+	// a 429.
+	OnRateLimitWait gt.Option[func(host string, d time.Duration)]
 
 	// MaxRetries bounds ordinary transient retries. Together with
 	// RetryRateLimitMaxAttempts, the larger value also bounds total retries
@@ -63,9 +72,14 @@ type Options struct {
 	MaxRetries     gt.Option[int]
 	RetryBaseDelay gt.Option[time.Duration]
 	RetryMaxDelay  gt.Option[time.Duration]
-	// RetryRateLimitMaxAttempts bounds rate-limit retries. None=1.
+	// RetryRateLimitMaxAttempts bounds rate-limit retries. None=3.
 	RetryRateLimitMaxAttempts gt.Option[int]
-	DownloadTimeout           gt.Option[time.Duration]
+	// RateLimitMaxWait bounds one server-directed wait after a 429 (the
+	// server's RateLimit-Reset or Retry-After). None=10m. A PDS limits
+	// getRepo per five-minute window, so a shorter bound wakes into a quota
+	// the host said is spent, and the repo fails once its retries run out.
+	RateLimitMaxWait gt.Option[time.Duration]
+	DownloadTimeout  gt.Option[time.Duration]
 	// MaxRepoBytes bounds the decoded CAR stream retained for one getRepo.
 	// None=2 GiB.
 	MaxRepoBytes  gt.Option[int64]

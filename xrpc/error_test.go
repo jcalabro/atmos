@@ -106,7 +106,7 @@ func TestParseRateLimit_Full(t *testing.T) {
 	require.NotNil(t, rl)
 	assert.Equal(t, 100, rl.Limit)
 	assert.Equal(t, 0, rl.Remaining)
-	assert.Equal(t, time.Unix(1700000000, 0), rl.Reset)
+	assert.Equal(t, time.Unix(1700000001, 0), rl.Reset, "the floored second rounds up")
 }
 
 func TestParseRateLimit_Partial(t *testing.T) {
@@ -153,7 +153,7 @@ func TestParseRateLimit_RateLimitResetWinsOverRetryAfter(t *testing.T) {
 	h.Set("Retry-After", "120")
 	rl := parseRateLimit(h)
 	require.NotNil(t, rl)
-	assert.Equal(t, time.Unix(1700000000, 0), rl.Reset, "RateLimit-Reset takes precedence")
+	assert.Equal(t, time.Unix(1700000001, 0), rl.Reset, "RateLimit-Reset takes precedence")
 }
 
 func TestParseRateLimit_InvalidNumericHeadersAreNotActionable(t *testing.T) {

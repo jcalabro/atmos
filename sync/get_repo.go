@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/jcalabro/atmos"
 )
@@ -26,5 +27,20 @@ func (c *Client) GetRepoStreamHost(ctx context.Context, did atmos.DID, since str
 	if since != "" {
 		params["since"] = since
 	}
-	return c.opts.Client.QueryStreamHost(ctx, "com.atproto.sync.getRepo", params)
+	return c.opts.Client.QueryStreamHost(ctx, getRepoNSID, params)
+}
+
+const getRepoNSID = "com.atproto.sync.getRepo"
+
+// GetRepoRateLimitedUntil reports when this client will next send getRepo
+// to its host, or the zero time if getRepo is not parked by an exhausted
+// quota. See [xrpc.Client.RateLimitedUntil].
+func (c *Client) GetRepoRateLimitedUntil() time.Time {
+	return c.opts.Client.RateLimitedUntil(getRepoNSID)
+}
+
+// WaitGetRepoRateLimit blocks while getRepo is parked for this client's host
+// and returns how long it waited. See [xrpc.Client.WaitRateLimit].
+func (c *Client) WaitGetRepoRateLimit(ctx context.Context) (time.Duration, error) {
+	return c.opts.Client.WaitRateLimit(ctx, getRepoNSID)
 }

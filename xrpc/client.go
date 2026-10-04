@@ -31,6 +31,20 @@ type Client struct {
 	UserAgent  gt.Option[string]       // None = defaultUserAgent
 	Retry      gt.Option[RetryPolicy]  // None = DefaultRetryPolicy
 
+	// MaxRateLimitWait bounds how long one server-reported reset may park
+	// this client's requests to a host and method. None = the smaller of
+	// Retry's MaxDelay and MaxServerDirectedDelay. A park only delays
+	// requests for the quota that reported it, so a bulk client may raise
+	// this to a server's full window (a PDS resets getRepo every five
+	// minutes) rather than wake into a quota it knows is spent.
+	MaxRateLimitWait gt.Option[time.Duration]
+	// RateLimitReserve is the fraction of each reported RateLimit-Limit
+	// this client leaves unused: it parks a quota once RateLimit-Remaining
+	// falls to Limit*RateLimitReserve, so other clients sharing the quota
+	// (another process behind the same address) still have some. None or
+	// 0 = park only when the quota is spent.
+	RateLimitReserve gt.Option[float64]
+
 	session    sessionState
 	rl         rateLimitState
 	clientOnce sync.Once
@@ -49,6 +63,41 @@ func (c *Client) client() *http.Client {
 		}
 	})
 	return c.httpClient
+}
+
+// rateLimitCeiling is the longest one server reset may park a quota.
+func (c *Client) rateLimitCeiling(policy *RetryPolicy) time.Duration {
+	if c.MaxRateLimitWait.HasVal() {
+		return max(0, c.MaxRateLimitWait.Val())
+	}
+	maxRetryDelay := policy.MaxDelay.ValOr(DefaultRetryPolicy.MaxDelay.Val())
+	return max(0, min(maxRetryDelay, MaxServerDirectedDelay))
+}
+
+// trackRateLimit records the rate-limit headers of resp, which answered a
+// call to nsid, against the host that served it.
+func (c *Client) trackRateLimit(resp *http.Response, nsid string, policy *RetryPolicy) {
+	if rl := parseRateLimit(resp.Header); rl != nil {
+		key := rateLimitKey{host: respHost(resp), nsid: nsid}
+		c.rl.update(key, rl, c.rateLimitCeiling(policy), c.RateLimitReserve.ValOr(0))
+	}
+}
+
+// RateLimitedUntil reports when this client will next send nsid to its
+// Host: the end of a park set by an exhausted quota the host reported, or
+// the zero time if nsid is not parked. Requests the Host redirects
+// elsewhere are tracked against the host that answered them, not Host.
+func (c *Client) RateLimitedUntil(nsid string) time.Time {
+	return c.rl.parkedUntil(rateLimitKey{host: hostOfURL(c.Host), nsid: nsid})
+}
+
+// WaitRateLimit blocks while nsid is parked for this client's Host (see
+// [Client.RateLimitedUntil]) and returns how long it waited. Every request
+// already waits this way; a caller that holds a shared resource across a
+// request (a fleet-wide download slot) calls it first, so a parked host
+// waits without holding what other hosts need.
+func (c *Client) WaitRateLimit(ctx context.Context, nsid string) (time.Duration, error) {
+	return c.rl.wait(ctx, rateLimitKey{host: hostOfURL(c.Host), nsid: nsid})
 }
 
 // retryPolicy returns the retry policy, falling back to default.
@@ -185,14 +234,14 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 	// PDS) resolves to the responding host only after the fact, so the
 	// wait below catches direct-to-host clients while redirected requests
 	// rely on the reactive 429 handling in the retry loop.
-	reqHost := hostOfURL(c.Host)
+	reqKey := rateLimitKey{host: hostOfURL(c.Host), nsid: nsid}
 
 	var lastErr error
 	for attempt := range maxAttempts {
 		// Proactive rate limiting: if we know this host's quota is
 		// exhausted, wait before sending the next request to avoid a 429.
 		if attempt == 0 {
-			if err := c.rl.wait(ctx, reqHost); err != nil {
+			if _, err := c.rl.wait(ctx, reqKey); err != nil {
 				return err
 			}
 		}
@@ -292,9 +341,7 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 		// Track rate limit headers on every response, attributed to the
 		// host that actually answered (post-redirect), which for a
 		// relay-fronted request is the PDS rather than the relay.
-		if rl := parseRateLimit(resp.Header); rl != nil {
-			c.rl.update(respHost(resp), rl, serverDelayLimit)
-		}
+		c.trackRateLimit(resp, nsid, policy)
 
 		// Success.
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -330,7 +377,9 @@ func (c *Client) doInternal(ctx context.Context, method, nsid, contentType strin
 // stream. The caller MUST close the returned ReadCloser.
 //
 // Unlike QueryRaw, the response is not buffered in memory. Retries are not
-// performed because the response body is not seekable.
+// performed because the response body is not seekable. Rate limiting works
+// as for [Client.Query]: the request waits while nsid is parked for Host,
+// and the response's rate-limit headers are tracked.
 func (c *Client) QueryStream(ctx context.Context, nsid string, params map[string]any) (io.ReadCloser, error) {
 	body, _, err := c.QueryStreamHost(ctx, nsid, params)
 	return body, err
@@ -372,10 +421,14 @@ func (c *Client) QueryStreamHost(ctx context.Context, nsid string, params map[st
 		req.Header.Set("Authorization", "Bearer "+auth.AccessJwt)
 	}
 
+	if _, err := c.rl.wait(ctx, rateLimitKey{host: hostOfURL(c.Host), nsid: nsid}); err != nil {
+		return nil, "", err
+	}
 	resp, err := c.client().Do(req)
 	if err != nil {
 		return nil, "", err
 	}
+	c.trackRateLimit(resp, nsid, c.retryPolicy())
 
 	// resp.Request is the final request after redirects, so its
 	// URL.Host is the server that actually answered.

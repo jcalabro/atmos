@@ -157,7 +157,8 @@ func buildEngineInternalRepoCAR(t *testing.T, did string) []byte {
 func TestDefaultHostileInputLimits(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, 1, DefaultMaxRetries)
-	require.Equal(t, 1, DefaultRetryRateLimitMaxAttempts)
+	require.Equal(t, 3, DefaultRetryRateLimitMaxAttempts)
+	require.Equal(t, 10*time.Minute, DefaultRateLimitMaxWait)
 	require.Equal(t, int64(2<<30), DefaultMaxRepoBytes)
 	require.Equal(t, 30*time.Second, xrpc.MaxServerDirectedDelay)
 }
@@ -194,7 +195,8 @@ func TestEngine_DefaultRetryBudgetIsSharedAcrossFailureClasses(t *testing.T) {
 			Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
 		}})),
 		Store: store, HostWorkers: gt.Some(1), RetryBaseDelay: gt.Some(time.Duration(0)),
-		Handler: HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
+		RetryRateLimitMaxAttempts: gt.Some(1),
+		Handler:                   HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
 	})
 
 	require.NoError(t, engine.Run(context.Background()))
@@ -655,4 +657,111 @@ func TestEngine_translateDownloadDeadline_Classification(t *testing.T) {
 		got := classify(parent, dl, context.DeadlineExceeded)
 		require.ErrorIs(t, got, errDownloadTimeout)
 	})
+}
+
+// A 429 waits for the server's reset, past MaxServerDirectedDelay: a PDS
+// resets getRepo every five minutes, and waking after 30 seconds spends a
+// retry on a quota the host said is spent. RateLimitMaxWait still bounds a
+// hostile reset, and every wait is reported.
+func TestEngine_RateLimitWaitsForServerReset(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		maxWait gt.Option[time.Duration]
+		want    time.Duration
+	}{
+		{name: "default", want: 5 * time.Minute},
+		{name: "capped", maxWait: gt.Some(time.Minute), want: time.Minute},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			did := "did:plc:fivemin"
+			carData := buildEngineInternalRepoCAR(t, did)
+			var attempts atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/xrpc/com.atproto.sync.listRepos":
+					listReposOnce(w, did)
+				case "/xrpc/com.atproto.sync.getRepo":
+					if attempts.Add(1) == 1 {
+						// Retry-After rather than a spent RateLimit-Remaining,
+						// so the client does not park and the test does not
+						// wait on the wall clock.
+						w.Header().Set("Retry-After", "300")
+						w.WriteHeader(http.StatusTooManyRequests)
+						return
+					}
+					_, _ = w.Write(carData)
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			t.Cleanup(srv.Close)
+
+			xc := &xrpc.Client{Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}), MaxRateLimitWait: gt.Some(time.Duration(0))}
+			sleeper := &recordingRetrySleeper{}
+			store := newEngineInternalStore()
+			var waits []time.Duration
+			engine := NewEngine(Options{
+				Relay:            singleHostRelay(t),
+				NewHostClient:    singleHostBuilder(atmossync.NewClient(atmossync.Options{Client: xc})),
+				Store:            store,
+				HostWorkers:      gt.Some(1),
+				RateLimitMaxWait: tc.maxWait,
+				OnRateLimitWait: gt.Some(func(host string, d time.Duration) {
+					require.Equal(t, "pds.example.test", host)
+					waits = append(waits, d)
+				}),
+				Handler: HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
+			})
+			engine.retrySleeper = sleeper
+
+			require.NoError(t, engine.Run(context.Background()))
+			require.Equal(t, int32(1), store.complete.Load())
+			delays := sleeper.Delays()
+			require.Len(t, delays, 1)
+			require.InDelta(t, tc.want, delays[0], float64(2*time.Second))
+			require.Equal(t, delays, waits)
+		})
+	}
+}
+
+// With default options, a 429 is backpressure, not a failure: a host that
+// throttles each repo once still has every repo complete.
+func TestEngine_RateLimitDefaultsRetry(t *testing.T) {
+	t.Parallel()
+	did := "did:plc:throttledonce"
+	carData := buildEngineInternalRepoCAR(t, did)
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.sync.listRepos":
+			listReposOnce(w, did)
+		case "/xrpc/com.atproto.sync.getRepo":
+			if attempts.Add(1) <= 2 {
+				w.WriteHeader(http.StatusTooManyRequests)
+				return
+			}
+			_, _ = w.Write(carData)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	store := newEngineInternalStore()
+	engine := NewEngine(Options{
+		Relay: singleHostRelay(t),
+		NewHostClient: singleHostBuilder(atmossync.NewClient(atmossync.Options{Client: &xrpc.Client{
+			Host: srv.URL, Retry: gt.Some(xrpc.RetryPolicy{MaxAttempts: gt.Some(1)}),
+		}})),
+		Store:   store,
+		Handler: HandlerFunc(func(context.Context, atmos.DID, *atmosrepo.Repo, *atmosrepo.Commit) error { return nil }),
+	})
+	engine.retrySleeper = &recordingRetrySleeper{}
+
+	require.NoError(t, engine.Run(context.Background()))
+	require.Equal(t, int32(3), attempts.Load())
+	require.Equal(t, int32(1), store.complete.Load())
+	require.Zero(t, store.fail.Load())
 }

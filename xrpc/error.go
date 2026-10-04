@@ -4,6 +4,7 @@ package xrpc
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,7 +36,11 @@ type RateLimit struct {
 	Limit        int
 	Remaining    int
 	RemainingSet bool // true only when RateLimit-Remaining was present and valid
-	Reset        time.Time
+	// Reset is the earliest time the quota is known to have reset.
+	// RateLimit-Reset names a whole Unix second that atproto servers round
+	// down, so the quota may still be spent for up to a second after it;
+	// Reset is that second plus one.
+	Reset time.Time
 }
 
 func (e *Error) Error() string {
@@ -115,8 +120,8 @@ func parseRateLimitAt(h http.Header, now func() time.Time) *RateLimit {
 		}
 	}
 	if resetStr != "" {
-		if unix, err := strconv.ParseInt(resetStr, 10, 64); err == nil {
-			rl.Reset = time.Unix(unix, 0)
+		if unix, err := strconv.ParseInt(resetStr, 10, 64); err == nil && unix < math.MaxInt64 {
+			rl.Reset = time.Unix(unix+1, 0)
 		}
 	}
 	// Fall back to the standard Retry-After header when RateLimit-Reset is
