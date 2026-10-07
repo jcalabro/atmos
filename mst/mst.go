@@ -89,7 +89,7 @@ type entry struct {
 // node is an in-memory MST node.
 //
 // Field order is chosen for cache-line locality: the hot traversal fields
-// (left, entries, height, dirty) sit in the first 34 bytes so that
+// (left, entries, height, dirty, loaded) sit in the first 35 bytes so that
 // ensureLoaded's guard check and getNode's descent stay within a single
 // 64-byte cache line. The cold CID (only touched during serialization /
 // loading) trails at the end and spills to a second line.
@@ -98,6 +98,7 @@ type node struct {
 	entries []entry  // 24B — hot: every traversal
 	height  uint8    // 1B  — hot: insert level checks
 	dirty   bool     // 1B  — hot: ensureLoaded guard
+	loaded  bool     // 1B  — hot: ensureLoaded guard; an empty node looks like a stub without it
 	cid     cbor.CID // 33B — cold: serialization / loading only
 }
 
@@ -902,7 +903,7 @@ func (t *Tree) nodeToData(n *node) (*NodeData, error) {
 
 // ensureLoaded loads a node from the store if it hasn't been loaded yet.
 func (t *Tree) ensureLoaded(n *node) error {
-	if n.dirty || len(n.entries) > 0 || n.left != nil {
+	if n.dirty || len(n.entries) > 0 || n.left != nil || n.loaded {
 		return nil // already loaded or newly created
 	}
 	if !n.cid.Defined() {
@@ -1006,6 +1007,7 @@ func (t *Tree) ensureLoaded(n *node) error {
 		}
 	}
 
+	n.loaded = true
 	return nil
 }
 

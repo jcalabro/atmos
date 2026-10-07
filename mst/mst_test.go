@@ -939,6 +939,58 @@ func TestRemoveOnPartialTreeLoadsOnlyWhatItNeeds(t *testing.T) {
 	assert.True(t, wantRoot.Equal(gotRoot), "want %s, got %s", wantRoot.String(), gotRoot.String())
 }
 
+// fetchOnceStore fails the second fetch of any block.
+type fetchOnceStore struct {
+	*MemBlockStore
+	fetched map[cbor.CID]bool
+}
+
+func (s *fetchOnceStore) GetBlock(cid cbor.CID) ([]byte, error) {
+	if s.fetched[cid] {
+		return nil, fmt.Errorf("%w: second fetch of %s", ErrBlockNotFound, cid.String())
+	}
+	s.fetched[cid] = true
+	return s.MemBlockStore.GetBlock(cid)
+}
+
+// An empty node has no entries and no left child, so once loaded it is
+// indistinguishable from a stub by shape. Re-fetching it in Remove's trim
+// would let a store fail after the entry is already gone.
+func TestRemoveDoesNotRefetchEmptyNode(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	store := NewMemBlockStore()
+	put := func(nd *NodeData) cbor.CID {
+		data, err := encodeNodeData(nd)
+		require.NoError(t, err)
+		cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
+		require.NoError(t, store.PutBlock(cid, data))
+		return cid
+	}
+
+	// root{rootKey} → right: empty intermediate → left: empty node
+	rootKey := "col.lection/0000019" // height 2
+	require.Equal(t, uint8(2), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-2 key", rootKey)
+	empty := put(&NodeData{Entries: []EntryData{}})
+	passthrough := put(&NodeData{Left: gt.Some(empty), Entries: []EntryData{}})
+	root := put(&NodeData{Entries: []EntryData{{
+		KeySuffix: []byte(rootKey),
+		Value:     val,
+		Right:     gt.Some(passthrough),
+	}}})
+
+	tree := LoadTree(&fetchOnceStore{MemBlockStore: store, fetched: map[cbor.CID]bool{}}, root)
+	require.NoError(t, tree.Remove(rootKey))
+
+	gotRoot, err := tree.RootCID()
+	require.NoError(t, err)
+	wantRoot, err := NewTree(NewMemBlockStore()).RootCID()
+	require.NoError(t, err)
+	assert.True(t, wantRoot.Equal(gotRoot), "want the empty tree %s, got %s", wantRoot.String(), gotRoot.String())
+}
+
 func TestGetFromEmptyTree(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()
