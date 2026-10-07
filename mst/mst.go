@@ -476,10 +476,18 @@ func (t *Tree) findChildIndex(n *node, key string) int {
 	return lo
 }
 
-// Remove deletes a key from the tree.
+// Remove deletes a key from the tree. If it returns an error, the tree
+// is unchanged.
 func (t *Tree) Remove(key string) error {
 	if t.root == nil {
 		return nil
+	}
+	// Load what the trim below needs before removeNode mutates anything.
+	// A root that keeps an entry stays the root, so skip the call for it.
+	if r := t.root; len(r.entries) == 0 || (len(r.entries) == 1 && r.entries[0].key == key) {
+		if err := t.loadRootAfterRemove(key); err != nil {
+			return err
+		}
 	}
 	newRoot, err := t.removeNode(t.root, key)
 	if err != nil {
@@ -502,6 +510,51 @@ func (t *Tree) Remove(key string) error {
 		newRoot = newRoot.left
 	}
 	t.root = newRoot
+	return nil
+}
+
+// loadRootAfterRemove loads the nodes Remove's trim will visit, so a
+// missing block errors before the tree is mutated. It stops at the first
+// level where either side of the removed entry holds an entry: the merge
+// roots there, and loading deeper could fail a removal that would succeed.
+func (t *Tree) loadRootAfterRemove(key string) error {
+	n := t.root
+	for n != nil {
+		if err := t.ensureLoaded(n); err != nil {
+			return err
+		}
+		if len(n.entries) == 0 {
+			n = n.left
+			continue
+		}
+		if len(n.entries) > 1 || n.entries[0].key != key {
+			return nil
+		}
+
+		left, right := n.left, n.entries[0].right
+		for left != nil || right != nil {
+			entries := 0
+			for _, side := range [2]*node{left, right} {
+				if side == nil {
+					continue
+				}
+				if err := t.ensureLoaded(side); err != nil {
+					return err
+				}
+				entries += len(side.entries)
+			}
+			if entries > 0 {
+				return nil
+			}
+			if left != nil {
+				left = left.left
+			}
+			if right != nil {
+				right = right.left
+			}
+		}
+		return nil
+	}
 	return nil
 }
 

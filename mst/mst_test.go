@@ -850,6 +850,95 @@ func TestLazyLoadRemoveTrimsThroughUnloadedStub(t *testing.T) {
 	require.True(t, val.Equal(*got))
 }
 
+// Remove must leave the tree unchanged when it errors. Removing a root's
+// only entry used to mutate the root before the trim loaded the (missing)
+// subtree below it.
+func TestRemoveFailureLeavesTreeUnchanged(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	rootKey := "col.lection/0000443" // height 3
+	leafKey := "col.lection/0000445" // height 1, sorts after rootKey
+	require.Equal(t, uint8(3), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-3 key", rootKey)
+	require.Equal(t, uint8(1), HeightForKey(leafKey),
+		"test fixture %q changed height; pick a new height-1 key", leafKey)
+	require.Less(t, rootKey, leafKey,
+		"leafKey must sort after rootKey so it lands in the right subtree")
+
+	store := NewMemBlockStore()
+	staged := NewTree(store)
+	require.NoError(t, staged.Insert(rootKey, val))
+	require.NoError(t, staged.Insert(leafKey, val))
+	stagedRoot, err := staged.WriteBlocks(store)
+	require.NoError(t, err)
+
+	rootData, err := store.GetBlock(stagedRoot)
+	require.NoError(t, err)
+	rootOnly := NewMemBlockStore()
+	require.NoError(t, rootOnly.PutBlock(stagedRoot, rootData))
+
+	partial := LoadTree(rootOnly, stagedRoot)
+	require.ErrorIs(t, partial.Remove(rootKey), ErrBlockNotFound)
+
+	gotRoot, err := partial.RootCID()
+	require.NoError(t, err)
+	assert.True(t, stagedRoot.Equal(gotRoot),
+		"failed Remove changed the root: want %s, got %s", stagedRoot.String(), gotRoot.String())
+
+	got, err := partial.Get(rootKey)
+	require.NoError(t, err)
+	require.NotNil(t, got, "failed Remove removed the key anyway")
+	require.True(t, val.Equal(*got))
+}
+
+// Remove must not load more than it needs: the merge roots at leftKey's
+// node and never looks inside the empty chain to the right of rootKey.
+func TestRemoveOnPartialTreeLoadsOnlyWhatItNeeds(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	leftKey := "col.lection/0000019" // height 2, sorts before rootKey
+	rootKey := "col.lection/0000443" // height 3
+	tailKey := "col.lection/0000444" // height 0, sorts after rootKey
+	require.Equal(t, uint8(2), HeightForKey(leftKey),
+		"test fixture %q changed height; pick a new height-2 key", leftKey)
+	require.Equal(t, uint8(3), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-3 key", rootKey)
+	require.Equal(t, uint8(0), HeightForKey(tailKey),
+		"test fixture %q changed height; pick a new height-0 key", tailKey)
+
+	store := NewMemBlockStore()
+	staged := NewTree(store)
+	require.NoError(t, staged.Insert(leftKey, val))
+	require.NoError(t, staged.Insert(rootKey, val))
+	require.NoError(t, staged.Insert(tailKey, val))
+	stagedRoot, err := staged.WriteBlocks(store)
+	require.NoError(t, err)
+
+	// the second node of the chain to the right of rootKey
+	absent := staged.root.entries[0].right.left.cid
+	require.True(t, absent.Defined())
+	partialStore := NewMemBlockStore()
+	for cid, data := range store.All() {
+		if !cid.Equal(absent) {
+			require.NoError(t, partialStore.PutBlock(cid, data))
+		}
+	}
+
+	partial := LoadTree(partialStore, stagedRoot)
+	require.NoError(t, partial.Remove(rootKey))
+	gotRoot, err := partial.RootCID()
+	require.NoError(t, err)
+
+	oracle := NewTree(NewMemBlockStore())
+	require.NoError(t, oracle.Insert(leftKey, val))
+	require.NoError(t, oracle.Insert(tailKey, val))
+	wantRoot, err := oracle.RootCID()
+	require.NoError(t, err)
+	assert.True(t, wantRoot.Equal(gotRoot), "want %s, got %s", wantRoot.String(), gotRoot.String())
+}
+
 func TestGetFromEmptyTree(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()
