@@ -83,7 +83,7 @@ func BenchmarkRootCID_1000(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		// Mark dirty to force recomputation.
-		tree.root.dirty = true
+		tree.root.markDirty()
 		_, _ = tree.RootCID()
 	}
 }
@@ -97,7 +97,7 @@ func BenchmarkWriteBlocks_1000(b *testing.B) {
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		tree.root.dirty = true
+		tree.root.markDirty()
 		_, _ = tree.WriteBlocks(store)
 	}
 }
@@ -189,5 +189,52 @@ func BenchmarkIsValidMstKey(b *testing.B) {
 	key := "app.bsky.feed.post/3jqfcqzm3fo2j"
 	for b.Loop() {
 		_ = IsValidMstKey(key)
+	}
+}
+
+// benchStoredTree writes a tree of n realistic keys to a store and returns
+// the store and root, for benchmarks of the load path.
+func benchStoredTree(b *testing.B, n int) (*MemBlockStore, cbor.CID, []string) {
+	b.Helper()
+	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
+	store := NewMemBlockStore()
+	tree := NewTree(store)
+	keys := make([]string, n)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("app.bsky.feed.post/3k%011d", i*7919)
+		if err := tree.Insert(keys[i], val); err != nil {
+			b.Fatal(err)
+		}
+	}
+	root, err := tree.WriteBlocks(store)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return store, root, keys
+}
+
+// BenchmarkLoadAndWalk_10000 measures loading and walking a whole stored
+// tree, as backfill does after reading a repo CAR.
+func BenchmarkLoadAndWalk_10000(b *testing.B) {
+	store, root, _ := benchStoredTree(b, 10_000)
+	b.ResetTimer()
+	for b.Loop() {
+		if err := LoadTree(store, root).Walk(func(string, cbor.CID) error { return nil }); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkLoadAndGet_10000 measures one lazy lookup in a freshly loaded
+// tree, as commit verification does for each op.
+func BenchmarkLoadAndGet_10000(b *testing.B) {
+	store, root, keys := benchStoredTree(b, 10_000)
+	b.ResetTimer()
+	i := 0
+	for b.Loop() {
+		if _, err := LoadTree(store, root).Get(keys[i%len(keys)]); err != nil {
+			b.Fatal(err)
+		}
+		i++
 	}
 }

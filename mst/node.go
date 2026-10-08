@@ -17,6 +17,9 @@ const maxKeyLen = 1024
 // is enormous slack for legitimate trees while preventing a maliciously deep
 // block graph (e.g. a long chain of single-entry nodes from a hostile CAR/sync
 // peer) from exhausting the goroutine stack with an unrecoverable fatal crash.
+// Loading also requires each layer to sit one height below its parent, and
+// key heights cap out at 128, so a tree that loads is never this deep;
+// MaxDepth remains as a backstop.
 const MaxDepth = 256
 
 // ErrMaxDepthExceeded is returned when an MST traversal/load exceeds MaxDepth.
@@ -193,8 +196,12 @@ func DecodeNodeData(data []byte) (NodeData, error) {
 		}
 	}
 
+	// A node is content-addressed, so bytes after it would give the same
+	// node a second CID.
+	if pos != len(data) {
+		return NodeData{}, fmt.Errorf("mst: %d trailing bytes after node", len(data)-pos)
+	}
 	return nd, nil
-
 }
 
 // decodeEntryDataFast decodes a single entry from data at pos into ed.

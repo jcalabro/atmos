@@ -103,8 +103,10 @@ func TestEnsureLoaded_OutOfOrderEntries_Rejected(t *testing.T) {
 }
 
 // A maliciously deep block graph (a long chain of nodes each pointing to the
-// next via Left) must be rejected with ErrMaxDepthExceeded rather than
-// recursing until the goroutine stack overflows (a fatal, unrecoverable crash).
+// next via Left) must be rejected rather than recursing until the goroutine
+// stack overflows (a fatal, unrecoverable crash). Every edge must drop one
+// layer and keys cap the height, so loading rejects the chain as an invalid
+// tree long before MaxDepth, which remains as a backstop.
 func TestLoadAndWalk_ExcessiveDepth_Rejected(t *testing.T) {
 	t.Parallel()
 
@@ -112,9 +114,10 @@ func TestLoadAndWalk_ExcessiveDepth_Rejected(t *testing.T) {
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v"))
 
 	// Build a chain bottom-up: the deepest node holds one entry; each node above
-	// points to the one below via Left. Chain length exceeds MaxDepth.
+	// points to the one below via Left. Chain length exceeds MaxDepth. The top
+	// holds a key so the root is not a bare pointer.
 	deepest, err := encodeNodeData(&NodeData{
-		Entries: []EntryData{{PrefixLen: 0, KeySuffix: []byte("k"), Value: val}},
+		Entries: []EntryData{{PrefixLen: 0, KeySuffix: []byte("com.example/a"), Value: val}},
 	})
 	require.NoError(t, err)
 	childCID := storeBlock(t, store, deepest)
@@ -124,15 +127,21 @@ func TestLoadAndWalk_ExcessiveDepth_Rejected(t *testing.T) {
 		require.NoError(t, err)
 		childCID = storeBlock(t, store, data)
 	}
+	top, err := encodeNodeData(&NodeData{
+		Left:    gt.Some(childCID),
+		Entries: []EntryData{{PrefixLen: 0, KeySuffix: []byte("com.example/z"), Value: val}},
+	})
+	require.NoError(t, err)
+	childCID = storeBlock(t, store, top)
 
 	tree := LoadTree(store, childCID)
 
 	// Both the eager load path (used by repo.LoadFromCAR / backfill) and the
-	// Walk path must bail with the typed depth error, not crash.
-	require.ErrorIs(t, tree.LoadAll(), ErrMaxDepthExceeded)
+	// Walk path must bail with a typed error, not crash.
+	require.ErrorIs(t, tree.LoadAll(), ErrInvalidTree)
 
 	tree2 := LoadTree(store, childCID)
-	require.ErrorIs(t, tree2.Walk(func(string, cbor.CID) error { return nil }), ErrMaxDepthExceeded)
+	require.ErrorIs(t, tree2.Walk(func(string, cbor.CID) error { return nil }), ErrInvalidTree)
 }
 
 // A node map whose keys are not in canonical DAG-CBOR order (l before e) must be

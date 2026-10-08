@@ -1,10 +1,15 @@
 package mst
 
 import (
+	"bytes"
+	"math/rand/v2"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jcalabro/atmos/cbor"
 	"github.com/jcalabro/gt"
+	"github.com/stretchr/testify/require"
 )
 
 // FuzzDecodeNodeData tests that the specialized MST node decoder never panics
@@ -102,10 +107,15 @@ func FuzzDecodeNodeDataRoundTrip(f *testing.F) {
 		if err != nil {
 			return
 		}
-		// Re-encode.
+		// Re-encode. The decoder accepts only the canonical encoding, so a
+		// node that decodes must re-encode to the very same bytes; anything
+		// else would give one node two CIDs.
 		encoded, err := encodeNodeData(&nd)
 		if err != nil {
 			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(encoded, data) {
+			t.Fatalf("decoded a non-canonical encoding:\n got %x\nwant %x", data, encoded)
 		}
 		// Re-decode.
 		nd2, err := DecodeNodeData(encoded)
@@ -164,20 +174,98 @@ func FuzzLoadAndWalk(f *testing.F) {
 		}
 		tree := LoadTree(store, root)
 		// Must never panic regardless of block contents.
-		_ = tree.Walk(func(string, cbor.CID) error { return nil })
+		var walked []kv
+		err := tree.Walk(func(k string, v cbor.CID) error {
+			walked = append(walked, kv{k, v})
+			return nil
+		})
 		_, _ = tree.Get("app.bsky.feed.post/a")
+		if err != nil {
+			return
+		}
+		// A node that loads is the one canonical encoding of its keys.
+		m := map[string]cbor.CID{}
+		for _, e := range walked {
+			m[e.key] = e.val
+		}
+		if want := canonicalRoot(t, nil, m); !want.Equal(root) {
+			t.Fatalf("loaded a non-canonical node: root %s, canonical %s", root.String(), want.String())
+		}
 	})
 }
 
-// FuzzRemovePartialStore drives checkRemoveAgainstModel from fuzzer-chosen
-// seeds: Remove through a store that drops or flakes on blocks must either
-// apply the removal or leave the tree unchanged.
-func FuzzRemovePartialStore(f *testing.F) {
+// FuzzLoadCorruptedTree builds a canonical multi-layer tree, overwrites one
+// of its blocks with a fuzzer-corrupted copy, and loads it. Loading may
+// fail, but whatever loads without error must still have the canonical
+// shape for the keys it holds, and no operation on it may panic.
+func FuzzLoadCorruptedTree(f *testing.F) {
+	f.Add(uint64(0), uint8(0), []byte{10, 1})
+	f.Add(uint64(1), uint8(3), []byte{40, 0x20})
+	f.Add(uint64(2), uint8(1), []byte{7, 0x01, 30, 0x40})
+	f.Fuzz(func(t *testing.T, seed uint64, block uint8, edits []byte) {
+		rng := rand.New(rand.NewPCG(seed, 0))
+		model := map[string]cbor.CID{}
+		for _, k := range randomPool(rngChooser{rng}) {
+			model[k] = cbor.ComputeCID(cbor.CodecRaw, []byte(k))
+		}
+		store := NewMemBlockStore()
+		root := canonicalRoot(t, store, model)
+
+		cids := slices.SortedFunc(func(yield func(cbor.CID) bool) {
+			for c := range store.All() {
+				if !yield(c) {
+					return
+				}
+			}
+		}, func(a, b cbor.CID) int { return strings.Compare(a.String(), b.String()) })
+		target := cids[int(block)%len(cids)]
+		data := slices.Clone(mustGetBlock(t, store, target))
+		for i := 0; i+1 < len(edits); i += 2 {
+			data[int(edits[i])%len(data)] ^= edits[i+1]
+		}
+		if len(edits)%2 == 1 {
+			data = data[:int(edits[len(edits)-1])%(len(data)+1)]
+		}
+		require.NoError(t, store.PutBlock(target, data))
+
+		tree := LoadTree(store, root)
+		if err := tree.LoadAll(); err == nil {
+			var walked []kv
+			require.NoError(t, tree.Walk(func(k string, v cbor.CID) error {
+				walked = append(walked, kv{k, v})
+				return nil
+			}))
+			got := map[string]cbor.CID{}
+			for _, e := range walked {
+				got[e.key] = e.val
+			}
+			fresh := checkShape(t, tree, false)
+			if want := canonicalRoot(t, nil, got); !want.Equal(fresh) {
+				t.Fatalf("loaded a non-canonical tree: shape %s, canonical %s", fresh.String(), want.String())
+			}
+		}
+
+		// Operations on whatever loaded must not panic.
+		tree = LoadTree(store, root)
+		for k := range model {
+			_, _ = tree.Get(k)
+			_ = tree.Remove(k)
+			_ = tree.Insert(k, cbor.ComputeCID(cbor.CodecRaw, nil))
+			break
+		}
+		_, _ = tree.RootCID()
+	})
+}
+
+// FuzzMutatePartialStore drives checkMutationsAgainstModel from
+// fuzzer-chosen seeds: Insert and Remove through a store that drops or
+// flakes on blocks must either apply the change or leave the tree unchanged.
+func FuzzMutatePartialStore(f *testing.F) {
 	for seed := range uint64(8) {
 		f.Add(seed, uint64(0))
 	}
 	f.Fuzz(func(t *testing.T, seed1, seed2 uint64) {
-		checkRemoveAgainstModel(t, seed1, seed2)
+		checkMutationsAgainstModel(t, seed1, seed2)
 	})
 }
 
