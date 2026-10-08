@@ -169,6 +169,18 @@ func FuzzLoadAndWalk(f *testing.F) {
 	})
 }
 
+// FuzzRemovePartialStore drives checkRemoveAgainstModel from fuzzer-chosen
+// seeds: Remove through a store that drops or flakes on blocks must either
+// apply the removal or leave the tree unchanged.
+func FuzzRemovePartialStore(f *testing.F) {
+	for seed := range uint64(8) {
+		f.Add(seed, uint64(0))
+	}
+	f.Fuzz(func(t *testing.T, seed1, seed2 uint64) {
+		checkRemoveAgainstModel(t, seed1, seed2)
+	})
+}
+
 // FuzzHeightForKey tests that height computation never panics and is deterministic.
 func FuzzHeightForKey(f *testing.F) {
 	f.Add("")

@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"math/rand/v2"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -989,6 +992,111 @@ func TestRemoveDoesNotRefetchEmptyNode(t *testing.T) {
 	wantRoot, err := NewTree(NewMemBlockStore()).RootCID()
 	require.NoError(t, err)
 	assert.True(t, wantRoot.Equal(gotRoot), "want the empty tree %s, got %s", wantRoot.String(), gotRoot.String())
+}
+
+// gatedStore serves blocks from a complete store, but while gated it fails
+// any block in deny, and any block at all with probability flaky. Lifting
+// the gate lets a test inspect the tree with every block available.
+type gatedStore struct {
+	*MemBlockStore
+	deny  map[cbor.CID]bool
+	flaky float64
+	rng   *rand.Rand
+	gated bool
+}
+
+func (s *gatedStore) GetBlock(cid cbor.CID) ([]byte, error) {
+	if s.gated && (s.deny[cid] || s.rng.Float64() < s.flaky) {
+		return nil, fmt.Errorf("%w: gated %s", ErrBlockNotFound, cid.String())
+	}
+	return s.MemBlockStore.GetBlock(cid)
+}
+
+// checkRemoveAgainstModel builds a random tree, loads it through a store
+// that drops or flakes on blocks, and runs a few Removes against a model.
+// After each Remove it lifts the gate and checks that the tree is exactly
+// the model: unchanged when Remove errored, minus the key when it did not.
+func checkRemoveAgainstModel(t *testing.T, seed1, seed2 uint64) {
+	t.Helper()
+	val := testValueCID(t)
+	rng := rand.New(rand.NewPCG(seed1, seed2))
+	randKey := func() string { return fmt.Sprintf("col.lection/%07d", rng.IntN(3000)) }
+
+	model := map[string]bool{}
+	for range 1 + rng.IntN(40) {
+		model[randKey()] = true
+	}
+	full := NewMemBlockStore()
+	staged := NewTree(full)
+	for _, k := range slices.Sorted(maps.Keys(model)) {
+		require.NoError(t, staged.Insert(k, val))
+	}
+	root, err := staged.WriteBlocks(full)
+	require.NoError(t, err)
+
+	store := &gatedStore{MemBlockStore: full, deny: map[cbor.CID]bool{}, rng: rng}
+	if rng.IntN(2) == 0 {
+		for cid := range full.All() {
+			if !cid.Equal(root) && rng.IntN(3) == 0 {
+				store.deny[cid] = true
+			}
+		}
+	} else {
+		store.flaky = 0.1 + 0.4*rng.Float64()
+	}
+
+	tree := LoadTree(store, root)
+	store.gated = true
+	// Partially load the tree first, so Remove starts from varied states.
+	for range rng.IntN(3) {
+		_, _ = tree.Get(randKey())
+	}
+
+	for range 1 + rng.IntN(4) {
+		key := randKey()
+		if keys := slices.Sorted(maps.Keys(model)); len(keys) > 0 && rng.IntN(5) != 0 {
+			key = keys[rng.IntN(len(keys))]
+		}
+		removeErr := tree.Remove(key)
+		if removeErr == nil {
+			delete(model, key)
+		}
+
+		store.gated = false
+		oracle := NewTree(NewMemBlockStore())
+		for k := range model {
+			require.NoError(t, oracle.Insert(k, val))
+		}
+		wantRoot, err := oracle.RootCID()
+		require.NoError(t, err)
+		gotRoot, err := tree.RootCID()
+		require.NoError(t, err)
+		require.True(t, wantRoot.Equal(gotRoot),
+			"seed (%d, %d): Remove(%q) err=%v: want root %s, got %s",
+			seed1, seed2, key, removeErr, wantRoot.String(), gotRoot.String())
+
+		var walked []string
+		require.NoError(t, tree.Walk(func(k string, _ cbor.CID) error {
+			walked = append(walked, k)
+			return nil
+		}))
+		require.Equal(t, slices.Sorted(maps.Keys(model)), walked,
+			"seed (%d, %d): Remove(%q) err=%v", seed1, seed2, key, removeErr)
+		store.gated = true
+	}
+}
+
+// Remove on a tree whose store drops or flakes on blocks must either apply
+// the removal or leave the tree exactly as it was.
+func TestRemoveOnPartialStoreMatchesModel(t *testing.T) {
+	t.Parallel()
+	seeds := uint64(20_000)
+	if testing.Short() {
+		seeds = 2_000
+	}
+	for seed := range seeds {
+		checkRemoveAgainstModel(t, seed, 0)
+	}
 }
 
 // A block that fails validation partway through must not leave a
