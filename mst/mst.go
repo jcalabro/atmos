@@ -89,17 +89,30 @@ type entry struct {
 // node is an in-memory MST node.
 //
 // Field order is chosen for cache-line locality: the hot traversal fields
-// (left, entries, height, dirty, loaded) sit in the first 35 bytes so that
-// ensureLoaded's guard check and getNode's descent stay within a single
-// 64-byte cache line. The cold CID (only touched during serialization /
-// loading) trails at the end and spills to a second line.
+// (left, entries, height, dirty, cidFresh, loaded) sit in the first 36 bytes
+// so that ensureLoaded's guard check and getNode's descent stay within a
+// single 64-byte cache line. The cold CID (only touched during serialization
+// / loading) trails at the end and spills to a second line.
+//
+// A clean node (!dirty) is stored as-is under cid. A dirty node has changed
+// since it was loaded or last written, so WriteBlocks must write it; its cid
+// describes its contents only while cidFresh is set, which RootCID does
+// without writing anything.
 type node struct {
-	left    *node    // 8B  — hot: every traversal
-	entries []entry  // 24B — hot: every traversal
-	height  uint8    // 1B  — hot: insert level checks
-	dirty   bool     // 1B  — hot: ensureLoaded guard
-	loaded  bool     // 1B  — hot: ensureLoaded guard; an empty node looks like a stub without it
-	cid     cbor.CID // 33B — cold: serialization / loading only
+	left     *node    // 8B  — hot: every traversal
+	entries  []entry  // 24B — hot: every traversal
+	height   uint8    // 1B  — hot: insert level checks
+	dirty    bool     // 1B  — hot: ensureLoaded guard
+	cidFresh bool     // 1B  — cold: cid is current for a dirty node
+	loaded   bool     // 1B  — hot: ensureLoaded guard; an empty node looks like a stub without it
+	cid      cbor.CID // 33B — cold: serialization / loading only
+}
+
+// markDirty records that n changed: it must be written, and its cached CID
+// no longer describes it.
+func (n *node) markDirty() {
+	n.dirty = true
+	n.cidFresh = false
 }
 
 // Tree is an in-memory Merkle Search Tree.
@@ -266,7 +279,7 @@ func (t *Tree) insertBelow(n *node, key string, val cbor.CID, height uint8) (*no
 				dirty:   true,
 			}
 			child.entries[0] = entry{key: key, val: val}
-			n.dirty = true
+			n.markDirty()
 			if idx == 0 {
 				n.left = child
 			} else {
@@ -285,7 +298,7 @@ func (t *Tree) insertBelow(n *node, key string, val cbor.CID, height uint8) (*no
 		return nil, err
 	}
 
-	n.dirty = true
+	n.markDirty()
 	if idx == 0 {
 		n.left = newChild
 	} else {
@@ -312,7 +325,7 @@ func (t *Tree) insertAtLevel(n *node, key string, val cbor.CID, _ uint8) (*node,
 	// Check for update of existing key.
 	if i < len(entries) && entries[i].key == key {
 		n.entries[i].val = val
-		n.dirty = true
+		n.markDirty()
 		return n, nil
 	}
 
@@ -343,7 +356,7 @@ func (t *Tree) insertAtLevel(n *node, key string, val cbor.CID, _ uint8) (*node,
 		n.entries[i-1].right = left
 	}
 
-	n.dirty = true
+	n.markDirty()
 	return n, nil
 }
 
@@ -392,7 +405,7 @@ func (t *Tree) splitNode(n *node, key string) (*node, *node, error) {
 		} else {
 			n.left = childLeft
 		}
-		n.dirty = true
+		n.markDirty()
 		// Wrap childRight at this node's height.
 		var rightNode *node
 		if childRight != nil {
@@ -408,7 +421,7 @@ func (t *Tree) splitNode(n *node, key string) (*node, *node, error) {
 			return nil, nil, err
 		}
 		n.left = childRight
-		n.dirty = true
+		n.markDirty()
 		// Wrap childLeft at this node's height.
 		var leftNode *node
 		if childLeft != nil {
@@ -490,8 +503,8 @@ func (t *Tree) Remove(key string) error {
 			return err
 		}
 	}
-	newRoot, err := t.removeNode(t.root, key)
-	if err != nil {
+	newRoot, changed, err := t.removeNode(t.root, key)
+	if err != nil || !changed {
 		return err
 	}
 	// Trim the top: collapse empty-passthrough root nodes that only
@@ -565,133 +578,66 @@ func (t *Tree) loadRootAfterRemove(key string) error {
 	return nil
 }
 
-func (t *Tree) removeNode(n *node, key string) (*node, error) {
+// removeNode removes key from the subtree rooted at n. It returns the
+// subtree's new root, nil once the subtree holds nothing, and whether
+// anything changed.
+func (t *Tree) removeNode(n *node, key string) (*node, bool, error) {
 	if n == nil {
-		return nil, nil
+		return nil, false, nil
 	}
 	if err := t.ensureLoaded(n); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	for i, e := range n.entries {
-		if key == e.key {
-			// Found it. Merge left and right children around this entry.
-			var leftChild, rightChild *node
-			if i == 0 {
-				leftChild = n.left
-			} else {
-				leftChild = n.entries[i-1].right
-			}
-			rightChild = e.right
-
-			merged, err := t.mergeNodes(leftChild, rightChild)
-			if err != nil {
-				return nil, err
-			}
-
-			// Remove entry i in-place (shift left, truncate).
-			copy(n.entries[i:], n.entries[i+1:])
-			n.entries[len(n.entries)-1] = entry{} // clear for GC
-			n.entries = n.entries[:len(n.entries)-1]
-
-			if i == 0 {
-				n.left = merged
-			} else {
-				n.entries[i-1].right = merged
-			}
-			n.dirty = true
-
-			// If we collapsed all entries AND there's no remaining
-			// left subtree, this node is fully empty — return nil so
-			// the parent drops the pointer. Otherwise keep n: the
-			// canonical MST shape requires an empty-but-non-nil
-			// intermediate (entries=[], left=<child>) to fill the
-			// height gap between the parent and the surviving child.
-			// Indigo's `removeChild` enforces the same invariant via
-			// IsEmpty (entries==0). Returning n.left directly here
-			// would skip a height level and produce a non-canonical
-			// root.
-			if len(n.entries) == 0 && n.left == nil {
-				return nil, nil
-			}
-			return n, nil
+	i := t.findChildIndex(n, key)
+	if i < len(n.entries) && n.entries[i].key == key {
+		// Found it. Merge left and right children around this entry.
+		leftChild := n.left
+		if i > 0 {
+			leftChild = n.entries[i-1].right
 		}
-		if key < e.key {
-			// Descend into left child.
-			idx := i
-			var child *node
-			if idx == 0 {
-				child = n.left
-			} else {
-				child = n.entries[idx-1].right
-			}
-			newChild, err := t.removeNode(child, key)
-			if err != nil {
-				return nil, err
-			}
-			// Invariant: the parent must propagate the child's dirty
-			// state. The recursive removeNode may mutate the child in
-			// place (e.g. removing one of multiple entries) and return
-			// the same pointer; in that case our pointer comparison
-			// alone would miss the change and our cached CID would go
-			// stale. Marking dirty if the child is dirty (or if the
-			// pointer changed) keeps RootCID() correct without
-			// recomputing eagerly. Insert follows the same pattern in
-			// insertBelow.
-			if newChild != child {
-				if idx == 0 {
-					n.left = newChild
-				} else {
-					n.entries[idx-1].right = newChild
-				}
-				n.dirty = true
-			} else if newChild != nil && newChild.dirty {
-				n.dirty = true
-			}
-			return n, nil
-		}
-	}
-
-	// Key > all entries (or no entries), descend into rightmost child.
-	if len(n.entries) > 0 {
-		last := len(n.entries) - 1
-		child := n.entries[last].right
-		newChild, err := t.removeNode(child, key)
+		merged, err := t.mergeNodes(leftChild, n.entries[i].right)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		if newChild != child {
-			n.entries[last].right = newChild
-			n.dirty = true
-		} else if newChild != nil && newChild.dirty {
-			n.dirty = true
+
+		// Remove entry i in-place (shift left, truncate).
+		copy(n.entries[i:], n.entries[i+1:])
+		n.entries[len(n.entries)-1] = entry{} // clear for GC
+		n.entries = n.entries[:len(n.entries)-1]
+
+		if i == 0 {
+			n.left = merged
+		} else {
+			n.entries[i-1].right = merged
 		}
-	} else if n.left != nil {
+		n.markDirty()
+	} else {
+		// Descend into the child that would hold key.
 		child := n.left
-		newChild, err := t.removeNode(child, key)
-		if err != nil {
-			return nil, err
+		if i > 0 {
+			child = n.entries[i-1].right
 		}
-		if newChild != child {
+		newChild, changed, err := t.removeNode(child, key)
+		if err != nil || !changed {
+			return n, false, err
+		}
+		if i == 0 {
 			n.left = newChild
-			n.dirty = true
-		} else if newChild != nil && newChild.dirty {
-			n.dirty = true
+		} else {
+			n.entries[i-1].right = newChild
 		}
+		n.markDirty()
 	}
-	// Trim trailing empty passthrough at THIS level: if the only
-	// remaining structure is `entries=[]` AND `left == nil`, this
-	// node is a fully-empty stub and our parent should treat us as
-	// nil. (We do NOT collapse `entries=[] && left != nil` because
-	// such an "empty intermediate" is a meaningful height-encoding
-	// placeholder in the canonical MST shape — it's the difference
-	// between a height-2 root pointing directly at a height-0 leaf
-	// (wrong) versus pointing at a height-1 stub that points at the
-	// height-0 leaf (canonical).)
+
+	// A node left with no entries and no child holds nothing, so the parent
+	// drops it. One with no entries but a left child stays: the canonical
+	// shape needs that empty node to fill the height gap between its parent
+	// and the child. Returning n.left directly would skip a level.
 	if len(n.entries) == 0 && n.left == nil {
-		return nil, nil
+		return nil, true, nil
 	}
-	return n, nil
+	return n, true, nil
 }
 
 // mergeNodes merges two sibling subtrees back together.
@@ -731,7 +677,7 @@ func (t *Tree) mergeNodes(left, right *node) (*node, error) {
 
 	// Append right's entries to left.
 	left.entries = append(left.entries, right.entries...)
-	left.dirty = true
+	left.markDirty()
 
 	return left, nil
 }
@@ -787,7 +733,7 @@ func (t *Tree) RootCID() (cbor.CID, error) {
 }
 
 func (t *Tree) computeCID(n *node) (cbor.CID, error) {
-	if !n.dirty && n.cid.Defined() {
+	if n.cidFresh || (!n.dirty && n.cid.Defined()) {
 		return n.cid, nil
 	}
 
@@ -803,13 +749,15 @@ func (t *Tree) computeCID(n *node) (cbor.CID, error) {
 	if err != nil {
 		return cbor.CID{}, err
 	}
+	// Cache the CID, but leave the node dirty: it is not written yet.
 	n.cid = cbor.ComputeCID(cbor.CodecDagCBOR, data)
-	n.dirty = false
+	n.cidFresh = true
 	return n.cid, nil
 }
 
-// WriteBlocks serializes all dirty nodes and writes them to the store.
-// Returns the root CID.
+// WriteBlocks serializes every node changed since the tree was loaded or
+// last written, writes them to the store, and returns the root CID. Nodes
+// left unchanged since loading are not copied.
 func (t *Tree) WriteBlocks(store BlockStore) (cbor.CID, error) {
 	if t.root == nil {
 		nd := &NodeData{Entries: []EntryData{}}
