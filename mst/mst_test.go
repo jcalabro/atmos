@@ -991,6 +991,55 @@ func TestRemoveDoesNotRefetchEmptyNode(t *testing.T) {
 	assert.True(t, wantRoot.Equal(gotRoot), "want the empty tree %s, got %s", wantRoot.String(), gotRoot.String())
 }
 
+// A block that fails validation partway through must not leave a
+// half-built node behind for later calls to trust.
+func TestLoadInvalidBlockLeavesNodeUnloaded(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	store := NewMemBlockStore()
+	put := func(nd *NodeData) cbor.CID {
+		data, err := encodeNodeData(nd)
+		require.NoError(t, err)
+		cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
+		require.NoError(t, store.PutBlock(cid, data))
+		return cid
+	}
+
+	// root{rootKey} → right: node with a left child and out-of-order entries
+	rootKey := "col.lection/0000019" // height 2
+	require.Equal(t, uint8(2), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-2 key", rootKey)
+	leaf := put(&NodeData{Entries: []EntryData{{KeySuffix: []byte("col.lection/0000020"), Value: val}}})
+	bad := put(&NodeData{Left: gt.Some(leaf), Entries: []EntryData{
+		{KeySuffix: []byte("col.lection/0000500"), Value: val},
+		{KeySuffix: []byte("col.lection/0000400"), Value: val},
+	}})
+	root := put(&NodeData{Entries: []EntryData{{
+		KeySuffix: []byte(rootKey),
+		Value:     val,
+		Right:     gt.Some(bad),
+	}}})
+
+	tree := LoadTree(store, root)
+	walk := func() error { return tree.Walk(func(string, cbor.CID) error { return nil }) }
+
+	require.ErrorContains(t, walk(), "is not greater than previous key")
+	require.ErrorContains(t, walk(), "is not greater than previous key",
+		"second Walk trusted the node the failed load left behind")
+
+	require.ErrorContains(t, tree.Remove(rootKey), "is not greater than previous key")
+	require.ErrorContains(t, tree.Remove(rootKey), "is not greater than previous key",
+		"second Remove trusted the node the failed load left behind")
+
+	gotRoot, err := tree.RootCID()
+	require.NoError(t, err)
+	require.True(t, root.Equal(gotRoot), "failed Remove changed the root")
+	got, err := tree.Get(rootKey)
+	require.NoError(t, err)
+	require.NotNil(t, got, "failed Remove removed the key anyway")
+}
+
 func TestGetFromEmptyTree(t *testing.T) {
 	t.Parallel()
 	store := NewMemBlockStore()

@@ -935,10 +935,14 @@ func (t *Tree) ensureLoaded(n *node) error {
 	children := make([]node, childCount)
 	ci := 0
 
-	// Reconstruct in-memory node.
+	// Reconstruct into locals and publish to n only once every entry has
+	// validated. A node with entries or a left child passes the guard above
+	// as loaded, so publishing as we go would leave a half-built node behind
+	// on a bad block, and every later call would trust it.
+	var left *node
 	if nd.Left.HasVal() {
 		children[ci].cid = nd.Left.Val()
-		n.left = &children[ci]
+		left = &children[ci]
 		ci++
 	}
 
@@ -947,7 +951,7 @@ func (t *Tree) ensureLoaded(n *node) error {
 	// for string(suffix) and once for the concatenation result. The buffer
 	// approach does one alloc per entry (the string(keyBuf) conversion).
 	var keyBuf []byte
-	n.entries = make([]entry, len(nd.Entries))
+	entries := make([]entry, len(nd.Entries))
 	for i, ed := range nd.Entries {
 		// The prefix length must reference bytes that actually exist in the
 		// previously reconstructed key. A hostile or corrupt block can declare
@@ -962,19 +966,21 @@ func (t *Tree) ensureLoaded(n *node) error {
 		// Entries within a node must be in strictly ascending key order.
 		// Accepting an out-of-order block would silently corrupt lookups (Get
 		// relies on this ordering), so reject it on load.
-		if i > 0 && key <= n.entries[i-1].key {
-			return fmt.Errorf("mst: node %s entry %d: key %q is not greater than previous key %q", n.cid.String(), i, key, n.entries[i-1].key)
+		if i > 0 && key <= entries[i-1].key {
+			return fmt.Errorf("mst: node %s entry %d: key %q is not greater than previous key %q", n.cid.String(), i, key, entries[i-1].key)
 		}
-		n.entries[i] = entry{
+		entries[i] = entry{
 			key: key,
 			val: ed.Value,
 		}
 		if ed.Right.HasVal() {
 			children[ci].cid = ed.Right.Val()
-			n.entries[i].right = &children[ci]
+			entries[i].right = &children[ci]
 			ci++
 		}
 	}
+	n.left = left
+	n.entries = entries
 
 	// Determine height from entries (all entries at same level have same
 	// height). For empty-entries intermediate nodes — canonical
