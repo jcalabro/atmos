@@ -203,6 +203,17 @@ func TestSharedPrefixLen(t *testing.T) {
 		{"abcdef", "abcxyz", 3},
 		{"hello", "hello world", 5},
 		{"abc\x00", "abc\x01", 3},
+		// Interop vectors from the reference implementations.
+		{"ab", "abc", 2},
+		{"abc", "ab", 2},
+		{"abcde", "abc", 3},
+		{"abc", "abcde", 3},
+		{"abcde", "abc1", 3},
+		{"abcde", "abb", 2},
+		{"abcde", "qbb", 0},
+		{"", "asdf", 0},
+		{"abc", "abc\x00", 3},
+		{"abc\x00", "abc", 3},
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, sharedPrefixLen(tc.a, tc.b),
@@ -216,6 +227,11 @@ func TestSharedPrefixLen_Unicode(t *testing.T) {
 	assert.Equal(t, 6, sharedPrefixLen("jalapeño", "jalapeno")) // diverge at ñ vs n
 	// "co" = 2 bytes, then ö=0xC3B6 and ü=0xC3BC share 0xC3, so 3 bytes shared.
 	assert.Equal(t, 3, sharedPrefixLen("coöperative", "coüperative"))
+	// Wide-character vectors from indigo, counted in bytes.
+	assert.Equal(t, 9, sharedPrefixLen("jalapeñoA", "jalapeñoB"))
+	assert.Equal(t, 3, sharedPrefixLen("abc💩abc", "abcabc"))
+	assert.Equal(t, 6, sharedPrefixLen("💩abc", "💩ab"))
+	assert.Equal(t, 13, sharedPrefixLen("abc👩‍👦‍👦de", "abc👩‍👧‍👧de"))
 }
 
 // -------------------------------------------------------------------
@@ -249,6 +265,7 @@ func TestSingleEntryLayer2_RootCID(t *testing.T) {
 	cid, err := tree.RootCID()
 	require.NoError(t, err)
 	require.Equal(t, "bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai", cid.String())
+	require.Equal(t, uint8(2), tree.root.height)
 }
 
 func TestFiveEntries_RootCID(t *testing.T) {
@@ -277,15 +294,16 @@ func TestEdgeCase_TrimTopOnDelete(t *testing.T) {
 		"com.example.record/3jqfcqzm3fn2j", // level 0
 		"com.example.record/3jqfcqzm3fo2j", // level 0
 		"com.example.record/3jqfcqzm3fp2j", // level 0
-		"com.example.record/3jqfcqzm3fs2j", // level 0
+		"com.example.record/3jqfcqzm3fs2j", // level 1
 		"com.example.record/3jqfcqzm3ft2j", // level 0
-		"com.example.record/3jqfcqzm3fu2j", // level 1
+		"com.example.record/3jqfcqzm3fu2j", // level 0
 	})
 	_ = val
 
 	cidBefore, err := tree.RootCID()
 	require.NoError(t, err)
 	require.Equal(t, "bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4", cidBefore.String())
+	require.Equal(t, uint8(1), tree.root.height)
 
 	// Remove the level-1 key — tree should trim to height 0.
 	require.NoError(t, tree.Remove("com.example.record/3jqfcqzm3fs2j"))
@@ -293,6 +311,7 @@ func TestEdgeCase_TrimTopOnDelete(t *testing.T) {
 	cidAfter, err := tree.RootCID()
 	require.NoError(t, err)
 	require.Equal(t, "bafyreie4kjuxbwkhzg2i5dljaswcroeih4dgiqq6pazcmunwt2byd725vi", cidAfter.String())
+	require.Equal(t, uint8(0), tree.root.height)
 }
 
 // -------------------------------------------------------------------
@@ -374,6 +393,15 @@ func TestEdgeCase_NewLayersTwoHigher(t *testing.T) {
 	cidBoth, err := tree.RootCID()
 	require.NoError(t, err)
 	require.Equal(t, "bafyreig4jv3vuajbsybhyvb7gggvpwh2zszwfyttjrj6qwvcsp24h6popu", cidBoth.String())
+	require.Equal(t, uint8(2), tree.root.height)
+
+	// Remove D — back to the tree holding A, B and C.
+	require.NoError(t, tree.Remove("com.example.record/3jqfcqzm4fd2j"))
+
+	cidRemoved, err := tree.RootCID()
+	require.NoError(t, err)
+	require.Equal(t, "bafyreiavxaxdz7o7rbvr3zg2liox2yww46t7g6hkehx4i4h3lwudly7dhy", cidRemoved.String())
+	require.Equal(t, uint8(2), tree.root.height)
 }
 
 // -------------------------------------------------------------------
@@ -429,12 +457,55 @@ func TestCommitProofFixtures(t *testing.T) {
 				require.NoError(t, tree.Remove(key))
 			}
 
-			rootAfter, err := tree.RootCID()
+			rootAfter, err := tree.WriteBlocks(store)
 			require.NoError(t, err)
 			require.Equal(t, f.RootAfterCommit, rootAfter.String(),
 				"root after commit mismatch for %q", f.Comment)
+
+			// A commit carries only the blocks of its covering proof. Undoing
+			// its ops on a tree loaded from just those blocks must succeed,
+			// and reach the root before the commit, in every order: this is
+			// how a relay verifies a commit from a reference PDS.
+			proof := NewMemBlockStore()
+			for _, s := range f.BlocksInProof {
+				cid, err := cbor.ParseCIDString(s)
+				require.NoError(t, err)
+				data, err := store.GetBlock(cid)
+				require.NoError(t, err, "proof block %s is not in the tree after the commit", s)
+				require.NoError(t, proof.PutBlock(cid, data))
+			}
+			var undo []func(*Tree) error
+			for _, key := range f.Adds {
+				undo = append(undo, func(tr *Tree) error { return tr.Remove(key) })
+			}
+			for _, key := range f.Dels {
+				undo = append(undo, func(tr *Tree) error { return tr.Insert(key, val) })
+			}
+			for _, order := range permutations(len(undo)) {
+				inverted := LoadTree(proof, rootAfter)
+				for _, i := range order {
+					require.NoError(t, undo[i](inverted), "order %v", order)
+				}
+				got, err := inverted.RootCID()
+				require.NoError(t, err)
+				require.Equal(t, f.RootBeforeCommit, got.String(), "order %v", order)
+			}
 		})
 	}
+}
+
+// permutations returns every ordering of 0..n-1.
+func permutations(n int) [][]int {
+	if n == 0 {
+		return [][]int{{}}
+	}
+	var out [][]int
+	for _, p := range permutations(n - 1) {
+		for i := range len(p) + 1 {
+			out = append(out, slices.Insert(slices.Clone(p), i, n-1))
+		}
+	}
+	return out
 }
 
 // -------------------------------------------------------------------
@@ -1297,6 +1368,69 @@ func TestDiff(t *testing.T) {
 	assert.True(t, updates["com.example/b"])
 	assert.True(t, deletes["com.example/c"])
 	assert.Len(t, ops, 3)
+}
+
+// Diffs a 1000-record tree against itself after 100 creates, 100 updates
+// and 100 deletes. Mirrors the reference implementation's "diffs" test.
+func TestDiffBulk(t *testing.T) {
+	t.Parallel()
+	rng := rand.New(rand.NewPCG(1, 2))
+	randVal := func() cbor.CID { return cbor.ComputeCID(cbor.CodecDagCBOR, fmt.Appendf(nil, "%d", rng.Uint64())) }
+	randKey := func() string { return fmt.Sprintf("com.example.record/%013d", rng.Uint64()%1e13) }
+
+	store := NewMemBlockStore()
+	before := map[string]cbor.CID{}
+	for len(before) < 1000 {
+		before[randKey()] = randVal()
+	}
+	tree := NewTree(store)
+	for k, v := range before {
+		require.NoError(t, tree.Insert(k, v))
+	}
+	oldRoot, err := tree.WriteBlocks(store)
+	require.NoError(t, err)
+
+	after := maps.Clone(before)
+	shuffled := slices.Sorted(maps.Keys(before))
+	rng.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for _, k := range shuffled[:100] {
+		after[k] = randVal()
+		require.NoError(t, tree.Insert(k, after[k]))
+	}
+	for _, k := range shuffled[100:200] {
+		delete(after, k)
+		require.NoError(t, tree.Remove(k))
+	}
+	for added := 0; added < 100; {
+		if k := randKey(); after[k] == (cbor.CID{}) {
+			after[k] = randVal()
+			require.NoError(t, tree.Insert(k, after[k]))
+			added++
+		}
+	}
+	newRoot, err := tree.WriteBlocks(store)
+	require.NoError(t, err)
+
+	ops, err := Diff(store, oldRoot, newRoot)
+	require.NoError(t, err)
+	var creates, updates, deletes int
+	for _, op := range ops {
+		switch {
+		case op.Old == nil:
+			creates++
+		case op.New == nil:
+			deletes++
+		default:
+			updates++
+		}
+	}
+	require.Equal(t, [3]int{100, 100, 100}, [3]int{creates, updates, deletes})
+	require.True(t, diffOpsEqual(modelDiff(before, after), ops))
+
+	// Reversing the diff reverses every op.
+	back, err := Diff(store, newRoot, oldRoot)
+	require.NoError(t, err)
+	require.True(t, diffOpsEqual(modelDiff(after, before), back))
 }
 
 func TestDiffIdentical(t *testing.T) {
