@@ -519,42 +519,48 @@ func (t *Tree) Remove(key string) error {
 // level where either side of the removed entry holds an entry: the merge
 // roots there, and loading deeper could fail a removal that would succeed.
 func (t *Tree) loadRootAfterRemove(key string) error {
+	// Walk down any entry-less nodes above the topmost entry, as the trim does.
 	n := t.root
-	for n != nil {
+	for {
 		if err := t.ensureLoaded(n); err != nil {
 			return err
 		}
-		if len(n.entries) == 0 {
-			n = n.left
-			continue
+		if len(n.entries) > 0 {
+			break
 		}
-		if len(n.entries) > 1 || n.entries[0].key != key {
+		if n.left == nil {
 			return nil
 		}
-
-		left, right := n.left, n.entries[0].right
-		for left != nil || right != nil {
-			entries := 0
-			for _, side := range [2]*node{left, right} {
-				if side == nil {
-					continue
-				}
-				if err := t.ensureLoaded(side); err != nil {
-					return err
-				}
-				entries += len(side.entries)
-			}
-			if entries > 0 {
-				return nil
-			}
-			if left != nil {
-				left = left.left
-			}
-			if right != nil {
-				right = right.left
-			}
-		}
+		n = n.left
+	}
+	// Any other entry stays put and the trim stops at n.
+	if len(n.entries) > 1 || n.entries[0].key != key {
 		return nil
+	}
+
+	// mergeNodes folds the two sides together level by level through each
+	// side's left child, until a level where either side holds an entry.
+	left, right := n.left, n.entries[0].right
+	for left != nil || right != nil {
+		entries := 0
+		for _, side := range [2]*node{left, right} {
+			if side == nil {
+				continue
+			}
+			if err := t.ensureLoaded(side); err != nil {
+				return err
+			}
+			entries += len(side.entries)
+		}
+		if entries > 0 {
+			return nil
+		}
+		if left != nil {
+			left = left.left
+		}
+		if right != nil {
+			right = right.left
+		}
 	}
 	return nil
 }
