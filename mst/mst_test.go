@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"math/rand/v2"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -848,6 +851,301 @@ func TestLazyLoadRemoveTrimsThroughUnloadedStub(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got, "leafKey was dropped by the trim loop")
 	require.True(t, val.Equal(*got))
+}
+
+// Remove must leave the tree unchanged when it errors. Removing a root's
+// only entry used to mutate the root before the trim loaded the (missing)
+// subtree below it.
+func TestRemoveFailureLeavesTreeUnchanged(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	rootKey := "col.lection/0000443" // height 3
+	leafKey := "col.lection/0000445" // height 1, sorts after rootKey
+	require.Equal(t, uint8(3), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-3 key", rootKey)
+	require.Equal(t, uint8(1), HeightForKey(leafKey),
+		"test fixture %q changed height; pick a new height-1 key", leafKey)
+	require.Less(t, rootKey, leafKey,
+		"leafKey must sort after rootKey so it lands in the right subtree")
+
+	store := NewMemBlockStore()
+	staged := NewTree(store)
+	require.NoError(t, staged.Insert(rootKey, val))
+	require.NoError(t, staged.Insert(leafKey, val))
+	stagedRoot, err := staged.WriteBlocks(store)
+	require.NoError(t, err)
+
+	rootData, err := store.GetBlock(stagedRoot)
+	require.NoError(t, err)
+	rootOnly := NewMemBlockStore()
+	require.NoError(t, rootOnly.PutBlock(stagedRoot, rootData))
+
+	partial := LoadTree(rootOnly, stagedRoot)
+	require.ErrorIs(t, partial.Remove(rootKey), ErrBlockNotFound)
+
+	gotRoot, err := partial.RootCID()
+	require.NoError(t, err)
+	assert.True(t, stagedRoot.Equal(gotRoot),
+		"failed Remove changed the root: want %s, got %s", stagedRoot.String(), gotRoot.String())
+
+	got, err := partial.Get(rootKey)
+	require.NoError(t, err)
+	require.NotNil(t, got, "failed Remove removed the key anyway")
+	require.True(t, val.Equal(*got))
+}
+
+// Remove must not load more than it needs: the merge roots at leftKey's
+// node and never looks inside the empty chain to the right of rootKey.
+func TestRemoveOnPartialTreeLoadsOnlyWhatItNeeds(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	leftKey := "col.lection/0000019" // height 2, sorts before rootKey
+	rootKey := "col.lection/0000443" // height 3
+	tailKey := "col.lection/0000444" // height 0, sorts after rootKey
+	require.Equal(t, uint8(2), HeightForKey(leftKey),
+		"test fixture %q changed height; pick a new height-2 key", leftKey)
+	require.Equal(t, uint8(3), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-3 key", rootKey)
+	require.Equal(t, uint8(0), HeightForKey(tailKey),
+		"test fixture %q changed height; pick a new height-0 key", tailKey)
+
+	store := NewMemBlockStore()
+	staged := NewTree(store)
+	require.NoError(t, staged.Insert(leftKey, val))
+	require.NoError(t, staged.Insert(rootKey, val))
+	require.NoError(t, staged.Insert(tailKey, val))
+	stagedRoot, err := staged.WriteBlocks(store)
+	require.NoError(t, err)
+
+	// the second node of the chain to the right of rootKey
+	absent := staged.root.entries[0].right.left.cid
+	require.True(t, absent.Defined())
+	partialStore := NewMemBlockStore()
+	for cid, data := range store.All() {
+		if !cid.Equal(absent) {
+			require.NoError(t, partialStore.PutBlock(cid, data))
+		}
+	}
+
+	partial := LoadTree(partialStore, stagedRoot)
+	require.NoError(t, partial.Remove(rootKey))
+	gotRoot, err := partial.RootCID()
+	require.NoError(t, err)
+
+	oracle := NewTree(NewMemBlockStore())
+	require.NoError(t, oracle.Insert(leftKey, val))
+	require.NoError(t, oracle.Insert(tailKey, val))
+	wantRoot, err := oracle.RootCID()
+	require.NoError(t, err)
+	assert.True(t, wantRoot.Equal(gotRoot), "want %s, got %s", wantRoot.String(), gotRoot.String())
+}
+
+// fetchOnceStore fails the second fetch of any block.
+type fetchOnceStore struct {
+	*MemBlockStore
+	fetched map[cbor.CID]bool
+}
+
+func (s *fetchOnceStore) GetBlock(cid cbor.CID) ([]byte, error) {
+	if s.fetched[cid] {
+		return nil, fmt.Errorf("%w: second fetch of %s", ErrBlockNotFound, cid.String())
+	}
+	s.fetched[cid] = true
+	return s.MemBlockStore.GetBlock(cid)
+}
+
+// An empty node has no entries and no left child, so once loaded it is
+// indistinguishable from a stub by shape. Re-fetching it in Remove's trim
+// would let a store fail after the entry is already gone.
+func TestRemoveDoesNotRefetchEmptyNode(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	store := NewMemBlockStore()
+	put := func(nd *NodeData) cbor.CID {
+		data, err := encodeNodeData(nd)
+		require.NoError(t, err)
+		cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
+		require.NoError(t, store.PutBlock(cid, data))
+		return cid
+	}
+
+	// root{rootKey} → right: empty intermediate → left: empty node
+	rootKey := "col.lection/0000019" // height 2
+	require.Equal(t, uint8(2), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-2 key", rootKey)
+	empty := put(&NodeData{Entries: []EntryData{}})
+	passthrough := put(&NodeData{Left: gt.Some(empty), Entries: []EntryData{}})
+	root := put(&NodeData{Entries: []EntryData{{
+		KeySuffix: []byte(rootKey),
+		Value:     val,
+		Right:     gt.Some(passthrough),
+	}}})
+
+	tree := LoadTree(&fetchOnceStore{MemBlockStore: store, fetched: map[cbor.CID]bool{}}, root)
+	require.NoError(t, tree.Remove(rootKey))
+
+	gotRoot, err := tree.RootCID()
+	require.NoError(t, err)
+	wantRoot, err := NewTree(NewMemBlockStore()).RootCID()
+	require.NoError(t, err)
+	assert.True(t, wantRoot.Equal(gotRoot), "want the empty tree %s, got %s", wantRoot.String(), gotRoot.String())
+}
+
+// gatedStore serves blocks from a complete store, but while gated it fails
+// any block in deny, and any block at all with probability flaky. Lifting
+// the gate lets a test inspect the tree with every block available.
+type gatedStore struct {
+	*MemBlockStore
+	deny  map[cbor.CID]bool
+	flaky float64
+	rng   *rand.Rand
+	gated bool
+}
+
+func (s *gatedStore) GetBlock(cid cbor.CID) ([]byte, error) {
+	if s.gated && (s.deny[cid] || s.rng.Float64() < s.flaky) {
+		return nil, fmt.Errorf("%w: gated %s", ErrBlockNotFound, cid.String())
+	}
+	return s.MemBlockStore.GetBlock(cid)
+}
+
+// checkRemoveAgainstModel builds a random tree, loads it through a store
+// that drops or flakes on blocks, and runs a few Removes against a model.
+// After each Remove it lifts the gate and checks that the tree is exactly
+// the model: unchanged when Remove errored, minus the key when it did not.
+func checkRemoveAgainstModel(t *testing.T, seed1, seed2 uint64) {
+	t.Helper()
+	val := testValueCID(t)
+	rng := rand.New(rand.NewPCG(seed1, seed2))
+	randKey := func() string { return fmt.Sprintf("col.lection/%07d", rng.IntN(3000)) }
+
+	model := map[string]bool{}
+	for range 1 + rng.IntN(40) {
+		model[randKey()] = true
+	}
+	full := NewMemBlockStore()
+	staged := NewTree(full)
+	for _, k := range slices.Sorted(maps.Keys(model)) {
+		require.NoError(t, staged.Insert(k, val))
+	}
+	root, err := staged.WriteBlocks(full)
+	require.NoError(t, err)
+
+	store := &gatedStore{MemBlockStore: full, deny: map[cbor.CID]bool{}, rng: rng}
+	if rng.IntN(2) == 0 {
+		for cid := range full.All() {
+			if !cid.Equal(root) && rng.IntN(3) == 0 {
+				store.deny[cid] = true
+			}
+		}
+	} else {
+		store.flaky = 0.1 + 0.4*rng.Float64()
+	}
+
+	tree := LoadTree(store, root)
+	store.gated = true
+	// Partially load the tree first, so Remove starts from varied states.
+	for range rng.IntN(3) {
+		_, _ = tree.Get(randKey())
+	}
+
+	for range 1 + rng.IntN(4) {
+		key := randKey()
+		if keys := slices.Sorted(maps.Keys(model)); len(keys) > 0 && rng.IntN(5) != 0 {
+			key = keys[rng.IntN(len(keys))]
+		}
+		removeErr := tree.Remove(key)
+		if removeErr == nil {
+			delete(model, key)
+		}
+
+		store.gated = false
+		oracle := NewTree(NewMemBlockStore())
+		for k := range model {
+			require.NoError(t, oracle.Insert(k, val))
+		}
+		wantRoot, err := oracle.RootCID()
+		require.NoError(t, err)
+		gotRoot, err := tree.RootCID()
+		require.NoError(t, err)
+		require.True(t, wantRoot.Equal(gotRoot),
+			"seed (%d, %d): Remove(%q) err=%v: want root %s, got %s",
+			seed1, seed2, key, removeErr, wantRoot.String(), gotRoot.String())
+
+		var walked []string
+		require.NoError(t, tree.Walk(func(k string, _ cbor.CID) error {
+			walked = append(walked, k)
+			return nil
+		}))
+		require.Equal(t, slices.Sorted(maps.Keys(model)), walked,
+			"seed (%d, %d): Remove(%q) err=%v", seed1, seed2, key, removeErr)
+		store.gated = true
+	}
+}
+
+// Remove on a tree whose store drops or flakes on blocks must either apply
+// the removal or leave the tree exactly as it was.
+func TestRemoveOnPartialStoreMatchesModel(t *testing.T) {
+	t.Parallel()
+	seeds := uint64(20_000)
+	if testing.Short() {
+		seeds = 2_000
+	}
+	for seed := range seeds {
+		checkRemoveAgainstModel(t, seed, 0)
+	}
+}
+
+// A block that fails validation partway through must not leave a
+// half-built node behind for later calls to trust.
+func TestLoadInvalidBlockLeavesNodeUnloaded(t *testing.T) {
+	t.Parallel()
+	val := testValueCID(t)
+
+	store := NewMemBlockStore()
+	put := func(nd *NodeData) cbor.CID {
+		data, err := encodeNodeData(nd)
+		require.NoError(t, err)
+		cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
+		require.NoError(t, store.PutBlock(cid, data))
+		return cid
+	}
+
+	// root{rootKey} → right: node with a left child and out-of-order entries
+	rootKey := "col.lection/0000019" // height 2
+	require.Equal(t, uint8(2), HeightForKey(rootKey),
+		"test fixture %q changed height; pick a new height-2 key", rootKey)
+	leaf := put(&NodeData{Entries: []EntryData{{KeySuffix: []byte("col.lection/0000020"), Value: val}}})
+	bad := put(&NodeData{Left: gt.Some(leaf), Entries: []EntryData{
+		{KeySuffix: []byte("col.lection/0000500"), Value: val},
+		{KeySuffix: []byte("col.lection/0000400"), Value: val},
+	}})
+	root := put(&NodeData{Entries: []EntryData{{
+		KeySuffix: []byte(rootKey),
+		Value:     val,
+		Right:     gt.Some(bad),
+	}}})
+
+	tree := LoadTree(store, root)
+	walk := func() error { return tree.Walk(func(string, cbor.CID) error { return nil }) }
+
+	require.ErrorContains(t, walk(), "is not greater than previous key")
+	require.ErrorContains(t, walk(), "is not greater than previous key",
+		"second Walk trusted the node the failed load left behind")
+
+	require.ErrorContains(t, tree.Remove(rootKey), "is not greater than previous key")
+	require.ErrorContains(t, tree.Remove(rootKey), "is not greater than previous key",
+		"second Remove trusted the node the failed load left behind")
+
+	gotRoot, err := tree.RootCID()
+	require.NoError(t, err)
+	require.True(t, root.Equal(gotRoot), "failed Remove changed the root")
+	got, err := tree.Get(rootKey)
+	require.NoError(t, err)
+	require.NotNil(t, got, "failed Remove removed the key anyway")
 }
 
 func TestGetFromEmptyTree(t *testing.T) {

@@ -89,7 +89,7 @@ type entry struct {
 // node is an in-memory MST node.
 //
 // Field order is chosen for cache-line locality: the hot traversal fields
-// (left, entries, height, dirty) sit in the first 34 bytes so that
+// (left, entries, height, dirty, loaded) sit in the first 35 bytes so that
 // ensureLoaded's guard check and getNode's descent stay within a single
 // 64-byte cache line. The cold CID (only touched during serialization /
 // loading) trails at the end and spills to a second line.
@@ -98,6 +98,7 @@ type node struct {
 	entries []entry  // 24B — hot: every traversal
 	height  uint8    // 1B  — hot: insert level checks
 	dirty   bool     // 1B  — hot: ensureLoaded guard
+	loaded  bool     // 1B  — hot: ensureLoaded guard; an empty node looks like a stub without it
 	cid     cbor.CID // 33B — cold: serialization / loading only
 }
 
@@ -476,10 +477,18 @@ func (t *Tree) findChildIndex(n *node, key string) int {
 	return lo
 }
 
-// Remove deletes a key from the tree.
+// Remove deletes a key from the tree. If it returns an error, the tree
+// is unchanged.
 func (t *Tree) Remove(key string) error {
 	if t.root == nil {
 		return nil
+	}
+	// Load what the trim below needs before removeNode mutates anything.
+	// A root that keeps an entry stays the root, so skip the call for it.
+	if r := t.root; len(r.entries) == 0 || (len(r.entries) == 1 && r.entries[0].key == key) {
+		if err := t.loadRootAfterRemove(key); err != nil {
+			return err
+		}
 	}
 	newRoot, err := t.removeNode(t.root, key)
 	if err != nil {
@@ -502,6 +511,57 @@ func (t *Tree) Remove(key string) error {
 		newRoot = newRoot.left
 	}
 	t.root = newRoot
+	return nil
+}
+
+// loadRootAfterRemove loads the nodes Remove's trim will visit, so a
+// missing block errors before the tree is mutated. It stops at the first
+// level where either side of the removed entry holds an entry: the merge
+// roots there, and loading deeper could fail a removal that would succeed.
+func (t *Tree) loadRootAfterRemove(key string) error {
+	// Walk down any entry-less nodes above the topmost entry, as the trim does.
+	n := t.root
+	for {
+		if err := t.ensureLoaded(n); err != nil {
+			return err
+		}
+		if len(n.entries) > 0 {
+			break
+		}
+		if n.left == nil {
+			return nil
+		}
+		n = n.left
+	}
+	// Any other entry stays put and the trim stops at n.
+	if len(n.entries) > 1 || n.entries[0].key != key {
+		return nil
+	}
+
+	// mergeNodes folds the two sides together level by level through each
+	// side's left child, until a level where either side holds an entry.
+	left, right := n.left, n.entries[0].right
+	for left != nil || right != nil {
+		entries := 0
+		for _, side := range [2]*node{left, right} {
+			if side == nil {
+				continue
+			}
+			if err := t.ensureLoaded(side); err != nil {
+				return err
+			}
+			entries += len(side.entries)
+		}
+		if entries > 0 {
+			return nil
+		}
+		if left != nil {
+			left = left.left
+		}
+		if right != nil {
+			right = right.left
+		}
+	}
 	return nil
 }
 
@@ -849,7 +909,7 @@ func (t *Tree) nodeToData(n *node) (*NodeData, error) {
 
 // ensureLoaded loads a node from the store if it hasn't been loaded yet.
 func (t *Tree) ensureLoaded(n *node) error {
-	if n.dirty || len(n.entries) > 0 || n.left != nil {
+	if n.dirty || len(n.entries) > 0 || n.left != nil || n.loaded {
 		return nil // already loaded or newly created
 	}
 	if !n.cid.Defined() {
@@ -881,10 +941,14 @@ func (t *Tree) ensureLoaded(n *node) error {
 	children := make([]node, childCount)
 	ci := 0
 
-	// Reconstruct in-memory node.
+	// Reconstruct into locals and publish to n only once every entry has
+	// validated. A node with entries or a left child passes the guard above
+	// as loaded, so publishing as we go would leave a half-built node behind
+	// on a bad block, and every later call would trust it.
+	var left *node
 	if nd.Left.HasVal() {
 		children[ci].cid = nd.Left.Val()
-		n.left = &children[ci]
+		left = &children[ci]
 		ci++
 	}
 
@@ -893,7 +957,7 @@ func (t *Tree) ensureLoaded(n *node) error {
 	// for string(suffix) and once for the concatenation result. The buffer
 	// approach does one alloc per entry (the string(keyBuf) conversion).
 	var keyBuf []byte
-	n.entries = make([]entry, len(nd.Entries))
+	entries := make([]entry, len(nd.Entries))
 	for i, ed := range nd.Entries {
 		// The prefix length must reference bytes that actually exist in the
 		// previously reconstructed key. A hostile or corrupt block can declare
@@ -908,19 +972,21 @@ func (t *Tree) ensureLoaded(n *node) error {
 		// Entries within a node must be in strictly ascending key order.
 		// Accepting an out-of-order block would silently corrupt lookups (Get
 		// relies on this ordering), so reject it on load.
-		if i > 0 && key <= n.entries[i-1].key {
-			return fmt.Errorf("mst: node %s entry %d: key %q is not greater than previous key %q", n.cid.String(), i, key, n.entries[i-1].key)
+		if i > 0 && key <= entries[i-1].key {
+			return fmt.Errorf("mst: node %s entry %d: key %q is not greater than previous key %q", n.cid.String(), i, key, entries[i-1].key)
 		}
-		n.entries[i] = entry{
+		entries[i] = entry{
 			key: key,
 			val: ed.Value,
 		}
 		if ed.Right.HasVal() {
 			children[ci].cid = ed.Right.Val()
-			n.entries[i].right = &children[ci]
+			entries[i].right = &children[ci]
 			ci++
 		}
 	}
+	n.left = left
+	n.entries = entries
 
 	// Determine height from entries (all entries at same level have same
 	// height). For empty-entries intermediate nodes — canonical
@@ -953,6 +1019,7 @@ func (t *Tree) ensureLoaded(n *node) error {
 		}
 	}
 
+	n.loaded = true
 	return nil
 }
 
