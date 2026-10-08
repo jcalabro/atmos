@@ -447,14 +447,14 @@ func TestInsertAndGet(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	require.NoError(t, tree.Insert("a", val))
+	require.NoError(t, tree.Insert("com.example/a", val))
 
-	got, err := tree.Get("a")
+	got, err := tree.Get("com.example/a")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.True(t, got.Equal(val))
 
-	got, err = tree.Get("b")
+	got, err = tree.Get("com.example/b")
 	require.NoError(t, err)
 	require.Nil(t, got)
 }
@@ -467,16 +467,16 @@ func TestInsertUpdate(t *testing.T) {
 	val1 := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v1"))
 	val2 := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v2"))
 
-	require.NoError(t, tree.Insert("key", val1))
+	require.NoError(t, tree.Insert("com.example/key", val1))
 
-	got, err := tree.Get("key")
+	got, err := tree.Get("com.example/key")
 	require.NoError(t, err)
 	require.True(t, got.Equal(val1))
 
 	// Update to new value.
-	require.NoError(t, tree.Insert("key", val2))
+	require.NoError(t, tree.Insert("com.example/key", val2))
 
-	got, err = tree.Get("key")
+	got, err = tree.Get("com.example/key")
 	require.NoError(t, err)
 	require.True(t, got.Equal(val2))
 }
@@ -487,18 +487,18 @@ func TestInsertAndRemove(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	keys := []string{"a", "b", "c", "d", "e"}
+	keys := []string{"com.example/a", "com.example/b", "com.example/c", "com.example/d", "com.example/e"}
 	for _, key := range keys {
 		require.NoError(t, tree.Insert(key, val))
 	}
 
-	require.NoError(t, tree.Remove("c"))
+	require.NoError(t, tree.Remove("com.example/c"))
 
-	got, err := tree.Get("c")
+	got, err := tree.Get("com.example/c")
 	require.NoError(t, err)
 	require.Nil(t, got)
 
-	for _, key := range []string{"a", "b", "d", "e"} {
+	for _, key := range []string{"com.example/a", "com.example/b", "com.example/d", "com.example/e"} {
 		got, err := tree.Get(key)
 		require.NoError(t, err)
 		require.NotNil(t, got, "expected key %q to exist", key)
@@ -603,7 +603,7 @@ func TestRemoveAllKeys(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	keys := []string{"a", "b", "c"}
+	keys := []string{"com.example/a", "com.example/b", "com.example/c"}
 	for _, key := range keys {
 		require.NoError(t, tree.Insert(key, val))
 	}
@@ -623,12 +623,12 @@ func TestRemoveNonexistent(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	require.NoError(t, tree.Insert("a", val))
+	require.NoError(t, tree.Insert("com.example/a", val))
 
 	// Removing a key that doesn't exist should be a no-op.
-	require.NoError(t, tree.Remove("nonexistent"))
+	require.NoError(t, tree.Remove("com.example/nonexistent"))
 
-	got, err := tree.Get("a")
+	got, err := tree.Get("com.example/a")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 }
@@ -957,41 +957,30 @@ func (s *fetchOnceStore) GetBlock(cid cbor.CID) ([]byte, error) {
 }
 
 // An empty node has no entries and no left child, so once loaded it is
-// indistinguishable from a stub by shape. Re-fetching it in Remove's trim
-// would let a store fail after the entry is already gone.
-func TestRemoveDoesNotRefetchEmptyNode(t *testing.T) {
+// indistinguishable from a stub by shape. The only valid empty node is the
+// root of an empty tree; operating on one must not fetch it a second time,
+// or a store could fail after the tree has already been read.
+func TestEmptyRootIsNotRefetched(t *testing.T) {
 	t.Parallel()
 	val := testValueCID(t)
 
 	store := NewMemBlockStore()
-	put := func(nd *NodeData) cbor.CID {
-		data, err := encodeNodeData(nd)
-		require.NoError(t, err)
-		cid := cbor.ComputeCID(cbor.CodecDagCBOR, data)
-		require.NoError(t, store.PutBlock(cid, data))
-		return cid
-	}
-
-	// root{rootKey} → right: empty intermediate → left: empty node
-	rootKey := "col.lection/0000019" // height 2
-	require.Equal(t, uint8(2), HeightForKey(rootKey),
-		"test fixture %q changed height; pick a new height-2 key", rootKey)
-	empty := put(&NodeData{Entries: []EntryData{}})
-	passthrough := put(&NodeData{Left: gt.Some(empty), Entries: []EntryData{}})
-	root := put(&NodeData{Entries: []EntryData{{
-		KeySuffix: []byte(rootKey),
-		Value:     val,
-		Right:     gt.Some(passthrough),
-	}}})
-
+	root := putNode(t, store, &NodeData{Entries: []EntryData{}})
 	tree := LoadTree(&fetchOnceStore{MemBlockStore: store, fetched: map[cbor.CID]bool{}}, root)
-	require.NoError(t, tree.Remove(rootKey))
 
+	got, err := tree.Get("com.example/a")
+	require.NoError(t, err)
+	require.Nil(t, got)
+	require.NoError(t, tree.Walk(func(string, cbor.CID) error { return nil }))
+	require.NoError(t, tree.Remove("com.example/a"))
 	gotRoot, err := tree.RootCID()
 	require.NoError(t, err)
-	wantRoot, err := NewTree(NewMemBlockStore()).RootCID()
+	assert.True(t, root.Equal(gotRoot), "want the empty tree %s, got %s", root.String(), gotRoot.String())
+
+	require.NoError(t, tree.Insert("com.example/a", val))
+	got, err = tree.Get("com.example/a")
 	require.NoError(t, err)
-	assert.True(t, wantRoot.Equal(gotRoot), "want the empty tree %s, got %s", wantRoot.String(), gotRoot.String())
+	require.NotNil(t, got)
 }
 
 // gatedStore serves blocks from a complete store, but while gated it fails
@@ -1012,27 +1001,23 @@ func (s *gatedStore) GetBlock(cid cbor.CID) ([]byte, error) {
 	return s.MemBlockStore.GetBlock(cid)
 }
 
-// checkRemoveAgainstModel builds a random tree, loads it through a store
-// that drops or flakes on blocks, and runs a few Removes against a model.
-// After each Remove it lifts the gate and checks that the tree is exactly
-// the model: unchanged when Remove errored, minus the key when it did not.
-func checkRemoveAgainstModel(t *testing.T, seed1, seed2 uint64) {
+// checkMutationsAgainstModel builds a random tree, loads it through a store
+// that drops or flakes on blocks, and runs a few Inserts and Removes
+// against a model. After each one it lifts the gate and checks that the
+// tree is exactly the model: unchanged when the call errored, with the
+// change applied when it did not.
+func checkMutationsAgainstModel(t *testing.T, seed1, seed2 uint64) {
 	t.Helper()
-	val := testValueCID(t)
 	rng := rand.New(rand.NewPCG(seed1, seed2))
 	randKey := func() string { return fmt.Sprintf("col.lection/%07d", rng.IntN(3000)) }
+	vals := []cbor.CID{testValueCID(t), cbor.ComputeCID(cbor.CodecRaw, []byte("other"))}
 
-	model := map[string]bool{}
+	model := map[string]cbor.CID{}
 	for range 1 + rng.IntN(40) {
-		model[randKey()] = true
+		model[randKey()] = vals[0]
 	}
 	full := NewMemBlockStore()
-	staged := NewTree(full)
-	for _, k := range slices.Sorted(maps.Keys(model)) {
-		require.NoError(t, staged.Insert(k, val))
-	}
-	root, err := staged.WriteBlocks(full)
-	require.NoError(t, err)
+	root := canonicalRoot(t, full, model)
 
 	store := &gatedStore{MemBlockStore: full, deny: map[cbor.CID]bool{}, rng: rng}
 	if rng.IntN(2) == 0 {
@@ -1047,7 +1032,7 @@ func checkRemoveAgainstModel(t *testing.T, seed1, seed2 uint64) {
 
 	tree := LoadTree(store, root)
 	store.gated = true
-	// Partially load the tree first, so Remove starts from varied states.
+	// Partially load the tree first, so mutations start from varied states.
 	for range rng.IntN(3) {
 		_, _ = tree.Get(randKey())
 	}
@@ -1057,45 +1042,51 @@ func checkRemoveAgainstModel(t *testing.T, seed1, seed2 uint64) {
 		if keys := slices.Sorted(maps.Keys(model)); len(keys) > 0 && rng.IntN(5) != 0 {
 			key = keys[rng.IntN(len(keys))]
 		}
-		removeErr := tree.Remove(key)
-		if removeErr == nil {
-			delete(model, key)
+		var op string
+		var opErr error
+		if rng.IntN(2) == 0 {
+			op = "Remove"
+			if opErr = tree.Remove(key); opErr == nil {
+				delete(model, key)
+			}
+		} else {
+			op = "Insert"
+			val := vals[rng.IntN(len(vals))]
+			if opErr = tree.Insert(key, val); opErr == nil {
+				model[key] = val
+			}
 		}
 
 		store.gated = false
-		oracle := NewTree(NewMemBlockStore())
-		for k := range model {
-			require.NoError(t, oracle.Insert(k, val))
-		}
-		wantRoot, err := oracle.RootCID()
-		require.NoError(t, err)
+		wantRoot := canonicalRoot(t, nil, model)
 		gotRoot, err := tree.RootCID()
 		require.NoError(t, err)
 		require.True(t, wantRoot.Equal(gotRoot),
-			"seed (%d, %d): Remove(%q) err=%v: want root %s, got %s",
-			seed1, seed2, key, removeErr, wantRoot.String(), gotRoot.String())
+			"seed (%d, %d): %s(%q) err=%v: want root %s, got %s",
+			seed1, seed2, op, key, opErr, wantRoot.String(), gotRoot.String())
 
-		var walked []string
-		require.NoError(t, tree.Walk(func(k string, _ cbor.CID) error {
-			walked = append(walked, k)
+		var walked []kv
+		require.NoError(t, tree.Walk(func(k string, v cbor.CID) error {
+			walked = append(walked, kv{k, v})
 			return nil
 		}))
-		require.Equal(t, slices.Sorted(maps.Keys(model)), walked,
-			"seed (%d, %d): Remove(%q) err=%v", seed1, seed2, key, removeErr)
+		require.Equal(t, sortedKVs(model), walked,
+			"seed (%d, %d): %s(%q) err=%v", seed1, seed2, op, key, opErr)
+		checkInvariants(t, tree)
 		store.gated = true
 	}
 }
 
-// Remove on a tree whose store drops or flakes on blocks must either apply
-// the removal or leave the tree exactly as it was.
-func TestRemoveOnPartialStoreMatchesModel(t *testing.T) {
+// Insert and Remove on a tree whose store drops or flakes on blocks must
+// either apply the change or leave the tree exactly as it was.
+func TestMutationsOnPartialStoreMatchModel(t *testing.T) {
 	t.Parallel()
 	seeds := uint64(20_000)
 	if testing.Short() {
 		seeds = 2_000
 	}
 	for seed := range seeds {
-		checkRemoveAgainstModel(t, seed, 0)
+		checkMutationsAgainstModel(t, seed, 0)
 	}
 }
 
@@ -1114,14 +1105,16 @@ func TestLoadInvalidBlockLeavesNodeUnloaded(t *testing.T) {
 		return cid
 	}
 
-	// root{rootKey} → right: node with a left child and out-of-order entries
+	// root{rootKey} → right: node with a left child and out-of-order
+	// entries. The first entry is valid, so the load fails partway through.
 	rootKey := "col.lection/0000019" // height 2
 	require.Equal(t, uint8(2), HeightForKey(rootKey),
 		"test fixture %q changed height; pick a new height-2 key", rootKey)
-	leaf := put(&NodeData{Entries: []EntryData{{KeySuffix: []byte("col.lection/0000020"), Value: val}}})
+	h1 := keysAtHeight(t, 1, 2, "col.lection/1%06d")
+	leaf := put(&NodeData{Entries: []EntryData{{KeySuffix: []byte(keysAtHeight(t, 0, 1, "col.lection/0%06d")[0]), Value: val}}})
 	bad := put(&NodeData{Left: gt.Some(leaf), Entries: []EntryData{
-		{KeySuffix: []byte("col.lection/0000500"), Value: val},
-		{KeySuffix: []byte("col.lection/0000400"), Value: val},
+		{KeySuffix: []byte(h1[1]), Value: val},
+		{PrefixLen: sharedPrefixLen(h1[1], h1[0]), KeySuffix: []byte(h1[0][sharedPrefixLen(h1[1], h1[0]):]), Value: val},
 	}})
 	root := put(&NodeData{Entries: []EntryData{{
 		KeySuffix: []byte(rootKey),
@@ -1168,7 +1161,7 @@ func TestWalk(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	keys := []string{"z", "a", "m", "b", "x"}
+	keys := []string{"com.example/z", "com.example/a", "com.example/m", "com.example/b", "com.example/x"}
 	for _, key := range keys {
 		require.NoError(t, tree.Insert(key, val))
 	}
@@ -1179,7 +1172,7 @@ func TestWalk(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, []string{"a", "b", "m", "x", "z"}, walked)
+	require.Equal(t, []string{"com.example/a", "com.example/b", "com.example/m", "com.example/x", "com.example/z"}, walked)
 }
 
 func TestWalkEmptyTree(t *testing.T) {
@@ -1206,7 +1199,7 @@ func TestWriteAndLoad(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	keys := []string{"a", "b", "c"}
+	keys := []string{"com.example/a", "com.example/b", "com.example/c"}
 	for _, key := range keys {
 		require.NoError(t, tree.Insert(key, val))
 	}
@@ -1233,7 +1226,7 @@ func TestWriteLoadModify(t *testing.T) {
 	tree := NewTree(store)
 
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("val"))
-	for _, key := range []string{"a", "b", "c", "d", "e"} {
+	for _, key := range []string{"com.example/a", "com.example/b", "com.example/c", "com.example/d", "com.example/e"} {
 		require.NoError(t, tree.Insert(key, val))
 	}
 
@@ -1242,8 +1235,8 @@ func TestWriteLoadModify(t *testing.T) {
 
 	// Load, modify, write again.
 	tree2 := LoadTree(store, rootCID)
-	require.NoError(t, tree2.Remove("c"))
-	require.NoError(t, tree2.Insert("f", val))
+	require.NoError(t, tree2.Remove("com.example/c"))
+	require.NoError(t, tree2.Insert("com.example/f", val))
 
 	rootCID2, err := tree2.WriteBlocks(store)
 	require.NoError(t, err)
@@ -1251,10 +1244,10 @@ func TestWriteLoadModify(t *testing.T) {
 
 	// Verify state of modified tree.
 	tree3 := LoadTree(store, rootCID2)
-	got, err := tree3.Get("c")
+	got, err := tree3.Get("com.example/c")
 	require.NoError(t, err)
 	require.Nil(t, got)
-	got, err = tree3.Get("f")
+	got, err = tree3.Get("com.example/f")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 }
@@ -1271,16 +1264,16 @@ func TestDiff(t *testing.T) {
 	val2 := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v2"))
 
 	tree1 := NewTree(store)
-	require.NoError(t, tree1.Insert("a", val1))
-	require.NoError(t, tree1.Insert("b", val1))
-	require.NoError(t, tree1.Insert("c", val1))
+	require.NoError(t, tree1.Insert("com.example/a", val1))
+	require.NoError(t, tree1.Insert("com.example/b", val1))
+	require.NoError(t, tree1.Insert("com.example/c", val1))
 	oldRoot, err := tree1.WriteBlocks(store)
 	require.NoError(t, err)
 
 	tree2 := NewTree(store)
-	require.NoError(t, tree2.Insert("a", val1)) // unchanged
-	require.NoError(t, tree2.Insert("b", val2)) // updated
-	require.NoError(t, tree2.Insert("d", val1)) // created
+	require.NoError(t, tree2.Insert("com.example/a", val1)) // unchanged
+	require.NoError(t, tree2.Insert("com.example/b", val2)) // updated
+	require.NoError(t, tree2.Insert("com.example/d", val1)) // created
 	newRoot, err := tree2.WriteBlocks(store)
 	require.NoError(t, err)
 
@@ -1300,9 +1293,9 @@ func TestDiff(t *testing.T) {
 		}
 	}
 
-	assert.True(t, creates["d"])
-	assert.True(t, updates["b"])
-	assert.True(t, deletes["c"])
+	assert.True(t, creates["com.example/d"])
+	assert.True(t, updates["com.example/b"])
+	assert.True(t, deletes["com.example/c"])
 	assert.Len(t, ops, 3)
 }
 
@@ -1312,7 +1305,7 @@ func TestDiffIdentical(t *testing.T) {
 
 	tree := NewTree(store)
 	val := cbor.ComputeCID(cbor.CodecDagCBOR, []byte("v"))
-	require.NoError(t, tree.Insert("a", val))
+	require.NoError(t, tree.Insert("com.example/a", val))
 	root, err := tree.WriteBlocks(store)
 	require.NoError(t, err)
 
@@ -1593,7 +1586,7 @@ func TestWriteBlocks_EmptyTree(t *testing.T) {
 
 func TestWalk_ErrorPropagation(t *testing.T) {
 	t.Parallel()
-	tree, _ := buildTreeFromKeys(t, []string{"a", "b", "c", "d", "e"})
+	tree, _ := buildTreeFromKeys(t, []string{"com.example/a", "com.example/b", "com.example/c", "com.example/d", "com.example/e"})
 
 	stopErr := fmt.Errorf("stop walking")
 	var visited int
