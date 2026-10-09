@@ -54,7 +54,8 @@ type DialConfig struct {
 
 // DialFunc opens a connection to the resolved WebSocket URL (cursor and
 // query already appended). resp is the upgrade HTTP response, used to
-// classify a non-101 status as a non-retryable DialError; it may be nil.
+// classify a non-101 status: 408, 425, 429, and 5xx are retried with
+// backoff, anything else is a non-retryable DialError. It may be nil.
 type DialFunc func(ctx context.Context, url string, cfg DialConfig) (Conn, *http.Response, error)
 
 // Options configures a streaming client.
@@ -489,7 +490,8 @@ func (c *Client) IsLeader() bool {
 // The iterator yields events until the context is cancelled, with one
 // exception: a non-retryable *DialError (a deterministic rejection —
 // wrong URL, non-WebSocket endpoint, or an RFC 6455 handshake
-// violation such as an unoffered subprotocol selection) is yielded
+// violation such as an unoffered subprotocol selection; overload
+// statuses like 503 and 429 are retried instead) is yielded
 // once and then ends the iteration, since redialing would reproduce
 // the same failure without backoff. Cancel the context to stop
 // otherwise; [Client.Close] only closes the current WebSocket but
@@ -754,7 +756,7 @@ func (c *Client) dial(ctx context.Context) (Conn, error) {
 		_ = resp.Body.Close()
 	}
 	if err != nil {
-		// A server HTTP response paired with a dial error is a
+		// A server HTTP response paired with a dial error is usually a
 		// deterministic rejection, not a transient network failure —
 		// either a non-upgrade response (e.g. 200 "Welcome to
 		// Jetstream", 404 Not Found) or a 101 whose handshake failed
@@ -762,8 +764,12 @@ func (c *Client) dial(ctx context.Context) (Conn, error) {
 		// unoffered subprotocol echo, bad extensions). Wrap it as a
 		// non-retryable DialError so consumeLoop surfaces it to the
 		// caller; redialing would renegotiate the same thing. Errors
-		// with no response (DNS, TCP, timeout) stay retryable.
-		if resp != nil {
+		// with no response (DNS, TCP, timeout) stay retryable, and so
+		// do statuses that mean "not right now": an overloaded or
+		// restarting server (or its load balancer) answers 5xx/429,
+		// and ending the stream on those turns an upstream blip into
+		// a permanent disconnect.
+		if resp != nil && !transientDialStatus(resp.StatusCode) {
 			return nil, &DialError{StatusCode: resp.StatusCode, Err: err}
 		}
 		return nil, err
@@ -772,6 +778,17 @@ func (c *Client) dial(ctx context.Context) (Conn, error) {
 	conn.SetReadLimit(c.opts.MaxMessageSize.Val())
 	c.conn.Store(&conn)
 	return conn, nil
+}
+
+// transientDialStatus reports whether a non-101 handshake status is a
+// temporary condition worth redialing with backoff rather than a
+// deterministic rejection.
+func transientDialStatus(code int) bool {
+	switch code {
+	case http.StatusRequestTimeout, http.StatusTooEarly, http.StatusTooManyRequests:
+		return true
+	}
+	return code >= 500 && code <= 599
 }
 
 // readResult is a raw WebSocket message read by the reader goroutine.

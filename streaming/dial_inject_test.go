@@ -2,6 +2,7 @@ package streaming
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -138,4 +139,102 @@ func TestDialInjectionCursorInURL(t *testing.T) {
 	}
 
 	assert.Contains(t, dialedURL, "cursor=5")
+}
+
+// TestDialTransientStatusRetries pins the dial status split: an
+// overloaded server (or its load balancer) answering 5xx/429/408/425 is
+// redialed with backoff and the stream resumes, while any other non-101
+// status stays a terminal *DialError. Treating a 503 as terminal ended
+// a relay consumer's stream permanently during a relay DDoS.
+func TestDialTransientStatusRetries(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		status    int
+		transient bool
+	}{
+		{http.StatusInternalServerError, true},
+		{http.StatusBadGateway, true},
+		{http.StatusServiceUnavailable, true},
+		{http.StatusGatewayTimeout, true},
+		{http.StatusTooManyRequests, true},
+		{http.StatusRequestTimeout, true},
+		{http.StatusTooEarly, true},
+		{http.StatusOK, false},
+		{http.StatusBadRequest, false},
+		{http.StatusUnauthorized, false},
+		{http.StatusForbidden, false},
+		{http.StatusNotFound, false},
+	} {
+		t.Run(http.StatusText(tc.status), func(t *testing.T) {
+			t.Parallel()
+
+			const rejections = 3
+			conn := newMemConn(buildFrame("#identity", buildIdentityBody(1, "did:plc:alice")))
+			var (
+				mu         sync.Mutex
+				dials      int
+				reconnects int
+			)
+			client := mustNewClient(t, Options{
+				URL:         "wss://relay.example/xrpc/com.atproto.sync.subscribeRepos",
+				Parallelism: gt.Some(1),
+				Backoff: gt.Some(BackoffPolicy{
+					InitialDelay: gt.Some(time.Millisecond),
+					MaxDelay:     gt.Some(time.Millisecond),
+				}),
+				OnReconnect: gt.Some(func(int, time.Duration) {
+					mu.Lock()
+					reconnects++
+					mu.Unlock()
+				}),
+				Dial: gt.Some(DialFunc(func(context.Context, string, DialConfig) (Conn, *http.Response, error) {
+					mu.Lock()
+					defer mu.Unlock()
+					dials++
+					if dials <= rejections {
+						return nil, &http.Response{StatusCode: tc.status}, errors.New("expected handshake response status code 101")
+					}
+					return conn, nil, nil
+				})),
+			})
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			var (
+				events  []Event
+				errs    []error
+				dialErr *DialError
+			)
+			for batch, err := range client.Events(ctx) {
+				if err != nil {
+					errs = append(errs, err)
+					if de, ok := errors.AsType[*DialError](err); ok {
+						dialErr = de
+					}
+					continue
+				}
+				events = append(events, batch...)
+				if len(events) > 0 {
+					cancel()
+				}
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			if tc.transient {
+				require.Empty(t, errs, "a transient status must not surface to the consumer")
+				require.Len(t, events, 1, "the stream must resume after transient rejections")
+				require.Equal(t, rejections+1, dials)
+				require.Equal(t, rejections, reconnects, "each transient rejection must back off via OnReconnect")
+				return
+			}
+			require.Len(t, errs, 1)
+			require.NotNil(t, dialErr, "want *DialError, got %v", errs[0])
+			require.Equal(t, tc.status, dialErr.StatusCode)
+			require.Empty(t, events, "a deterministic rejection ends the iterator")
+			require.Equal(t, 1, dials, "a deterministic rejection must not be redialed")
+		})
+	}
 }

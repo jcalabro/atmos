@@ -122,6 +122,8 @@ func ErrorRawFrame(err error) []byte {
 
 // DialError indicates a connection failure that should not be retried,
 // such as the server returning a non-WebSocket HTTP response (e.g. 200, 404).
+// Transient statuses (408, 425, 429, 5xx) are retried and never surface
+// as a DialError.
 type DialError struct {
 	StatusCode int   // HTTP status code, or 0 if unavailable
 	Err        error // underlying error
