@@ -1,8 +1,6 @@
 module github.com/jcalabro/atmos
 
-go 1.26
-
-toolchain go1.26.6
+go 1.26.10
 
 require (
 	github.com/bluesky-social/gttp v0.1.0
