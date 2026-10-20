@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Runs a GOOS=js GOARCH=wasm binary under Node with a minimal environment.
+#
+# `go test` finds this wrapper on PATH in place of Go's own go_js_wasm_exec.
+# Go's wasm_exec.js copies the binary's arguments and every environment
+# variable into a fixed 8 KiB region of wasm memory, so a large developer
+# environment (LS_COLORS, long PATHs, etc.) fails every test binary with
+# "total length of command line and environment variables exceeds limit".
+# It also keeps unrelated secrets in the environment out of the test process.
+set -euo pipefail
+
+readonly real_exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec"
+
+declare -a keep=("PATH=${PATH}" "HOME=${HOME:-}")
+if [[ -n "${TMPDIR:-}" ]]; then
+	keep+=("TMPDIR=${TMPDIR}")
+fi
+
+exec env -i "${keep[@]}" "${real_exec}" "$@"
